@@ -476,11 +476,18 @@ if (process.env.NODE_ENV !== 'production') {
   globalThis.__serverCacheManager = serverCacheManager;
 }
 
+interface WebappResponse {
+  success?: boolean;
+  message?: string;
+  valid?: boolean;
+  [key: string]: unknown;
+}
+
 // Hàm gửi POST đồng bộ tới Google Apps Script với Timeout an toàn (chống treo request)
 async function sendToWebappWithTimeout(
-  payload: Record<string, any>,
+  payload: Record<string, unknown>,
   timeoutMs: number = 7000
-): Promise<{ success: boolean; data?: any }> {
+): Promise<{ success: boolean; data?: WebappResponse }> {
   const webappUrl = getWebappUrl();
   if (!webappUrl) return { success: false };
 
@@ -498,16 +505,17 @@ async function sendToWebappWithTimeout(
     clearTimeout(timeoutId);
 
     if (res.ok) {
-      const json = await res.json();
+      const json = (await res.json()) as WebappResponse;
       return { success: json.success ?? true, data: json };
     }
     return { success: false };
-  } catch (err: any) {
+  } catch (err: unknown) {
     clearTimeout(timeoutId);
-    if (err.name === 'AbortError') {
-      console.warn(`[Sync WebApp] Timeout sau ${timeoutMs}ms (${payload.action})`);
+    const error = err instanceof Error ? err : new Error(String(err));
+    if (error.name === 'AbortError') {
+      console.warn(`[Sync WebApp] Timeout sau ${timeoutMs}ms (${String(payload.action)})`);
     } else {
-      console.warn('[Sync WebApp] Lỗi kết nối:', err.message || err);
+      console.warn('[Sync WebApp] Lỗi kết nối:', error.message);
     }
     return { success: false };
   }
@@ -588,12 +596,13 @@ export async function fetchAppDataFromStorage(
           return freshData;
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       clearTimeout(timeoutId);
-      if (err.name === 'AbortError') {
+      const error = err instanceof Error ? err : new Error(String(err));
+      if (error.name === 'AbortError') {
         console.warn('[Fetch App Data] Timeout Web App 8.5s, dùng bộ nhớ đệm');
       } else {
-        console.warn('Lỗi kết nối Apps Script Web App getAllData:', err.message || err);
+        console.warn('Lỗi kết nối Apps Script Web App getAllData:', error.message);
       }
     }
   }
