@@ -12,6 +12,8 @@ import {
   Stethoscope,
   ChevronDown,
   PhoneCall,
+  Users,
+  Edit3,
 } from 'lucide-react';
 
 interface HeaderBarProps {
@@ -26,6 +28,10 @@ interface HeaderBarProps {
   understaffedTotal: number;
   patientInfo?: PatientInfo;
   members?: FamilyMember[];
+  isAdmin?: boolean;
+  onOpenAdminPin?: () => void;
+  onOpenMembers?: () => void;
+  onEditPatient?: () => void;
 }
 
 export default function HeaderBar({
@@ -40,6 +46,10 @@ export default function HeaderBar({
   understaffedTotal,
   patientInfo,
   members,
+  isAdmin,
+  onOpenAdminPin,
+  onOpenMembers,
+  onEditPatient,
 }: HeaderBarProps) {
   const patient: PatientInfo = patientInfo || PATIENT_INFO;
   const familyList = members && members.length > 0 ? members : FAMILY_MEMBERS;
@@ -58,6 +68,16 @@ export default function HeaderBar({
                 <span className="text-sm sm:text-base font-black text-slate-900 truncate">
                   {patient.name}
                 </span>
+                {onEditPatient && (
+                  <button
+                    type="button"
+                    onClick={onEditPatient}
+                    className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition"
+                    title="Chỉnh sửa thông tin bệnh nhân (Admin PIN)"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 {/* Switch Giai đoạn ICU / Tại nhà mini */}
                 <div className="inline-flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200 text-[11px] font-bold">
                   <button
@@ -173,6 +193,41 @@ export default function HeaderBar({
                 <ChevronDown className="w-3.5 h-3.5" />
               </div>
             </div>
+
+            {/* Quản lý thành viên */}
+            {onOpenMembers && (
+              <button
+                type="button"
+                onClick={onOpenMembers}
+                id="btn-open-members-mgmt"
+                className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 text-xs font-bold transition min-h-[38px] shadow-2xs cursor-pointer shrink-0"
+                title="Quản lý thành viên trong ban chăm sóc"
+              >
+                <Users className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="hidden md:inline">Thành viên</span>
+              </button>
+            )}
+
+            {/* Quyền Admin / Mã PIN */}
+            {onOpenAdminPin && (
+              <button
+                type="button"
+                onClick={onOpenAdminPin}
+                id="btn-admin-pin-toggle"
+                className={`inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold border transition min-h-[38px] shadow-2xs cursor-pointer shrink-0 ${
+                  isAdmin
+                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300'
+                    : 'bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-800 border-slate-200'
+                }`}
+                title={
+                  isAdmin
+                    ? 'Đang bật quyền Admin (Bấm để đổi PIN hoặc khoá lại)'
+                    : 'Mở khoá quyền Admin để chỉnh sửa thông tin quan trọng'
+                }
+              >
+                <span>{isAdmin ? '👑 Admin' : '🔒 Admin'}</span>
+              </button>
+            )}
 
             {/* Nút SOS */}
             <button

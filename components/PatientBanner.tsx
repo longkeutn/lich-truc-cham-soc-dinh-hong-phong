@@ -22,6 +22,7 @@ import {
   BellRing,
   ChevronDown,
   RefreshCw,
+  Edit2,
 } from 'lucide-react';
 
 interface PatientBannerProps {
@@ -31,6 +32,7 @@ interface PatientBannerProps {
   members?: FamilyMember[];
   onAddReminder?: (reminder: PatientDailyReminder) => Promise<void>;
   onDeleteReminder?: (id: string, title: string) => Promise<void>;
+  onEditPatient?: () => void;
   onRefresh?: () => void;
   isLoading?: boolean;
 }
@@ -86,6 +88,7 @@ export default function PatientBanner({
   members: membersProp,
   onAddReminder,
   onDeleteReminder,
+  onEditPatient,
   onRefresh,
   isLoading,
 }: PatientBannerProps) {
@@ -104,6 +107,7 @@ export default function PatientBanner({
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [isSpeakingAll, setIsSpeakingAll] = useState(false);
@@ -213,7 +217,19 @@ export default function PatientBanner({
     speakText(text, reminder.id);
   };
 
-  // Xử lý thêm nhắc nhở mới
+  // Bắt đầu chỉnh sửa nhắc nhở
+  const startEditReminder = (reminder: PatientDailyReminder) => {
+    setEditingReminderId(reminder.id);
+    setFormCategory(reminder.category);
+    setFormTitle(reminder.title);
+    setFormContent(reminder.content);
+    setFormAuthor(reminder.author);
+    setFormIsUrgent(Boolean(reminder.isUrgent));
+    setFormError('');
+    setIsFormOpen(true);
+  };
+
+  // Xử lý thêm hoặc sửa nhắc nhở
   const handleAddReminder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) {
@@ -228,23 +244,44 @@ export default function PatientBanner({
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    const newReminder: PatientDailyReminder = {
-      id: `reminder-${Date.now()}`,
-      category: formCategory,
-      title: formTitle.trim(),
-      content: formContent.trim(),
-      author: formAuthor.trim() || 'Người nhà',
-      time: timeStr,
-      isUrgent: formIsUrgent,
-    };
+    if (editingReminderId) {
+      const updatedReminder: PatientDailyReminder = {
+        id: editingReminderId,
+        category: formCategory,
+        title: formTitle.trim(),
+        content: formContent.trim(),
+        author: formAuthor.trim() || 'Người nhà',
+        time: timeStr,
+        isUrgent: formIsUrgent,
+      };
 
-    setLocalReminders((prev) => [newReminder, ...prev]);
+      setLocalReminders((prev) =>
+        prev.map((r) => (r.id === editingReminderId ? updatedReminder : r))
+      );
 
-    if (onAddReminder) {
-      await onAddReminder(newReminder);
+      if (onAddReminder) {
+        await onAddReminder(updatedReminder);
+      }
+    } else {
+      const newReminder: PatientDailyReminder = {
+        id: `reminder-${Date.now()}`,
+        category: formCategory,
+        title: formTitle.trim(),
+        content: formContent.trim(),
+        author: formAuthor.trim() || 'Người nhà',
+        time: timeStr,
+        isUrgent: formIsUrgent,
+      };
+
+      setLocalReminders((prev) => [newReminder, ...prev]);
+
+      if (onAddReminder) {
+        await onAddReminder(newReminder);
+      }
     }
 
     // Reset form
+    setEditingReminderId(null);
     setFormTitle('');
     setFormContent('');
     setFormIsUrgent(false);
@@ -310,6 +347,20 @@ export default function PatientBanner({
             </span>
           )}
 
+          {onEditPatient && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditPatient();
+              }}
+              title="Chỉnh sửa thông tin bệnh nhân (Admin PIN)"
+              className="px-2 py-1 rounded-xl bg-white hover:bg-blue-50 text-blue-700 text-xs font-bold border border-blue-200 transition shadow-2xs cursor-pointer flex items-center gap-1"
+            >
+              <span>✏️ Sửa bệnh án</span>
+            </button>
+          )}
+
           {onRefresh && (
             <button
               type="button"
@@ -369,6 +420,16 @@ export default function PatientBanner({
             <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 border border-rose-200 shadow-xs">
               Tai biến nặng
             </span>
+            {onEditPatient && (
+              <button
+                type="button"
+                onClick={onEditPatient}
+                className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition flex items-center gap-1 shadow-2xs"
+                title="Chỉnh sửa thông tin bệnh nhân (Yêu cầu PIN Admin)"
+              >
+                <span>✏️ Sửa thông tin</span>
+              </button>
+            )}
           </div>
 
           <p className="text-xs sm:text-sm text-slate-700 font-medium leading-relaxed">
@@ -469,8 +530,12 @@ export default function PatientBanner({
               type="button"
               id="btn-toggle-add-reminder"
               onClick={() => {
-                setIsFormOpen(!isFormOpen);
+                setEditingReminderId(null);
+                setFormTitle('');
+                setFormContent('');
+                setFormIsUrgent(false);
                 setFormError('');
+                setIsFormOpen(!isFormOpen);
               }}
               className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all flex items-center gap-1.5 shadow-xs active:scale-95 cursor-pointer"
             >
@@ -480,7 +545,7 @@ export default function PatientBanner({
           </div>
         </div>
 
-        {/* Form thêm nhắc nhở */}
+        {/* Form thêm hoặc sửa nhắc nhở */}
         {isFormOpen && (
           <form
             onSubmit={handleAddReminder}
@@ -488,12 +553,24 @@ export default function PatientBanner({
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
-                <Plus className="w-3.5 h-3.5" />
-                Thêm lưu ý mới cho bệnh nhân (Lưu Google Sheets)
+                {editingReminderId ? (
+                  <>
+                    <Edit2 className="w-3.5 h-3.5" />
+                    Chỉnh sửa lưu ý cho bệnh nhân (Lưu Google Sheets)
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-3.5 h-3.5" />
+                    Thêm lưu ý mới cho bệnh nhân (Lưu Google Sheets)
+                  </>
+                )}
               </span>
               <button
                 type="button"
-                onClick={() => setIsFormOpen(false)}
+                onClick={() => {
+                  setIsFormOpen(false);
+                  setEditingReminderId(null);
+                }}
                 className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -625,7 +702,10 @@ export default function PatientBanner({
               <div className="flex items-center gap-2 justify-end">
                 <button
                   type="button"
-                  onClick={() => setIsFormOpen(false)}
+                  onClick={() => {
+                    setIsFormOpen(false);
+                    setEditingReminderId(null);
+                  }}
                   className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 cursor-pointer"
                 >
                   Hủy
@@ -634,7 +714,7 @@ export default function PatientBanner({
                   type="submit"
                   className="px-4 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-xs active:scale-95 cursor-pointer"
                 >
-                  Lưu lên Sheet
+                  {editingReminderId ? '💾 Cập nhật lưu ý' : 'Lưu lên Sheet'}
                 </button>
               </div>
             </div>
@@ -775,6 +855,15 @@ export default function PatientBanner({
                         ) : (
                           <Volume2 className="w-3.5 h-3.5" />
                         )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => startEditReminder(reminder)}
+                        className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-amber-800 hover:border-amber-300 transition-colors cursor-pointer"
+                        title="Chỉnh sửa nhắc nhở này"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
 
                       <button

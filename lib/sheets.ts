@@ -90,6 +90,7 @@ class MemoryShiftStore {
     emergencyPhone: '0913 218 765 (BS. Hùng - ICU)',
     googleSheetsConnected: false,
   };
+  private adminPin: string = '1234';
 
   constructor() {
     this.seedInitialData();
@@ -385,6 +386,31 @@ class MemoryShiftStore {
     return this.reminders;
   }
 
+  // --- Admin PIN ---
+  public getAdminPin(): string {
+    return this.adminPin;
+  }
+
+  public setAdminPin(pin: string): void {
+    if (pin && pin.trim()) {
+      this.adminPin = pin.trim();
+    }
+  }
+
+  public verifyAdminPin(pin: string): boolean {
+    return this.adminPin === (pin || '').trim();
+  }
+
+  public changeAdminPin(oldPin: string, newPin: string): boolean {
+    if (this.verifyAdminPin(oldPin)) {
+      if (newPin && newPin.trim().length >= 4) {
+        this.adminPin = newPin.trim();
+        return true;
+      }
+    }
+    return false;
+  }
+
   // --- All App Data ---
   public getAllData(startDate: string, endDate: string, phase: CarePhase): AllAppData {
     return {
@@ -436,6 +462,11 @@ export async function fetchAppDataFromStorage(
           }
           if (data.patientInfo && data.patientInfo.name) {
             memoryStore.setPatientInfo(data.patientInfo);
+          }
+          if (data.adminPin) {
+            memoryStore.setAdminPin(data.adminPin);
+          } else if (data.settings && data.settings.adminPin) {
+            memoryStore.setAdminPin(data.settings.adminPin);
           }
           if (Array.isArray(data.contacts) && data.contacts.length > 0) {
             memoryStore.setContacts(data.contacts);
@@ -641,3 +672,73 @@ export function getSystemSettings(): SystemSettings {
 export function setSystemPhase(phase: CarePhase): SystemSettings {
   return memoryStore.setPhase(phase);
 }
+
+// ==========================================
+// ADMIN PIN MANAGEMENT
+// ==========================================
+export async function verifyAdminPinStorage(pin: string): Promise<boolean> {
+  const webappUrl = getWebappUrl();
+  if (webappUrl) {
+    try {
+      const res = await fetch(webappUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'verifyAdminPin', pin: pin.trim() }),
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.valid === 'boolean') {
+          return data.valid;
+        }
+      }
+    } catch (err) {
+      console.warn('Lỗi kết nối Web App verifyAdminPin:', err);
+    }
+  }
+  return memoryStore.verifyAdminPin(pin);
+}
+
+export async function changeAdminPinStorage(
+  oldPin: string,
+  newPin: string
+): Promise<{ success: boolean; message?: string }> {
+  if (!newPin || newPin.trim().length < 4) {
+    return { success: false, message: 'Mã PIN mới phải có ít nhất 4 chữ số' };
+  }
+
+  const webappUrl = getWebappUrl();
+  if (webappUrl) {
+    try {
+      const res = await fetch(webappUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'changeAdminPin',
+          oldPin: oldPin.trim(),
+          newPin: newPin.trim(),
+        }),
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          memoryStore.setAdminPin(newPin.trim());
+          return { success: true };
+        } else {
+          return { success: false, message: data.message || 'Mã PIN cũ không chính xác' };
+        }
+      }
+    } catch (err) {
+      console.warn('Lỗi kết nối Web App changeAdminPin:', err);
+    }
+  }
+
+  const success = memoryStore.changeAdminPin(oldPin, newPin);
+  if (success) {
+    return { success: true };
+  } else {
+    return { success: false, message: 'Mã PIN cũ không chính xác' };
+  }
+}
+

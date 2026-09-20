@@ -24,6 +24,8 @@ import {
   savePatientSettingsToStorage,
   getSystemSettings,
   setSystemPhase,
+  verifyAdminPinStorage,
+  changeAdminPinStorage,
 } from './sheets';
 
 // Tải toàn bộ 5 thực thể trong 1 lần gọi
@@ -266,3 +268,32 @@ export async function getSettingsAction(): Promise<SystemSettings> {
 export async function changePhaseAction(phase: CarePhase): Promise<SystemSettings> {
   return setSystemPhase(phase);
 }
+
+// --- Admin PIN Actions ---
+export async function verifyAdminPinAction(
+  pin: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const isValid = await verifyAdminPinStorage(pin);
+    if (isValid) {
+      return { success: true };
+    }
+    return { success: false, message: 'Mã PIN không chính xác. Vui lòng thử lại.' };
+  } catch (error) {
+    console.error('verifyAdminPinAction error:', error);
+    return { success: false, message: 'Lỗi kiểm tra mã PIN.' };
+  }
+}
+
+export async function changeAdminPinAction(
+  oldPin: string,
+  newPin: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    return await changeAdminPinStorage(oldPin, newPin);
+  } catch (error) {
+    console.error('changeAdminPinAction error:', error);
+    return { success: false, message: 'Lỗi đổi mã PIN.' };
+  }
+}
+

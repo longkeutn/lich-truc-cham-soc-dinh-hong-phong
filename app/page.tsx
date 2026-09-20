@@ -8,6 +8,9 @@ import MonthlyView from '@/components/MonthlyView';
 import AnalyticsView from '@/components/AnalyticsView';
 import GoogleSheetGuideModal from '@/components/GoogleSheetGuideModal';
 import EmergencyContactsModal from '@/components/EmergencyContactsModal';
+import { AdminPinModal } from '@/components/AdminPinModal';
+import { EditPatientModal } from '@/components/EditPatientModal';
+import { MembersManagementModal } from '@/components/MembersManagementModal';
 
 import {
   CarePhase,
@@ -89,6 +92,25 @@ export default function CareSchedulePage() {
   const [guideModalOpen, setGuideModalOpen] = useState<boolean>(false);
   const [emergencyModalOpen, setEmergencyModalOpen] = useState<boolean>(false);
   const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'warn' } | null>(null);
+
+  // Admin Security & Management Modals State
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [adminPinModalOpen, setAdminPinModalOpen] = useState<boolean>(false);
+  const [adminPinModalMode, setAdminPinModalMode] = useState<'unlock' | 'change'>('unlock');
+  const [editPatientModalOpen, setEditPatientModalOpen] = useState<boolean>(false);
+  const [membersModalOpen, setMembersModalOpen] = useState<boolean>(false);
+  const [pendingAdminAction, setPendingAdminAction] = useState<(() => void) | null>(null);
+
+  // Khôi phục phiên Admin nếu trước đó đã xác thực trong tab hiện tại
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && sessionStorage.getItem('care_admin_auth') === 'true') {
+        setIsAdmin(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const currentMember = useMemo(() => {
     if (!storedMemberId) return null;
@@ -367,33 +389,86 @@ export default function CareSchedulePage() {
     }
   };
 
-  // CRUD Contacts
-  const handleSaveContact = async (contact: EmergencyContact) => {
-    try {
-      const res = await saveContactAction(contact);
-      if (res.success && res.contacts) {
-        setContacts(res.contacts);
-        showToast(`Đã lưu liên hệ ${contact.name} lên Google Sheets!`, 'success');
-      }
-    } catch (err) {
-      console.error('Lỗi lưu liên hệ:', err);
-      showToast('Không thể lưu liên hệ lên Sheet.', 'warn');
+  // --- Admin Security Helpers ---
+  const requireAdmin = (action: () => void) => {
+    if (isAdmin) {
+      action();
+    } else {
+      setPendingAdminAction(() => action);
+      setAdminPinModalMode('unlock');
+      setAdminPinModalOpen(true);
     }
+  };
+
+  const handleAdminPinSuccess = () => {
+    setIsAdmin(true);
+    try {
+      sessionStorage.setItem('care_admin_auth', 'true');
+    } catch {
+      // ignore
+    }
+    showToast('Xác thực quyền Quản trị viên (Admin) thành công!', 'success');
+    if (pendingAdminAction) {
+      const action = pendingAdminAction;
+      setPendingAdminAction(null);
+      setTimeout(() => action(), 100);
+    }
+  };
+
+  const handleToggleAdmin = () => {
+    if (isAdmin) {
+      const wantLock = window.confirm(
+        'Bạn đang đăng nhập quyền Admin.\n\n- Nhấn [OK] để KHÓA LẠI (đăng xuất quyền Admin).\n- Nhấn [Hủy] nếu bạn muốn ĐỔI MÃ PIN MỚI.'
+      );
+      if (wantLock) {
+        setIsAdmin(false);
+        try {
+          sessionStorage.removeItem('care_admin_auth');
+        } catch {
+          // ignore
+        }
+        showToast('Đã khóa lại quyền Admin', 'info');
+      } else {
+        setAdminPinModalMode('change');
+        setAdminPinModalOpen(true);
+      }
+    } else {
+      setAdminPinModalMode('unlock');
+      setAdminPinModalOpen(true);
+    }
+  };
+
+  // CRUD Contacts (Bảo vệ bằng Admin PIN)
+  const handleSaveContact = async (contact: EmergencyContact) => {
+    requireAdmin(async () => {
+      try {
+        const res = await saveContactAction(contact);
+        if (res.success && res.contacts) {
+          setContacts(res.contacts);
+          showToast(`Đã lưu liên hệ ${contact.name} lên Google Sheets!`, 'success');
+        }
+      } catch (err) {
+        console.error('Lỗi lưu liên hệ:', err);
+        showToast('Không thể lưu liên hệ lên Sheet.', 'warn');
+      }
+    });
   };
 
   const handleDeleteContact = async (contactId: string, name: string) => {
-    try {
-      const res = await deleteContactAction(contactId);
-      if (res.success && res.contacts) {
-        setContacts(res.contacts);
-        showToast(`Đã xoá liên hệ "${name}" khỏi Google Sheets`, 'info');
+    requireAdmin(async () => {
+      try {
+        const res = await deleteContactAction(contactId);
+        if (res.success && res.contacts) {
+          setContacts(res.contacts);
+          showToast(`Đã xoá liên hệ "${name}" khỏi Google Sheets`, 'info');
+        }
+      } catch (err) {
+        console.error('Lỗi xoá liên hệ:', err);
       }
-    } catch (err) {
-      console.error('Lỗi xoá liên hệ:', err);
-    }
+    });
   };
 
-  const handleChangePhase = async (phase: CarePhase) => {
+  const performChangePhase = async (phase: CarePhase) => {
     setActivePhase(phase);
     try {
       const updatedSettings = await changePhaseAction(phase);
@@ -407,6 +482,31 @@ export default function CareSchedulePage() {
         : 'Đã chuyển sang Giai đoạn 2: Phục hồi / Tại nhà (Ca 12 tiếng, 2 người/ca)',
       'info'
     );
+  };
+
+  const handleChangePhase = (phase: CarePhase) => {
+    if (phase === activePhase) return;
+    requireAdmin(() => performChangePhase(phase));
+  };
+
+  // CRUD Patient Details
+  const handleOpenEditPatient = () => {
+    requireAdmin(() => setEditPatientModalOpen(true));
+  };
+
+  const handlePatientUpdated = (newInfo: PatientInfo) => {
+    setPatientInfo(newInfo);
+    showToast('Đã cập nhật hồ sơ bệnh nhân thành công!', 'success');
+  };
+
+  // CRUD Members
+  const handleOpenMembers = () => {
+    requireAdmin(() => setMembersModalOpen(true));
+  };
+
+  const handleMembersUpdated = (updatedMembers: FamilyMember[]) => {
+    setMembers(updatedMembers);
+    showToast('Đã cập nhật danh sách thành viên gia đình!', 'success');
   };
 
   return (
@@ -436,6 +536,10 @@ export default function CareSchedulePage() {
         understaffedTotal={totalUnderstaffedThisWeek}
         patientInfo={patientInfo}
         members={members}
+        isAdmin={isAdmin}
+        onOpenAdminPin={handleToggleAdmin}
+        onOpenMembers={handleOpenMembers}
+        onEditPatient={handleOpenEditPatient}
       />
 
       {/* Thân ứng dụng */}
@@ -448,6 +552,7 @@ export default function CareSchedulePage() {
           members={members}
           onAddReminder={handleAddReminder}
           onDeleteReminder={handleDeleteReminder}
+          onEditPatient={handleOpenEditPatient}
           onRefresh={loadAllData}
           isLoading={isLoading}
         />
@@ -511,6 +616,33 @@ export default function CareSchedulePage() {
         patientInfo={patientInfo}
         onSaveContact={handleSaveContact}
         onDeleteContact={handleDeleteContact}
+      />
+
+      {/* Modal Nhập / Đổi mã PIN Admin */}
+      <AdminPinModal
+        isOpen={adminPinModalOpen}
+        onClose={() => {
+          setAdminPinModalOpen(false);
+          setPendingAdminAction(null);
+        }}
+        onSuccess={handleAdminPinSuccess}
+        initialMode={adminPinModalMode}
+      />
+
+      {/* Modal Chỉnh Sửa Hồ Sơ Bệnh Nhân */}
+      <EditPatientModal
+        isOpen={editPatientModalOpen}
+        onClose={() => setEditPatientModalOpen(false)}
+        patient={patientInfo}
+        onUpdated={handlePatientUpdated}
+      />
+
+      {/* Modal Quản Lý Thành Viên Trực Ca */}
+      <MembersManagementModal
+        isOpen={membersModalOpen}
+        onClose={() => setMembersModalOpen(false)}
+        members={members}
+        onMembersUpdated={handleMembersUpdated}
       />
     </div>
   );
