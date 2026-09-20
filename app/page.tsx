@@ -439,8 +439,8 @@ export default function CareSchedulePage() {
       />
 
       {/* Thân ứng dụng */}
-      <main className="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-6 space-y-4">
-        {/* Banner tình trạng bệnh nhân Đinh Hồng Phong & Nhắc nhở quan trọng trong ngày */}
+      <main className="flex-1 max-w-6xl w-full mx-auto p-2.5 sm:p-4 space-y-3.5">
+        {/* Banner mini tóm tắt bệnh nhân & Nhắc nhở (Bấm mở rộng chi tiết) */}
         <PatientBanner
           currentMember={currentMember}
           patientInfo={patientInfo}
@@ -448,39 +448,9 @@ export default function CareSchedulePage() {
           members={members}
           onAddReminder={handleAddReminder}
           onDeleteReminder={handleDeleteReminder}
+          onRefresh={loadAllData}
+          isLoading={isLoading}
         />
-
-        {/* Thanh trạng thái giai đoạn */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-2.5 shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <span
-              className={`w-3.5 h-3.5 rounded-full shrink-0 ${
-                activePhase === 'phase1' ? 'bg-indigo-600 ring-4 ring-indigo-100 animate-pulse' : 'bg-emerald-600 ring-4 ring-emerald-100'
-              }`}
-            />
-            <div>
-              <h2 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
-                {PHASE_CONFIGS[activePhase].name}
-              </h2>
-              <p className="text-xs text-slate-600 font-medium">
-                {PHASE_CONFIGS[activePhase].description}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={loadAllData}
-              disabled={isLoading}
-              title="Làm mới dữ liệu từ Google Sheets"
-              className="p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border border-slate-200 transition min-h-[44px] flex items-center gap-1.5 text-xs font-bold cursor-pointer shadow-xs"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-600' : 'text-slate-500'}`} />
-              <span className="hidden sm:inline">Làm mới Sheet</span>
-            </button>
-          </div>
-        </div>
 
         {/* Nội dung View: Theo Tuần, Theo Tháng hoặc Analytics */}
         {activeView === 'weekly' ? (

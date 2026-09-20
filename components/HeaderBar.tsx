@@ -4,7 +4,6 @@ import React from 'react';
 import { CarePhase, FamilyMember, PatientInfo } from '@/lib/types';
 import { FAMILY_MEMBERS, PATIENT_INFO } from '@/lib/config';
 import {
-  User,
   Calendar,
   CalendarDays,
   LineChart as ChartIcon,
@@ -12,7 +11,6 @@ import {
   AlertTriangle,
   Stethoscope,
   ChevronDown,
-  CheckCircle2,
   PhoneCall,
 } from 'lucide-react';
 
@@ -43,81 +41,107 @@ export default function HeaderBar({
   patientInfo,
   members,
 }: HeaderBarProps) {
-  const patient = patientInfo || PATIENT_INFO;
+  const patient: PatientInfo = patientInfo || PATIENT_INFO;
   const familyList = members && members.length > 0 ? members : FAMILY_MEMBERS;
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 px-3 py-3 sm:px-6 shadow-xs">
-      <div className="max-w-5xl mx-auto space-y-3">
-        {/* Hàng 1: Tiêu đề bệnh nhân & Nút tài liệu Google Sheets + Số khẩn cấp */}
-        <div className="flex items-center justify-between gap-2">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs">
+      <div className="max-w-6xl mx-auto px-3 py-2 sm:px-5">
+        <div className="flex items-center justify-between gap-2.5">
+          {/* Cụm Trái: Tên bệnh nhân & Giai đoạn */}
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0 text-rose-600 shadow-xs">
-              <Stethoscope className="w-5 h-5" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0 text-rose-600 shadow-2xs">
+              <Stethoscope className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-base sm:text-lg font-black text-slate-900 truncate tracking-tight">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-sm sm:text-base font-black text-slate-900 truncate">
                   {patient.name}
-                </h1>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200 shrink-0">
-                  Tai biến nặng
                 </span>
+                {/* Switch Giai đoạn ICU / Tại nhà mini */}
+                <div className="inline-flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => onChangePhase('phase1')}
+                    className={`px-2 py-0.5 rounded-md transition cursor-pointer ${
+                      activePhase === 'phase1'
+                        ? 'bg-indigo-600 text-white shadow-2xs font-black'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                    title="Giai đoạn 1: Nằm viện ICU (3 ca 8h, 1 người/ca)"
+                  >
+                    ICU
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onChangePhase('phase2')}
+                    className={`px-2 py-0.5 rounded-md transition cursor-pointer ${
+                      activePhase === 'phase2'
+                        ? 'bg-emerald-600 text-white shadow-2xs font-black'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                    title="Giai đoạn 2: Phục hồi / Tại nhà (2 ca 12h, 2 người/ca)"
+                  >
+                    Tại Nhà
+                  </button>
+                </div>
               </div>
-              <p className="text-xs text-slate-500 font-medium truncate">
-                {patient.hospital} • {patient.room}
-              </p>
+              <div className="text-[11px] text-slate-500 font-medium truncate flex items-center gap-1">
+                <span>{patient.room || 'Phòng 402 - ICU'}</span>
+                <span>•</span>
+                <span>{patient.hospital}</span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Nút Danh bạ số khẩn cấp */}
+          {/* Cụm Giữa (Desktop): Chuyển View Tuần / Tháng / Thống kê */}
+          <div className="hidden md:flex items-center gap-1 p-1 bg-slate-100 border border-slate-200 rounded-xl">
             <button
               type="button"
-              onClick={onOpenEmergencyContacts}
-              id="btn-open-emergency-contacts"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-bold border border-rose-700 transition min-h-[44px] shadow-sm cursor-pointer active:scale-95 group"
-              title="Mở danh bạ số điện thoại khẩn cấp (Bác sĩ, 115, Hàng xóm, Hộ lý)"
+              onClick={() => onChangeView('weekly')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                activeView === 'weekly'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-950'
+              }`}
             >
-              <PhoneCall className="w-4 h-4 text-white group-hover:animate-bounce shrink-0" />
-              <span className="hidden sm:inline">Số Khẩn Cấp</span>
-              <span className="sm:hidden">SOS</span>
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-              </span>
+              <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Lịch Tuần</span>
+              {understaffedTotal > 0 && (
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+              )}
             </button>
 
-            {/* Nút xem cấu trúc Google Sheets */}
             <button
               type="button"
-              onClick={onOpenGuide}
-              id="btn-open-sheets-guide"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-950 text-xs sm:text-sm font-bold border border-slate-200 transition min-h-[44px] shadow-xs cursor-pointer active:scale-95"
-              title="Xem cấu trúc Google Sheets và hướng dẫn Vercel"
+              onClick={() => onChangeView('monthly')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                activeView === 'monthly'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-950'
+              }`}
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              <span className="hidden sm:inline">Google Sheets</span>
-              <span className="sm:hidden">Sheets</span>
+              <CalendarDays className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Lịch Tháng</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onChangeView('analytics')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                activeView === 'analytics'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-950'
+              }`}
+            >
+              <ChartIcon className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Thống Kê</span>
             </button>
           </div>
-        </div>
 
-        {/* Hàng 2: Selector "Ai đang thao tác?" & Chuyển Giai đoạn (ICU / Phục hồi) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-          {/* Dropdown Ai đang thao tác? */}
-          <div className="relative">
-            <label htmlFor="member-select" className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center justify-between">
-              <span className="flex items-center gap-1">
-                <User className="w-3.5 h-3.5 text-indigo-600" />
-                Ai đang thao tác? (Chọn để nhận ca)
-              </span>
-              {currentMember && (
-                <span className="text-emerald-700 font-bold normal-case flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Đã chọn
-                </span>
-              )}
-            </label>
+          {/* Cụm Phải: Chọn thành viên + SOS + Sheets */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Quick Member Selector */}
             <div className="relative">
               <select
                 id="member-select"
@@ -128,115 +152,100 @@ export default function HeaderBar({
                   const found = familyList.find((m) => m.id === val) || null;
                   onSelectMember(found);
                 }}
-                className="w-full min-h-[48px] px-3.5 py-2.5 pr-9 rounded-xl bg-slate-50 text-slate-900 font-bold border-2 border-slate-200 focus:bg-white focus:border-indigo-600 focus:outline-none transition appearance-none text-sm cursor-pointer shadow-xs"
+                className={`min-h-[38px] pl-2.5 sm:pl-3 pr-7 sm:pr-8 py-1.5 rounded-xl text-xs font-bold border-2 transition appearance-none cursor-pointer shadow-2xs max-w-[140px] sm:max-w-[200px] truncate ${
+                  currentMember
+                    ? `${currentMember.bgLight || 'bg-indigo-50'} ${
+                        currentMember.borderLight || 'border-indigo-300'
+                      } ${currentMember.textColor || 'text-indigo-950'}`
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-white'
+                }`}
               >
                 <option value="" className="bg-white text-slate-500">
-                  -- Chạm để chọn thành viên ({familyList.length} người) --
+                  👤 Tôi là ai?
                 </option>
-                {familyList.map((member) => (
-                  <option key={member.id} value={member.id} className="bg-white text-slate-900 py-1 font-semibold">
-                    {member.name} ({member.relation})
+                {familyList.map((m) => (
+                  <option key={m.id} value={m.id} className="bg-white text-slate-900 font-bold">
+                    {m.name} ({m.relation})
                   </option>
                 ))}
               </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                <ChevronDown className="w-4 h-4" />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                <ChevronDown className="w-3.5 h-3.5" />
               </div>
             </div>
-          </div>
 
-          {/* Selector Giai đoạn chăm sóc */}
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center justify-between">
-              <span>Giai đoạn chăm sóc:</span>
-              <span className="text-xs text-amber-700 font-bold">
-                {activePhase === 'phase1' ? 'ICU (3 ca/ngày)' : 'Phục hồi (2 ca 12h/ngày)'}
-              </span>
-            </label>
-            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 border border-slate-200 rounded-xl">
-              <button
-                type="button"
-                id="btn-select-phase-1"
-                onClick={() => onChangePhase('phase1')}
-                className={`py-2 px-2.5 rounded-lg text-xs font-bold transition min-h-[44px] flex items-center justify-center gap-1.5 cursor-pointer ${
-                  activePhase === 'phase1'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                }`}
-              >
-                <span>GĐ 1: Viện (ICU)</span>
-              </button>
+            {/* Nút SOS */}
+            <button
+              type="button"
+              onClick={onOpenEmergencyContacts}
+              id="btn-open-emergency-contacts"
+              className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold border border-rose-700 transition min-h-[38px] shadow-2xs cursor-pointer active:scale-95 group shrink-0"
+              title="Danh bạ số khẩn cấp (Bác sĩ ICU, 115, Điều dưỡng)"
+            >
+              <PhoneCall className="w-3.5 h-3.5 text-white group-hover:animate-bounce shrink-0" />
+              <span>SOS</span>
+            </button>
 
-              <button
-                type="button"
-                id="btn-select-phase-2"
-                onClick={() => onChangePhase('phase2')}
-                className={`py-2 px-2.5 rounded-lg text-xs font-bold transition min-h-[44px] flex items-center justify-center gap-1.5 cursor-pointer ${
-                  activePhase === 'phase2'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                }`}
-              >
-                <span>GĐ 2: Tại Nhà</span>
-              </button>
-            </div>
+            {/* Nút Google Sheets */}
+            <button
+              type="button"
+              onClick={onOpenGuide}
+              id="btn-open-sheets-guide"
+              className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 transition min-h-[38px] shadow-2xs cursor-pointer shrink-0"
+              title="Cấu hình Google Sheets & Vercel"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="hidden sm:inline">Sheet</span>
+            </button>
           </div>
         </div>
 
-        {/* Hàng 3: Chuyển Tab (Tuần / Tháng / Thống kê) & Chỉ số cảnh báo */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 border border-slate-200 rounded-xl">
+        {/* Thanh chuyển tab trên mobile (< md) */}
+        <div className="md:hidden flex items-center justify-between gap-1.5 pt-2 mt-1 border-t border-slate-100">
+          <div className="grid grid-cols-3 gap-1 flex-1 bg-slate-100 p-0.5 rounded-xl border border-slate-200">
             <button
               type="button"
               onClick={() => onChangeView('weekly')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition min-h-[40px] cursor-pointer ${
+              className={`py-1 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
                 activeView === 'weekly'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-950'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-600'
               }`}
             >
-              <Calendar className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Theo Tuần</span>
+              <Calendar className="w-3 h-3 text-indigo-600" />
+              <span>Tuần</span>
             </button>
-
             <button
               type="button"
               onClick={() => onChangeView('monthly')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition min-h-[40px] cursor-pointer ${
+              className={`py-1 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
                 activeView === 'monthly'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-950'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-600'
               }`}
             >
-              <CalendarDays className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Theo Tháng</span>
+              <CalendarDays className="w-3 h-3 text-indigo-600" />
+              <span>Tháng</span>
             </button>
-
             <button
               type="button"
               onClick={() => onChangeView('analytics')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition min-h-[40px] cursor-pointer ${
+              className={`py-1 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
                 activeView === 'analytics'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-950'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-600'
               }`}
             >
-              <ChartIcon className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Thống kê</span>
+              <ChartIcon className="w-3 h-3 text-indigo-600" />
+              <span>Công sức</span>
             </button>
           </div>
 
-          {/* Cảnh báo ca thiếu người */}
-          {understaffedTotal > 0 ? (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-800 border border-rose-200 text-xs font-bold shadow-xs">
-              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-              <span>Tuần này còn thiếu {understaffedTotal} ca!</span>
-            </div>
-          ) : (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-xs">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Đã đủ người trực cả tuần</span>
-            </div>
+          {understaffedTotal > 0 && (
+            <span className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg shrink-0 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3 text-rose-600" />
+              Thiếu {understaffedTotal} ca
+            </span>
           )}
         </div>
       </div>
