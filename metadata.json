@@ -1,0 +1,6 @@
+{
+  "name": "Lịch Trực Chăm Sóc - Đinh Hồng Phong",
+  "description": "Ứng dụng điều phối ca trực chăm sóc bệnh nhân tai biến nặng Đinh Hồng Phong (7 thành viên gia đình, tích hợp Google Sheets thời gian thực)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
