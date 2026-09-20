@@ -133,7 +133,7 @@ export default function EmergencyContactsModal({
   onSaveContact,
   onDeleteContact,
 }: EmergencyContactsModalProps) {
-  const patient = patientInfoProp || PATIENT_INFO;
+  const patient: PatientInfo = patientInfoProp || PATIENT_INFO;
   const [localContacts, setLocalContacts] = useState<EmergencyContact[]>(
     contactsProp || DEFAULT_EMERGENCY_CONTACTS
   );

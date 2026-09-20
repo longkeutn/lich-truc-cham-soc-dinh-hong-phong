@@ -161,8 +161,8 @@ export default function ExportWeekModal({
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: `Lịch trực tuần ${dateRangeStr} - ${PATIENT_INFO.name}`,
-          text: `Gửi cả nhà lịch trực chăm sóc bệnh nhân ${PATIENT_INFO.name} tuần ${dateRangeStr}. Cả nhà kiểm tra ca của mình nhé!`,
+          title: `Lịch trực tuần ${dateRangeStr} - ${patient.name}`,
+          text: `Gửi cả nhà lịch trực chăm sóc bệnh nhân ${patient.name} tuần ${dateRangeStr}. Cả nhà kiểm tra ca của mình nhé!`,
         });
         showToast('Đã mở hộp thoại chia sẻ!');
       } else {

@@ -1,11 +1,12 @@
-import { FamilyMember, PhaseConfig, EmergencyContact, ShiftRecord, CarePhase, ShiftType, PatientDailyReminder } from './types';
+import { FamilyMember, PhaseConfig, EmergencyContact, ShiftRecord, CarePhase, ShiftType, PatientDailyReminder, PatientInfo } from './types';
 
-export const PATIENT_INFO = {
+export const PATIENT_INFO: PatientInfo = {
   name: 'Đinh Hồng Phong',
   diagnosis: 'Tai biến mạch máu não nặng (Đột quỵ diện rộng), liệt nửa người, thở máy/sonde',
   hospital: 'Bệnh viện Bạch Mai - Hà Nội',
   room: 'Khoa Hồi Sức Tích Cực (ICU) • Phòng 402, Giường 12',
   notes: 'Cần lật trở chống loét 2h/lần, kiểm tra SpO2 và hút đờm thường xuyên.',
+  emergencyPhone: '0913 218 765',
 };
 
 export const FAMILY_MEMBERS: FamilyMember[] = [
