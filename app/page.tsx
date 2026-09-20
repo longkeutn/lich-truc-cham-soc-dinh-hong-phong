@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useSyncExternalStore } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useSyncExternalStore, useRef } from 'react';
 import HeaderBar from '@/components/HeaderBar';
 import PatientBanner from '@/components/PatientBanner';
 import WeeklyView, { DaySchedule } from '@/components/WeeklyView';
@@ -156,38 +156,91 @@ export default function CareSchedulePage() {
     return dates;
   }, [weekOffset]);
 
-  // Tải toàn bộ dữ liệu 5 thực thể từ Google Sheets
-  const loadAllData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const monthStart = new Date(weekDates[0]);
-      monthStart.setDate(monthStart.getDate() - 15);
-      const monthEnd = new Date(weekDates[weekDates.length - 1]);
-      monthEnd.setDate(monthEnd.getDate() + 30);
+  // Concurrency Guard: bảo vệ các ca trực vừa thao tác trên client tránh bị server response cũ ghi đè
+  const recentLocalShiftUpdates = useRef<Map<string, number>>(new Map());
 
-      const qStart = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}-${String(monthStart.getDate()).padStart(2, '0')}`;
-      const qEnd = `${monthEnd.getFullYear()}-${String(monthEnd.getMonth() + 1).padStart(2, '0')}-${String(monthEnd.getDate()).padStart(2, '0')}`;
+  const markShiftLocallyUpdated = (shiftId: string) => {
+    recentLocalShiftUpdates.current.set(shiftId, Date.now());
+  };
 
-      const appData = await fetchAllAppDataAction(qStart, qEnd, activePhase);
-
-      if (appData) {
-        if (appData.shifts) setShifts(appData.shifts);
-        if (appData.members && appData.members.length > 0) setMembers(appData.members);
-        if (appData.patientInfo && appData.patientInfo.name) setPatientInfo(appData.patientInfo);
-        if (appData.contacts && appData.contacts.length > 0) setContacts(appData.contacts);
-        if (appData.reminders) setReminders(appData.reminders);
-        if (appData.settings) setSettings(appData.settings);
+  // Tải toàn bộ dữ liệu 5 thực thể từ Google Sheets (có Cache TTL và Safe Merge)
+  const loadAllData = useCallback(
+    async (forceRefresh = false) => {
+      setIsLoading(true);
+      if (forceRefresh) {
+        showToast('Đang làm mới dữ liệu từ Google Sheets...', 'info');
       }
-    } catch (err) {
-      console.error('Lỗi khi tải dữ liệu:', err);
-      showToast('Không thể kết nối máy chủ để tải dữ liệu.', 'warn');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [weekDates, activePhase]);
+
+      try {
+        let qStart: string;
+        let qEnd: string;
+
+        if (activeView === 'monthly') {
+          // View tháng: Lấy từ đầu tháng đến cuối tháng (+/- 5 ngày)
+          const midDate = weekDates[3] || new Date();
+          const firstDay = new Date(midDate.getFullYear(), midDate.getMonth(), 1);
+          firstDay.setDate(firstDay.getDate() - 5);
+          const lastDay = new Date(midDate.getFullYear(), midDate.getMonth() + 1, 0);
+          lastDay.setDate(lastDay.getDate() + 5);
+
+          qStart = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-${String(firstDay.getDate()).padStart(2, '0')}`;
+          qEnd = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+        } else {
+          // View tuần: Thu hẹp đúng 21 ngày (Thứ 2 tuần trước -> Chủ nhật tuần sau)
+          const qStartDate = new Date(weekDates[0]);
+          qStartDate.setDate(qStartDate.getDate() - 7);
+          const qEndDate = new Date(weekDates[weekDates.length - 1]);
+          qEndDate.setDate(qEndDate.getDate() + 7);
+
+          qStart = `${qStartDate.getFullYear()}-${String(qStartDate.getMonth() + 1).padStart(2, '0')}-${String(qStartDate.getDate()).padStart(2, '0')}`;
+          qEnd = `${qEndDate.getFullYear()}-${String(qEndDate.getMonth() + 1).padStart(2, '0')}-${String(qEndDate.getDate()).padStart(2, '0')}`;
+        }
+
+        const appData = await fetchAllAppDataAction(qStart, qEnd, activePhase, forceRefresh);
+
+        if (appData) {
+          // Concurrency Guard: Hợp nhất shifts, bảo vệ các ca vừa sửa trên giao diện trong 8s
+          if (appData.shifts) {
+            setShifts((prevShifts) => {
+              const now = Date.now();
+              const shiftMap = new Map<string, ShiftRecord>();
+              prevShifts.forEach((s) => shiftMap.set(s.id, s));
+
+              appData.shifts.forEach((serverShift) => {
+                const localTimestamp = recentLocalShiftUpdates.current.get(serverShift.id);
+                if (localTimestamp && now - localTimestamp < 8000) {
+                  // Giữ nguyên bản ghi optimistic UI gần nhất của client
+                  return;
+                }
+                shiftMap.set(serverShift.id, serverShift);
+              });
+
+              return Array.from(shiftMap.values());
+            });
+          }
+
+          if (appData.members && appData.members.length > 0) setMembers(appData.members);
+          if (appData.patientInfo && appData.patientInfo.name) setPatientInfo(appData.patientInfo);
+          if (appData.contacts && appData.contacts.length > 0) setContacts(appData.contacts);
+          if (appData.reminders) setReminders(appData.reminders);
+          if (appData.settings) setSettings(appData.settings);
+
+          if (forceRefresh) {
+            showToast('Đã đồng bộ dữ liệu mới nhất từ Google Sheets!', 'success');
+          }
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải dữ liệu:', err);
+        showToast('Không thể kết nối máy chủ để tải dữ liệu.', 'warn');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [weekDates, activePhase, activeView]
+  );
 
   useEffect(() => {
-    loadAllData();
+    loadAllData(false);
   }, [loadAllData]);
 
   // Cấu trúc 7 ngày theo định dạng tiếng Việt
@@ -254,6 +307,7 @@ export default function CareSchedulePage() {
       isUnderstaffed,
     };
 
+    markShiftLocallyUpdated(shift.id);
     setShifts((prev) => prev.map((s) => (s.id === shift.id ? optimisticShift : s)));
     showToast(`Đã nhận: ${memberToAssign.name} - ${shift.name} (${shift.date.split('-').reverse().join('/')})`, 'success');
 
@@ -263,6 +317,7 @@ export default function CareSchedulePage() {
         setShifts(previousShifts);
         showToast(res.message || 'Không thể nhận ca.', 'warn');
       } else if (res.updatedShift) {
+        markShiftLocallyUpdated(res.updatedShift.id);
         setShifts((prev) => prev.map((s) => (s.id === shift.id ? res.updatedShift! : s)));
       }
     } catch {
@@ -285,6 +340,7 @@ export default function CareSchedulePage() {
       isUnderstaffed,
     };
 
+    markShiftLocallyUpdated(shift.id);
     setShifts((prev) => prev.map((s) => (s.id === shift.id ? optimisticShift : s)));
     showToast(`Đã huỷ trực cho ${removedName || 'vị trí ' + (slotIndex + 1)}`, 'info');
 
@@ -294,6 +350,7 @@ export default function CareSchedulePage() {
         setShifts(previousShifts);
         showToast(res.message || 'Không thể huỷ nhận ca.', 'warn');
       } else if (res.updatedShift) {
+        markShiftLocallyUpdated(res.updatedShift.id);
         setShifts((prev) => prev.map((s) => (s.id === shift.id ? res.updatedShift! : s)));
       }
     } catch {
@@ -319,11 +376,13 @@ export default function CareSchedulePage() {
       checklist: updatedChecklist,
     };
 
+    markShiftLocallyUpdated(shift.id);
     setShifts((prev) => prev.map((s) => (s.id === shift.id ? optimisticShift : s)));
 
     try {
       const res = await toggleChecklistAction(shift, itemKey, isChecked);
       if (res.updatedShift) {
+        markShiftLocallyUpdated(res.updatedShift.id);
         setShifts((prev) => prev.map((s) => (s.id === shift.id ? res.updatedShift! : s)));
       }
     } catch {
@@ -349,12 +408,14 @@ export default function CareSchedulePage() {
       },
     };
 
+    markShiftLocallyUpdated(shift.id);
     setShifts((prev) => prev.map((s) => (s.id === shift.id ? optimisticShift : s)));
     showToast('Đã lưu nội dung bàn giao ca lên Sheet!', 'success');
 
     try {
       const res = await saveHandoverAction(shift, note, author, vitals);
       if (res.updatedShift) {
+        markShiftLocallyUpdated(res.updatedShift.id);
         setShifts((prev) => prev.map((s) => (s.id === shift.id ? res.updatedShift! : s)));
       }
     } catch {
@@ -553,7 +614,7 @@ export default function CareSchedulePage() {
           onAddReminder={handleAddReminder}
           onDeleteReminder={handleDeleteReminder}
           onEditPatient={handleOpenEditPatient}
-          onRefresh={loadAllData}
+          onRefresh={() => loadAllData(true)}
           isLoading={isLoading}
         />
 

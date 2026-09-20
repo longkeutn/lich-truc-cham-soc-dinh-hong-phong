@@ -427,11 +427,90 @@ class MemoryShiftStore {
 // Global singleton
 declare global {
   var __memoryShiftStore: MemoryShiftStore | undefined;
+  var __serverCacheManager: ServerCacheManager | undefined;
+}
+
+interface CacheEntry {
+  data: AllAppData;
+  timestamp: number;
+}
+
+// Bộ quản lý Cache In-Memory trên máy chủ (TTL = 30 giây)
+class ServerCacheManager {
+  private cache: Map<string, CacheEntry> = new Map();
+  private readonly TTL_MS = 30 * 1000; // 30s TTL
+
+  private getCacheKey(startDate: string, endDate: string, phase: CarePhase): string {
+    return `${startDate}_${endDate}_${phase}`;
+  }
+
+  public get(startDate: string, endDate: string, phase: CarePhase): AllAppData | null {
+    const key = this.getCacheKey(startDate, endDate, phase);
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    const now = Date.now();
+    if (now - entry.timestamp > this.TTL_MS) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.data;
+  }
+
+  public set(startDate: string, endDate: string, phase: CarePhase, data: AllAppData): void {
+    const key = this.getCacheKey(startDate, endDate, phase);
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  public invalidateAll(): void {
+    this.cache.clear();
+  }
 }
 
 const memoryStore = globalThis.__memoryShiftStore ?? new MemoryShiftStore();
 if (process.env.NODE_ENV !== 'production') {
   globalThis.__memoryShiftStore = memoryStore;
+}
+
+const serverCacheManager = globalThis.__serverCacheManager ?? new ServerCacheManager();
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.__serverCacheManager = serverCacheManager;
+}
+
+// Hàm gửi POST đồng bộ tới Google Apps Script với Timeout an toàn (chống treo request)
+async function sendToWebappWithTimeout(
+  payload: Record<string, any>,
+  timeoutMs: number = 7000
+): Promise<{ success: boolean; data?: any }> {
+  const webappUrl = getWebappUrl();
+  if (!webappUrl) return { success: false };
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(webappUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const json = await res.json();
+      return { success: json.success ?? true, data: json };
+    }
+    return { success: false };
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      console.warn(`[Sync WebApp] Timeout sau ${timeoutMs}ms (${payload.action})`);
+    } else {
+      console.warn('[Sync WebApp] Lỗi kết nối:', err.message || err);
+    }
+    return { success: false };
+  }
 }
 
 // ==========================================
@@ -440,12 +519,24 @@ if (process.env.NODE_ENV !== 'production') {
 export async function fetchAppDataFromStorage(
   startDate: string,
   endDate: string,
-  phase: CarePhase
+  phase: CarePhase,
+  forceRefresh: boolean = false
 ): Promise<AllAppData> {
+  // 1. Kiểm tra cache nếu không yêu cầu làm mới bắt buộc
+  if (!forceRefresh) {
+    const cached = serverCacheManager.get(startDate, endDate, phase);
+    if (cached) {
+      return cached;
+    }
+  }
+
   const webappUrl = getWebappUrl();
 
-  // 1. Nếu có Google Apps Script Web App
+  // 2. Nếu có Google Apps Script Web App, truy vấn dữ liệu với Timeout 8.5s
   if (webappUrl) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8500);
+
     try {
       const url = new URL(webappUrl);
       url.searchParams.set('action', 'getAllData');
@@ -453,7 +544,12 @@ export async function fetchAppDataFromStorage(
       url.searchParams.set('endDate', endDate);
       url.searchParams.set('phase', phase);
 
-      const res = await fetch(url.toString(), { cache: 'no-store' });
+      const res = await fetch(url.toString(), {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -478,7 +574,7 @@ export async function fetchAppDataFromStorage(
             data.shifts.forEach((s: ShiftRecord) => memoryStore.saveShift(s));
           }
 
-          return {
+          const freshData: AllAppData = {
             shifts: memoryStore.getShifts(startDate, endDate, phase),
             members: memoryStore.getMembers(),
             patientInfo: memoryStore.getPatientInfo(),
@@ -486,15 +582,26 @@ export async function fetchAppDataFromStorage(
             reminders: memoryStore.getReminders(),
             settings: memoryStore.getSettings(),
           };
+
+          // Lưu vào Server Cache
+          serverCacheManager.set(startDate, endDate, phase, freshData);
+          return freshData;
         }
       }
-    } catch (err) {
-      console.warn('Lỗi kết nối Apps Script Web App getAllData:', err);
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        console.warn('[Fetch App Data] Timeout Web App 8.5s, dùng bộ nhớ đệm');
+      } else {
+        console.warn('Lỗi kết nối Apps Script Web App getAllData:', err.message || err);
+      }
     }
   }
 
-  // 2. Dự phòng: Memory Store
-  return memoryStore.getAllData(startDate, endDate, phase);
+  // 3. Dự phòng: Memory Store
+  const fallbackData = memoryStore.getAllData(startDate, endDate, phase);
+  serverCacheManager.set(startDate, endDate, phase, fallbackData);
+  return fallbackData;
 }
 
 // ==========================================
@@ -503,27 +610,23 @@ export async function fetchAppDataFromStorage(
 export async function fetchShiftsFromStorage(
   startDate: string,
   endDate: string,
-  phase: CarePhase
+  phase: CarePhase,
+  forceRefresh: boolean = false
 ): Promise<ShiftRecord[]> {
-  const allData = await fetchAppDataFromStorage(startDate, endDate, phase);
+  const allData = await fetchAppDataFromStorage(startDate, endDate, phase, forceRefresh);
   return allData.shifts;
 }
 
 export async function saveShiftToStorage(shift: ShiftRecord): Promise<ShiftRecord> {
   const updated = memoryStore.saveShift(shift);
-  const webappUrl = getWebappUrl();
-  if (webappUrl) {
-    try {
-      await fetch(webappUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'saveShift', shift: updated }),
-        cache: 'no-store',
-      });
-    } catch (err) {
-      console.error('Lỗi khi lưu ca lên Web App:', err);
-    }
-  }
+  // Vô hiệu hoá cache tức thì để lần đọc tiếp theo lấy dữ liệu mới
+  serverCacheManager.invalidateAll();
+
+  // Đồng bộ ngầm với timeout 7s (không chặn luồng chính nếu Web App trễ)
+  sendToWebappWithTimeout({ action: 'saveShift', shift: updated }, 7000).catch((err) =>
+    console.warn('[saveShiftToStorage] Sync lỗi ngầm:', err)
+  );
+
   return updated;
 }
 
@@ -532,37 +635,15 @@ export async function saveShiftToStorage(shift: ShiftRecord): Promise<ShiftRecor
 // ==========================================
 export async function saveMemberToStorage(member: FamilyMember): Promise<FamilyMember[]> {
   const updatedList = memoryStore.saveMember(member);
-  const webappUrl = getWebappUrl();
-  if (webappUrl) {
-    try {
-      await fetch(webappUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'saveMember', member }),
-        cache: 'no-store',
-      });
-    } catch (err) {
-      console.error('Lỗi khi lưu thành viên lên Web App:', err);
-    }
-  }
+  serverCacheManager.invalidateAll();
+  await sendToWebappWithTimeout({ action: 'saveMember', member }, 7000);
   return updatedList;
 }
 
 export async function deleteMemberFromStorage(memberId: string): Promise<FamilyMember[]> {
   const updatedList = memoryStore.deleteMember(memberId);
-  const webappUrl = getWebappUrl();
-  if (webappUrl) {
-    try {
-      await fetch(webappUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'deleteMember', memberId }),
-        cache: 'no-store',
-      });
-    } catch (err) {
-      console.error('Lỗi khi xoá thành viên trên Web App:', err);
-    }
-  }
+  serverCacheManager.invalidateAll();
+  await sendToWebappWithTimeout({ action: 'deleteMember', memberId }, 7000);
   return updatedList;
 }
 
@@ -571,37 +652,15 @@ export async function deleteMemberFromStorage(memberId: string): Promise<FamilyM
 // ==========================================
 export async function saveContactToStorage(contact: EmergencyContact): Promise<EmergencyContact[]> {
   const updatedList = memoryStore.saveContact(contact);
-  const webappUrl = getWebappUrl();
-  if (webappUrl) {
-    try {
-      await fetch(webappUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'saveContact', contact }),
-        cache: 'no-store',
-      });
-    } catch (err) {
-      console.error('Lỗi khi lưu số SOS lên Web App:', err);
-    }
-  }
+  serverCacheManager.invalidateAll();
+  await sendToWebappWithTimeout({ action: 'saveContact', contact }, 7000);
   return updatedList;
 }
 
 export async function deleteContactFromStorage(contactId: string): Promise<EmergencyContact[]> {
   const updatedList = memoryStore.deleteContact(contactId);
-  const webappUrl = getWebappUrl();
-  if (webappUrl) {
-    try {
-      await fetch(webappUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'deleteContact', contactId }),
-        cache: 'no-store',
-      });
-    } catch (err) {
-      console.error('Lỗi khi xoá số SOS trên Web App:', err);
-    }
-  }
+  serverCacheManager.invalidateAll();
+  await sendToWebappWithTimeout({ action: 'deleteContact', contactId }, 7000);
   return updatedList;
 }
 
@@ -610,37 +669,15 @@ export async function deleteContactFromStorage(contactId: string): Promise<Emerg
 // ==========================================
 export async function saveReminderToStorage(reminder: PatientDailyReminder): Promise<PatientDailyReminder[]> {
   const updatedList = memoryStore.saveReminder(reminder);
-  const webappUrl = getWebappUrl();
-  if (webappUrl) {
-    try {
-      await fetch(webappUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'saveReminder', reminder }),
-        cache: 'no-store',
-      });
-    } catch (err) {
-      console.error('Lỗi khi lưu nhắc nhở lên Web App:', err);
-    }
-  }
+  serverCacheManager.invalidateAll();
+  await sendToWebappWithTimeout({ action: 'saveReminder', reminder }, 7000);
   return updatedList;
 }
 
 export async function deleteReminderFromStorage(reminderId: string): Promise<PatientDailyReminder[]> {
   const updatedList = memoryStore.deleteReminder(reminderId);
-  const webappUrl = getWebappUrl();
-  if (webappUrl) {
-    try {
-      await fetch(webappUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'deleteReminder', reminderId }),
-        cache: 'no-store',
-      });
-    } catch (err) {
-      console.error('Lỗi khi xoá nhắc nhở trên Web App:', err);
-    }
-  }
+  serverCacheManager.invalidateAll();
+  await sendToWebappWithTimeout({ action: 'deleteReminder', reminderId }, 7000);
   return updatedList;
 }
 
@@ -649,19 +686,8 @@ export async function deleteReminderFromStorage(reminderId: string): Promise<Pat
 // ==========================================
 export async function savePatientSettingsToStorage(info: PatientInfo): Promise<PatientInfo> {
   memoryStore.setPatientInfo(info);
-  const webappUrl = getWebappUrl();
-  if (webappUrl) {
-    try {
-      await fetch(webappUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'saveSettings', patientInfo: info }),
-        cache: 'no-store',
-      });
-    } catch (err) {
-      console.error('Lỗi khi lưu thông tin bệnh nhân lên Web App:', err);
-    }
-  }
+  serverCacheManager.invalidateAll();
+  await sendToWebappWithTimeout({ action: 'saveSettings', patientInfo: info }, 7000);
   return memoryStore.getPatientInfo();
 }
 
@@ -670,31 +696,22 @@ export function getSystemSettings(): SystemSettings {
 }
 
 export function setSystemPhase(phase: CarePhase): SystemSettings {
-  return memoryStore.setPhase(phase);
+  const updated = memoryStore.setPhase(phase);
+  serverCacheManager.invalidateAll();
+  sendToWebappWithTimeout({ action: 'saveSettings', currentPhase: phase }, 7000).catch(() => {});
+  return updated;
 }
 
 // ==========================================
 // ADMIN PIN MANAGEMENT
 // ==========================================
 export async function verifyAdminPinStorage(pin: string): Promise<boolean> {
-  const webappUrl = getWebappUrl();
-  if (webappUrl) {
-    try {
-      const res = await fetch(webappUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'verifyAdminPin', pin: pin.trim() }),
-        cache: 'no-store',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (typeof data.valid === 'boolean') {
-          return data.valid;
-        }
-      }
-    } catch (err) {
-      console.warn('Lỗi kết nối Web App verifyAdminPin:', err);
-    }
+  const syncRes = await sendToWebappWithTimeout(
+    { action: 'verifyAdminPin', pin: pin.trim() },
+    5000
+  );
+  if (syncRes.success && typeof syncRes.data?.valid === 'boolean') {
+    return syncRes.data.valid;
   }
   return memoryStore.verifyAdminPin(pin);
 }
@@ -707,38 +724,28 @@ export async function changeAdminPinStorage(
     return { success: false, message: 'Mã PIN mới phải có ít nhất 4 chữ số' };
   }
 
-  const webappUrl = getWebappUrl();
-  if (webappUrl) {
-    try {
-      const res = await fetch(webappUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'changeAdminPin',
-          oldPin: oldPin.trim(),
-          newPin: newPin.trim(),
-        }),
-        cache: 'no-store',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          memoryStore.setAdminPin(newPin.trim());
-          return { success: true };
-        } else {
-          return { success: false, message: data.message || 'Mã PIN cũ không chính xác' };
-        }
-      }
-    } catch (err) {
-      console.warn('Lỗi kết nối Web App changeAdminPin:', err);
-    }
+  const syncRes = await sendToWebappWithTimeout(
+    {
+      action: 'changeAdminPin',
+      oldPin: oldPin.trim(),
+      newPin: newPin.trim(),
+    },
+    7000
+  );
+
+  if (syncRes.success) {
+    memoryStore.setAdminPin(newPin.trim());
+    serverCacheManager.invalidateAll();
+    return { success: true };
   }
 
   const success = memoryStore.changeAdminPin(oldPin, newPin);
   if (success) {
+    serverCacheManager.invalidateAll();
     return { success: true };
   } else {
-    return { success: false, message: 'Mã PIN cũ không chính xác' };
+    return { success: false, message: syncRes.data?.message || 'Mã PIN cũ không chính xác' };
   }
 }
+
 

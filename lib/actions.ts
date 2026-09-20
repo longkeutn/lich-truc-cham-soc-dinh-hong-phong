@@ -28,27 +28,29 @@ import {
   changeAdminPinStorage,
 } from './sheets';
 
-// Tải toàn bộ 5 thực thể trong 1 lần gọi
+// Tải toàn bộ 5 thực thể trong 1 lần gọi (hỗ trợ Cache và Force Refresh)
 export async function fetchAllAppDataAction(
   startDate: string,
   endDate: string,
-  phase: CarePhase
+  phase: CarePhase,
+  forceRefresh: boolean = false
 ): Promise<AllAppData> {
   try {
-    return await fetchAppDataFromStorage(startDate, endDate, phase);
+    return await fetchAppDataFromStorage(startDate, endDate, phase, forceRefresh);
   } catch (error) {
     console.error('fetchAllAppDataAction error:', error);
-    return await fetchAppDataFromStorage(startDate, endDate, phase);
+    return await fetchAppDataFromStorage(startDate, endDate, phase, false);
   }
 }
 
 export async function fetchShiftsAction(
   startDate: string,
   endDate: string,
-  phase: CarePhase
+  phase: CarePhase,
+  forceRefresh: boolean = false
 ): Promise<ShiftRecord[]> {
   try {
-    return await fetchShiftsFromStorage(startDate, endDate, phase);
+    return await fetchShiftsFromStorage(startDate, endDate, phase, forceRefresh);
   } catch (error) {
     console.error('fetchShiftsAction error:', error);
     return [];

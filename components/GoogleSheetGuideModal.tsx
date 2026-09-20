@@ -45,7 +45,8 @@ function doGet(e) {
         members: readMembers(ss),
         patientInfo: readPatientInfo(ss),
         contacts: readContacts(ss),
-        reminders: readReminders(ss)
+        reminders: readReminders(ss),
+        adminPin: readAdminPin(ss)
       });
     }
 
@@ -75,6 +76,13 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  const lock = LockService.getScriptLock();
+  // Khóa tối đa 10 giây để chống ghi đè đồng thời (Concurrency Lock)
+  const hasLock = lock.tryLock(10000);
+  if (!hasLock) {
+    return jsonResponse({ success: false, error: 'Máy chủ Google Sheet đang bận xử lý yêu cầu khác, vui lòng thử lại sau giây lát.' });
+  }
+
   try {
     const postData = JSON.parse(e.postData.contents);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -118,15 +126,37 @@ function doPost(e) {
       return jsonResponse({ success: true, message: 'Đã xoá nhắc nhở' });
     }
 
-    // 5. Lưu Thông Tin Bệnh Nhân (Patient Settings)
-    if (action === 'saveSettings' && postData.patientInfo) {
-      savePatientInfo(ss, postData.patientInfo);
-      return jsonResponse({ success: true, message: 'Đã lưu thông tin bệnh nhân' });
+    // 5. Lưu Thông Tin Bệnh Nhân & Giai Đoạn (Patient Settings)
+    if (action === 'saveSettings') {
+      if (postData.patientInfo) savePatientInfo(ss, postData.patientInfo);
+      if (postData.currentPhase) saveCurrentPhase(ss, postData.currentPhase);
+      return jsonResponse({ success: true, message: 'Đã lưu thông tin cài đặt' });
+    }
+
+    // 6. Quản Lý Admin PIN
+    if (action === 'verifyAdminPin') {
+      const currentPin = readAdminPin(ss);
+      const isValid = String(postData.pin || '').trim() === currentPin;
+      return jsonResponse({ success: true, valid: isValid });
+    }
+    if (action === 'changeAdminPin') {
+      const currentPin = readAdminPin(ss);
+      if (String(postData.oldPin || '').trim() !== currentPin) {
+        return jsonResponse({ success: false, message: 'Mã PIN cũ không chính xác' });
+      }
+      const newPin = String(postData.newPin || '').trim();
+      if (newPin.length < 4) {
+        return jsonResponse({ success: false, message: 'Mã PIN mới phải có ít nhất 4 ký tự' });
+      }
+      saveAdminPin(ss, newPin);
+      return jsonResponse({ success: true, message: 'Đã đổi mã PIN Admin thành công' });
     }
 
     return jsonResponse({ success: false, message: 'Thao tác không hợp lệ' });
   } catch (error) {
     return jsonResponse({ success: false, error: error.toString() });
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -187,9 +217,22 @@ function ensureSheetsSetup(ss) {
       ['patient_room', 'Khoa Hồi Sức Tích Cực (ICU) • Phòng 402, Giường 12', 'Vị trí phòng & số giường'],
       ['patient_notes', 'Cần lật trở chống loét 2h/lần, kiểm tra SpO2 và hút đờm thường xuyên.', 'Chỉ định chăm sóc đặc biệt'],
       ['emergency_phone', '0913 218 765 (BS. Hùng - ICU)', 'Số điện thoại bác sĩ điều trị chính'],
-      ['current_phase', 'phase1', 'Giai đoạn hiện tại (phase1: ICU, phase2: Tại nhà)']
+      ['current_phase', 'phase1', 'Giai đoạn hiện tại (phase1: ICU, phase2: Tại nhà)'],
+      ['admin_pin', '1234', 'Mã PIN quyền Admin bảo mật']
     ];
     defaultSettings.forEach(s => sheetSettings.appendRow(s));
+  } else {
+    const data = sheetSettings.getDataRange().getValues();
+    let hasAdminPin = false;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === 'admin_pin') {
+        hasAdminPin = true;
+        break;
+      }
+    }
+    if (!hasAdminPin) {
+      sheetSettings.appendRow(['admin_pin', '1234', 'Mã PIN quyền Admin bảo mật']);
+    }
   }
 
   // Sheet 4: Contacts (Danh bạ SOS khẩn cấp)
@@ -326,6 +369,18 @@ function readPatientInfo(ss) {
     if (key === 'emergency_phone') info.emergencyPhone = val;
   }
   return info;
+}
+
+function readAdminPin(ss) {
+  const sheet = ss.getSheetByName('Settings');
+  if (!sheet) return '1234';
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === 'admin_pin') {
+      return String(data[i][1] || '1234').trim();
+    }
+  }
+  return '1234';
 }
 
 function readContacts(ss) {
@@ -475,6 +530,32 @@ function savePatientInfo(ss, info) {
       sheet.getRange(i + 1, 2).setValue(map[key]);
     }
   }
+}
+
+function saveCurrentPhase(ss, phase) {
+  const sheet = ss.getSheetByName('Settings');
+  if (!sheet) return;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === 'current_phase') {
+      sheet.getRange(i + 1, 2).setValue(phase);
+      return;
+    }
+  }
+  sheet.appendRow(['current_phase', phase, 'Giai đoạn hiện tại']);
+}
+
+function saveAdminPin(ss, pin) {
+  const sheet = ss.getSheetByName('Settings');
+  if (!sheet) return;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === 'admin_pin') {
+      sheet.getRange(i + 1, 2).setValue(String(pin).trim());
+      return;
+    }
+  }
+  sheet.appendRow(['admin_pin', String(pin).trim(), 'Mã PIN quyền Admin bảo mật']);
 }
 
 function deleteRowById(ss, sheetName, id) {
