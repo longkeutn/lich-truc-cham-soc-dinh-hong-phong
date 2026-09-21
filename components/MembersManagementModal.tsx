@@ -122,6 +122,7 @@ export function MembersManagementModal({
   const [relation, setRelation] = useState('');
   const [phone, setPhone] = useState('');
   const [selectedThemeIndex, setSelectedThemeIndex] = useState(0);
+  const [isSupporter, setIsSupporter] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -135,6 +136,7 @@ export function MembersManagementModal({
     setName('');
     setRelation('');
     setPhone('');
+    setIsSupporter(false);
     setSelectedThemeIndex((members.length) % COLOR_THEMES.length);
     setErrorMsg('');
   };
@@ -145,6 +147,7 @@ export function MembersManagementModal({
     setName(m.name);
     setRelation(m.relation);
     setPhone(m.phone);
+    setIsSupporter(Boolean(m.isSupporter));
     const themeIdx = COLOR_THEMES.findIndex((t) => t.badgeColor === m.badgeColor);
     setSelectedThemeIndex(themeIdx >= 0 ? themeIdx : 0);
     setErrorMsg('');
@@ -153,6 +156,7 @@ export function MembersManagementModal({
   const cancelForm = () => {
     setIsAddingNew(false);
     setEditingMember(null);
+    setIsSupporter(false);
     setErrorMsg('');
   };
 
@@ -179,6 +183,7 @@ export function MembersManagementModal({
       textColor: theme.textColor,
       accentColor: theme.accentColor,
       pillBadge: theme.pillBadge,
+      isSupporter: isSupporter,
     };
 
     setIsSaving(true);
@@ -317,6 +322,46 @@ export function MembersManagementModal({
                 />
               </div>
 
+              {/* Phân loại thành viên chính vs thành viên phụ hỗ trợ */}
+              <div className="bg-white dark:bg-slate-800/80 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Vai trò trong lịch trực gia đình
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsSupporter(false)}
+                    className={`p-2.5 rounded-xl border-2 text-left flex items-start gap-2 transition cursor-pointer ${
+                      !isSupporter
+                        ? 'border-indigo-500 bg-indigo-50/70 text-indigo-950 font-bold'
+                        : 'border-slate-200 bg-white dark:bg-slate-900/40 text-slate-600'
+                    }`}
+                  >
+                    <span className="text-sm mt-0.5">🛡️</span>
+                    <div>
+                      <div className="text-xs font-bold">Thành viên chính</div>
+                      <div className="text-[10px] text-slate-500 font-normal">Trực chính, chịu trách nhiệm ca</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsSupporter(true)}
+                    className={`p-2.5 rounded-xl border-2 text-left flex items-start gap-2 transition cursor-pointer ${
+                      isSupporter
+                        ? 'border-emerald-500 bg-emerald-50/70 text-emerald-950 font-bold'
+                        : 'border-slate-200 bg-white dark:bg-slate-900/40 text-slate-600'
+                    }`}
+                  >
+                    <span className="text-sm mt-0.5">🤝</span>
+                    <div>
+                      <div className="text-xs font-bold">Thành viên phụ (Hỗ trợ)</div>
+                      <div className="text-[10px] text-slate-500 font-normal">Vào hỗ trợ khi rảnh, không bắt buộc</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Theme color picker */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
@@ -396,9 +441,16 @@ export function MembersManagementModal({
                         {m.avatarInitials || getInitials(m.name)}
                       </div>
                       <div className="min-w-0">
-                        <h5 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
-                          {m.name}
-                        </h5>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h5 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
+                            {m.name}
+                          </h5>
+                          {m.isSupporter && (
+                            <span className="px-1.5 py-0.2 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold border border-emerald-300 dark:border-emerald-800">
+                              🤝 Phụ giúp
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                           {m.relation}
                         </p>

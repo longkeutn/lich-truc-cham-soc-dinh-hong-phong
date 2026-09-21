@@ -15,6 +15,7 @@ export interface FamilyMember {
   textColor?: string;    // E.g. "text-blue-900"
   accentColor?: string;  // E.g. "bg-blue-600"
   pillBadge?: string;    // E.g. "bg-blue-100 text-blue-800 border-blue-200"
+  isSupporter?: boolean; // Phân loại: Thành viên phụ hỗ trợ khi rảnh, không tính vào thống kê ca
 }
 
 export interface ShiftChecklist {
@@ -47,7 +48,8 @@ export interface ShiftRecord {
   timeRange: string;
   phase: CarePhase;
   requiredPax: number;
-  assignees: (string | null)[]; // Tên người trực
+  assignees: (string | null)[]; // Tên người trực chính
+  supporters?: string[]; // Tên thành viên phụ / người hỗ trợ đi cùng (không tính thống kê)
   checklist: ShiftChecklist;
   handover: ShiftHandover;
   isUnderstaffed: boolean;

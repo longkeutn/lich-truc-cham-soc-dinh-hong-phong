@@ -313,9 +313,16 @@ function readShifts(ss, startDate, endDate, phase) {
     if (shiftId && (!phase || rowPhase === phase)) {
       if ((!startDate || rowDate >= startDate) && (!endDate || rowDate <= endDate)) {
         const reqPax = parseInt(row[6] || '1', 10);
-        const a1 = row[7] ? String(row[7]).trim() : null;
-        const a2 = row[8] ? String(row[8]).trim() : null;
-        const assignees = reqPax === 2 ? [a1, a2] : [a1];
+        let assignees = [];
+        if (row[23]) {
+          assignees = String(row[23]).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+        } else {
+          const a1 = row[7] ? String(row[7]).trim() : null;
+          const a2 = row[8] ? String(row[8]).trim() : null;
+          assignees = reqPax === 2 ? [a1, a2] : (a1 ? [a1] : []);
+        }
+        const rawSupporters = row[22] ? String(row[22]).trim() : '';
+        const supporters = rawSupporters ? rawSupporters.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
         const assignedCount = assignees.filter(Boolean).length;
         const isUnderstaffed = assignedCount < reqPax;
 
@@ -328,6 +335,7 @@ function readShifts(ss, startDate, endDate, phase) {
           timeRange: String(row[5] || ''),
           requiredPax: reqPax,
           assignees: assignees,
+          supporters: supporters,
           isUnderstaffed: isUnderstaffed,
           handover: {
             note: String(row[10] || ''),
@@ -373,7 +381,8 @@ function readMembers(ss) {
         borderLight: String(row[7] || 'border-blue-300'),
         textColor: String(row[8] || 'text-blue-900'),
         accentColor: String(row[9] || 'bg-blue-600 text-white'),
-        pillBadge: String(row[10] || 'bg-blue-100 text-blue-800 border-blue-300 font-bold')
+        pillBadge: String(row[10] || 'bg-blue-100 text-blue-800 border-blue-300 font-bold'),
+        isSupporter: String(row[11] || '').toUpperCase() === 'TRUE'
       });
     }
   }
@@ -469,6 +478,8 @@ function saveShift(ss, shift) {
   if (!sheet) return;
   const data = sheet.getDataRange().getValues();
   const dateStr = String(shift.date || '').substring(0, 10);
+  const allAssignees = (shift.assignees || []).filter(Boolean).map(function(s) { return String(s).trim(); }).join(', ');
+  const supporters = (shift.supporters || []).filter(Boolean).map(function(s) { return String(s).trim(); }).join(', ');
   const rowValues = [
     String(shift.id || '').trim(),
     dateStr,
@@ -491,7 +502,9 @@ function saveShift(ss, shift) {
     (shift.checklist && shift.checklist.meds) ? 'TRUE' : 'FALSE',
     (shift.checklist && shift.checklist.hygiene) ? 'TRUE' : 'FALSE',
     (shift.checklist && shift.checklist.turning) ? 'TRUE' : 'FALSE',
-    new Date().toISOString()
+    new Date().toISOString(),
+    supporters,
+    allAssignees
   ];
 
   const targetId = String(shift.id || '').trim();
@@ -506,13 +519,15 @@ function saveShift(ss, shift) {
 
 function saveMember(ss, member) {
   const sheet = ss.getSheetByName('Members');
+  if (!sheet) return;
   const data = sheet.getDataRange().getValues();
   const rowValues = [
     member.id, member.name, member.relation, member.phone,
     member.badgeColor || 'bg-blue-600', member.avatarInitials || 'TV',
     member.bgLight || 'bg-blue-50/90', member.borderLight || 'border-blue-300',
     member.textColor || 'text-blue-900', member.accentColor || 'bg-blue-600 text-white',
-    member.pillBadge || 'bg-blue-100 text-blue-800 border-blue-300 font-bold'
+    member.pillBadge || 'bg-blue-100 text-blue-800 border-blue-300 font-bold',
+    member.isSupporter ? 'TRUE' : 'FALSE'
   ];
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === member.id) {

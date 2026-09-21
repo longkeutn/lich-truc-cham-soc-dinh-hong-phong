@@ -5,7 +5,7 @@ import HeaderBar from '@/components/HeaderBar';
 import PatientBanner from '@/components/PatientBanner';
 import WeeklyView, { DaySchedule } from '@/components/WeeklyView';
 import MonthlyView from '@/components/MonthlyView';
-import AnalyticsView from '@/components/AnalyticsView';
+import ShiftHistoryView from '@/components/ShiftHistoryView';
 import GoogleSheetGuideModal from '@/components/GoogleSheetGuideModal';
 import EmergencyContactsModal from '@/components/EmergencyContactsModal';
 import { AdminPinModal } from '@/components/AdminPinModal';
@@ -33,6 +33,7 @@ import {
   fetchAllAppDataAction,
   assignShiftSlotAction,
   unassignShiftSlotAction,
+  saveShiftAction,
   toggleChecklistAction,
   saveHandoverAction,
   getSettingsAction,
@@ -359,6 +360,28 @@ export default function CareSchedulePage() {
     }
   };
 
+  // Cập nhật toàn diện ca trực (số người trực, người trực chính, người hỗ trợ)
+  const handleUpdateShift = async (updatedShift: ShiftRecord) => {
+    const previousShifts = [...shifts];
+    markShiftLocallyUpdated(updatedShift.id);
+    setShifts((prev) => prev.map((s) => (s.id === updatedShift.id ? updatedShift : s)));
+
+    try {
+      const res = await saveShiftAction(updatedShift);
+      if (!res.success) {
+        setShifts(previousShifts);
+        showToast(res.message || 'Không thể cập nhật ca trực.', 'warn');
+      } else if (res.updatedShift) {
+        markShiftLocallyUpdated(res.updatedShift.id);
+        setShifts((prev) => prev.map((s) => (s.id === updatedShift.id ? res.updatedShift! : s)));
+        showToast(`Đã cập nhật: ${updatedShift.name}`, 'success');
+      }
+    } catch {
+      setShifts(previousShifts);
+      showToast('Lỗi máy chủ khi cập nhật ca.', 'warn');
+    }
+  };
+
   // Đánh dấu công việc chăm sóc trong ca
   const handleToggleChecklist = async (
     shift: ShiftRecord,
@@ -618,7 +641,7 @@ export default function CareSchedulePage() {
           isLoading={isLoading}
         />
 
-        {/* Nội dung View: Theo Tuần, Theo Tháng hoặc Analytics */}
+        {/* Nội dung View: Theo Tuần, Theo Tháng hoặc Lịch Sử Trực */}
         {activeView === 'weekly' ? (
           <WeeklyView
             days={weeklyDays}
@@ -631,6 +654,7 @@ export default function CareSchedulePage() {
             onUnassign={handleUnassign}
             onToggleChecklist={handleToggleChecklist}
             onSaveHandover={handleSaveHandover}
+            onUpdateShift={handleUpdateShift}
             members={members}
             patientInfo={patientInfo}
           />
@@ -646,7 +670,7 @@ export default function CareSchedulePage() {
             members={members}
           />
         ) : (
-          <AnalyticsView shifts={shifts} members={members} />
+          <ShiftHistoryView shifts={shifts} members={members} />
         )}
       </main>
 

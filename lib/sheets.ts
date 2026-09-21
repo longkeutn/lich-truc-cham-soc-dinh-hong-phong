@@ -127,11 +127,22 @@ class MemoryShiftStore {
   }
 
   public saveShift(shift: ShiftRecord): ShiftRecord {
-    const filledCount = shift.assignees.filter(Boolean).length;
-    shift.isUnderstaffed = filledCount < shift.requiredPax;
-    shift.updatedAt = new Date().toISOString();
-    this.shifts.set(shift.id, shift);
-    return shift;
+    const assignees = shift.assignees || [];
+    const supporters = shift.supporters || [];
+    const reqPax = shift.requiredPax && shift.requiredPax > 0 ? shift.requiredPax : 1;
+    const filledCount = assignees.filter(Boolean).length;
+
+    const normalizedShift: ShiftRecord = {
+      ...shift,
+      requiredPax: reqPax,
+      assignees,
+      supporters,
+      isUnderstaffed: filledCount < reqPax,
+      updatedAt: new Date().toISOString(),
+    };
+
+    this.shifts.set(normalizedShift.id, normalizedShift);
+    return normalizedShift;
   }
 
   // --- Members ---

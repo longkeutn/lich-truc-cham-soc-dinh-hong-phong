@@ -14,6 +14,7 @@ import {
   PhoneCall,
   Users,
   Edit3,
+  History,
 } from 'lucide-react';
 
 interface HeaderBarProps {
@@ -150,12 +151,12 @@ export default function HeaderBar({
               onClick={() => onChangeView('analytics')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
                 activeView === 'analytics'
-                  ? 'bg-white text-slate-900 shadow-2xs'
+                  ? 'bg-white text-slate-900 shadow-2xs font-black'
                   : 'text-slate-600 hover:text-slate-950'
               }`}
             >
-              <ChartIcon className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Thống Kê</span>
+              <History className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Lịch Sử Trực</span>
             </button>
           </div>
 
@@ -287,12 +288,12 @@ export default function HeaderBar({
               onClick={() => onChangeView('analytics')}
               className={`py-1 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
                 activeView === 'analytics'
-                  ? 'bg-white text-slate-900 shadow-2xs'
+                  ? 'bg-white text-slate-900 shadow-2xs font-black'
                   : 'text-slate-600'
               }`}
             >
-              <ChartIcon className="w-3 h-3 text-indigo-600" />
-              <span>Công sức</span>
+              <History className="w-3 h-3 text-indigo-600" />
+              <span>Lịch sử</span>
             </button>
           </div>
 

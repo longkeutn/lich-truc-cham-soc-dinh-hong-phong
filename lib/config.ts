@@ -245,6 +245,7 @@ export function buildDefaultShiftRecord(
     phase,
     requiredPax: shiftCfg.requiredPax,
     assignees: [],
+    supporters: [],
     isUnderstaffed: true,
     checklist: {
       feeding: false,

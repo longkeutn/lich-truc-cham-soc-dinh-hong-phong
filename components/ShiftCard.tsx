@@ -320,6 +320,23 @@ export default function ShiftCard({
             );
           })}
         </div>
+
+        {/* Người hỗ trợ đi cùng (nếu có) */}
+        {shift.supporters && shift.supporters.length > 0 && (
+          <div className="pt-2 flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-bold text-emerald-800 flex items-center gap-1">
+              <span>🤝</span> Có mặt hỗ trợ cùng:
+            </span>
+            {shift.supporters.map((s) => (
+              <span
+                key={s}
+                className="px-2.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-bold"
+              >
+                {s}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* CHECKLIST CHĂM SÓC THEO CA */}

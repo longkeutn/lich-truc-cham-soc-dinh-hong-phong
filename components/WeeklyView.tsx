@@ -54,6 +54,7 @@ interface WeeklyViewProps {
     author: string,
     vitals?: PatientVitals
   ) => Promise<void>;
+  onUpdateShift?: (updatedShift: ShiftRecord) => Promise<void>;
   members?: FamilyMember[];
   patientInfo?: PatientInfo;
 }
@@ -69,6 +70,7 @@ export default function WeeklyView({
   onUnassign,
   onToggleChecklist,
   onSaveHandover,
+  onUpdateShift,
   members,
   patientInfo,
 }: WeeklyViewProps) {
@@ -326,6 +328,18 @@ export default function WeeklyView({
                     })}
                   </div>
 
+                  {/* Người hỗ trợ đi cùng (nếu có) */}
+                  {shift.supporters && shift.supporters.length > 0 && (
+                    <div
+                      onClick={() => setSelectedShiftForDetail(shift)}
+                      className="text-[11px] font-bold text-emerald-300 bg-emerald-950/40 border border-emerald-500/40 px-2 py-1 rounded-xl flex items-center gap-1.5 cursor-pointer hover:bg-emerald-950/60 transition"
+                      title={`Thành viên phụ vào hỗ trợ: ${shift.supporters.join(', ')}`}
+                    >
+                      <span>🤝 Phụ:</span>
+                      <span className="truncate">{shift.supporters.join(', ')}</span>
+                    </div>
+                  )}
+
                   {/* Thanh Footer ca: Checklist & nút chi tiết */}
                   <div className="flex items-center justify-between pt-1 text-[11px] text-slate-300 border-t border-white/10">
                     <span className="flex items-center gap-1">
@@ -502,6 +516,18 @@ export default function WeeklyView({
                                   </button>
                                 );
                               })}
+
+                              {/* Người hỗ trợ đi cùng */}
+                              {shift.supporters && shift.supporters.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedShiftForDetail(shift)}
+                                  className="w-full text-left text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-lg border border-emerald-200 truncate cursor-pointer hover:bg-emerald-100 transition"
+                                  title={`Người hỗ trợ: ${shift.supporters.join(', ')}`}
+                                >
+                                  🤝 +{shift.supporters.join(', ')}
+                                </button>
+                              )}
                             </div>
                           </td>
                         );
@@ -628,6 +654,18 @@ export default function WeeklyView({
                     })}
                   </div>
 
+                  {/* Người hỗ trợ đi cùng */}
+                  {shift.supporters && shift.supporters.length > 0 && (
+                    <div
+                      onClick={() => setSelectedShiftForDetail(shift)}
+                      className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl cursor-pointer hover:bg-emerald-100 flex items-center gap-1.5 transition"
+                      title={`Người hỗ trợ: ${shift.supporters.join(', ')}`}
+                    >
+                      <span>🤝 Hỗ trợ:</span>
+                      <span className="truncate">{shift.supporters.join(', ')}</span>
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => setSelectedShiftForDetail(shift)}
@@ -653,6 +691,7 @@ export default function WeeklyView({
         onUnassign={onUnassign}
         onToggleChecklist={onToggleChecklist}
         onSaveHandover={onSaveHandover}
+        onUpdateShift={onUpdateShift}
       />
 
       {/* 6. MODAL XUẤT ẢNH LỊCH TRỰC ZALO */}

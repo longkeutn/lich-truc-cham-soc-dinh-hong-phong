@@ -175,6 +175,99 @@ export async function saveHandoverAction(
   }
 }
 
+export async function saveShiftAction(
+  shift: ShiftRecord
+): Promise<{ success: boolean; message?: string; updatedShift?: ShiftRecord }> {
+  try {
+    const saved = await saveShiftToStorage(shift);
+    return { success: true, updatedShift: saved };
+  } catch (error) {
+    console.error('saveShiftAction error:', error);
+    return { success: false, message: 'Không thể cập nhật ca trực lúc này.' };
+  }
+}
+
+export async function updateShiftRequiredPaxAction(
+  shift: ShiftRecord,
+  newPax: number
+): Promise<{ success: boolean; message?: string; updatedShift?: ShiftRecord }> {
+  try {
+    const pax = Math.max(1, Math.min(5, newPax));
+    const assignees = [...(shift.assignees || [])].filter(Boolean) as string[];
+    const updated: ShiftRecord = {
+      ...shift,
+      requiredPax: pax,
+      assignees,
+      isUnderstaffed: assignees.length < pax,
+      updatedAt: new Date().toISOString(),
+    };
+    const saved = await saveShiftToStorage(updated);
+    return { success: true, updatedShift: saved };
+  } catch (error) {
+    console.error('updateShiftRequiredPaxAction error:', error);
+    return { success: false, message: 'Lỗi khi cập nhật số người trong ca.' };
+  }
+}
+
+export async function toggleShiftAssigneeAction(
+  shift: ShiftRecord,
+  memberName: string
+): Promise<{ success: boolean; message?: string; updatedShift?: ShiftRecord }> {
+  try {
+    let reqPax = shift.requiredPax || 1;
+    let assignees = [...(shift.assignees || [])].filter(Boolean) as string[];
+
+    if (assignees.includes(memberName)) {
+      assignees = assignees.filter((n) => n !== memberName);
+    } else {
+      if (assignees.length >= reqPax) {
+        reqPax = assignees.length + 1;
+      }
+      assignees.push(memberName);
+    }
+
+    const updated: ShiftRecord = {
+      ...shift,
+      requiredPax: reqPax,
+      assignees,
+      isUnderstaffed: assignees.length < reqPax,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saved = await saveShiftToStorage(updated);
+    return { success: true, updatedShift: saved };
+  } catch (error) {
+    console.error('toggleShiftAssigneeAction error:', error);
+    return { success: false, message: 'Lỗi khi cập nhật người trực chính.' };
+  }
+}
+
+export async function toggleShiftSupporterAction(
+  shift: ShiftRecord,
+  supporterName: string
+): Promise<{ success: boolean; message?: string; updatedShift?: ShiftRecord }> {
+  try {
+    let supporters = [...(shift.supporters || [])];
+    if (supporters.includes(supporterName)) {
+      supporters = supporters.filter((n) => n !== supporterName);
+    } else {
+      supporters.push(supporterName);
+    }
+
+    const updated: ShiftRecord = {
+      ...shift,
+      supporters,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saved = await saveShiftToStorage(updated);
+    return { success: true, updatedShift: saved };
+  } catch (error) {
+    console.error('toggleShiftSupporterAction error:', error);
+    return { success: false, message: 'Lỗi khi cập nhật người hỗ trợ.' };
+  }
+}
+
 // --- CRUD Members ---
 export async function saveMemberAction(
   member: FamilyMember
