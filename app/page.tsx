@@ -80,8 +80,8 @@ export default function CareSchedulePage() {
   // Dynamic state từ Google Sheets
   const [members, setMembers] = useState<FamilyMember[]>(FAMILY_MEMBERS);
   const [patientInfo, setPatientInfo] = useState<PatientInfo>(PATIENT_INFO);
-  const [contacts, setContacts] = useState<EmergencyContact[]>(DEFAULT_EMERGENCY_CONTACTS);
-  const [reminders, setReminders] = useState<PatientDailyReminder[]>(DEFAULT_PATIENT_REMINDERS);
+  const [contacts, setContacts] = useState<EmergencyContact[]>([]);
+  const [reminders, setReminders] = useState<PatientDailyReminder[]>([]);
   const [shifts, setShifts] = useState<ShiftRecord[]>([]);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
 
@@ -221,8 +221,8 @@ export default function CareSchedulePage() {
 
           if (appData.members && appData.members.length > 0) setMembers(appData.members);
           if (appData.patientInfo && appData.patientInfo.name) setPatientInfo(appData.patientInfo);
-          if (appData.contacts && appData.contacts.length > 0) setContacts(appData.contacts);
-          if (appData.reminders) setReminders(appData.reminders);
+          if (Array.isArray(appData.contacts)) setContacts(appData.contacts);
+          if (Array.isArray(appData.reminders)) setReminders(appData.reminders);
           if (appData.settings) setSettings(appData.settings);
 
           if (forceRefresh) {

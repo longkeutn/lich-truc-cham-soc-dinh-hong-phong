@@ -164,6 +164,11 @@ function doPost(e) {
 // TỰ ĐỘNG THIẾT LẬP 5 BẢNG TÍNH & DỮ LIỆU GỐC
 // ==========================================
 function ensureSheetsSetup(ss) {
+  // Nhanh: Nếu các bảng chính đã tồn tại thì không quét lại toàn bộ để tiết kiệm thời gian
+  if (ss.getSheetByName('Shifts') && ss.getSheetByName('Members') && ss.getSheetByName('Settings')) {
+    return;
+  }
+
   // Sheet 1: Shifts (Ca trực)
   let sheetShifts = ss.getSheetByName('Shifts');
   if (!sheetShifts) {
@@ -276,6 +281,24 @@ function ensureSheetsSetup(ss) {
 // ==========================================
 // CÁC HÀM ĐỌC DỮ LIỆU
 // ==========================================
+function formatRowDate(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone() || 'GMT+7', 'yyyy-MM-dd');
+  }
+  const str = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    return str.substring(0, 10);
+  }
+  try {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) {
+      return Utilities.formatDate(d, Session.getScriptTimeZone() || 'GMT+7', 'yyyy-MM-dd');
+    }
+  } catch (e) {}
+  return str.substring(0, 10);
+}
+
 function readShifts(ss, startDate, endDate, phase) {
   const sheet = ss.getSheetByName('Shifts');
   if (!sheet) return [];
@@ -283,28 +306,39 @@ function readShifts(ss, startDate, endDate, phase) {
   const shifts = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    const shiftId = String(row[0] || '');
-    const rowDate = String(row[1] || '').substring(0, 10);
-    const rowPhase = String(row[2] || '');
+    const shiftId = String(row[0] || '').trim();
+    const rowDate = formatRowDate(row[1]);
+    const rowPhase = String(row[2] || '').trim();
 
     if (shiftId && (!phase || rowPhase === phase)) {
       if ((!startDate || rowDate >= startDate) && (!endDate || rowDate <= endDate)) {
         const reqPax = parseInt(row[6] || '1', 10);
+        const a1 = row[7] ? String(row[7]).trim() : null;
+        const a2 = row[8] ? String(row[8]).trim() : null;
+        const assignees = reqPax === 2 ? [a1, a2] : [a1];
+        const assignedCount = assignees.filter(Boolean).length;
+        const isUnderstaffed = assignedCount < reqPax;
+
         shifts.push({
           id: shiftId,
           date: rowDate,
           phase: rowPhase,
-          type: row[3],
-          name: row[4],
-          timeRange: row[5],
+          type: String(row[3] || ''),
+          name: String(row[4] || ''),
+          timeRange: String(row[5] || ''),
           requiredPax: reqPax,
-          assignees: reqPax === 2 ? [row[7] || null, row[8] || null] : [row[7] || null],
-          isUnderstaffed: String(row[9]).toUpperCase() === 'TRUE',
+          assignees: assignees,
+          isUnderstaffed: isUnderstaffed,
           handover: {
-            note: row[10] || '',
-            author: row[11] || '',
-            updatedAt: row[12] || '',
-            vitals: { bp: row[13] || '', spo2: row[14] || '', pulse: row[15] || '', temp: row[16] || '' }
+            note: String(row[10] || ''),
+            author: String(row[11] || ''),
+            updatedAt: String(row[12] || ''),
+            vitals: {
+              bp: String(row[13] || ''),
+              spo2: String(row[14] || ''),
+              pulse: String(row[15] || ''),
+              temp: String(row[16] || '')
+            }
           },
           checklist: {
             feeding: String(row[17]).toUpperCase() === 'TRUE',
@@ -312,7 +346,7 @@ function readShifts(ss, startDate, endDate, phase) {
             hygiene: String(row[19]).toUpperCase() === 'TRUE',
             turning: String(row[20]).toUpperCase() === 'TRUE'
           },
-          updatedAt: row[21] || ''
+          updatedAt: String(row[21] || '')
         });
       }
     }
@@ -432,12 +466,19 @@ function readReminders(ss) {
 // ==========================================
 function saveShift(ss, shift) {
   const sheet = ss.getSheetByName('Shifts');
+  if (!sheet) return;
   const data = sheet.getDataRange().getValues();
+  const dateStr = String(shift.date || '').substring(0, 10);
   const rowValues = [
-    shift.id, shift.date, shift.phase, shift.type, shift.name, shift.timeRange,
-    shift.requiredPax,
-    (shift.assignees && shift.assignees[0]) || '',
-    (shift.assignees && shift.assignees[1]) || '',
+    String(shift.id || '').trim(),
+    dateStr,
+    String(shift.phase || '').trim(),
+    String(shift.type || ''),
+    String(shift.name || ''),
+    String(shift.timeRange || ''),
+    parseInt(shift.requiredPax || 1, 10),
+    (shift.assignees && shift.assignees[0]) ? String(shift.assignees[0]).trim() : '',
+    (shift.assignees && shift.assignees[1]) ? String(shift.assignees[1]).trim() : '',
     shift.isUnderstaffed ? 'TRUE' : 'FALSE',
     (shift.handover && shift.handover.note) || '',
     (shift.handover && shift.handover.author) || '',
@@ -453,8 +494,9 @@ function saveShift(ss, shift) {
     new Date().toISOString()
   ];
 
+  const targetId = String(shift.id || '').trim();
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === shift.id) {
+    if (String(data[i][0] || '').trim() === targetId) {
       sheet.getRange(i + 1, 1, 1, rowValues.length).setValues([rowValues]);
       return;
     }

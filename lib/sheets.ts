@@ -78,8 +78,8 @@ class MemoryShiftStore {
   private shifts: Map<string, ShiftRecord> = new Map();
   private members: FamilyMember[] = [...FAMILY_MEMBERS];
   private patientInfo: PatientInfo = { ...PATIENT_INFO };
-  private contacts: EmergencyContact[] = [...DEFAULT_EMERGENCY_CONTACTS];
-  private reminders: PatientDailyReminder[] = [...DEFAULT_PATIENT_REMINDERS];
+  private contacts: EmergencyContact[] = [];
+  private reminders: PatientDailyReminder[] = [];
   private systemSettings: SystemSettings = {
     currentPhase: 'phase1',
     patientName: PATIENT_INFO.name,
@@ -93,161 +93,14 @@ class MemoryShiftStore {
   private adminPin: string = '1234';
 
   constructor() {
-    this.seedInitialData();
-  }
-
-  private seedInitialData() {
-    const today = new Date();
-    const dateList: string[] = [];
-    for (let i = -3; i <= 10; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      dateList.push(`${yyyy}-${mm}-${dd}`);
-    }
-
-    dateList.forEach((dateStr, idx) => {
-      const morning = buildDefaultShiftRecord(dateStr, PHASE_CONFIGS.phase1.shifts[0], 'phase1');
-      const afternoon = buildDefaultShiftRecord(dateStr, PHASE_CONFIGS.phase1.shifts[1], 'phase1');
-      const night = buildDefaultShiftRecord(dateStr, PHASE_CONFIGS.phase1.shifts[2], 'phase1');
-
-      if (idx === 0) {
-        morning.assignees = ['Bác Thành'];
-        morning.isUnderstaffed = false;
-        morning.handover = {
-          note: 'Bác đáp ứng tốt, cử động nhẹ ngón tay. Đã bơm súp xay 250ml.',
-          author: 'Bác Thành',
-          updatedAt: '10:00',
-          vitals: { bp: '138/88', spo2: '95%', pulse: '82', temp: '37.2' },
-        };
-        afternoon.assignees = ['Cô Lan'];
-        afternoon.isUnderstaffed = false;
-        afternoon.handover = {
-          note: 'Huyết áp hơi cao nhẹ lúc đầu giờ chiều, bác sĩ cho ngậm 1/2 viên hạ áp.',
-          author: 'Cô Lan',
-          updatedAt: '16:30',
-          vitals: { bp: '142/90', spo2: '96%', pulse: '84', temp: '37.0' },
-        };
-        night.assignees = ['Anh Dũng'];
-        night.isUnderstaffed = false;
-        night.handover = {
-          note: 'Bác ngủ êm, thở đều qua canun mũi 2L/phút, không sốt.',
-          author: 'Anh Dũng',
-          updatedAt: '23:15',
-          vitals: { bp: '130/82', spo2: '97%', pulse: '74', temp: '36.8' },
-        };
-      } else if (idx === 1) {
-        morning.assignees = ['Chị Mai'];
-        morning.isUnderstaffed = false;
-        morning.handover = {
-          note: 'Bác mở mắt theo tiếng gọi của con cháu. Vệ sinh răng miệng sạch sẽ.',
-          author: 'Chị Mai',
-          updatedAt: '09:00',
-          vitals: { bp: '132/84', spo2: '96%', pulse: '78', temp: '36.7' },
-        };
-        afternoon.assignees = ['Anh Hùng'];
-        afternoon.isUnderstaffed = false;
-        afternoon.handover = {
-          note: 'Bác tỉnh táo hơn, vỗ rung đờm ra ít đờm trắng loãng.',
-          author: 'Anh Hùng',
-          updatedAt: '15:45',
-          vitals: { bp: '128/80', spo2: '98%', pulse: '76', temp: '36.6' },
-        };
-        night.assignees = ['Chị Trang'];
-        night.isUnderstaffed = false;
-        night.handover = {
-          note: 'Đêm yên, lật trở tư thế nghiêng trái lúc 01h và nghiêng phải lúc 04h.',
-          author: 'Chị Trang',
-          updatedAt: '05:30',
-          vitals: { bp: '126/80', spo2: '97%', pulse: '72', temp: '36.7' },
-        };
-      } else if (idx === 2) {
-        morning.assignees = ['Cháu Quân'];
-        morning.isUnderstaffed = false;
-        morning.handover = {
-          note: 'Bác sĩ kiểm tra phản xạ gân xương có tiến triển. Bơm sữa Peptamen 250ml.',
-          author: 'Cháu Quân',
-          updatedAt: '09:30',
-          vitals: { bp: '125/78', spo2: '98%', pulse: '75', temp: '36.8' },
-        };
-        afternoon.assignees = ['Bác Thành'];
-        afternoon.isUnderstaffed = false;
-        afternoon.handover = {
-          note: 'Tập vật lý trị liệu thụ động tại giường 30 phút. Bác hơi mệt nhưng sinh hiệu ổn định.',
-          author: 'Bác Thành',
-          updatedAt: '16:00',
-          vitals: { bp: '130/82', spo2: '97%', pulse: '80', temp: '36.9' },
-        };
-        night.assignees = ['Anh Dũng'];
-        night.isUnderstaffed = false;
-        night.handover = {
-          note: 'Thấm hút đờm họng định kỳ. Bỉm khô ráo, không đỏ da vùng cùng cụt.',
-          author: 'Anh Dũng',
-          updatedAt: '22:45',
-          vitals: { bp: '128/82', spo2: '98%', pulse: '73', temp: '36.6' },
-        };
-      } else if (idx === 3) {
-        morning.assignees = ['Bác Thành'];
-        morning.isUnderstaffed = false;
-        morning.checklist.feeding = true;
-        morning.checklist.meds = true;
-        morning.checklist.turning = true;
-        morning.checklist.hygiene = false;
-        morning.handover = {
-          note: 'Bác tỉnh táo nhẹ, gọi có chớp mắt. Đã bơm 250ml sữa Ensure lúc 08h30. Bác sĩ vừa đi buồng dặn theo dõi nước tiểu.',
-          author: 'Bác Thành',
-          updatedAt: '09:15',
-          vitals: { bp: '130/85', spo2: '97%', pulse: '76', temp: '36.8' },
-        };
-
-        afternoon.assignees = ['Cô Lan'];
-        afternoon.isUnderstaffed = false;
-        afternoon.checklist.feeding = false;
-        afternoon.handover = {
-          note: 'Uống thuốc lúc 14h. Huyết áp ổn định 124/80. Bác ngủ trưa sâu.',
-          author: 'Cô Lan',
-          updatedAt: '15:30',
-          vitals: { bp: '124/80', spo2: '99%', pulse: '72', temp: '36.7' },
-        };
-
-        night.assignees = [null];
-        night.isUnderstaffed = true;
-      } else if (idx === 4) {
-        morning.assignees = ['Anh Hùng'];
-        morning.isUnderstaffed = false;
-        afternoon.assignees = [null];
-        afternoon.isUnderstaffed = true;
-        night.assignees = ['Anh Dũng'];
-        night.isUnderstaffed = false;
-      } else if (idx === 5) {
-        morning.assignees = ['Chị Mai'];
-        morning.isUnderstaffed = false;
-        afternoon.assignees = ['Chị Trang'];
-        afternoon.isUnderstaffed = false;
-        night.assignees = [null];
-        night.isUnderstaffed = true;
-      }
-
-      this.shifts.set(morning.id, morning);
-      this.shifts.set(afternoon.id, afternoon);
-      this.shifts.set(night.id, night);
-
-      const day12 = buildDefaultShiftRecord(dateStr, PHASE_CONFIGS.phase2.shifts[0], 'phase2');
-      const night12 = buildDefaultShiftRecord(dateStr, PHASE_CONFIGS.phase2.shifts[1], 'phase2');
-      if (idx === 3) {
-        day12.assignees = ['Bác Thành', 'Chị Mai'];
-        day12.isUnderstaffed = false;
-        night12.assignees = ['Anh Dũng', null];
-        night12.isUnderstaffed = true;
-      }
-      this.shifts.set(day12.id, day12);
-      this.shifts.set(night12.id, night12);
-    });
+    // Không nạp dữ liệu mẫu giả lập - mọi ca trực bắt đầu sạch sẽ 100%
   }
 
   // --- Shifts ---
+  public clearShifts(): void {
+    this.shifts.clear();
+  }
+
   public getShifts(startDate: string, endDate: string, phase: CarePhase): ShiftRecord[] {
     const results: ShiftRecord[] = [];
     const configs = PHASE_CONFIGS[phase].shifts;
@@ -262,12 +115,12 @@ class MemoryShiftStore {
 
       for (const cfg of configs) {
         const id = `${dateStr}_${cfg.type}_${phase}`;
-        let record = this.shifts.get(id);
-        if (!record) {
-          record = buildDefaultShiftRecord(dateStr, cfg, phase);
-          this.shifts.set(id, record);
+        const record = this.shifts.get(id);
+        if (record) {
+          results.push(record);
+        } else {
+          results.push(buildDefaultShiftRecord(dateStr, cfg, phase));
         }
-        results.push(record);
       }
     }
     return results;
@@ -572,13 +425,15 @@ export async function fetchAppDataFromStorage(
           } else if (data.settings && data.settings.adminPin) {
             memoryStore.setAdminPin(data.settings.adminPin);
           }
-          if (Array.isArray(data.contacts) && data.contacts.length > 0) {
+          if (Array.isArray(data.contacts)) {
             memoryStore.setContacts(data.contacts);
           }
           if (Array.isArray(data.reminders)) {
             memoryStore.setReminders(data.reminders);
           }
-          if (Array.isArray(data.shifts) && data.shifts.length > 0) {
+          if (Array.isArray(data.shifts)) {
+            // Xóa sạch các ca cũ trong bộ nhớ để nạp đúng chính xác những gì trên Google Sheets
+            memoryStore.clearShifts();
             data.shifts.forEach((s: ShiftRecord) => memoryStore.saveShift(s));
           }
 
@@ -631,10 +486,11 @@ export async function saveShiftToStorage(shift: ShiftRecord): Promise<ShiftRecor
   // Vô hiệu hoá cache tức thì để lần đọc tiếp theo lấy dữ liệu mới
   serverCacheManager.invalidateAll();
 
-  // Đồng bộ ngầm với timeout 7s (không chặn luồng chính nếu Web App trễ)
-  sendToWebappWithTimeout({ action: 'saveShift', shift: updated }, 7000).catch((err) =>
-    console.warn('[saveShiftToStorage] Sync lỗi ngầm:', err)
-  );
+  // BẮT BUỘC AWAIT để Server Action không bị runtime tắt đột ngột trước khi Google Sheets ghi xong
+  const syncRes = await sendToWebappWithTimeout({ action: 'saveShift', shift: updated }, 10000);
+  if (!syncRes.success) {
+    console.warn('[saveShiftToStorage] Đồng bộ Google Sheets thất bại hoặc timeout:', syncRes);
+  }
 
   return updated;
 }
@@ -704,10 +560,10 @@ export function getSystemSettings(): SystemSettings {
   return memoryStore.getSettings();
 }
 
-export function setSystemPhase(phase: CarePhase): SystemSettings {
+export async function setSystemPhase(phase: CarePhase): Promise<SystemSettings> {
   const updated = memoryStore.setPhase(phase);
   serverCacheManager.invalidateAll();
-  sendToWebappWithTimeout({ action: 'saveSettings', currentPhase: phase }, 7000).catch(() => {});
+  await sendToWebappWithTimeout({ action: 'saveSettings', currentPhase: phase }, 10000);
   return updated;
 }
 

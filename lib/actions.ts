@@ -268,7 +268,7 @@ export async function getSettingsAction(): Promise<SystemSettings> {
 }
 
 export async function changePhaseAction(phase: CarePhase): Promise<SystemSettings> {
-  return setSystemPhase(phase);
+  return await setSystemPhase(phase);
 }
 
 // --- Admin PIN Actions ---
