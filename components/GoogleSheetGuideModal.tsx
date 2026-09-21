@@ -294,10 +294,10 @@ function formatRowDate(val) {
     return Utilities.formatDate(val, 'GMT+7', 'yyyy-MM-dd');
   }
   const str = String(val).trim();
-  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+  if (/^\\d{4}-\\d{2}-\\d{2}/.test(str)) {
     return str.substring(0, 10);
   }
-  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+  if (/^\\d{1,2}\\/\\d{1,2}\\/\\d{4}$/.test(str)) {
     const parts = str.split('/');
     const dd = parts[0].length === 1 ? '0' + parts[0] : parts[0];
     const mm = parts[1].length === 1 ? '0' + parts[1] : parts[1];
@@ -324,11 +324,11 @@ function readShifts(ss, startDate, endDate, phase) {
     if (!shiftId) continue;
 
     let rowDate = formatRowDate(row[1]);
-    if (!rowDate && /^\d{4}-\d{2}-\d{2}_/.test(shiftId)) {
+    if (!rowDate && /^\\d{4}-\\d{2}-\\d{2}_/.test(shiftId)) {
       rowDate = shiftId.substring(0, 10);
     }
 
-    let rowPhase = String(row[2] || '').toLowerCase().replace(/[\s_-]/g, '');
+    let rowPhase = String(row[2] || '').toLowerCase().replace(/[\\s_-]/g, '');
     if (rowPhase.includes('2')) rowPhase = 'phase2';
     else rowPhase = 'phase1';
 
@@ -510,13 +510,13 @@ function saveShift(ss, shift) {
 
   const data = sheet.getDataRange().getValues();
   let dateStr = String(shift.date || '').trim();
-  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+  if (/^\\d{1,2}\\/\\d{1,2}\\/\\d{4}$/.test(dateStr)) {
     const parts = dateStr.split('/');
     dateStr = parts[2] + '-' + (parts[1].length === 1 ? '0' + parts[1] : parts[1]) + '-' + (parts[0].length === 1 ? '0' + parts[0] : parts[0]);
-  } else if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+  } else if (/^\\d{4}-\\d{2}-\\d{2}/.test(dateStr)) {
     dateStr = dateStr.substring(0, 10);
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) && /^\d{4}-\d{2}-\d{2}_/.test(shift.id || '')) {
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(dateStr) && /^\\d{4}-\\d{2}-\\d{2}_/.test(shift.id || '')) {
     dateStr = String(shift.id).substring(0, 10);
   }
 
