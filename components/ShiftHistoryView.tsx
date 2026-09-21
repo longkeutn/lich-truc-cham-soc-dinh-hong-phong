@@ -3,18 +3,15 @@
 import React, { useState, useMemo } from 'react';
 import { ShiftRecord, FamilyMember } from '@/lib/types';
 import {
-  Calendar,
   Clock,
   Heart,
   Activity,
   Wind,
   Thermometer,
   Search,
-  Filter,
   CheckCircle2,
   Users,
   MessageSquare,
-  Sparkles,
   ClipboardList,
 } from 'lucide-react';
 
@@ -467,7 +464,7 @@ export default function ShiftHistoryView({ shifts, members }: ShiftHistoryViewPr
                         )}
                       </div>
                       <p className="text-xs sm:text-sm font-medium leading-relaxed italic">
-                        "{shift.handover.note}"
+                        &ldquo;{shift.handover.note}&rdquo;
                       </p>
                     </div>
                   </div>

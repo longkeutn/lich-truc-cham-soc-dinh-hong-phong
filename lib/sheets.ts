@@ -13,8 +13,6 @@ import {
   buildDefaultShiftRecord,
   FAMILY_MEMBERS,
   PATIENT_INFO,
-  DEFAULT_EMERGENCY_CONTACTS,
-  DEFAULT_PATIENT_REMINDERS,
 } from './config';
 
 // Tên các trang tính trong Google Sheet

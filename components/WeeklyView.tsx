@@ -8,7 +8,6 @@ import ShiftDetailModal from './ShiftDetailModal';
 import {
   ChevronLeft,
   ChevronRight,
-  Calendar,
   AlertTriangle,
   ShieldCheck,
   Share2,
@@ -241,7 +240,6 @@ export default function WeeklyView({
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
             {todaySchedule.shifts.map((shift) => {
               const reqPax = shift.requiredPax;
-              const assignedCount = shift.assignees.filter(Boolean).length;
               const isMissing = shift.isUnderstaffed;
 
               const renderIcon = () => {
