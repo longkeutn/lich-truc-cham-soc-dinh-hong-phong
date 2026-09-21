@@ -50,8 +50,23 @@ export const SHIFTS_SHEET_HEADERS = [
   'updated_at',           // Cột V: Cập nhật cuối
 ];
 
-function getWebappUrl(): string | undefined {
-  return process.env.GOOGLE_SHEETS_WEBAPP_URL || process.env.GOOGLE_SHEET_WEBAPP_URL;
+export function getWebappUrl(): string | undefined {
+  let url =
+    process.env.GOOGLE_SHEETS_WEBAPP_URL ||
+    process.env.NEXT_PUBLIC_GOOGLE_SHEETS_WEBAPP_URL ||
+    process.env.GOOGLE_SHEET_WEBAPP_URL ||
+    process.env.NEXT_PUBLIC_GOOGLE_SHEET_WEBAPP_URL ||
+    process.env.GOOGLE_WEBAPP_URL ||
+    process.env.NEXT_PUBLIC_GOOGLE_WEBAPP_URL ||
+    process.env.GOOGLE_SCRIPT_URL ||
+    process.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL;
+
+  if (!url) return undefined;
+  url = url.trim();
+  if ((url.startsWith('"') && url.endsWith('"')) || (url.startsWith("'") && url.endsWith("'"))) {
+    url = url.slice(1, -1).trim();
+  }
+  return url || undefined;
 }
 
 function getServiceAccountCreds() {
@@ -99,13 +114,21 @@ class MemoryShiftStore {
     this.shifts.clear();
   }
 
+  public getAllLoadedShifts(): ShiftRecord[] {
+    return Array.from(this.shifts.values());
+  }
+
   public getShifts(startDate: string, endDate: string, phase: CarePhase): ShiftRecord[] {
     const results: ShiftRecord[] = [];
     const configs = PHASE_CONFIGS[phase].shifts;
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + 1)) {
+    // Phân tích ngày an toàn tuyệt đối theo 12:00:00 trưa để chống lệch múi giờ và DST
+    const [sY, sM, sD] = startDate.split('-').map(Number);
+    const [eY, eM, eD] = endDate.split('-').map(Number);
+    const cur = new Date(sY, (sM || 1) - 1, sD || 1, 12, 0, 0);
+    const end = new Date(eY, (eM || 1) - 1, eD || 1, 12, 0, 0);
+
+    while (cur <= end) {
       const yyyy = cur.getFullYear();
       const mm = String(cur.getMonth() + 1).padStart(2, '0');
       const dd = String(cur.getDate()).padStart(2, '0');
@@ -120,11 +143,35 @@ class MemoryShiftStore {
           results.push(buildDefaultShiftRecord(dateStr, cfg, phase));
         }
       }
+      cur.setDate(cur.getDate() + 1);
     }
     return results;
   }
 
   public saveShift(shift: ShiftRecord): ShiftRecord {
+    // 1. Chuẩn hoá date thành YYYY-MM-DD
+    let normalizedDate = String(shift.date || '').trim();
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(normalizedDate)) {
+      const parts = normalizedDate.split('/');
+      normalizedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    } else if (/^\d{4}-\d{2}-\d{2}/.test(normalizedDate)) {
+      normalizedDate = normalizedDate.substring(0, 10);
+    }
+
+    // Nếu date vẫn chưa chuẩn YYYY-MM-DD nhưng shift.id có dạng YYYY-MM-DD_..., lấy từ id
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate) && /^\d{4}-\d{2}-\d{2}_/.test(shift.id || '')) {
+      normalizedDate = shift.id.substring(0, 10);
+    }
+
+    // 2. Chuẩn hoá phase
+    let normalizedPhase: CarePhase = shift.phase || 'phase1';
+    const phaseStr = String(normalizedPhase).toLowerCase().replace(/[\s_-]/g, '');
+    if (phaseStr.includes('2')) normalizedPhase = 'phase2';
+    else normalizedPhase = 'phase1';
+
+    // 3. Chuẩn hoá id
+    const normalizedId = `${normalizedDate}_${shift.type}_${normalizedPhase}`;
+
     const assignees = shift.assignees || [];
     const supporters = shift.supporters || [];
     const reqPax = shift.requiredPax && shift.requiredPax > 0 ? shift.requiredPax : 1;
@@ -132,11 +179,14 @@ class MemoryShiftStore {
 
     const normalizedShift: ShiftRecord = {
       ...shift,
+      id: normalizedId,
+      date: normalizedDate,
+      phase: normalizedPhase,
       requiredPax: reqPax,
       assignees,
       supporters,
       isUnderstaffed: filledCount < reqPax,
-      updatedAt: new Date().toISOString(),
+      updatedAt: shift.updatedAt || new Date().toISOString(),
     };
 
     this.shifts.set(normalizedShift.id, normalizedShift);
@@ -297,10 +347,10 @@ interface CacheEntry {
   timestamp: number;
 }
 
-// Bộ quản lý Cache In-Memory trên máy chủ (TTL = 30 giây)
+// Bộ quản lý Cache In-Memory trên máy chủ (TTL = 10 giây)
 class ServerCacheManager {
   private cache: Map<string, CacheEntry> = new Map();
-  private readonly TTL_MS = 30 * 1000; // 30s TTL
+  private readonly TTL_MS = 10 * 1000; // 10s TTL
 
   private getCacheKey(startDate: string, endDate: string, phase: CarePhase): string {
     return `${startDate}_${endDate}_${phase}`;
@@ -345,13 +395,13 @@ interface WebappResponse {
   [key: string]: unknown;
 }
 
-// Hàm gửi POST đồng bộ tới Google Apps Script với Timeout an toàn (chống treo request)
+// Hàm gửi POST đồng bộ tới Google Apps Script với Timeout 15s an toàn
 async function sendToWebappWithTimeout(
   payload: Record<string, unknown>,
-  timeoutMs: number = 7000
-): Promise<{ success: boolean; data?: WebappResponse }> {
+  timeoutMs: number = 15000
+): Promise<{ success: boolean; data?: WebappResponse; error?: string }> {
   const webappUrl = getWebappUrl();
-  if (!webappUrl) return { success: false };
+  if (!webappUrl) return { success: false, error: 'Chưa cấu hình GOOGLE_SHEETS_WEBAPP_URL' };
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -362,24 +412,36 @@ async function sendToWebappWithTimeout(
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload),
       cache: 'no-store',
+      redirect: 'follow',
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
 
-    if (res.ok) {
-      const json = (await res.json()) as WebappResponse;
-      return { success: json.success ?? true, data: json };
+    const text = await res.text();
+
+    if (text.includes('accounts.google.com') || text.includes('Sign in - Google Accounts')) {
+      const msg = 'Google Apps Script yêu cầu đăng nhập: Vui lòng kiểm tra quyền truy cập Web App là "Anyone" (Bất kỳ ai)';
+      console.warn('[Sync WebApp]', msg);
+      return { success: false, error: msg };
     }
-    return { success: false };
+
+    try {
+      const json = JSON.parse(text) as WebappResponse;
+      return { success: json.success ?? true, data: json };
+    } catch {
+      console.warn('[Sync WebApp] Phản hồi không phải JSON:', text.substring(0, 150));
+      return { success: false, error: 'Phản hồi không phải JSON hợp lệ' };
+    }
   } catch (err: unknown) {
     clearTimeout(timeoutId);
     const error = err instanceof Error ? err : new Error(String(err));
     if (error.name === 'AbortError') {
       console.warn(`[Sync WebApp] Timeout sau ${timeoutMs}ms (${String(payload.action)})`);
+      return { success: false, error: `Hết thời gian chờ (${timeoutMs}ms)` };
     } else {
       console.warn('[Sync WebApp] Lỗi kết nối:', error.message);
+      return { success: false, error: error.message };
     }
-    return { success: false };
   }
 }
 
@@ -402,48 +464,61 @@ export async function fetchAppDataFromStorage(
 
   const webappUrl = getWebappUrl();
 
-  // 2. Nếu có Google Apps Script Web App, truy vấn dữ liệu với Timeout 8.5s
+  // 2. Nếu có Google Apps Script Web App, truy vấn dữ liệu với Timeout 15s
   if (webappUrl) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8500);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
       const url = new URL(webappUrl);
       url.searchParams.set('action', 'getAllData');
-      url.searchParams.set('startDate', startDate);
-      url.searchParams.set('endDate', endDate);
-      url.searchParams.set('phase', phase);
+      // LƯU Ý: Không gửi startDate/endDate để Google Apps Script trả về toàn bộ ca thực tế đang có trên Sheet.
+      // Next.js sẽ nạp toàn bộ ca vào memoryStore và tự động điều phối đúng tuần/tháng theo múi giờ chuẩn,
+      // loại bỏ hoàn toàn các lỗi lọc ngày (DD/MM/YYYY vs YYYY-MM-DD) và lệch múi giờ trên Apps Script.
 
       const res = await fetch(url.toString(), {
         cache: 'no-store',
+        redirect: 'follow',
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
+      const text = await res.text();
+
+      if (text.includes('accounts.google.com') || text.includes('Sign in - Google Accounts')) {
+        console.warn('[Fetch App Data] Web App trả về trang đăng nhập Google! Cần kiểm tra quyền "Anyone" (Bất kỳ ai).');
+      } else {
+        let data: Record<string, unknown> | null = null;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          console.warn('[Fetch App Data] Phản hồi không phải JSON:', text.substring(0, 150));
+        }
+
+        if (data && data.success) {
           if (Array.isArray(data.members) && data.members.length > 0) {
-            memoryStore.setMembers(data.members);
+            memoryStore.setMembers(data.members as FamilyMember[]);
           }
-          if (data.patientInfo && data.patientInfo.name) {
-            memoryStore.setPatientInfo(data.patientInfo);
+          if (data.patientInfo && typeof data.patientInfo === 'object' && (data.patientInfo as PatientInfo).name) {
+            memoryStore.setPatientInfo(data.patientInfo as PatientInfo);
           }
           if (data.adminPin) {
-            memoryStore.setAdminPin(data.adminPin);
-          } else if (data.settings && data.settings.adminPin) {
-            memoryStore.setAdminPin(data.settings.adminPin);
+            memoryStore.setAdminPin(String(data.adminPin));
+          } else if (data.settings && typeof data.settings === 'object' && (data.settings as Record<string, unknown>).adminPin) {
+            memoryStore.setAdminPin(String((data.settings as Record<string, unknown>).adminPin));
           }
           if (Array.isArray(data.contacts)) {
-            memoryStore.setContacts(data.contacts);
+            memoryStore.setContacts(data.contacts as EmergencyContact[]);
           }
           if (Array.isArray(data.reminders)) {
-            memoryStore.setReminders(data.reminders);
+            memoryStore.setReminders(data.reminders as PatientDailyReminder[]);
           }
           if (Array.isArray(data.shifts)) {
-            // Xóa sạch các ca cũ trong bộ nhớ để nạp đúng chính xác những gì trên Google Sheets
-            memoryStore.clearShifts();
-            data.shifts.forEach((s: ShiftRecord) => memoryStore.saveShift(s));
+            if (data.shifts.length > 0) {
+              // Nạp chính xác những ca thực tế trên Google Sheets vào bộ nhớ
+              memoryStore.clearShifts();
+              (data.shifts as ShiftRecord[]).forEach((s: ShiftRecord) => memoryStore.saveShift(s));
+            }
           }
 
           const freshData: AllAppData = {
@@ -452,10 +527,13 @@ export async function fetchAppDataFromStorage(
             patientInfo: memoryStore.getPatientInfo(),
             contacts: memoryStore.getContacts(),
             reminders: memoryStore.getReminders(),
-            settings: memoryStore.getSettings(),
+            settings: {
+              ...memoryStore.getSettings(),
+              googleSheetsConnected: true,
+            },
           };
 
-          // Lưu vào Server Cache
+          // CHỈ lưu vào Server Cache khi đã kết nối và đọc thành công!
           serverCacheManager.set(startDate, endDate, phase, freshData);
           return freshData;
         }
@@ -464,16 +542,15 @@ export async function fetchAppDataFromStorage(
       clearTimeout(timeoutId);
       const error = err instanceof Error ? err : new Error(String(err));
       if (error.name === 'AbortError') {
-        console.warn('[Fetch App Data] Timeout Web App 8.5s, dùng bộ nhớ đệm');
+        console.warn('[Fetch App Data] Timeout Web App 15s, dùng bộ nhớ đệm');
       } else {
         console.warn('Lỗi kết nối Apps Script Web App getAllData:', error.message);
       }
     }
   }
 
-  // 3. Dự phòng: Memory Store
+  // 3. Dự phòng: Memory Store (KHÔNG cache dữ liệu thất bại để lần đọc kế tiếp thử kết nối lại ngay)
   const fallbackData = memoryStore.getAllData(startDate, endDate, phase);
-  serverCacheManager.set(startDate, endDate, phase, fallbackData);
   return fallbackData;
 }
 
@@ -496,9 +573,9 @@ export async function saveShiftToStorage(shift: ShiftRecord): Promise<ShiftRecor
   serverCacheManager.invalidateAll();
 
   // BẮT BUỘC AWAIT để Server Action không bị runtime tắt đột ngột trước khi Google Sheets ghi xong
-  const syncRes = await sendToWebappWithTimeout({ action: 'saveShift', shift: updated }, 10000);
+  const syncRes = await sendToWebappWithTimeout({ action: 'saveShift', shift: updated }, 15000);
   if (!syncRes.success) {
-    console.warn('[saveShiftToStorage] Đồng bộ Google Sheets thất bại hoặc timeout:', syncRes);
+    console.warn('[saveShiftToStorage] Đồng bộ Google Sheets thất bại hoặc timeout:', syncRes.error || syncRes);
   }
 
   return updated;
@@ -510,14 +587,14 @@ export async function saveShiftToStorage(shift: ShiftRecord): Promise<ShiftRecor
 export async function saveMemberToStorage(member: FamilyMember): Promise<FamilyMember[]> {
   const updatedList = memoryStore.saveMember(member);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'saveMember', member }, 7000);
+  await sendToWebappWithTimeout({ action: 'saveMember', member }, 15000);
   return updatedList;
 }
 
 export async function deleteMemberFromStorage(memberId: string): Promise<FamilyMember[]> {
   const updatedList = memoryStore.deleteMember(memberId);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'deleteMember', memberId }, 7000);
+  await sendToWebappWithTimeout({ action: 'deleteMember', memberId }, 15000);
   return updatedList;
 }
 
@@ -527,14 +604,14 @@ export async function deleteMemberFromStorage(memberId: string): Promise<FamilyM
 export async function saveContactToStorage(contact: EmergencyContact): Promise<EmergencyContact[]> {
   const updatedList = memoryStore.saveContact(contact);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'saveContact', contact }, 7000);
+  await sendToWebappWithTimeout({ action: 'saveContact', contact }, 15000);
   return updatedList;
 }
 
 export async function deleteContactFromStorage(contactId: string): Promise<EmergencyContact[]> {
   const updatedList = memoryStore.deleteContact(contactId);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'deleteContact', contactId }, 7000);
+  await sendToWebappWithTimeout({ action: 'deleteContact', contactId }, 15000);
   return updatedList;
 }
 
@@ -544,14 +621,14 @@ export async function deleteContactFromStorage(contactId: string): Promise<Emerg
 export async function saveReminderToStorage(reminder: PatientDailyReminder): Promise<PatientDailyReminder[]> {
   const updatedList = memoryStore.saveReminder(reminder);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'saveReminder', reminder }, 7000);
+  await sendToWebappWithTimeout({ action: 'saveReminder', reminder }, 15000);
   return updatedList;
 }
 
 export async function deleteReminderFromStorage(reminderId: string): Promise<PatientDailyReminder[]> {
   const updatedList = memoryStore.deleteReminder(reminderId);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'deleteReminder', reminderId }, 7000);
+  await sendToWebappWithTimeout({ action: 'deleteReminder', reminderId }, 15000);
   return updatedList;
 }
 
@@ -561,7 +638,7 @@ export async function deleteReminderFromStorage(reminderId: string): Promise<Pat
 export async function savePatientSettingsToStorage(info: PatientInfo): Promise<PatientInfo> {
   memoryStore.setPatientInfo(info);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'saveSettings', patientInfo: info }, 7000);
+  await sendToWebappWithTimeout({ action: 'saveSettings', patientInfo: info }, 15000);
   return memoryStore.getPatientInfo();
 }
 
@@ -572,7 +649,7 @@ export function getSystemSettings(): SystemSettings {
 export async function setSystemPhase(phase: CarePhase): Promise<SystemSettings> {
   const updated = memoryStore.setPhase(phase);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'saveSettings', currentPhase: phase }, 10000);
+  await sendToWebappWithTimeout({ action: 'saveSettings', currentPhase: phase }, 15000);
   return updated;
 }
 

@@ -197,6 +197,10 @@ export default function CareSchedulePage() {
           qEnd = `${qEndDate.getFullYear()}-${String(qEndDate.getMonth() + 1).padStart(2, '0')}-${String(qEndDate.getDate()).padStart(2, '0')}`;
         }
 
+        if (forceRefresh) {
+          recentLocalShiftUpdates.current.clear();
+        }
+
         const appData = await fetchAllAppDataAction(qStart, qEnd, activePhase, forceRefresh);
 
         if (appData) {
@@ -208,10 +212,12 @@ export default function CareSchedulePage() {
               prevShifts.forEach((s) => shiftMap.set(s.id, s));
 
               appData.shifts.forEach((serverShift) => {
-                const localTimestamp = recentLocalShiftUpdates.current.get(serverShift.id);
-                if (localTimestamp && now - localTimestamp < 8000) {
-                  // Giữ nguyên bản ghi optimistic UI gần nhất của client
-                  return;
+                if (!forceRefresh) {
+                  const localTimestamp = recentLocalShiftUpdates.current.get(serverShift.id);
+                  if (localTimestamp && now - localTimestamp < 8000) {
+                    // Giữ nguyên bản ghi optimistic UI gần nhất của client
+                    return;
+                  }
                 }
                 shiftMap.set(serverShift.id, serverShift);
               });

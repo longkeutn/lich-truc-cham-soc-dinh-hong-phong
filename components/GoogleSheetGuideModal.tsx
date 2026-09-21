@@ -164,46 +164,53 @@ function doPost(e) {
 // TỰ ĐỘNG THIẾT LẬP 5 BẢNG TÍNH & DỮ LIỆU GỐC
 // ==========================================
 function ensureSheetsSetup(ss) {
-  // Nhanh: Nếu các bảng chính đã tồn tại thì không quét lại toàn bộ để tiết kiệm thời gian
-  if (ss.getSheetByName('Shifts') && ss.getSheetByName('Members') && ss.getSheetByName('Settings')) {
-    return;
-  }
-
-  // Sheet 1: Shifts (Ca trực)
+  // Sheet 1: Shifts (Ca trực - 24 cột)
   let sheetShifts = ss.getSheetByName('Shifts');
+  const shiftHeaders = [
+    'shift_id', 'date', 'phase', 'shift_type', 'shift_name', 'time_range',
+    'required_pax', 'assignee_1', 'assignee_2', 'is_understaffed',
+    'handover_note', 'handover_by', 'handover_time',
+    'vitals_bp', 'vitals_spo2', 'vitals_pulse', 'vitals_temp',
+    'chk_feeding', 'chk_meds', 'chk_hygiene', 'chk_turning', 'updated_at',
+    'supporters', 'all_assignees'
+  ];
   if (!sheetShifts) {
     sheetShifts = ss.insertSheet('Shifts');
-    const headers = [
-      'shift_id', 'date', 'phase', 'shift_type', 'shift_name', 'time_range',
-      'required_pax', 'assignee_1', 'assignee_2', 'is_understaffed',
-      'handover_note', 'handover_by', 'handover_time',
-      'vitals_bp', 'vitals_spo2', 'vitals_pulse', 'vitals_temp',
-      'chk_feeding', 'chk_meds', 'chk_hygiene', 'chk_turning', 'updated_at'
-    ];
-    sheetShifts.appendRow(headers);
-    sheetShifts.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#E2E8F0');
+    sheetShifts.appendRow(shiftHeaders);
+    sheetShifts.getRange(1, 1, 1, shiftHeaders.length).setFontWeight('bold').setBackground('#E2E8F0');
     sheetShifts.setFrozenRows(1);
+  } else {
+    if (sheetShifts.getMaxColumns() < shiftHeaders.length) {
+      sheetShifts.insertColumnsAfter(sheetShifts.getMaxColumns(), shiftHeaders.length - sheetShifts.getMaxColumns());
+    }
+    if (!sheetShifts.getRange(1, 23).getValue()) sheetShifts.getRange(1, 23).setValue('supporters');
+    if (!sheetShifts.getRange(1, 24).getValue()) sheetShifts.getRange(1, 24).setValue('all_assignees');
   }
 
-  // Sheet 2: Members (Thành viên gia đình)
+  // Sheet 2: Members (Thành viên gia đình - 12 cột)
   let sheetMembers = ss.getSheetByName('Members');
+  const memberHeaders = ['member_id', 'name', 'relation', 'phone', 'badge_color', 'avatar_initials', 'bg_light', 'border_light', 'text_color', 'accent_color', 'pill_badge', 'is_supporter'];
   if (!sheetMembers) {
     sheetMembers = ss.insertSheet('Members');
-    const headers = ['member_id', 'name', 'relation', 'phone', 'badge_color', 'avatar_initials', 'bg_light', 'border_light', 'text_color', 'accent_color', 'pill_badge'];
-    sheetMembers.appendRow(headers);
-    sheetMembers.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#DBEAFE');
+    sheetMembers.appendRow(memberHeaders);
+    sheetMembers.getRange(1, 1, 1, memberHeaders.length).setFontWeight('bold').setBackground('#DBEAFE');
     sheetMembers.setFrozenRows(1);
 
     const defaultMembers = [
-      ['mem-1', 'Bác Thành', 'Bác cả (Trưởng ban điều phối)', '0912 345 678', 'bg-blue-600', 'BT', 'bg-blue-50/90', 'border-blue-300', 'text-blue-900', 'bg-blue-600 text-white', 'bg-blue-100 text-blue-800 border-blue-300 font-bold'],
-      ['mem-2', 'Cô Lan', 'Em gái bệnh nhân', '0983 222 111', 'bg-emerald-600', 'CL', 'bg-emerald-50/90', 'border-emerald-300', 'text-emerald-900', 'bg-emerald-600 text-white', 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold'],
-      ['mem-3', 'Anh Dũng', 'Con trai trưởng', '0977 888 999', 'bg-indigo-600', 'AD', 'bg-indigo-50/90', 'border-indigo-300', 'text-indigo-900', 'bg-indigo-600 text-white', 'bg-indigo-100 text-indigo-800 border-indigo-300 font-bold'],
-      ['mem-4', 'Chị Mai', 'Con dâu trưởng', '0904 555 444', 'bg-rose-600', 'CM', 'bg-rose-50/90', 'border-rose-300', 'text-rose-900', 'bg-rose-600 text-white', 'bg-rose-100 text-rose-800 border-rose-300 font-bold'],
-      ['mem-5', 'Anh Hùng', 'Con trai thứ', '0918 666 777', 'bg-amber-600', 'AH', 'bg-amber-50/90', 'border-amber-300', 'text-amber-950', 'bg-amber-600 text-white', 'bg-amber-100 text-amber-900 border-amber-300 font-bold'],
-      ['mem-6', 'Chị Trang', 'Con gái út', '0936 123 456', 'bg-purple-600', 'CT', 'bg-purple-50/90', 'border-purple-300', 'text-purple-900', 'bg-purple-600 text-white', 'bg-purple-100 text-purple-800 border-purple-300 font-bold'],
-      ['mem-7', 'Cháu Quân', 'Cháu đích tôn', '0988 999 112', 'bg-teal-600', 'CQ', 'bg-teal-50/90', 'border-teal-300', 'text-teal-900', 'bg-teal-600 text-white', 'bg-teal-100 text-teal-800 border-teal-300 font-bold']
+      ['mem-1', 'Bác Thành', 'Bác cả (Trưởng ban điều phối)', '0912 345 678', 'bg-blue-600', 'BT', 'bg-blue-50/90', 'border-blue-300', 'text-blue-900', 'bg-blue-600 text-white', 'bg-blue-100 text-blue-800 border-blue-300 font-bold', 'FALSE'],
+      ['mem-2', 'Cô Lan', 'Em gái bệnh nhân', '0983 222 111', 'bg-emerald-600', 'CL', 'bg-emerald-50/90', 'border-emerald-300', 'text-emerald-900', 'bg-emerald-600 text-white', 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold', 'FALSE'],
+      ['mem-3', 'Anh Dũng', 'Con trai trưởng', '0977 888 999', 'bg-indigo-600', 'AD', 'bg-indigo-50/90', 'border-indigo-300', 'text-indigo-900', 'bg-indigo-600 text-white', 'bg-indigo-100 text-indigo-800 border-indigo-300 font-bold', 'FALSE'],
+      ['mem-4', 'Chị Mai', 'Con dâu trưởng', '0904 555 444', 'bg-rose-600', 'CM', 'bg-rose-50/90', 'border-rose-300', 'text-rose-900', 'bg-rose-600 text-white', 'bg-rose-100 text-rose-800 border-rose-300 font-bold', 'FALSE'],
+      ['mem-5', 'Anh Hùng', 'Con trai thứ', '0918 666 777', 'bg-amber-600', 'AH', 'bg-amber-50/90', 'border-amber-300', 'text-amber-950', 'bg-amber-600 text-white', 'bg-amber-100 text-amber-900 border-amber-300 font-bold', 'FALSE'],
+      ['mem-6', 'Chị Trang', 'Con gái út', '0936 123 456', 'bg-purple-600', 'CT', 'bg-purple-50/90', 'border-purple-300', 'text-purple-900', 'bg-purple-600 text-white', 'bg-purple-100 text-purple-800 border-purple-300 font-bold', 'FALSE'],
+      ['mem-7', 'Cháu Quân', 'Cháu đích tôn', '0988 999 112', 'bg-teal-600', 'CQ', 'bg-teal-50/90', 'border-teal-300', 'text-teal-900', 'bg-teal-600 text-white', 'bg-teal-100 text-teal-800 border-teal-300 font-bold', 'FALSE']
     ];
     defaultMembers.forEach(m => sheetMembers.appendRow(m));
+  } else {
+    if (sheetMembers.getMaxColumns() < memberHeaders.length) {
+      sheetMembers.insertColumnsAfter(sheetMembers.getMaxColumns(), memberHeaders.length - sheetMembers.getMaxColumns());
+    }
+    if (!sheetMembers.getRange(1, 12).getValue()) sheetMembers.getRange(1, 12).setValue('is_supporter');
   }
 
   // Sheet 3: Settings (Thông tin bệnh nhân & cấu hình)
@@ -284,16 +291,23 @@ function ensureSheetsSetup(ss) {
 function formatRowDate(val) {
   if (!val) return '';
   if (val instanceof Date) {
-    return Utilities.formatDate(val, Session.getScriptTimeZone() || 'GMT+7', 'yyyy-MM-dd');
+    return Utilities.formatDate(val, 'GMT+7', 'yyyy-MM-dd');
   }
   const str = String(val).trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
     return str.substring(0, 10);
   }
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+    const parts = str.split('/');
+    const dd = parts[0].length === 1 ? '0' + parts[0] : parts[0];
+    const mm = parts[1].length === 1 ? '0' + parts[1] : parts[1];
+    const yyyy = parts[2];
+    return yyyy + '-' + mm + '-' + dd;
+  }
   try {
     const d = new Date(val);
     if (!isNaN(d.getTime())) {
-      return Utilities.formatDate(d, Session.getScriptTimeZone() || 'GMT+7', 'yyyy-MM-dd');
+      return Utilities.formatDate(d, 'GMT+7', 'yyyy-MM-dd');
     }
   } catch (e) {}
   return str.substring(0, 10);
@@ -307,57 +321,69 @@ function readShifts(ss, startDate, endDate, phase) {
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const shiftId = String(row[0] || '').trim();
-    const rowDate = formatRowDate(row[1]);
-    const rowPhase = String(row[2] || '').trim();
+    if (!shiftId) continue;
 
-    if (shiftId && (!phase || rowPhase === phase)) {
-      if ((!startDate || rowDate >= startDate) && (!endDate || rowDate <= endDate)) {
-        const reqPax = parseInt(row[6] || '1', 10);
-        let assignees = [];
-        if (row[23]) {
-          assignees = String(row[23]).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-        } else {
-          const a1 = row[7] ? String(row[7]).trim() : null;
-          const a2 = row[8] ? String(row[8]).trim() : null;
-          assignees = reqPax === 2 ? [a1, a2] : (a1 ? [a1] : []);
-        }
-        const rawSupporters = row[22] ? String(row[22]).trim() : '';
-        const supporters = rawSupporters ? rawSupporters.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
-        const assignedCount = assignees.filter(Boolean).length;
-        const isUnderstaffed = assignedCount < reqPax;
-
-        shifts.push({
-          id: shiftId,
-          date: rowDate,
-          phase: rowPhase,
-          type: String(row[3] || ''),
-          name: String(row[4] || ''),
-          timeRange: String(row[5] || ''),
-          requiredPax: reqPax,
-          assignees: assignees,
-          supporters: supporters,
-          isUnderstaffed: isUnderstaffed,
-          handover: {
-            note: String(row[10] || ''),
-            author: String(row[11] || ''),
-            updatedAt: String(row[12] || ''),
-            vitals: {
-              bp: String(row[13] || ''),
-              spo2: String(row[14] || ''),
-              pulse: String(row[15] || ''),
-              temp: String(row[16] || '')
-            }
-          },
-          checklist: {
-            feeding: String(row[17]).toUpperCase() === 'TRUE',
-            meds: String(row[18]).toUpperCase() === 'TRUE',
-            hygiene: String(row[19]).toUpperCase() === 'TRUE',
-            turning: String(row[20]).toUpperCase() === 'TRUE'
-          },
-          updatedAt: String(row[21] || '')
-        });
-      }
+    let rowDate = formatRowDate(row[1]);
+    if (!rowDate && /^\d{4}-\d{2}-\d{2}_/.test(shiftId)) {
+      rowDate = shiftId.substring(0, 10);
     }
+
+    let rowPhase = String(row[2] || '').toLowerCase().replace(/[\s_-]/g, '');
+    if (rowPhase.includes('2')) rowPhase = 'phase2';
+    else rowPhase = 'phase1';
+
+    // Chỉ lọc nếu có tham số startDate/endDate/phase truyền vào
+    if (phase && rowPhase !== phase) continue;
+    if (startDate && rowDate && rowDate < startDate) continue;
+    if (endDate && rowDate && rowDate > endDate) continue;
+
+    const reqPax = parseInt(row[6] || '1', 10);
+    let assignees = [];
+    if (row[23]) {
+      assignees = String(row[23]).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+    } else {
+      const a1 = row[7] ? String(row[7]).trim() : '';
+      const a2 = row[8] ? String(row[8]).trim() : '';
+      const list = [];
+      if (a1) list.push(a1);
+      if (a2) list.push(a2);
+      assignees = list;
+    }
+    const rawSupporters = row[22] ? String(row[22]).trim() : '';
+    const supporters = rawSupporters ? rawSupporters.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+    const assignedCount = assignees.filter(Boolean).length;
+    const isUnderstaffed = assignedCount < reqPax;
+
+    shifts.push({
+      id: shiftId,
+      date: rowDate,
+      phase: rowPhase,
+      type: String(row[3] || ''),
+      name: String(row[4] || ''),
+      timeRange: String(row[5] || ''),
+      requiredPax: reqPax,
+      assignees: assignees,
+      supporters: supporters,
+      isUnderstaffed: isUnderstaffed,
+      handover: {
+        note: String(row[10] || ''),
+        author: String(row[11] || ''),
+        updatedAt: String(row[12] || ''),
+        vitals: {
+          bp: String(row[13] || ''),
+          spo2: String(row[14] || ''),
+          pulse: String(row[15] || ''),
+          temp: String(row[16] || '')
+        }
+      },
+      checklist: {
+        feeding: String(row[17]).toUpperCase() === 'TRUE',
+        meds: String(row[18]).toUpperCase() === 'TRUE',
+        hygiene: String(row[19]).toUpperCase() === 'TRUE',
+        turning: String(row[20]).toUpperCase() === 'TRUE'
+      },
+      updatedAt: String(row[21] || '')
+    });
   }
   return shifts;
 }
@@ -476,8 +502,24 @@ function readReminders(ss) {
 function saveShift(ss, shift) {
   const sheet = ss.getSheetByName('Shifts');
   if (!sheet) return;
+
+  // Đảm bảo trang tính có tối thiểu 24 cột trước khi ghi dữ liệu
+  if (sheet.getMaxColumns() < 24) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), 24 - sheet.getMaxColumns());
+  }
+
   const data = sheet.getDataRange().getValues();
-  const dateStr = String(shift.date || '').substring(0, 10);
+  let dateStr = String(shift.date || '').trim();
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+    const parts = dateStr.split('/');
+    dateStr = parts[2] + '-' + (parts[1].length === 1 ? '0' + parts[1] : parts[1]) + '-' + (parts[0].length === 1 ? '0' + parts[0] : parts[0]);
+  } else if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+    dateStr = dateStr.substring(0, 10);
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) && /^\d{4}-\d{2}-\d{2}_/.test(shift.id || '')) {
+    dateStr = String(shift.id).substring(0, 10);
+  }
+
   const allAssignees = (shift.assignees || []).filter(Boolean).map(function(s) { return String(s).trim(); }).join(', ');
   const supporters = (shift.supporters || []).filter(Boolean).map(function(s) { return String(s).trim(); }).join(', ');
   const rowValues = [
