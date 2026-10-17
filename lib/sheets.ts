@@ -23,15 +23,19 @@ import {
   PATIENT_INFO,
   DEFAULT_BP_THRESHOLDS,
   DEFAULT_APPOINTMENT,
+  DEFAULT_CARE_ROUTINES,
 } from './config';
 
-// Tên các trang tính trong Google Sheet
+// Tên các trang tính trong Google Sheet (8 Sheets V2.0)
 export const SHEET_NAMES = {
   SHIFTS: 'Shifts',
   MEMBERS: 'Members',
   SETTINGS: 'Settings',
   CONTACTS: 'Contacts',
   REMINDERS: 'Reminders',
+  VITALS_LOG: 'VitalsLog',
+  CARE_ROUTINES: 'CareRoutines',
+  DAILY_LOGS: 'DailyLogs',
 };
 
 // Thứ tự các cột trong trang tính 'Shifts'
@@ -117,7 +121,7 @@ class MemoryShiftStore {
 
   // --- V2.0: Sổ Sức Khỏe Bố — Private fields ---
   private vitalsLog: VitalsLogEntry[] = [];
-  private careRoutines: CareRoutine[] = [];
+  private careRoutines: CareRoutine[] = [...DEFAULT_CARE_ROUTINES];
   private dailyLogs: DailyLog[] = [];
   private bpThresholds: BpThresholds = { ...DEFAULT_BP_THRESHOLDS };
   private appointment: AppointmentInfo = { ...DEFAULT_APPOINTMENT };
@@ -415,7 +419,7 @@ class MemoryShiftStore {
   }
 
   public setCareRoutines(list: CareRoutine[]): void {
-    if (list && Array.isArray(list)) {
+    if (list && Array.isArray(list) && list.length > 0) {
       this.careRoutines = list;
     }
   }
