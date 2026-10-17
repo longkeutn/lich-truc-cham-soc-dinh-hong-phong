@@ -124,7 +124,7 @@ export function MembersManagementModal({
   const [selectedThemeIndex, setSelectedThemeIndex] = useState(0);
   const [isSupporter, setIsSupporter] = useState(false);
 
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -186,47 +186,33 @@ export function MembersManagementModal({
       isSupporter: isSupporter,
     };
 
-    setIsSaving(true);
-    setErrorMsg('');
-    try {
-      const res = await saveMemberAction(memberToSave);
-      if (res.success) {
-        const exists = members.some((m) => m.id === memberToSave.id);
-        const updatedList = exists
-          ? members.map((m) => (m.id === memberToSave.id ? memberToSave : m))
-          : [...members, memberToSave];
-        onMembersUpdated(updatedList);
-        cancelForm();
-      } else {
-        setErrorMsg('Không thể lưu thành viên. Vui lòng thử lại.');
-      }
-    } catch {
-      setErrorMsg('Lỗi kết nối khi lưu thành viên.');
-    } finally {
-      setIsSaving(false);
-    }
+    const exists = members.some((m) => m.id === memberToSave.id);
+    const updatedList = exists
+      ? members.map((m) => (m.id === memberToSave.id ? memberToSave : m))
+      : [...members, memberToSave];
+
+    // Cập nhật giao diện và đóng form ngay lập tức (0ms)
+    onMembersUpdated(updatedList);
+    cancelForm();
+
+    // Đồng bộ ngầm lên Google Sheets
+    void saveMemberAction(memberToSave).catch((err) => {
+      console.error('Lỗi lưu thành viên lên Sheet:', err);
+    });
   };
 
   const handleDelete = async (memberId: string) => {
-    setIsSaving(true);
-    setErrorMsg('');
-    try {
-      const res = await deleteMemberAction(memberId);
-      if (res.success) {
-        const updatedList = members.filter((m) => m.id !== memberId);
-        onMembersUpdated(updatedList);
-        setConfirmDeleteId(null);
-        if (editingMember?.id === memberId) {
-          cancelForm();
-        }
-      } else {
-        setErrorMsg('Không thể xoá thành viên.');
-      }
-    } catch {
-      setErrorMsg('Lỗi kết nối khi xoá thành viên.');
-    } finally {
-      setIsSaving(false);
+    const updatedList = members.filter((m) => m.id !== memberId);
+    onMembersUpdated(updatedList);
+    setConfirmDeleteId(null);
+    if (editingMember?.id === memberId) {
+      cancelForm();
     }
+
+    // Đồng bộ xoá ngầm lên Google Sheets
+    void deleteMemberAction(memberId).catch((err) => {
+      console.error('Lỗi xoá thành viên trên Sheet:', err);
+    });
   };
 
   return (

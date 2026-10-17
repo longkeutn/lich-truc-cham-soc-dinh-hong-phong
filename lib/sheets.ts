@@ -572,10 +572,10 @@ interface CacheEntry {
   timestamp: number;
 }
 
-// Bộ quản lý Cache In-Memory trên máy chủ (TTL = 10 giây)
+// Bộ quản lý Cache In-Memory trên máy chủ (TTL = 45 giây, tự xoá tức thì khi có thao tác ghi)
 class ServerCacheManager {
   private cache: Map<string, CacheEntry> = new Map();
-  private readonly TTL_MS = 10 * 1000; // 10s TTL
+  private readonly TTL_MS = 45 * 1000; // 45s TTL
 
   private getCacheKey(startDate: string, endDate: string, phase: CarePhase): string {
     return `${startDate}_${endDate}_${phase}`;
@@ -608,6 +608,9 @@ globalThis.__memoryShiftStore = memoryStore;
 
 const serverCacheManager = globalThis.__serverCacheManager ?? new ServerCacheManager();
 globalThis.__serverCacheManager = serverCacheManager;
+
+// Chống gọi trùng lặp nhiều GET cùng lúc lên Google Apps Script (Request Deduplication)
+let inflightGetAllDataPromise: Promise<Record<string, unknown> | null> | null = null;
 
 interface WebappResponse {
   success?: boolean;
@@ -667,7 +670,7 @@ async function sendToWebappWithTimeout(
 }
 
 // Hàm hỗ trợ đọc JSON từ Google Apps Script GET với tự động thử lại 1 lần nếu timeout/mạng chập chờn
-async function fetchJsonFromWebappGet(urlStr: string, timeoutMs: number = 25000): Promise<Record<string, unknown> | null> {
+async function fetchJsonFromWebappGet(urlStr: string, timeoutMs: number = 20000): Promise<Record<string, unknown> | null> {
   for (let attempt = 1; attempt <= 2; attempt++) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -713,22 +716,18 @@ export async function fetchAppDataFromStorage(
 
   const webappUrl = getWebappUrl();
 
-  // 2. Truy vấn dữ liệu trực tiếp từ Google Apps Script Web App
+  // 2. Truy vấn dữ liệu trực tiếp từ Google Apps Script Web App (1 request duy nhất)
   if (webappUrl) {
     try {
-      const urlPhase2 = new URL(webappUrl);
-      urlPhase2.searchParams.set('action', 'getAllData');
-      // Truyền phase=phase2 để ngay cả khi Code.gs cũ mặc định lọc phase1 thì vẫn lấy được ca chăm sóc tại nhà (phase2)
-      urlPhase2.searchParams.set('phase', 'phase2');
+      if (!inflightGetAllDataPromise) {
+        const url = new URL(webappUrl);
+        url.searchParams.set('action', 'getAllData');
+        inflightGetAllDataPromise = fetchJsonFromWebappGet(url.toString(), 20000).finally(() => {
+          inflightGetAllDataPromise = null;
+        });
+      }
 
-      const urlPhase1Shifts = new URL(webappUrl);
-      urlPhase1Shifts.searchParams.set('action', 'getShifts');
-      urlPhase1Shifts.searchParams.set('phase', 'phase1');
-
-      const [data, phase1Data] = await Promise.all([
-        fetchJsonFromWebappGet(urlPhase2.toString(), 25000),
-        fetchJsonFromWebappGet(urlPhase1Shifts.toString(), 15000).catch(() => null),
-      ]);
+      const data = await inflightGetAllDataPromise;
 
       if (data && data.success) {
         if (Array.isArray(data.members)) {
@@ -749,11 +748,8 @@ export async function fetchAppDataFromStorage(
           memoryStore.setReminders(data.reminders as PatientDailyReminder[]);
         }
 
-        // Nạp toàn bộ ca trực thực tế từ cả phase1 (nằm viện ICU) và phase2 (chăm sóc tại nhà)
+        // Nạp toàn bộ ca trực thực tế từ Google Sheets (cả phase1 và phase2 trong 1 lần đọc)
         memoryStore.clearShifts();
-        if (phase1Data && Array.isArray(phase1Data.shifts)) {
-          (phase1Data.shifts as ShiftRecord[]).forEach((s: ShiftRecord) => memoryStore.saveShift(s));
-        }
         if (Array.isArray(data.shifts)) {
           (data.shifts as ShiftRecord[]).forEach((s: ShiftRecord) => memoryStore.saveShift(s));
         }
@@ -803,13 +799,6 @@ export async function fetchAppDataFromStorage(
   return memoryStore.getAllData(startDate, endDate, phase);
 }
 
-// Đảm bảo instance Serverless đã nạp dữ liệu từ Google Sheets trước khi thực hiện thao tác thay đổi danh sách
-async function ensureMemoryStoreSynced(): Promise<void> {
-  if (!memoryStore.isSynced() && getWebappUrl()) {
-    await fetchAppDataFromStorage('2026-01-01', '2026-12-31', 'phase2', true);
-  }
-}
-
 // ==========================================
 // CRUD SHIFTS (CA TRỰC)
 // ==========================================
@@ -841,7 +830,6 @@ export async function saveShiftToStorage(shift: ShiftRecord): Promise<ShiftRecor
 // CRUD MEMBERS (THÀNH VIÊN)
 // ==========================================
 export async function saveMemberToStorage(member: FamilyMember): Promise<FamilyMember[]> {
-  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.saveMember(member);
   serverCacheManager.invalidateAll();
   await sendToWebappWithTimeout({ action: 'saveMember', member }, 20000);
@@ -849,7 +837,6 @@ export async function saveMemberToStorage(member: FamilyMember): Promise<FamilyM
 }
 
 export async function deleteMemberFromStorage(memberId: string): Promise<FamilyMember[]> {
-  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.deleteMember(memberId);
   serverCacheManager.invalidateAll();
   await sendToWebappWithTimeout({ action: 'deleteMember', memberId }, 20000);
@@ -860,7 +847,6 @@ export async function deleteMemberFromStorage(memberId: string): Promise<FamilyM
 // CRUD CONTACTS (DANH BẠ SOS KHẨN CẤP)
 // ==========================================
 export async function saveContactToStorage(contact: EmergencyContact): Promise<EmergencyContact[]> {
-  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.saveContact(contact);
   serverCacheManager.invalidateAll();
   await sendToWebappWithTimeout({ action: 'saveContact', contact }, 20000);
@@ -868,7 +854,6 @@ export async function saveContactToStorage(contact: EmergencyContact): Promise<E
 }
 
 export async function deleteContactFromStorage(contactId: string): Promise<EmergencyContact[]> {
-  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.deleteContact(contactId);
   serverCacheManager.invalidateAll();
   await sendToWebappWithTimeout({ action: 'deleteContact', contactId }, 20000);
@@ -879,7 +864,6 @@ export async function deleteContactFromStorage(contactId: string): Promise<Emerg
 // CRUD REMINDERS (NHẮC NHỞ Y TẾ TRONG NGÀY)
 // ==========================================
 export async function saveReminderToStorage(reminder: PatientDailyReminder): Promise<PatientDailyReminder[]> {
-  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.saveReminder(reminder);
   serverCacheManager.invalidateAll();
   await sendToWebappWithTimeout({ action: 'saveReminder', reminder }, 20000);
@@ -887,7 +871,6 @@ export async function saveReminderToStorage(reminder: PatientDailyReminder): Pro
 }
 
 export async function deleteReminderFromStorage(reminderId: string): Promise<PatientDailyReminder[]> {
-  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.deleteReminder(reminderId);
   serverCacheManager.invalidateAll();
   await sendToWebappWithTimeout({ action: 'deleteReminder', reminderId }, 20000);
@@ -919,11 +902,18 @@ export async function setSystemPhase(phase: CarePhase): Promise<SystemSettings> 
 // ADMIN PIN MANAGEMENT
 // ==========================================
 export async function verifyAdminPinStorage(pin: string): Promise<boolean> {
+  // Nếu máy chủ đã đồng bộ mã PIN từ Google Sheets, kiểm tra tức thì (0ms) không cần đợi POST round-trip
+  if (memoryStore.isSynced()) {
+    return memoryStore.verifyAdminPin(pin);
+  }
   const syncRes = await sendToWebappWithTimeout(
     { action: 'verifyAdminPin', pin: pin.trim() },
     8000
   );
   if (syncRes.success && typeof syncRes.data?.valid === 'boolean') {
+    if (syncRes.data.valid) {
+      memoryStore.setAdminPin(pin.trim());
+    }
     return syncRes.data.valid;
   }
   return memoryStore.verifyAdminPin(pin);
@@ -998,7 +988,6 @@ export async function fetchVitalsLogFromStorage(): Promise<VitalsLogEntry[]> {
 // --- CareRoutines (Đơn thuốc & Bài tập phục hồi) ---
 
 export async function saveRoutineToStorage(routine: CareRoutine): Promise<CareRoutine[]> {
-  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.saveRoutine(routine);
   serverCacheManager.invalidateAll();
 
@@ -1011,7 +1000,6 @@ export async function saveRoutineToStorage(routine: CareRoutine): Promise<CareRo
 }
 
 export async function deleteRoutineFromStorage(id: string): Promise<CareRoutine[]> {
-  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.deleteRoutine(id);
   serverCacheManager.invalidateAll();
 

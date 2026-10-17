@@ -18,7 +18,7 @@ export function EditPatientModal({
   onUpdated,
 }: EditPatientModalProps) {
   const [formData, setFormData] = useState<PatientInfo>(patient);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -39,24 +39,14 @@ export function EditPatientModal({
       return;
     }
 
-    setIsSaving(true);
-    setErrorMsg('');
-    try {
-      const res = await savePatientInfoAction(formData);
-      if (res.success) {
-        setSuccessMsg('Đã cập nhật thông tin bệnh nhân thành công!');
-        onUpdated(res.patientInfo);
-        setTimeout(() => {
-          onClose();
-        }, 600);
-      } else {
-        setErrorMsg('Không thể lưu thông tin. Vui lòng thử lại.');
-      }
-    } catch {
-      setErrorMsg('Lỗi kết nối khi lưu thông tin.');
-    } finally {
-      setIsSaving(false);
-    }
+    // Cập nhật giao diện và đóng hộp thoại tức thì (0ms)
+    onUpdated(formData);
+    onClose();
+
+    // Đồng bộ ngầm vào Google Sheets
+    void savePatientInfoAction(formData).catch((err) => {
+      console.error('Lỗi đồng bộ hồ sơ bệnh nhân:', err);
+    });
   };
 
   return (

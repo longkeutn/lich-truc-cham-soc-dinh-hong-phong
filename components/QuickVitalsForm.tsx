@@ -194,16 +194,15 @@ export default function QuickVitalsForm({
         createdAt: now.toISOString(),
       };
 
-      await onSave(entry);
-
-      // Show success feedback
+      // Phản hồi tức thì và xóa ô nhập để sẵn sàng cho lần đo tiếp theo
       setShowSuccess(true);
+      resetForm();
+      void onSave(entry);
+
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
       successTimerRef.current = setTimeout(() => {
         setShowSuccess(false);
-        resetForm();
-      }, 2000);
-    } catch {
-      // Let parent handle error display
+      }, 1400);
     } finally {
       setIsSaving(false);
     }

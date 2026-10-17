@@ -10,7 +10,20 @@ function doGet(e) {
   try {
     const action = (e && e.parameter && e.parameter.action) || 'getAllData';
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    ensureSheetsSetup(ss);
+
+    // Chỉ chạy khởi tạo cấu trúc bảng nếu thiếu bất kỳ bảng nào (tiết kiệm 1-2 giây mỗi lần đọc dữ liệu)
+    if (
+      !ss.getSheetByName('DailyLogs') ||
+      !ss.getSheetByName('CareRoutines') ||
+      !ss.getSheetByName('VitalsLog') ||
+      !ss.getSheetByName('Shifts') ||
+      !ss.getSheetByName('Members') ||
+      !ss.getSheetByName('Settings') ||
+      !ss.getSheetByName('Contacts') ||
+      !ss.getSheetByName('Reminders')
+    ) {
+      ensureSheetsSetup(ss);
+    }
 
     if (action === 'getAllData') {
       const startDate = (e.parameter && e.parameter.startDate) || '';

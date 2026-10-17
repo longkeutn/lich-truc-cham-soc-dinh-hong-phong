@@ -1,20 +1,48 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import HeaderBar, { AppView } from '@/components/HeaderBar';
 import PatientBanner from '@/components/PatientBanner';
 import QuickVitalsForm from '@/components/QuickVitalsForm';
 import DailyRoutineView from '@/components/DailyRoutineView';
 import { AppointmentSection } from '@/components/AppointmentSection';
-import { RoutineManagerModal } from '@/components/RoutineManagerModal';
-import { VitalsChartView } from '@/components/VitalsChartView';
-import FamilySupportView from '@/components/FamilySupportView';
-import GoogleSheetGuideModal from '@/components/GoogleSheetGuideModal';
-import EmergencyContactsModal from '@/components/EmergencyContactsModal';
-import { AdminPinModal } from '@/components/AdminPinModal';
-import { EditPatientModal } from '@/components/EditPatientModal';
-import { MembersManagementModal } from '@/components/MembersManagementModal';
-import PwaInstallModal from '@/components/PwaInstallModal';
+
+// Lazy-load các Tab phụ & Modal nặng để trang chính tải tức thì trên điện thoại
+const VitalsChartView = dynamic(
+  () => import('@/components/VitalsChartView').then((m) => m.VitalsChartView),
+  {
+    loading: () => (
+      <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500 animate-pulse">
+        Đang mở biểu đồ huyết áp...
+      </div>
+    ),
+  }
+);
+
+const FamilySupportView = dynamic(() => import('@/components/FamilySupportView'), {
+  loading: () => (
+    <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500 animate-pulse">
+      Đang mở lịch gia đình đồng hành...
+    </div>
+  ),
+});
+
+const RoutineManagerModal = dynamic(() =>
+  import('@/components/RoutineManagerModal').then((m) => m.RoutineManagerModal)
+);
+const GoogleSheetGuideModal = dynamic(() => import('@/components/GoogleSheetGuideModal'));
+const EmergencyContactsModal = dynamic(() => import('@/components/EmergencyContactsModal'));
+const AdminPinModal = dynamic(() =>
+  import('@/components/AdminPinModal').then((m) => m.AdminPinModal)
+);
+const EditPatientModal = dynamic(() =>
+  import('@/components/EditPatientModal').then((m) => m.EditPatientModal)
+);
+const MembersManagementModal = dynamic(() =>
+  import('@/components/MembersManagementModal').then((m) => m.MembersManagementModal)
+);
+const PwaInstallModal = dynamic(() => import('@/components/PwaInstallModal'));
 
 import {
   CarePhase,
@@ -88,8 +116,18 @@ export default function CareSchedulePage() {
   // V2.0: Phase cố định là 'phase2' (tại nhà), không cho user chuyển nữa
   const activePhase: CarePhase = 'phase2';
 
-  // V2.0: 3 tab mới thay thế weekly/monthly/analytics
+  // V2.0: 3 tab mới + lưu các tab đã mở để chuyển qua lại tức thì (0ms) không phải render lại từ đầu
   const [activeView, setActiveView] = useState<AppView>('today');
+  const [visitedViews, setVisitedViews] = useState<Record<AppView, boolean>>({
+    today: true,
+    charts: false,
+    family: false,
+  });
+
+  const handleChangeView = useCallback((view: AppView) => {
+    setActiveView(view);
+    setVisitedViews((prev) => (prev[view] ? prev : { ...prev, [view]: true }));
+  }, []);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [hasInitialLoaded, setHasInitialLoaded] = useState<boolean>(false);
@@ -110,7 +148,7 @@ export default function CareSchedulePage() {
   const [routineManagerOpen, setRoutineManagerOpen] = useState<boolean>(false);
   const [activeStageId, setActiveStageId] = useState<string>('stage-1');
 
-  // Dọn dẹp bộ nhớ trình duyệt cũ (localStorage) để tránh lưu cache gây nhầm lẫn
+  // Dọn dẹp bộ nhớ trình duyệt cũ (localStorage) & tải ngầm trước các tab phụ sau khi trang chính đã lên
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -122,14 +160,22 @@ export default function CareSchedulePage() {
     } catch {
       // ignore
     }
+
+    // Tải ngầm trước JS của tab Biểu đồ và Gia đình sau 1.2s để bấm chuyển tab phản hồi 0ms
+    const preloadTimer = setTimeout(() => {
+      import('@/components/VitalsChartView').catch(() => {});
+      import('@/components/FamilySupportView').catch(() => {});
+    }, 1200);
+
+    return () => clearTimeout(preloadTimer);
   }, []);
 
-  const showToast = (message: string, type: 'info' | 'success' | 'warn' = 'info') => {
+  const showToast = useCallback((message: string, type: 'info' | 'success' | 'warn' = 'info') => {
     setNotification({ message, type });
     setTimeout(() => {
       setNotification(null);
-    }, 3500);
-  };
+    }, 3000);
+  }, []);
 
   // ===== Ngày hiện tại =====
   const todayStr = useMemo(() => {
@@ -190,18 +236,17 @@ export default function CareSchedulePage() {
         setHasInitialLoaded(true);
       }
     },
-    [activePhase]
+    [activePhase, showToast]
   );
 
   useEffect(() => {
     loadAllData(false);
   }, [loadAllData]);
 
-  // ===== V2.0 HANDLERS =====
+  // ===== V2.0 HANDLERS (PHẢN HỒI TỨC THÌ 0ms — ĐỒNG BỘ NGẦM LÊN SHEET) =====
 
-  // Lưu huyết áp
+  // Lưu huyết áp — Cập nhật giao diện ngay lập tức, đồng bộ Google Sheets ở chế độ nền
   const handleSaveVitals = useCallback(async (entry: VitalsLogEntry) => {
-    // Optimistic update
     setVitalsLog((prev) => {
       const exists = prev.findIndex((v) => v.id === entry.id);
       if (exists >= 0) {
@@ -211,44 +256,45 @@ export default function CareSchedulePage() {
       }
       return [entry, ...prev];
     });
+    showToast('💓 Đã lưu chỉ số huyết áp!', 'success');
 
-    try {
-      const res = await saveVitalsAction(entry);
-      if (res.success && res.entry) {
-        setVitalsLog((prev) =>
-          prev.map((v) => (v.id === entry.id ? res.entry! : v))
-        );
-        showToast('💓 Đã lưu huyết áp!', 'success');
-      }
-    } catch {
-      // Rollback
-      setVitalsLog((prev) => prev.filter((v) => v.id !== entry.id));
-      showToast('Lỗi lưu huyết áp.', 'warn');
-    }
-  }, []);
+    // Đồng bộ ngầm không chặn giao diện
+    void saveVitalsAction(entry)
+      .then((res) => {
+        if (res.success && res.entry) {
+          setVitalsLog((prev) =>
+            prev.map((v) => (v.id === entry.id ? res.entry! : v))
+          );
+        } else if (!res.success) {
+          showToast('Cảnh báo: Chưa đồng bộ được huyết áp lên Sheet.', 'warn');
+        }
+      })
+      .catch(() => {
+        showToast('Lỗi kết nối khi đồng bộ huyết áp lên Sheet.', 'warn');
+      });
+  }, [showToast]);
 
-  // Xóa huyết áp (dùng trong VitalsChartView — Đợt B)
+  // Xóa huyết áp — Xóa tức thì trên giao diện, đồng bộ ngầm lên Sheet
   const handleDeleteVitals = useCallback(async (id: string) => {
     const backup = vitalsLog;
-    // Optimistic delete
     setVitalsLog((prev) => prev.filter((v) => v.id !== id));
-    try {
-      const res = await deleteVitalsAction(id);
-      if (res.success) {
-        showToast('🗑️ Đã xóa bản ghi huyết áp.', 'success');
-      } else {
-        setVitalsLog(backup);
-        showToast('Lỗi xóa bản ghi.', 'warn');
-      }
-    } catch {
-      setVitalsLog(backup);
-      showToast('Lỗi xóa bản ghi.', 'warn');
-    }
-  }, [vitalsLog]);
+    showToast('🗑️ Đã xóa bản ghi huyết áp.', 'info');
 
-  // Toggle checklist thuốc/tập
+    void deleteVitalsAction(id)
+      .then((res) => {
+        if (!res.success) {
+          setVitalsLog(backup);
+          showToast('Lỗi xóa bản ghi trên Sheet.', 'warn');
+        }
+      })
+      .catch(() => {
+        setVitalsLog(backup);
+        showToast('Lỗi xóa bản ghi trên Sheet.', 'warn');
+      });
+  }, [vitalsLog, showToast]);
+
+  // Toggle checklist thuốc/tập — Phản hồi 0ms khi bấm tích
   const handleToggleDailyLog = useCallback(async (log: DailyLog) => {
-    // Optimistic update
     setDailyLogs((prev) => {
       const exists = prev.findIndex((l) => l.id === log.id);
       if (exists >= 0) {
@@ -259,19 +305,20 @@ export default function CareSchedulePage() {
       return [...prev, log];
     });
 
-    try {
-      const res = await toggleDailyLogAction(log);
-      if (res.success && res.log) {
-        setDailyLogs((prev) =>
-          prev.map((l) => (l.id === log.id ? res.log! : l))
-        );
-      }
-    } catch {
-      showToast('Lỗi cập nhật checklist.', 'warn');
-    }
-  }, []);
+    void toggleDailyLogAction(log)
+      .then((res) => {
+        if (res.success && res.log) {
+          setDailyLogs((prev) =>
+            prev.map((l) => (l.id === log.id ? res.log! : l))
+          );
+        }
+      })
+      .catch(() => {
+        showToast('Lỗi đồng bộ trạng thái checklist lên Sheet.', 'warn');
+      });
+  }, [showToast]);
 
-  // Lưu routine (thuốc/bài tập) — Cập nhật trực tiếp trên state hiện tại để không bao giờ bị ghi đè nhầm
+  // Lưu routine (thuốc/bài tập) — Phản hồi tức thì 0ms, đóng form ngay
   const handleSaveRoutine = useCallback(async (routine: CareRoutine) => {
     setCareRoutines((prev) => {
       const idx = prev.findIndex((r) => r.id === routine.id);
@@ -282,47 +329,50 @@ export default function CareSchedulePage() {
       }
       return [...prev, routine];
     });
+    showToast(`✅ Đã lưu: ${routine.title}`, 'success');
 
-    try {
-      const res = await saveRoutineAction(routine);
-      if (res.success) {
-        showToast(`✅ Đã lưu lên Sheet: ${routine.title}`, 'success');
-      } else {
-        showToast('Lỗi lưu đơn thuốc/bài tập.', 'warn');
-      }
-    } catch {
-      showToast('Lỗi lưu đơn thuốc/bài tập.', 'warn');
-    }
-  }, []);
+    void saveRoutineAction(routine)
+      .then((res) => {
+        if (!res.success) {
+          showToast('Lỗi đồng bộ đơn thuốc/bài tập lên Sheet.', 'warn');
+        }
+      })
+      .catch(() => {
+        showToast('Lỗi đồng bộ đơn thuốc/bài tập lên Sheet.', 'warn');
+      });
+  }, [showToast]);
 
-  // Xóa routine — Xoá trực tiếp trên state hiện tại
+  // Xóa routine — Xoá tức thì trên giao diện, đồng bộ ngầm lên Sheet
   const handleDeleteRoutine = useCallback(async (id: string) => {
     setCareRoutines((prev) => prev.filter((r) => r.id !== id));
-    try {
-      const res = await deleteRoutineAction(id);
-      if (res.success) {
-        showToast('Đã xoá khỏi Google Sheets.', 'info');
-      } else {
-        showToast('Lỗi xoá đơn thuốc/bài tập.', 'warn');
-      }
-    } catch {
-      showToast('Lỗi xoá đơn thuốc/bài tập.', 'warn');
-    }
-  }, []);
+    showToast('Đã xoá đầu việc chăm sóc.', 'info');
 
-  // Lưu lịch tái khám
+    void deleteRoutineAction(id)
+      .then((res) => {
+        if (!res.success) {
+          showToast('Lỗi xoá đơn thuốc/bài tập trên Sheet.', 'warn');
+        }
+      })
+      .catch(() => {
+        showToast('Lỗi xoá đơn thuốc/bài tập trên Sheet.', 'warn');
+      });
+  }, [showToast]);
+
+  // Lưu lịch tái khám — Phản hồi tức thì 0ms
   const handleSaveAppointment = useCallback(async (info: AppointmentInfo) => {
-    setAppointment(info); // Optimistic
-    try {
-      const res = await saveAppointmentAction(info);
-      if (res.success && res.appointment) {
-        setAppointment(res.appointment);
-        showToast('📅 Đã lưu lịch tái khám!', 'success');
-      }
-    } catch {
-      showToast('Lỗi lưu lịch tái khám.', 'warn');
-    }
-  }, []);
+    setAppointment(info);
+    showToast('📅 Đã lưu lịch tái khám!', 'success');
+
+    void saveAppointmentAction(info)
+      .then((res) => {
+        if (res.success && res.appointment) {
+          setAppointment(res.appointment);
+        }
+      })
+      .catch(() => {
+        showToast('Lỗi lưu lịch tái khám lên Sheet.', 'warn');
+      });
+  }, [showToast]);
 
   // ===== Lấy các routines đang hoạt động cho stage hiện tại =====
   const activeRoutines = useMemo(() => {
@@ -353,8 +403,8 @@ export default function CareSchedulePage() {
     return motherMember ? motherMember.name : members[0].name;
   }, [members]);
 
-  // ===== CRUD Reminders =====
-  const handleAddReminder = async (newReminder: PatientDailyReminder) => {
+  // ===== CRUD Reminders (Phản hồi tức thì 0ms) =====
+  const handleAddReminder = useCallback(async (newReminder: PatientDailyReminder) => {
     setReminders((prev) => {
       const idx = prev.findIndex((r) => r.id === newReminder.id);
       if (idx >= 0) {
@@ -364,31 +414,25 @@ export default function CareSchedulePage() {
       }
       return [newReminder, ...prev];
     });
-    try {
-      const res = await saveReminderAction(newReminder);
-      if (res.success) {
-        showToast('Đã lưu nhắc nhở mới lên Google Sheets!', 'success');
-      }
-    } catch (err) {
-      console.error('Lỗi lưu nhắc nhở:', err);
-      showToast('Không thể lưu nhắc nhở lên Sheet.', 'warn');
-    }
-  };
+    showToast('Đã lưu nhắc nhở mới!', 'success');
 
-  const handleDeleteReminder = async (reminderId: string, title: string) => {
+    void saveReminderAction(newReminder).catch((err) => {
+      console.error('Lỗi lưu nhắc nhở:', err);
+      showToast('Không thể đồng bộ nhắc nhở lên Sheet.', 'warn');
+    });
+  }, [showToast]);
+
+  const handleDeleteReminder = useCallback(async (reminderId: string, title: string) => {
     setReminders((prev) => prev.filter((r) => r.id !== reminderId));
-    try {
-      const res = await deleteReminderAction(reminderId);
-      if (res.success) {
-        showToast(`Đã xoá nhắc nhở "${title}"`, 'info');
-      }
-    } catch (err) {
+    showToast(`Đã xoá nhắc nhở "${title}"`, 'info');
+
+    void deleteReminderAction(reminderId).catch((err) => {
       console.error('Lỗi xoá nhắc nhở:', err);
-    }
-  };
+    });
+  }, [showToast]);
 
   // --- Admin Security Helpers ---
-  const requireAdmin = (action: () => void) => {
+  const requireAdmin = useCallback((action: () => void) => {
     if (isAdmin) {
       action();
     } else {
@@ -396,9 +440,9 @@ export default function CareSchedulePage() {
       setAdminPinModalMode('unlock');
       setAdminPinModalOpen(true);
     }
-  };
+  }, [isAdmin]);
 
-  const handleAdminPinSuccess = () => {
+  const handleAdminPinSuccess = useCallback(() => {
     setIsAdmin(true);
     try {
       sessionStorage.setItem('care_admin_auth', 'true');
@@ -409,11 +453,11 @@ export default function CareSchedulePage() {
     if (pendingAdminAction) {
       const action = pendingAdminAction;
       setPendingAdminAction(null);
-      setTimeout(() => action(), 100);
+      setTimeout(() => action(), 50);
     }
-  };
+  }, [pendingAdminAction, showToast]);
 
-  const handleToggleAdmin = () => {
+  const handleToggleAdmin = useCallback(() => {
     if (isAdmin) {
       const wantLock = window.confirm(
         'Bạn đang đăng nhập quyền Admin.\n\n- Nhấn [OK] để KHÓA LẠI (đăng xuất quyền Admin).\n- Nhấn [Hủy] nếu bạn muốn ĐỔI MÃ PIN MỚI.'
@@ -434,11 +478,11 @@ export default function CareSchedulePage() {
       setAdminPinModalMode('unlock');
       setAdminPinModalOpen(true);
     }
-  };
+  }, [isAdmin, showToast]);
 
-  // CRUD Contacts (Bảo vệ bằng Admin PIN)
-  const handleSaveContact = async (contact: EmergencyContact) => {
-    requireAdmin(async () => {
+  // CRUD Contacts (Bảo vệ bằng Admin PIN — Phản hồi tức thì 0ms)
+  const handleSaveContact = useCallback(async (contact: EmergencyContact) => {
+    requireAdmin(() => {
       setContacts((prev) => {
         const idx = prev.findIndex((c) => c.id === contact.id);
         if (idx >= 0) {
@@ -448,65 +492,59 @@ export default function CareSchedulePage() {
         }
         return [contact, ...prev];
       });
-      try {
-        const res = await saveContactAction(contact);
-        if (res.success) {
-          showToast(`Đã lưu liên hệ ${contact.name} lên Google Sheets!`, 'success');
-        }
-      } catch (err) {
+      showToast(`Đã lưu liên hệ ${contact.name}!`, 'success');
+
+      void saveContactAction(contact).catch((err) => {
         console.error('Lỗi lưu liên hệ:', err);
         showToast('Không thể lưu liên hệ lên Sheet.', 'warn');
-      }
+      });
     });
-  };
+  }, [requireAdmin, showToast]);
 
-  const handleDeleteContact = async (contactId: string, name: string) => {
-    requireAdmin(async () => {
+  const handleDeleteContact = useCallback(async (contactId: string, name: string) => {
+    requireAdmin(() => {
       setContacts((prev) => prev.filter((c) => c.id !== contactId));
-      try {
-        const res = await deleteContactAction(contactId);
-        if (res.success) {
-          showToast(`Đã xoá liên hệ "${name}" khỏi Google Sheets`, 'info');
-        }
-      } catch (err) {
+      showToast(`Đã xoá liên hệ "${name}"`, 'info');
+
+      void deleteContactAction(contactId).catch((err) => {
         console.error('Lỗi xoá liên hệ:', err);
-      }
+      });
     });
-  };
+  }, [requireAdmin, showToast]);
 
   // CRUD Patient Details
-  const handleOpenEditPatient = () => {
+  const handleOpenEditPatient = useCallback(() => {
     requireAdmin(() => setEditPatientModalOpen(true));
-  };
+  }, [requireAdmin]);
 
-  const handlePatientUpdated = (newInfo: PatientInfo) => {
+  const handlePatientUpdated = useCallback((newInfo: PatientInfo) => {
     setPatientInfo(newInfo);
-    showToast('Đã cập nhật hồ sơ bệnh nhân thành công!', 'success');
-  };
+    showToast('Đã cập nhật hồ sơ bệnh nhân!', 'success');
+  }, [showToast]);
 
   // CRUD Members
-  const handleOpenMembers = () => {
+  const handleOpenMembers = useCallback(() => {
     requireAdmin(() => setMembersModalOpen(true));
-  };
+  }, [requireAdmin]);
 
-  const handleMembersUpdated = (updatedMembers: FamilyMember[]) => {
+  const handleMembersUpdated = useCallback((updatedMembers: FamilyMember[]) => {
     setMembers(updatedMembers);
     showToast('Đã cập nhật danh sách thành viên gia đình!', 'success');
-  };
+  }, [showToast]);
 
   // Mở RoutineManager (cần Admin PIN)
-  const handleOpenRoutineManager = () => {
+  const handleOpenRoutineManager = useCallback(() => {
     requireAdmin(() => setRoutineManagerOpen(true));
-  };
+  }, [requireAdmin]);
 
-  // Lưu / Huỷ lịch đăng ký qua phụ Mẹ (Đợt C — FamilySupportView)
+  // Lưu / Huỷ lịch đăng ký qua phụ Mẹ (Đợt C — FamilySupportView, phản hồi 0ms)
   const handleSaveShift = useCallback(async (shift: ShiftRecord) => {
     const isClearing =
       (shift.assignees || []).filter(Boolean).length === 0 &&
       (shift.supporters || []).filter(Boolean).length === 0 &&
       !shift.handover?.note?.trim();
 
-    // Optimistic update
+    // Optimistic update tức thì
     setShifts((prev) => {
       if (isClearing) {
         return prev.filter((s) => s.id !== shift.id);
@@ -520,24 +558,27 @@ export default function CareSchedulePage() {
       return [shift, ...prev];
     });
 
-    try {
-      const res = await saveShiftAction(shift);
-      if (res.success && res.updatedShift) {
-        if (isClearing) {
-          showToast('Đã huỷ lịch qua phụ Mẹ.', 'info');
-        } else {
+    if (isClearing) {
+      showToast('Đã huỷ lịch qua phụ Mẹ.', 'info');
+    } else {
+      showToast('🤝 Đã lưu lịch qua phụ Mẹ!', 'success');
+    }
+
+    // Đồng bộ ngầm lên Google Sheets
+    void saveShiftAction(shift)
+      .then((res) => {
+        if (res.success && res.updatedShift && !isClearing) {
           setShifts((prev) =>
             prev.map((s) => (s.id === shift.id ? res.updatedShift! : s))
           );
-          showToast('🤝 Đã lưu lịch qua phụ Mẹ lên Google Sheets!', 'success');
+        } else if (!res.success) {
+          showToast(res.message || 'Cảnh báo: Chưa đồng bộ được lịch lên Sheet.', 'warn');
         }
-      } else {
-        showToast(res.message || 'Không thể lưu lịch lúc này.', 'warn');
-      }
-    } catch {
-      showToast('Lỗi khi đồng bộ lịch gia đình lên Google Sheets.', 'warn');
-    }
-  }, []);
+      })
+      .catch(() => {
+        showToast('Lỗi khi đồng bộ lịch gia đình lên Google Sheets.', 'warn');
+      });
+  }, [showToast]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-rose-500 selection:text-white">
@@ -556,7 +597,7 @@ export default function CareSchedulePage() {
       {/* Header điều khiển cố định */}
       <HeaderBar
         activeView={activeView}
-        onChangeView={setActiveView}
+        onChangeView={handleChangeView}
         onOpenGuide={() => setGuideModalOpen(true)}
         onOpenEmergencyContacts={() => setEmergencyModalOpen(true)}
         onOpenInstallApp={() => setInstallPwaModalOpen(true)}
@@ -591,55 +632,61 @@ export default function CareSchedulePage() {
           isLoading={isLoading}
         />
 
-        {/* ===== NỘI DUNG THEO TAB ===== */}
-        {activeView === 'today' ? (
-          <div className="space-y-4">
-            {/* 1. Form ghi huyết áp nhanh */}
-            <QuickVitalsForm
-              onSave={handleSaveVitals}
-              lastEntry={lastVitalsEntry}
+        {/* ===== NỘI DUNG THEO TAB (Giữ DOM sau khi mở để chuyển tab phản hồi 0ms) ===== */}
+        <div className={activeView === 'today' ? 'space-y-4' : 'hidden'}>
+          {/* 1. Form ghi huyết áp nhanh */}
+          <QuickVitalsForm
+            onSave={handleSaveVitals}
+            lastEntry={lastVitalsEntry}
+            bpThresholds={bpThresholds}
+            defaultRecorder={recorderName}
+            members={members}
+          />
+
+          {/* 2. Lịch tái khám */}
+          <AppointmentSection
+            appointment={appointment}
+            onSave={handleSaveAppointment}
+            isAdmin={isAdmin}
+          />
+
+          {/* 3. Checklist thuốc + tập phục hồi hôm nay */}
+          <DailyRoutineView
+            routines={activeRoutines}
+            dailyLogs={todayDailyLogs}
+            todayStr={todayStr}
+            onToggle={handleToggleDailyLog}
+            onOpenManager={handleOpenRoutineManager}
+            defaultRecorder={recorderName}
+          />
+        </div>
+
+        {visitedViews.charts && (
+          <div className={activeView === 'charts' ? 'block' : 'hidden'}>
+            {/* ===== TAB BIỂU ĐỒ — Đợt B ===== */}
+            <VitalsChartView
+              vitalsLog={vitalsLog}
               bpThresholds={bpThresholds}
-              defaultRecorder={recorderName}
-              members={members}
-            />
-
-            {/* 2. Lịch tái khám */}
-            <AppointmentSection
-              appointment={appointment}
-              onSave={handleSaveAppointment}
+              dailyLogs={dailyLogs}
+              careRoutines={careRoutines}
               isAdmin={isAdmin}
-            />
-
-            {/* 3. Checklist thuốc + tập phục hồi hôm nay */}
-            <DailyRoutineView
-              routines={activeRoutines}
-              dailyLogs={todayDailyLogs}
-              todayStr={todayStr}
-              onToggle={handleToggleDailyLog}
-              onOpenManager={handleOpenRoutineManager}
-              defaultRecorder={recorderName}
+              onDeleteVitals={handleDeleteVitals}
+              onSaveVitals={handleSaveVitals}
             />
           </div>
-        ) : activeView === 'charts' ? (
-          /* ===== TAB BIỂU ĐỒ — Đợt B ===== */
-          <VitalsChartView
-            vitalsLog={vitalsLog}
-            bpThresholds={bpThresholds}
-            dailyLogs={dailyLogs}
-            careRoutines={careRoutines}
-            isAdmin={isAdmin}
-            onDeleteVitals={handleDeleteVitals}
-            onSaveVitals={handleSaveVitals}
-          />
-        ) : (
-          /* ===== TAB GIA ĐÌNH ĐỒNG HÀNH — Đợt C ===== */
-          <FamilySupportView
-            shifts={shifts}
-            members={members}
-            isAdmin={isAdmin}
-            onSaveShift={handleSaveShift}
-            onOpenMembers={handleOpenMembers}
-          />
+        )}
+
+        {visitedViews.family && (
+          <div className={activeView === 'family' ? 'block' : 'hidden'}>
+            {/* ===== TAB GIA ĐÌNH ĐỒNG HÀNH — Đợt C ===== */}
+            <FamilySupportView
+              shifts={shifts}
+              members={members}
+              isAdmin={isAdmin}
+              onSaveShift={handleSaveShift}
+              onOpenMembers={handleOpenMembers}
+            />
+          </div>
         )}
       </main>
 
@@ -655,68 +702,75 @@ export default function CareSchedulePage() {
         </div>
       </footer>
 
-      {/* ===== MODALS ===== */}
+      {/* ===== MODALS (Chỉ mount khi đang mở để tối ưu tốc độ render) ===== */}
 
-      {/* Modal Hướng Dẫn Cài Ứng Dụng PWA Lên Điện Thoại */}
-      <PwaInstallModal
-        isOpen={installPwaModalOpen}
-        onClose={() => setInstallPwaModalOpen(false)}
-      />
+      {installPwaModalOpen && (
+        <PwaInstallModal
+          isOpen={installPwaModalOpen}
+          onClose={() => setInstallPwaModalOpen(false)}
+        />
+      )}
 
-      {/* Modal Hướng Dẫn & Schema Google Sheets */}
-      <GoogleSheetGuideModal
-        isOpen={guideModalOpen}
-        onClose={() => setGuideModalOpen(false)}
-        isSheetsConnected={Boolean(settings?.googleSheetsConnected)}
-      />
+      {guideModalOpen && (
+        <GoogleSheetGuideModal
+          isOpen={guideModalOpen}
+          onClose={() => setGuideModalOpen(false)}
+          isSheetsConnected={Boolean(settings?.googleSheetsConnected)}
+        />
+      )}
 
-      {/* Modal Danh Bạ Số Điện Thoại Khẩn Cấp (Bác sĩ, 115, Hàng xóm) */}
-      <EmergencyContactsModal
-        isOpen={emergencyModalOpen}
-        onClose={() => setEmergencyModalOpen(false)}
-        contacts={contacts}
-        patientInfo={patientInfo}
-        onSaveContact={handleSaveContact}
-        onDeleteContact={handleDeleteContact}
-      />
+      {emergencyModalOpen && (
+        <EmergencyContactsModal
+          isOpen={emergencyModalOpen}
+          onClose={() => setEmergencyModalOpen(false)}
+          contacts={contacts}
+          patientInfo={patientInfo}
+          onSaveContact={handleSaveContact}
+          onDeleteContact={handleDeleteContact}
+        />
+      )}
 
-      {/* Modal Nhập / Đổi mã PIN Admin */}
-      <AdminPinModal
-        isOpen={adminPinModalOpen}
-        onClose={() => {
-          setAdminPinModalOpen(false);
-          setPendingAdminAction(null);
-        }}
-        onSuccess={handleAdminPinSuccess}
-        initialMode={adminPinModalMode}
-      />
+      {adminPinModalOpen && (
+        <AdminPinModal
+          isOpen={adminPinModalOpen}
+          onClose={() => {
+            setAdminPinModalOpen(false);
+            setPendingAdminAction(null);
+          }}
+          onSuccess={handleAdminPinSuccess}
+          initialMode={adminPinModalMode}
+        />
+      )}
 
-      {/* Modal Chỉnh Sửa Hồ Sơ Bệnh Nhân */}
-      <EditPatientModal
-        isOpen={editPatientModalOpen}
-        onClose={() => setEditPatientModalOpen(false)}
-        patient={patientInfo}
-        onUpdated={handlePatientUpdated}
-      />
+      {editPatientModalOpen && (
+        <EditPatientModal
+          isOpen={editPatientModalOpen}
+          onClose={() => setEditPatientModalOpen(false)}
+          patient={patientInfo}
+          onUpdated={handlePatientUpdated}
+        />
+      )}
 
-      {/* Modal Quản Lý Thành Viên Trực Ca */}
-      <MembersManagementModal
-        isOpen={membersModalOpen}
-        onClose={() => setMembersModalOpen(false)}
-        members={members}
-        onMembersUpdated={handleMembersUpdated}
-      />
+      {membersModalOpen && (
+        <MembersManagementModal
+          isOpen={membersModalOpen}
+          onClose={() => setMembersModalOpen(false)}
+          members={members}
+          onMembersUpdated={handleMembersUpdated}
+        />
+      )}
 
-      {/* V2.0: Modal Quản Lý Đơn Thuốc & Bài Tập (Admin) */}
-      <RoutineManagerModal
-        isOpen={routineManagerOpen}
-        onClose={() => setRoutineManagerOpen(false)}
-        routines={careRoutines}
-        stages={stages}
-        activeStageId={activeStageId}
-        onSaveRoutine={handleSaveRoutine}
-        onDeleteRoutine={handleDeleteRoutine}
-      />
+      {routineManagerOpen && (
+        <RoutineManagerModal
+          isOpen={routineManagerOpen}
+          onClose={() => setRoutineManagerOpen(false)}
+          routines={careRoutines}
+          stages={stages}
+          activeStageId={activeStageId}
+          onSaveRoutine={handleSaveRoutine}
+          onDeleteRoutine={handleDeleteRoutine}
+        />
+      )}
     </div>
   );
 }
