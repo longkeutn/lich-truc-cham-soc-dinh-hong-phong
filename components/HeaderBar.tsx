@@ -11,6 +11,7 @@ import {
   PhoneCall,
   Edit3,
   Home,
+  Smartphone,
 } from 'lucide-react';
 
 // V2.0: 3 tab chính
@@ -21,6 +22,7 @@ interface HeaderBarProps {
   onChangeView: (view: AppView) => void;
   onOpenGuide: () => void;
   onOpenEmergencyContacts: () => void;
+  onOpenInstallApp?: () => void;
   patientInfo?: PatientInfo;
   isAdmin?: boolean;
   onOpenAdminPin?: () => void;
@@ -33,6 +35,7 @@ export default function HeaderBar({
   onChangeView,
   onOpenGuide,
   onOpenEmergencyContacts,
+  onOpenInstallApp,
   patientInfo,
   isAdmin,
   onOpenAdminPin,
@@ -154,6 +157,20 @@ export default function HeaderBar({
                 >
                   <span>{isAdmin ? '👑' : '🔒'}</span>
                   <span className="hidden sm:inline">Admin</span>
+                </button>
+              )}
+
+              {/* Nút Cài App lên điện thoại (PWA) */}
+              {onOpenInstallApp && (
+                <button
+                  type="button"
+                  onClick={onOpenInstallApp}
+                  id="btn-open-install-pwa"
+                  className="inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition min-h-[40px] min-w-[40px] shadow-2xs cursor-pointer shrink-0"
+                  title="Cài ứng dụng lên màn hình chính điện thoại"
+                >
+                  <Smartphone className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span className="hidden sm:inline">Cài App</span>
                 </button>
               )}
 

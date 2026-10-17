@@ -14,6 +14,7 @@ import EmergencyContactsModal from '@/components/EmergencyContactsModal';
 import { AdminPinModal } from '@/components/AdminPinModal';
 import { EditPatientModal } from '@/components/EditPatientModal';
 import { MembersManagementModal } from '@/components/MembersManagementModal';
+import PwaInstallModal from '@/components/PwaInstallModal';
 
 import {
   CarePhase,
@@ -94,6 +95,7 @@ export default function CareSchedulePage() {
   const [hasInitialLoaded, setHasInitialLoaded] = useState<boolean>(false);
   const [guideModalOpen, setGuideModalOpen] = useState<boolean>(false);
   const [emergencyModalOpen, setEmergencyModalOpen] = useState<boolean>(false);
+  const [installPwaModalOpen, setInstallPwaModalOpen] = useState<boolean>(false);
   const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'warn' } | null>(null);
 
   // Admin Security & Management Modals State
@@ -339,8 +341,17 @@ export default function CareSchedulePage() {
     return vitalsLog[0] || null;
   }, [vitalsLog]);
 
-  // ===== Tên người ghi mặc định luôn là Mẹ =====
-  const recorderName = DEFAULT_RECORDER;
+  // ===== Tên người ghi mặc định lấy từ danh sách thành viên trên Sheet (Mẹ Phương) =====
+  const recorderName = useMemo(() => {
+    if (members.length === 0) return DEFAULT_RECORDER;
+    const motherMember = members.find(
+      (m) =>
+        m.name.toLowerCase().includes('mẹ') ||
+        m.relation.toLowerCase().includes('vợ') ||
+        m.relation.toLowerCase().includes('mẹ')
+    );
+    return motherMember ? motherMember.name : members[0].name;
+  }, [members]);
 
   // ===== CRUD Reminders =====
   const handleAddReminder = async (newReminder: PatientDailyReminder) => {
@@ -548,6 +559,7 @@ export default function CareSchedulePage() {
         onChangeView={setActiveView}
         onOpenGuide={() => setGuideModalOpen(true)}
         onOpenEmergencyContacts={() => setEmergencyModalOpen(true)}
+        onOpenInstallApp={() => setInstallPwaModalOpen(true)}
         patientInfo={patientInfo}
         isAdmin={isAdmin}
         onOpenAdminPin={handleToggleAdmin}
@@ -644,6 +656,12 @@ export default function CareSchedulePage() {
       </footer>
 
       {/* ===== MODALS ===== */}
+
+      {/* Modal Hướng Dẫn Cài Ứng Dụng PWA Lên Điện Thoại */}
+      <PwaInstallModal
+        isOpen={installPwaModalOpen}
+        onClose={() => setInstallPwaModalOpen(false)}
+      />
 
       {/* Modal Hướng Dẫn & Schema Google Sheets */}
       <GoogleSheetGuideModal

@@ -113,6 +113,14 @@ export default function QuickVitalsForm({
   const thresholds = bpThresholds || DEFAULT_BP_THRESHOLDS;
   const familyList = members || [];
   const [recorder, setRecorder] = useState<string>(defaultRecorder || DEFAULT_RECORDER);
+  const [hasUserSelectedRecorder, setHasUserSelectedRecorder] = useState<boolean>(false);
+
+  // Khi danh sách thành viên từ Sheet tải xong, tự động chọn Mẹ Phương làm mặc định
+  useEffect(() => {
+    if (!hasUserSelectedRecorder && defaultRecorder) {
+      setRecorder(defaultRecorder);
+    }
+  }, [defaultRecorder, hasUserSelectedRecorder]);
 
   // --- Form state ---
   const [sys, setSys] = useState('');
@@ -235,7 +243,7 @@ export default function QuickVitalsForm({
               Ghi Huyết Áp Nhanh
             </h3>
             <p className="text-xs text-slate-500 font-medium">
-              Mặc định người đo là Mẹ
+              Mặc định người đo là {defaultRecorder || 'Mẹ Phương'}
             </p>
           </div>
         </div>
@@ -246,18 +254,22 @@ export default function QuickVitalsForm({
           <div className="relative">
             <select
               value={recorder}
-              onChange={(e) => setRecorder(e.target.value)}
+              onChange={(e) => {
+                setRecorder(e.target.value);
+                setHasUserSelectedRecorder(true);
+              }}
               aria-label="Chọn người đo huyết áp"
               className="pl-2.5 pr-6 py-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-xs font-bold text-slate-800 appearance-none cursor-pointer focus:outline-none focus:border-rose-400"
             >
-              <option value="Mẹ">👩‍🦳 Mẹ (Mặc định)</option>
-              {familyList
-                .filter((m) => m.name !== 'Mẹ')
-                .map((m) => (
+              {familyList.length > 0 ? (
+                familyList.map((m) => (
                   <option key={m.id} value={m.name}>
                     {m.name} ({m.relation})
                   </option>
-                ))}
+                ))
+              ) : (
+                <option value={recorder}>{recorder}</option>
+              )}
             </select>
             <ChevronDown className="w-3 h-3 text-slate-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
