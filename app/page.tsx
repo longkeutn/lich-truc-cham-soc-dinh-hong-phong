@@ -8,6 +8,7 @@ import DailyRoutineView from '@/components/DailyRoutineView';
 import { AppointmentSection } from '@/components/AppointmentSection';
 import { RoutineManagerModal } from '@/components/RoutineManagerModal';
 import { VitalsChartView } from '@/components/VitalsChartView';
+import FamilySupportView from '@/components/FamilySupportView';
 import GoogleSheetGuideModal from '@/components/GoogleSheetGuideModal';
 import EmergencyContactsModal from '@/components/EmergencyContactsModal';
 import { AdminPinModal } from '@/components/AdminPinModal';
@@ -39,6 +40,7 @@ import {
   DEFAULT_RECORDER,
 } from '@/lib/config';
 import {
+  saveShiftAction,
   saveContactAction,
   deleteContactAction,
   saveReminderAction,
@@ -56,7 +58,6 @@ import {
 import {
   AlertTriangle,
   ShieldCheck,
-  Users as UsersIcon,
 } from 'lucide-react';
 
 const subscribeStorage = (callback: () => void) => {
@@ -495,17 +496,57 @@ export default function CareSchedulePage() {
     requireAdmin(() => setRoutineManagerOpen(true));
   };
 
+  // Lưu / Huỷ lịch đăng ký qua phụ Mẹ (Đợt C — FamilySupportView)
+  const handleSaveShift = useCallback(async (shift: ShiftRecord) => {
+    const isClearing =
+      (shift.assignees || []).filter(Boolean).length === 0 &&
+      (shift.supporters || []).filter(Boolean).length === 0 &&
+      !shift.handover?.note?.trim();
+
+    // Optimistic update
+    setShifts((prev) => {
+      if (isClearing) {
+        return prev.filter((s) => s.id !== shift.id);
+      }
+      const idx = prev.findIndex((s) => s.id === shift.id);
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = shift;
+        return updated;
+      }
+      return [shift, ...prev];
+    });
+
+    try {
+      const res = await saveShiftAction(shift);
+      if (res.success && res.updatedShift) {
+        if (isClearing) {
+          showToast('Đã huỷ lịch qua phụ Mẹ.', 'info');
+        } else {
+          setShifts((prev) =>
+            prev.map((s) => (s.id === shift.id ? res.updatedShift! : s))
+          );
+          showToast('🤝 Đã lưu lịch qua phụ Mẹ lên Google Sheets!', 'success');
+        }
+      } else {
+        showToast(res.message || 'Không thể lưu lịch lúc này.', 'warn');
+      }
+    } catch {
+      showToast('Lỗi khi đồng bộ lịch gia đình lên Google Sheets.', 'warn');
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-rose-500 selection:text-white">
-      {/* Toast Notification */}
+      {/* Toast Notification (nâng cao hơn trên mobile để không đè lên thanh điều hướng đáy) */}
       {notification && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-white border-2 border-slate-300 shadow-2xl text-slate-900 text-xs sm:text-sm font-bold flex items-center gap-2 animate-bounce">
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-white border-2 border-slate-300 shadow-2xl text-slate-900 text-xs sm:text-sm font-bold flex items-center gap-2 animate-bounce max-w-[92vw]">
           {notification.type === 'warn' ? (
             <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
           ) : (
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
           )}
-          <span>{notification.message}</span>
+          <span className="truncate">{notification.message}</span>
         </div>
       )}
 
@@ -580,36 +621,20 @@ export default function CareSchedulePage() {
             onSaveVitals={handleSaveVitals}
           />
         ) : (
-          /* ===== TAB GIA ĐÌNH — Placeholder Đợt C ===== */
-          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-6 sm:p-8 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
-              <UsersIcon className="w-8 h-8 text-emerald-500" />
-            </div>
-            <h2 className="text-lg font-black text-slate-900 mb-2">
-              👨‍👩‍👦 Lịch Hỗ Trợ Gia Đình
-            </h2>
-            <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-              Tính năng lịch phân công hỗ trợ mẹ sẽ sẵn sàng trong bản cập nhật tiếp theo (Đợt C). 
-              Các thành viên có thể đăng ký lịch đến phụ mẹ chăm bố.
-            </p>
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {members.slice(0, 6).map((m) => (
-                <div
-                  key={m.id}
-                  className={`p-2 rounded-xl border text-xs font-bold text-center ${
-                    m.bgLight || 'bg-slate-50'
-                  } ${m.borderLight || 'border-slate-200'} ${m.textColor || 'text-slate-700'}`}
-                >
-                  {m.avatarInitials} · {m.name}
-                </div>
-              ))}
-            </div>
-          </div>
+          /* ===== TAB GIA ĐÌNH ĐỒNG HÀNH — Đợt C ===== */
+          <FamilySupportView
+            shifts={shifts}
+            members={members}
+            currentMember={currentMember}
+            isAdmin={isAdmin}
+            onSaveShift={handleSaveShift}
+            onOpenMembers={handleOpenMembers}
+          />
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white p-4 mt-8 text-center text-xs text-slate-600">
+      {/* Footer (thêm pb-24 trên mobile để không bị thanh điều hướng đáy che khuất) */}
+      <footer className="border-t border-slate-200 bg-white pt-4 px-4 pb-24 md:pb-4 mt-8 text-center text-xs text-slate-600">
         <div className="max-w-md mx-auto space-y-1">
           <p className="text-slate-800 font-bold">
             Sổ Sức Khỏe Bố • Bệnh nhân: {patientInfo.name}

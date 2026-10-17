@@ -188,16 +188,19 @@ class MemoryShiftStore {
     // 2. Chuẩn hoá phase
     let normalizedPhase: CarePhase = shift.phase || 'phase1';
     const phaseStr = String(normalizedPhase).toLowerCase().replace(/[\s_-]/g, '');
-    if (phaseStr.includes('2')) normalizedPhase = 'phase2';
+    if (phaseStr.includes('2') || phaseStr.includes('home')) normalizedPhase = 'phase2';
     else normalizedPhase = 'phase1';
 
-    // 3. Chuẩn hoá id
-    const normalizedId = `${normalizedDate}_${shift.type}_${normalizedPhase}`;
+    // 3. Chuẩn hoá id (giữ nguyên id nếu là bản ghi đăng ký qua phụ Mẹ `support_...`)
+    const rawId = String(shift.id || '').trim();
+    const normalizedId = rawId.startsWith('support_')
+      ? rawId
+      : `${normalizedDate}_${shift.type}_${normalizedPhase}`;
 
-    const assignees = shift.assignees || [];
-    const supporters = shift.supporters || [];
+    const assignees = (shift.assignees || []).filter(Boolean);
+    const supporters = (shift.supporters || []).filter(Boolean);
     const reqPax = shift.requiredPax && shift.requiredPax > 0 ? shift.requiredPax : 1;
-    const filledCount = assignees.filter(Boolean).length;
+    const filledCount = assignees.length;
 
     const normalizedShift: ShiftRecord = {
       ...shift,
@@ -211,7 +214,19 @@ class MemoryShiftStore {
       updatedAt: shift.updatedAt || new Date().toISOString(),
     };
 
-    this.shifts.set(normalizedShift.id, normalizedShift);
+    const hasNote = Boolean(shift.handover?.note?.trim());
+    const hasVitals = Boolean(
+      shift.handover?.vitals?.bp ||
+      shift.handover?.vitals?.spo2 ||
+      shift.handover?.vitals?.pulse ||
+      shift.handover?.vitals?.temp
+    );
+
+    if (rawId.startsWith('support_') && filledCount === 0 && supporters.length === 0 && !hasNote && !hasVitals) {
+      this.shifts.delete(normalizedShift.id);
+    } else {
+      this.shifts.set(normalizedShift.id, normalizedShift);
+    }
     return normalizedShift;
   }
 
@@ -522,6 +537,7 @@ class MemoryShiftStore {
   public getAllDataV2(startDate: string, endDate: string, phase: CarePhase): AllAppDataV2 {
     return {
       ...this.getAllData(startDate, endDate, phase),
+      shifts: this.getAllLoadedShifts(),
       vitalsLog: this.getVitalsLog(),
       careRoutines: this.getCareRoutines(),
       dailyLogs: this.getDailyLogs(),

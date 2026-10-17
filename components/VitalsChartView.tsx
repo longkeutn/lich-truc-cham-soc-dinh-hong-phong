@@ -579,13 +579,12 @@ export function VitalsChartView({
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 text-xs text-slate-500 uppercase">
-                  <th className="text-left px-3 py-2 font-bold">Ngày</th>
-                  <th className="text-left px-3 py-2 font-bold">Giờ</th>
-                  <th className="text-center px-3 py-2 font-bold">SYS/DIA</th>
-                  <th className="text-center px-3 py-2 font-bold hidden sm:table-cell">Mạch</th>
-                  <th className="text-center px-3 py-2 font-bold">Trạng thái</th>
-                  <th className="text-left px-3 py-2 font-bold hidden sm:table-cell">Ghi chú</th>
-                  {isAdmin && <th className="text-center px-3 py-2 font-bold w-12"></th>}
+                  <th className="text-left px-3 py-2.5 font-bold">Ngày / Giờ</th>
+                  <th className="text-center px-3 py-2.5 font-bold">Huyết áp</th>
+                  <th className="text-center px-3 py-2.5 font-bold hidden sm:table-cell">Mạch</th>
+                  <th className="text-center px-3 py-2.5 font-bold">Trạng thái</th>
+                  <th className="text-left px-3 py-2.5 font-bold hidden sm:table-cell">Ghi chú</th>
+                  {isAdmin && <th className="text-center px-3 py-2.5 font-bold w-12"></th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -593,37 +592,49 @@ export function VitalsChartView({
                   const colors = alertColors(v.alertLevel);
                   return (
                     <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-3 py-2.5 text-slate-700 font-medium">
-                        {fmtDateShort(v.date)}
+                      <td className="px-3 py-3 text-slate-700">
+                        <div className="font-bold text-slate-900">
+                          {fmtDateShort(v.date)} <span className="font-normal text-slate-500">· {v.time}</span>
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {periodLabel(v.period)}
+                        </div>
+                        {v.note && (
+                          <div className="sm:hidden text-xs text-slate-600 italic mt-1">
+                            📝 {v.note}
+                          </div>
+                        )}
                       </td>
-                      <td className="px-3 py-2.5 text-slate-600">
-                        {v.time} <span className="text-xs text-slate-400">{periodLabel(v.period)}</span>
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <span className={`font-black text-base ${colors.text}`}>
+                      <td className="px-3 py-3 text-center">
+                        <span className={`font-black text-base sm:text-lg ${colors.text}`}>
                           {v.sys}/{v.dia}
                         </span>
+                        {v.pulse && (
+                          <div className="sm:hidden text-xs text-slate-500 font-medium mt-0.5">
+                            ❤️ {v.pulse} bpm
+                          </div>
+                        )}
                       </td>
-                      <td className="px-3 py-2.5 text-center text-slate-600 hidden sm:table-cell">
-                        {v.pulse ? `${v.pulse}` : '—'}
+                      <td className="px-3 py-3 text-center text-slate-600 hidden sm:table-cell font-medium">
+                        {v.pulse ? `${v.pulse} bpm` : '—'}
                       </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold border ${colors.badge}`}>
+                      <td className="px-3 py-3 text-center">
+                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${colors.badge}`}>
                           {alertLabel(v.alertLevel)}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-slate-500 text-xs hidden sm:table-cell max-w-[120px] truncate">
+                      <td className="px-3 py-3 text-slate-600 text-xs hidden sm:table-cell max-w-[180px] truncate">
                         {v.note || '—'}
                       </td>
                       {isAdmin && (
-                        <td className="px-3 py-2.5 text-center">
+                        <td className="px-3 py-3 text-center">
                           <button
                             onClick={() => handleDelete(v.id)}
                             disabled={deletingId === v.id}
-                            className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-500 transition-colors disabled:opacity-50"
+                            className="p-2 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-500 transition-colors disabled:opacity-50 min-h-[40px] min-w-[40px]"
                             title="Xóa bản ghi"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4 mx-auto" />
                           </button>
                         </td>
                       )}

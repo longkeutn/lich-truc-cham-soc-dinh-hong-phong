@@ -327,23 +327,23 @@ export default function PatientBanner({
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
           </span>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-slate-800 truncate">
-            <span className="font-black text-rose-950 truncate">{patient.name}</span>
-            <span className="text-slate-300">•</span>
-            <span className="text-slate-600 text-xs hidden sm:inline truncate">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-slate-800 min-w-0 flex-1">
+            <span className="font-black text-rose-950 shrink-0 hidden sm:inline">{patient.name}</span>
+            <span className="text-slate-300 hidden sm:inline">•</span>
+            <span className="text-slate-600 text-xs hidden md:inline truncate">
               {patient.hospital} ({patient.room})
             </span>
-            <span className="text-slate-300 hidden sm:inline">•</span>
-            <span className="text-xs text-rose-800 font-medium truncate max-w-[220px] sm:max-w-none">
+            <span className="text-slate-300 hidden md:inline">•</span>
+            <span className="text-xs sm:text-sm text-rose-900 font-bold truncate">
               ⚠️ {patient.notes}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {urgentTotal > 0 && (
             <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-rose-600 text-white animate-pulse shadow-2xs">
-              {urgentTotal} Dặn dò khẩn
+              {urgentTotal} khẩn
             </span>
           )}
 
@@ -355,7 +355,7 @@ export default function PatientBanner({
                 onEditPatient();
               }}
               title="Chỉnh sửa thông tin bệnh nhân (Admin PIN)"
-              className="px-2 py-1 rounded-xl bg-white hover:bg-blue-50 text-blue-700 text-xs font-bold border border-blue-200 transition shadow-2xs cursor-pointer flex items-center gap-1"
+              className="hidden sm:flex px-2.5 py-1.5 rounded-xl bg-white hover:bg-blue-50 text-blue-700 text-xs font-bold border border-blue-200 transition shadow-2xs cursor-pointer items-center gap-1 min-h-[38px]"
             >
               <span>✏️ Sửa bệnh án</span>
             </button>
@@ -370,9 +370,9 @@ export default function PatientBanner({
               }}
               disabled={isLoading}
               title="Tải lại dữ liệu mới nhất từ Google Sheets"
-              className="p-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200 transition shadow-2xs cursor-pointer disabled:opacity-50"
+              className="min-h-[38px] min-w-[38px] p-2 rounded-xl bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200 transition shadow-2xs cursor-pointer disabled:opacity-50 flex items-center justify-center"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-indigo-600' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-600' : ''}`} />
             </button>
           )}
 
@@ -382,11 +382,11 @@ export default function PatientBanner({
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
-            className="px-2.5 py-1 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 flex items-center gap-1 transition shadow-2xs cursor-pointer"
+            className="min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-black bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 flex items-center gap-1 transition shadow-2xs cursor-pointer"
           >
-            <span>{isExpanded ? 'Thu gọn' : `Dặn dò y tế (${localReminders.length})`}</span>
+            <span>{isExpanded ? 'Thu gọn' : `Dặn dò (${localReminders.length})`}</span>
             <ChevronDown
-              className={`w-3.5 h-3.5 transition-transform duration-200 ${
+              className={`w-4 h-4 transition-transform duration-200 ${
                 isExpanded ? 'rotate-180' : ''
               }`}
             />

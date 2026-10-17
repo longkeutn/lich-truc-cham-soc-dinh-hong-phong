@@ -25,6 +25,7 @@ export default function ShiftHistoryView({ shifts, members }: ShiftHistoryViewPr
   const [selectedType, setSelectedType] = useState<string>('all');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [onlyWithNotes, setOnlyWithNotes] = useState<boolean>(false);
+  const [onlyIcuHistory, setOnlyIcuHistory] = useState<boolean>(false);
 
   // Lọc và sắp xếp các ca trực: Ưu tiên các ca ĐÃ CÓ NGƯỜI TRỰC hoặc CÓ GHI CHÚ, xếp ngày mới nhất lên đầu
   const filteredShifts = useMemo(() => {
@@ -42,6 +43,11 @@ export default function ShiftHistoryView({ shifts, members }: ShiftHistoryViewPr
 
         // Chỉ hiển thị các ca đã có người trực, có người hỗ trợ, hoặc có dữ liệu ghi nhận
         if (!hasAssignees && !hasSupporters && !hasNote && !hasVitals) {
+          return false;
+        }
+
+        // Lọc chỉ xem lịch sử trực viện ICU cũ (phase1)
+        if (onlyIcuHistory && s.phase !== 'phase1') {
           return false;
         }
 
@@ -88,7 +94,7 @@ export default function ShiftHistoryView({ shifts, members }: ShiftHistoryViewPr
         const order: Record<string, number> = { night: 3, night_12h: 3, afternoon: 2, morning: 1, day_12h: 1 };
         return (order[b.type] || 0) - (order[a.type] || 0);
       });
-  }, [shifts, selectedMember, selectedType, searchKeyword, onlyWithNotes]);
+  }, [shifts, selectedMember, selectedType, searchKeyword, onlyWithNotes, onlyIcuHistory]);
 
   // Thống kê ý nghĩa gia đình (không tính công, mà là nhật ký đồng hành)
   const familyStats = useMemo(() => {
@@ -229,19 +235,33 @@ export default function ShiftHistoryView({ shifts, members }: ShiftHistoryViewPr
           </div>
         </div>
 
-        {/* Nút lọc nhanh: chỉ ca có ghi chú bàn giao */}
-        <div className="flex items-center justify-between pt-1 border-t border-slate-100 flex-wrap gap-2">
-          <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={onlyWithNotes}
-              onChange={(e) => setOnlyWithNotes(e.target.checked)}
-              className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-            />
-            <span className="text-xs font-bold text-slate-700">
-              Chỉ hiển thị các ca có lời dặn dò bàn giao hoặc sinh hiệu
-            </span>
-          </label>
+        {/* Nút lọc nhanh: chỉ ca có ghi chú bàn giao & chỉ lịch sử ICU cũ */}
+        <div className="flex items-center justify-between pt-2 border-t border-slate-100 flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={onlyIcuHistory}
+                onChange={(e) => setOnlyIcuHistory(e.target.checked)}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              <span className="text-xs font-bold text-indigo-900">
+                🏥 Chỉ xem lịch sử trực viện ICU cũ
+              </span>
+            </label>
+
+            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={onlyWithNotes}
+                onChange={(e) => setOnlyWithNotes(e.target.checked)}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              <span className="text-xs font-bold text-slate-700">
+                Chỉ hiển thị ca có dặn dò / sinh hiệu
+              </span>
+            </label>
+          </div>
 
           <span className="text-xs text-slate-500 font-medium">
             Hiển thị <span className="font-black text-indigo-700">{filteredShifts.length}</span> ca trực
@@ -261,7 +281,7 @@ export default function ShiftHistoryView({ shifts, members }: ShiftHistoryViewPr
               Thử xoá bộ lọc hoặc đổi sang thành viên khác để xem lại lịch sử chăm sóc.
             </p>
           </div>
-          {(selectedMember !== 'all' || selectedType !== 'all' || searchKeyword || onlyWithNotes) && (
+          {(selectedMember !== 'all' || selectedType !== 'all' || searchKeyword || onlyWithNotes || onlyIcuHistory) && (
             <button
               type="button"
               onClick={() => {
@@ -269,8 +289,9 @@ export default function ShiftHistoryView({ shifts, members }: ShiftHistoryViewPr
                 setSelectedType('all');
                 setSearchKeyword('');
                 setOnlyWithNotes(false);
+                setOnlyIcuHistory(false);
               }}
-              className="px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer min-h-[40px]"
             >
               Xoá tất cả bộ lọc
             </button>
@@ -288,6 +309,7 @@ export default function ShiftHistoryView({ shifts, members }: ShiftHistoryViewPr
               Boolean(shift.handover?.vitals?.temp);
 
             const displayDate = shift.date.split('-').reverse().join('/');
+            const isSupportRecord = String(shift.id || '').startsWith('support_');
 
             return (
               <div
@@ -305,13 +327,19 @@ export default function ShiftHistoryView({ shifts, members }: ShiftHistoryViewPr
                   </div>
 
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-lg ${
+                    className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg ${
                       shift.phase === 'phase1'
                         ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : isSupportRecord
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-teal-50 text-teal-700 border border-teal-200'
                     }`}
                   >
-                    {shift.phase === 'phase1' ? 'Ca 8 tiếng' : 'Ca 12 tiếng'}
+                    {shift.phase === 'phase1'
+                      ? '🏥 Trực viện ICU (Ca 8h)'
+                      : isSupportRecord
+                      ? '🤝 Qua phụ Mẹ tại nhà'
+                      : '🏠 Ca trực tại nhà'}
                   </span>
                 </div>
 
