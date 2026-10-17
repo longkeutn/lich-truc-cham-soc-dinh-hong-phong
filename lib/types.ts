@@ -79,6 +79,13 @@ export interface EmergencyContact {
   isPrimary?: boolean;
 }
 
+export interface PatientCustomField {
+  id: string;
+  label: string;
+  value: string;
+  section?: 'profile' | 'care';
+}
+
 export interface PatientInfo {
   name: string;
   diagnosis: string;
@@ -86,6 +93,12 @@ export interface PatientInfo {
   room: string;
   notes: string;
   emergencyPhone?: string;
+  statusBadge?: string;
+  conditionTag?: string;
+  headerBadge?: string;
+  careMode?: string;
+  careGoal?: string;
+  customFields?: PatientCustomField[];
 }
 
 export interface SystemSettings {

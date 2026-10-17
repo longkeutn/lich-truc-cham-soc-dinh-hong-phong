@@ -71,6 +71,7 @@ import {
   deleteContactAction,
   saveReminderAction,
   deleteReminderAction,
+  savePatientInfoAction,
   // V2.0 actions
   saveVitalsAction,
   deleteVitalsAction,
@@ -94,6 +95,12 @@ const EMPTY_PATIENT_INFO: PatientInfo = {
   room: '',
   notes: '',
   emergencyPhone: '',
+  statusBadge: 'Bệnh nhân theo dõi đặc biệt',
+  conditionTag: 'Tai biến nặng',
+  headerBadge: 'Tại nhà',
+  careMode: 'Liên tục 24/7',
+  careGoal: 'Chống loét & duy trì SpO2',
+  customFields: [],
 };
 
 export default function CareSchedulePage() {
@@ -522,6 +529,23 @@ export default function CareSchedulePage() {
     showToast('Đã cập nhật hồ sơ bệnh nhân!', 'success');
   }, [showToast]);
 
+  const handleInlineSavePatient = useCallback((newInfo: PatientInfo) => {
+    requireAdmin(() => {
+      setPatientInfo(newInfo);
+      showToast('Đã lưu thông tin bệnh nhân!', 'success');
+
+      void savePatientInfoAction(newInfo)
+        .then((res) => {
+          if (!res.success) {
+            showToast('Cảnh báo: Chưa đồng bộ được hồ sơ lên Sheet.', 'warn');
+          }
+        })
+        .catch(() => {
+          showToast('Lỗi đồng bộ hồ sơ bệnh nhân lên Google Sheets.', 'warn');
+        });
+    });
+  }, [requireAdmin, showToast]);
+
   // CRUD Members
   const handleOpenMembers = useCallback(() => {
     requireAdmin(() => setMembersModalOpen(true));
@@ -628,6 +652,7 @@ export default function CareSchedulePage() {
           onAddReminder={handleAddReminder}
           onDeleteReminder={handleDeleteReminder}
           onEditPatient={handleOpenEditPatient}
+          onSavePatient={handleInlineSavePatient}
           onRefresh={() => loadAllData(true)}
           isLoading={isLoading}
         />

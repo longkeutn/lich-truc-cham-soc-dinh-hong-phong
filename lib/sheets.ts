@@ -109,6 +109,12 @@ class MemoryShiftStore {
     room: '',
     notes: '',
     emergencyPhone: '',
+    statusBadge: 'Bệnh nhân theo dõi đặc biệt',
+    conditionTag: 'Tai biến nặng',
+    headerBadge: 'Tại nhà',
+    careMode: 'Liên tục 24/7',
+    careGoal: 'Chống loét & duy trì SpO2',
+    customFields: [],
   };
   private contacts: EmergencyContact[] = [];
   private reminders: PatientDailyReminder[] = [];
@@ -734,7 +740,7 @@ export async function fetchAppDataFromStorage(
           memoryStore.setMembers(data.members as FamilyMember[]);
         }
         if (data.patientInfo && typeof data.patientInfo === 'object' && (data.patientInfo as PatientInfo).name) {
-          memoryStore.setPatientInfo(data.patientInfo as PatientInfo);
+          memoryStore.setPatientInfo(unpackPatientInfoFromSheet(data.patientInfo as PatientInfo));
         }
         if (data.adminPin) {
           memoryStore.setAdminPin(String(data.adminPin));
@@ -878,12 +884,99 @@ export async function deleteReminderFromStorage(reminderId: string): Promise<Pat
 }
 
 // ==========================================
-// CRUD SETTINGS & PATIENT INFO
+// CRUD SETTINGS & PATIENT INFO (HỖ TRỢ ĐẦY ĐỦ CÁC TRƯỜNG MỞ RỘNG & TƯƠNG THÍCH NGƯỢC)
 // ==========================================
+const PATIENT_META_DELIM = ' ||META||';
+
+function packPatientInfoForSheet(info: PatientInfo): PatientInfo {
+  const cleanPhone = String(info.emergencyPhone || '').split(PATIENT_META_DELIM)[0].trim();
+  const metaPayload = {
+    statusBadge: info.statusBadge ?? '',
+    conditionTag: info.conditionTag ?? '',
+    headerBadge: info.headerBadge ?? '',
+    careMode: info.careMode ?? '',
+    careGoal: info.careGoal ?? '',
+    customFields: Array.isArray(info.customFields) ? info.customFields : [],
+  };
+  return {
+    ...info,
+    emergencyPhone: `${cleanPhone}${PATIENT_META_DELIM}${JSON.stringify(metaPayload)}`,
+  };
+}
+
+function unpackPatientInfoFromSheet(raw: PatientInfo): PatientInfo {
+  const rawPhone = String(raw.emergencyPhone || '');
+  let cleanPhone = rawPhone;
+  let parsedMeta: Partial<PatientInfo> | null = null;
+
+  if (rawPhone.includes(PATIENT_META_DELIM)) {
+    const [phonePart, metaPart] = rawPhone.split(PATIENT_META_DELIM);
+    cleanPhone = phonePart.trim();
+    if (metaPart) {
+      try {
+        parsedMeta = JSON.parse(metaPart) as Partial<PatientInfo>;
+      } catch {
+        parsedMeta = null;
+      }
+    }
+  }
+
+  return {
+    name: raw.name || 'Đinh Hồng Phong',
+    diagnosis: raw.diagnosis ?? '',
+    hospital: raw.hospital ?? '',
+    room: raw.room ?? '',
+    notes: raw.notes ?? '',
+    emergencyPhone: cleanPhone,
+    statusBadge:
+      raw.statusBadge !== undefined
+        ? raw.statusBadge
+        : parsedMeta?.statusBadge !== undefined
+          ? parsedMeta.statusBadge
+          : 'Bệnh nhân theo dõi đặc biệt',
+    conditionTag:
+      raw.conditionTag !== undefined
+        ? raw.conditionTag
+        : parsedMeta?.conditionTag !== undefined
+          ? parsedMeta.conditionTag
+          : 'Tai biến nặng',
+    headerBadge:
+      raw.headerBadge !== undefined
+        ? raw.headerBadge
+        : parsedMeta?.headerBadge !== undefined
+          ? parsedMeta.headerBadge
+          : 'Tại nhà',
+    careMode:
+      raw.careMode !== undefined
+        ? raw.careMode
+        : parsedMeta?.careMode !== undefined
+          ? parsedMeta.careMode
+          : 'Liên tục 24/7',
+    careGoal:
+      raw.careGoal !== undefined
+        ? raw.careGoal
+        : parsedMeta?.careGoal !== undefined
+          ? parsedMeta.careGoal
+          : 'Chống loét & duy trì SpO2',
+    customFields: Array.isArray(raw.customFields)
+      ? raw.customFields
+      : Array.isArray(parsedMeta?.customFields)
+        ? parsedMeta!.customFields
+        : [],
+  };
+}
+
 export async function savePatientSettingsToStorage(info: PatientInfo): Promise<PatientInfo> {
-  memoryStore.setPatientInfo(info);
+  const cleanInfo: PatientInfo = {
+    ...info,
+    emergencyPhone: String(info.emergencyPhone || '').split(PATIENT_META_DELIM)[0].trim(),
+  };
+  memoryStore.setPatientInfo(cleanInfo);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'saveSettings', patientInfo: info }, 20000);
+  await sendToWebappWithTimeout(
+    { action: 'saveSettings', patientInfo: packPatientInfoForSheet(cleanInfo) },
+    20000
+  );
   return memoryStore.getPatientInfo();
 }
 

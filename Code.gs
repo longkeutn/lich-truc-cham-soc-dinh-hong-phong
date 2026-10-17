@@ -559,16 +559,22 @@ function readPatientInfo(ss) {
   const sheet = ss.getSheetByName('Settings');
   const info = {
     name: 'Đinh Hồng Phong',
-    diagnosis: 'Tai biến mạch máu não nặng (Đột quỵ diện rộng), liệt nửa người, thở máy/sonde',
-    hospital: 'Bệnh viện Bạch Mai - Hà Nội',
-    room: 'Khoa Hồi Sức Tích Cực (ICU) • Phòng 402, Giường 12',
-    notes: 'Cần lật trở chống loét 2h/lần, kiểm tra SpO2 và hút đờm thường xuyên.',
-    emergencyPhone: '0913 218 765'
+    diagnosis: '',
+    hospital: '',
+    room: '',
+    notes: '',
+    emergencyPhone: '',
+    statusBadge: 'Bệnh nhân theo dõi đặc biệt',
+    conditionTag: 'Tai biến nặng',
+    headerBadge: 'Tại nhà',
+    careMode: 'Liên tục 24/7',
+    careGoal: 'Chống loét & duy trì SpO2',
+    customFields: []
   };
   if (!sheet) return info;
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    const key = String(data[i][0]);
+    const key = String(data[i][0]).trim();
     const val = String(data[i][1] || '');
     if (key === 'patient_name') info.name = val;
     if (key === 'patient_diagnosis') info.diagnosis = val;
@@ -576,6 +582,18 @@ function readPatientInfo(ss) {
     if (key === 'patient_room') info.room = val;
     if (key === 'patient_notes') info.notes = val;
     if (key === 'emergency_phone') info.emergencyPhone = val;
+    if (key === 'patient_status_badge') info.statusBadge = val;
+    if (key === 'patient_condition_tag') info.conditionTag = val;
+    if (key === 'patient_header_badge') info.headerBadge = val;
+    if (key === 'patient_care_mode') info.careMode = val;
+    if (key === 'patient_care_goal') info.careGoal = val;
+    if (key === 'patient_custom_fields' && val) {
+      try {
+        info.customFields = JSON.parse(val);
+      } catch (e) {
+        info.customFields = [];
+      }
+    }
   }
   return info;
 }
@@ -754,19 +772,33 @@ function saveReminder(ss, reminder) {
 
 function savePatientInfo(ss, info) {
   const sheet = ss.getSheetByName('Settings');
+  if (!sheet) return;
   const data = sheet.getDataRange().getValues();
   const map = {
-    patient_name: info.name,
-    patient_diagnosis: info.diagnosis,
-    patient_hospital: info.hospital,
-    patient_room: info.room,
-    patient_notes: info.notes,
-    emergency_phone: info.emergencyPhone || ''
+    patient_name: info.name || '',
+    patient_diagnosis: info.diagnosis || '',
+    patient_hospital: info.hospital || '',
+    patient_room: info.room || '',
+    patient_notes: info.notes || '',
+    emergency_phone: info.emergencyPhone || '',
+    patient_status_badge: info.statusBadge !== undefined ? info.statusBadge : '',
+    patient_condition_tag: info.conditionTag !== undefined ? info.conditionTag : '',
+    patient_header_badge: info.headerBadge !== undefined ? info.headerBadge : '',
+    patient_care_mode: info.careMode !== undefined ? info.careMode : '',
+    patient_care_goal: info.careGoal !== undefined ? info.careGoal : '',
+    patient_custom_fields: JSON.stringify(info.customFields || [])
   };
-  for (let i = 1; i < data.length; i++) {
-    const key = String(data[i][0]);
-    if (map[key] !== undefined) {
-      sheet.getRange(i + 1, 2).setValue(map[key]);
+  for (const [key, val] of Object.entries(map)) {
+    let found = false;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]).trim() === key) {
+        sheet.getRange(i + 1, 2).setValue(val);
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      sheet.appendRow([key, val, 'Thông tin bệnh nhân']);
     }
   }
 }
