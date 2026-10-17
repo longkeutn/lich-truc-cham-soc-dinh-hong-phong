@@ -300,7 +300,15 @@ export default function QuickVitalsForm({
   const [dia, setDia] = useState('');
   const [pulse, setPulse] = useState('');
   const [note, setNote] = useState('');
-  const [period, setPeriod] = useState<VitalsPeriod>(detectCurrentTimeSlot);
+  // Khởi tạo cố định 'morning' khi SSR rồi đồng bộ giờ thực tế của điện thoại trong useEffect
+  // để tránh lỗi Hydration Mismatch (giờ UTC của server khác giờ Việt Nam làm kẹt nút bấm lần đầu)
+  const [period, setPeriod] = useState<VitalsPeriod>('morning');
+  const [mountedClient, setMountedClient] = useState(false);
+
+  useEffect(() => {
+    setPeriod(detectCurrentTimeSlot());
+    setMountedClient(true);
+  }, []);
 
   // --- UI state ---
   const [isSaving, setIsSaving] = useState(false);
@@ -1111,7 +1119,7 @@ export default function QuickVitalsForm({
         <div className="grid grid-cols-4 gap-2">
           {PERIOD_OPTIONS.map((p) => {
             const cfg = TIME_SLOT_CONFIG[p];
-            const isActive = period === p;
+            const isActive = mountedClient && period === p;
             return (
               <button
                 key={p}

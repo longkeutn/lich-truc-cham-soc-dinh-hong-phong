@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Pill,
   Dumbbell,
@@ -68,20 +68,25 @@ export default function DailyRoutineView({
   onOpenManager,
   defaultRecorder = DEFAULT_RECORDER,
 }: DailyRoutineViewProps) {
-  // Detect current time slot for auto-expand
-  const currentSlot = useMemo(() => detectCurrentTimeSlot(), []);
-
-  // Track which sections are expanded (current slot open by default)
-  const [expandedSlots, setExpandedSlots] = useState<Record<TimeSlot, boolean>>(() => {
-    const initial: Record<TimeSlot, boolean> = {
-      morning: false,
-      noon: false,
-      afternoon: false,
-      evening: false,
-    };
-    initial[currentSlot] = true;
-    return initial;
+  // Khởi tạo cố định khi SSR rồi cập nhật đúng buổi theo giờ thực tế trên điện thoại trong useEffect
+  const [currentSlot, setCurrentSlot] = useState<TimeSlot>('morning');
+  const [expandedSlots, setExpandedSlots] = useState<Record<TimeSlot, boolean>>({
+    morning: true,
+    noon: false,
+    afternoon: false,
+    evening: false,
   });
+
+  useEffect(() => {
+    const slot = detectCurrentTimeSlot();
+    setCurrentSlot(slot);
+    setExpandedSlots({
+      morning: slot === 'morning',
+      noon: slot === 'noon',
+      afternoon: slot === 'afternoon',
+      evening: slot === 'evening',
+    });
+  }, []);
 
   // Loading state per item to prevent double-tap
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
