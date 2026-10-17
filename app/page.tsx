@@ -7,6 +7,7 @@ import QuickVitalsForm from '@/components/QuickVitalsForm';
 import DailyRoutineView from '@/components/DailyRoutineView';
 import { AppointmentSection } from '@/components/AppointmentSection';
 import { RoutineManagerModal } from '@/components/RoutineManagerModal';
+import { VitalsChartView } from '@/components/VitalsChartView';
 import GoogleSheetGuideModal from '@/components/GoogleSheetGuideModal';
 import EmergencyContactsModal from '@/components/EmergencyContactsModal';
 import { AdminPinModal } from '@/components/AdminPinModal';
@@ -44,6 +45,7 @@ import {
   deleteReminderAction,
   // V2.0 actions
   saveVitalsAction,
+  deleteVitalsAction,
   saveRoutineAction,
   deleteRoutineAction,
   toggleDailyLogAction,
@@ -54,7 +56,6 @@ import {
 import {
   AlertTriangle,
   ShieldCheck,
-  TrendingUp,
   Users as UsersIcon,
 } from 'lucide-react';
 
@@ -259,6 +260,25 @@ export default function CareSchedulePage() {
       showToast('Lỗi lưu huyết áp.', 'warn');
     }
   }, []);
+
+  // Xóa huyết áp (dùng trong VitalsChartView — Đợt B)
+  const handleDeleteVitals = useCallback(async (id: string) => {
+    const backup = vitalsLog;
+    // Optimistic delete
+    setVitalsLog((prev) => prev.filter((v) => v.id !== id));
+    try {
+      const res = await deleteVitalsAction(id);
+      if (res.success) {
+        showToast('🗑️ Đã xóa bản ghi huyết áp.', 'success');
+      } else {
+        setVitalsLog(backup);
+        showToast('Lỗi xóa bản ghi.', 'warn');
+      }
+    } catch {
+      setVitalsLog(backup);
+      showToast('Lỗi xóa bản ghi.', 'warn');
+    }
+  }, [vitalsLog]);
 
   // Toggle checklist thuốc/tập
   const handleToggleDailyLog = useCallback(async (log: DailyLog) => {
@@ -549,29 +569,16 @@ export default function CareSchedulePage() {
             />
           </div>
         ) : activeView === 'charts' ? (
-          /* ===== TAB BIỂU ĐỒ — Placeholder Đợt B ===== */
-          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-6 sm:p-8 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center">
-              <TrendingUp className="w-8 h-8 text-indigo-500" />
-            </div>
-            <h2 className="text-lg font-black text-slate-900 mb-2">
-              📊 Biểu Đồ Huyết Áp
-            </h2>
-            <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-              Tính năng biểu đồ xu hướng huyết áp sẽ sẵn sàng trong bản cập nhật tiếp theo (Đợt B). 
-              Hiện tại, hãy sử dụng tab <strong>Hôm Nay</strong> để ghi huyết áp hàng ngày.
-            </p>
-            {vitalsLog.length > 0 && (
-              <div className="mt-4 p-3 rounded-2xl bg-indigo-50 border border-indigo-100">
-                <p className="text-sm font-bold text-indigo-800">
-                  📈 Đã có {vitalsLog.length} lần đo huyết áp được ghi nhận
-                </p>
-                <p className="text-xs text-indigo-600 mt-1">
-                  Dữ liệu đã sẵn sàng để hiển thị biểu đồ khi tính năng hoàn thiện.
-                </p>
-              </div>
-            )}
-          </div>
+          /* ===== TAB BIỂU ĐỒ — Đợt B ===== */
+          <VitalsChartView
+            vitalsLog={vitalsLog}
+            bpThresholds={bpThresholds}
+            dailyLogs={dailyLogs}
+            careRoutines={careRoutines}
+            isAdmin={isAdmin}
+            onDeleteVitals={handleDeleteVitals}
+            onSaveVitals={handleSaveVitals}
+          />
         ) : (
           /* ===== TAB GIA ĐÌNH — Placeholder Đợt C ===== */
           <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-6 sm:p-8 text-center">
