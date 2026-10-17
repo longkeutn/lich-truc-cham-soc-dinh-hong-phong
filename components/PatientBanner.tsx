@@ -387,59 +387,55 @@ export default function PatientBanner({
   return (
     <div
       id="patient-banner-container"
-      className="bg-white border border-rose-200 rounded-2xl shadow-2xs overflow-hidden transition-all duration-200"
+      className="bg-white border-2 border-slate-300 rounded-3xl shadow-xs overflow-hidden transition-all duration-200"
     >
-      {/* THANH TÓM TẮT THÔNG MINH (LUÔN HIỂN THỊ, TIẾT KIỆM KHÔNG GIAN) */}
+      {/* THANH TÓM TẮT THÔNG MINH (CHỮ TO, NÚT ĐỌC DẶN DÒ 1 CHẠM CHO NGƯỜI LỚN TUỔI) */}
       <div
-        className="p-3 sm:px-4 flex flex-wrap items-center justify-between gap-2 bg-gradient-to-r from-rose-50/70 via-white to-amber-50/40 cursor-pointer select-none"
+        className="p-3.5 sm:px-5 flex flex-wrap items-center justify-between gap-2.5 bg-amber-50/70 cursor-pointer select-none"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <span className="relative flex h-2.5 w-2.5 shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <span className="relative flex h-3 w-3 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-700"></span>
           </span>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-slate-800 min-w-0 flex-1">
-            <span className="font-black text-rose-950 shrink-0 hidden sm:inline">{patient.name}</span>
-            {(patient.hospital || patient.room) && (
-              <>
-                <span className="text-slate-300 hidden md:inline">•</span>
-                <span className="text-slate-600 text-xs hidden md:inline truncate">
-                  {patient.hospital}
-                  {patient.room ? ` (${patient.room})` : ''}
-                </span>
-              </>
-            )}
-            <span className="text-slate-300 hidden sm:inline">•</span>
-            <span className="text-xs sm:text-sm text-rose-900 font-bold truncate">
+          <div className="flex items-center gap-2 text-sm sm:text-base font-black text-slate-950 min-w-0 flex-1">
+            <span className="font-black text-rose-900 shrink-0 hidden sm:inline">{patient.name}:</span>
+            <span className="text-sm sm:text-base text-slate-950 font-black truncate">
               {patient.notes
                 ? `⚠️ ${patient.notes}`
                 : isLoading
                   ? 'Đang tải thông tin bệnh án từ Google Sheets...'
-                  : patient.diagnosis || 'Theo dõi huyết áp & chăm sóc hàng ngày'}
+                  : patient.diagnosis || 'Bấm vào đây để xem Bệnh án & Lưu ý chăm sóc'}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {urgentTotal > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-rose-600 text-white animate-pulse shadow-2xs">
+            <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-rose-700 text-white shadow-2xs">
               {urgentTotal} khẩn
             </span>
           )}
 
-          {onEditPatient && (
+          {/* Nút Đọc to dặn dò ngay ngoài màn hình chính (1 chạm cho Mẹ) */}
+          {localReminders.length > 0 && (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onEditPatient();
+                handleReadAloudAll();
               }}
-              title="Chỉnh sửa thông tin bệnh nhân (Admin PIN)"
-              className="hidden sm:flex px-2.5 py-1.5 rounded-xl bg-white hover:bg-blue-50 text-blue-700 text-xs font-bold border border-blue-200 transition shadow-2xs cursor-pointer items-center gap-1 min-h-[38px]"
+              title="Nghe điện thoại đọc to toàn bộ dặn dò hôm nay"
+              className={`min-h-[42px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black border-2 flex items-center gap-1.5 transition shadow-2xs cursor-pointer ${
+                isSpeakingAll
+                  ? 'bg-rose-700 text-white border-rose-900 animate-pulse'
+                  : 'bg-indigo-700 hover:bg-indigo-800 text-white border-indigo-900'
+              }`}
             >
-              <span>✏️ Sửa bệnh án</span>
+              {isSpeakingAll ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              <span>{isSpeakingAll ? 'Dừng đọc' : '🔊 Đọc dặn dò'}</span>
             </button>
           )}
 
@@ -452,9 +448,9 @@ export default function PatientBanner({
               }}
               disabled={isLoading}
               title="Tải lại dữ liệu mới nhất từ Google Sheets"
-              className="min-h-[38px] min-w-[38px] p-2 rounded-xl bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200 transition shadow-2xs cursor-pointer disabled:opacity-50 flex items-center justify-center"
+              className="min-h-[42px] min-w-[42px] p-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 border-2 border-slate-300 transition shadow-2xs cursor-pointer disabled:opacity-50 flex items-center justify-center"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-600' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-700' : ''}`} />
             </button>
           )}
 
@@ -464,9 +460,9 @@ export default function PatientBanner({
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
-            className="min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-black bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 flex items-center gap-1 transition shadow-2xs cursor-pointer"
+            className="min-h-[42px] px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black bg-white hover:bg-slate-100 text-slate-950 border-2 border-slate-300 flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
           >
-            <span>{isExpanded ? 'Thu gọn' : `Dặn dò (${localReminders.length})`}</span>
+            <span>{isExpanded ? 'Thu gọn' : `Bệnh án & Dặn dò (${localReminders.length})`}</span>
             <ChevronDown
               className={`w-4 h-4 transition-transform duration-200 ${
                 isExpanded ? 'rotate-180' : ''

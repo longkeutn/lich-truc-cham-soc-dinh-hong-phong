@@ -201,26 +201,26 @@ export default function DailyRoutineView({
 
   const progressTextColor =
     progressPercent === 100
-      ? 'text-emerald-700'
+      ? 'text-emerald-800'
       : progressPercent > 0
-        ? 'text-blue-700'
-        : 'text-slate-500';
+        ? 'text-blue-800'
+        : 'text-slate-800';
 
   // ===== RENDER =====
   return (
     <div className="space-y-4">
       {/* ===== HEADER: Progress + Admin button ===== */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex-1">
+      <div className="rounded-3xl border-2 border-slate-300 bg-white p-4 sm:p-5 shadow-xs flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex-1 min-w-[200px]">
           {/* Progress text */}
           <div className="flex items-center gap-2 mb-2">
-            <ListChecks className={`w-5 h-5 ${progressTextColor}`} />
-            <span className={`text-base font-semibold ${progressTextColor}`}>
-              Hoàn thành {doneItems}/{totalItems} đầu việc hôm nay
+            <ListChecks className={`w-6 h-6 shrink-0 ${progressTextColor}`} />
+            <span className={`text-base sm:text-lg font-black ${progressTextColor}`}>
+              Đã làm {doneItems}/{totalItems} việc hôm nay ({progressPercent}%)
             </span>
           </div>
           {/* Progress bar */}
-          <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-4 bg-slate-200 border border-slate-300 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ease-out ${progressBarColor}`}
               style={{ width: `${progressPercent}%` }}
@@ -232,11 +232,11 @@ export default function DailyRoutineView({
         {onOpenManager && (
           <button
             onClick={onOpenManager}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 text-sm transition-colors min-h-[44px]"
+            className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl border-2 border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-900 font-black text-sm transition-colors min-h-[48px] cursor-pointer"
             title="Quản lý đơn thuốc & bài tập"
           >
-            <Settings className="w-4 h-4" />
-            <span className="hidden sm:inline">Quản lý</span>
+            <Settings className="w-5 h-5 text-slate-800" />
+            <span>Sửa Thuốc / Bài Tập</span>
           </button>
         )}
       </div>
@@ -261,65 +261,65 @@ export default function DailyRoutineView({
         return (
           <div
             key={slot}
-            className={`rounded-2xl border overflow-hidden transition-colors ${
+            className={`rounded-3xl border-2 overflow-hidden transition-colors shadow-xs ${
               isCurrent
-                ? 'border-blue-300 bg-blue-50/30 shadow-sm'
+                ? 'border-blue-600 bg-blue-50/40'
                 : slotAllDone
-                  ? 'border-emerald-200 bg-emerald-50/20'
-                  : 'border-slate-200 bg-white'
+                  ? 'border-emerald-600 bg-emerald-50/30'
+                  : 'border-slate-300 bg-white'
             }`}
           >
             {/* Section Header — Collapsible */}
             <button
               onClick={() => toggleSection(slot)}
-              className={`w-full flex items-center justify-between px-4 py-3.5 text-left transition-colors min-h-[52px] ${
+              className={`w-full flex items-center justify-between px-4 py-4 text-left transition-colors min-h-[60px] cursor-pointer ${
                 isCurrent
-                  ? 'bg-blue-50/80 hover:bg-blue-100/60'
+                  ? 'bg-blue-100/90 hover:bg-blue-200/70'
                   : slotAllDone
-                    ? 'bg-emerald-50/60 hover:bg-emerald-100/40'
-                    : 'bg-slate-50/60 hover:bg-slate-100/40'
+                    ? 'bg-emerald-100/80 hover:bg-emerald-200/60'
+                    : 'bg-slate-100 hover:bg-slate-200/70'
               }`}
             >
-              <div className="flex items-center gap-2.5">
-                <span className="text-xl" role="img" aria-label={slotConfig.label}>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-2xl" role="img" aria-label={slotConfig.label}>
                   {slotConfig.emoji}
                 </span>
-                <span className="text-base font-bold text-slate-800">
-                  {slotConfig.label}
+                <span className="text-lg font-black text-slate-950">
+                  Buổi {slotConfig.label}
                 </span>
-                <span className="text-sm text-slate-500">
-                  — {slotConfig.timeRange}
+                <span className="text-sm font-bold text-slate-700">
+                  ({slotConfig.timeRange})
                 </span>
                 {isCurrent && (
-                  <span className="px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
-                    Hiện tại
+                  <span className="px-2.5 py-0.5 text-xs font-black bg-blue-700 text-white rounded-lg">
+                    ĐANG Ở CA NÀY
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 {/* Slot progress mini badge */}
                 <span
-                  className={`text-sm font-medium px-2 py-0.5 rounded-full ${
+                  className={`text-sm font-black px-3 py-1 rounded-xl border ${
                     slotAllDone
-                      ? 'bg-emerald-100 text-emerald-700'
+                      ? 'bg-emerald-700 text-white border-emerald-900'
                       : slotDone > 0
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-slate-100 text-slate-500'
+                        ? 'bg-blue-700 text-white border-blue-900'
+                        : 'bg-white text-slate-900 border-slate-300'
                   }`}
                 >
-                  {slotDone}/{slotTotal}
+                  {slotAllDone ? `✅ Đủ ${slotDone}/${slotTotal}` : `${slotDone}/${slotTotal} việc`}
                 </span>
                 {isExpanded ? (
-                  <ChevronUp className="w-5 h-5 text-slate-400" />
+                  <ChevronUp className="w-6 h-6 text-slate-800" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-slate-400" />
+                  <ChevronDown className="w-6 h-6 text-slate-800" />
                 )}
               </div>
             </button>
 
             {/* Section Body — Routine items */}
             {isExpanded && (
-              <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-2 space-y-2.5">
+              <div className="px-3 sm:px-4 pb-4 pt-3 space-y-3">
                 {slotRoutines.map((routine) => (
                   <RoutineItem
                     key={`${routine.id}-${slot}`}
@@ -340,16 +340,16 @@ export default function DailyRoutineView({
 
       {/* ===== "KHI CẦN" SECTION ===== */}
       {asNeededRoutines.length > 0 && (
-        <div className="rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/30 overflow-hidden">
+        <div className="rounded-3xl border-2 border-amber-500 bg-amber-50/50 overflow-hidden shadow-xs">
           {/* Header */}
-          <div className="px-4 py-3 bg-amber-50/60">
+          <div className="px-4 py-3.5 bg-amber-200/70 border-b border-amber-300">
             <div className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-amber-600" />
-              <span className="text-base font-bold text-amber-800">
-                Thuốc khi cần
+              <Zap className="w-6 h-6 text-amber-900" />
+              <span className="text-lg font-black text-amber-950">
+                Thuốc Dùng Khi Cần
               </span>
-              <span className="text-sm text-amber-600">
-                (không theo lịch)
+              <span className="text-sm font-bold text-amber-900">
+                (Chỉ uống khi có triệu chứng)
               </span>
             </div>
           </div>
@@ -498,12 +498,12 @@ function RoutineItem({
 
   return (
     <div
-      className={`rounded-2xl border p-3 sm:p-4 flex items-start gap-3 transition-all ${
+      className={`rounded-2xl border-2 p-3.5 sm:p-4 flex items-start gap-3 transition-all ${
         isDone
-          ? 'bg-emerald-50/60 border-emerald-200'
+          ? 'bg-emerald-50 border-emerald-500 shadow-2xs'
           : isAsNeeded
-            ? 'bg-amber-50/30 border-amber-200'
-            : 'bg-white border-slate-200 hover:border-slate-300'
+            ? 'bg-white border-amber-400'
+            : 'bg-white border-slate-300 hover:border-slate-400 shadow-2xs'
       }`}
     >
       {/* Left: Image Thumbnail (if available) or Category Icon */}
@@ -511,7 +511,7 @@ function RoutineItem({
         <button
           type="button"
           onClick={onPreviewImage}
-          className="relative flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 border-blue-200 bg-slate-100 mt-0.5 group shadow-sm hover:border-blue-400 transition"
+          className="relative flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-blue-500 bg-slate-100 mt-0.5 group shadow-xs cursor-pointer"
           title="Bấm để phóng to hình ảnh thuốc"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -520,18 +520,21 @@ function RoutineItem({
             alt={routine.title}
             className="w-full h-full object-cover group-hover:scale-105 transition"
           />
-          <span className="absolute bottom-0.5 right-0.5 w-5 h-5 rounded-md bg-black/60 text-white flex items-center justify-center">
+          <span className="absolute bottom-0 inset-x-0 bg-black/75 text-white text-[10px] font-black py-0.5 text-center flex items-center justify-center gap-0.5">
             <ZoomIn className="w-3 h-3" />
+            <span>Xem ảnh</span>
           </span>
         </button>
       ) : (
         <div
-          className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center mt-0.5 ${
-            isDone ? 'bg-emerald-100' : categoryConfig.bgColor
+          className={`flex-shrink-0 w-12 h-12 rounded-2xl border flex items-center justify-center mt-0.5 ${
+            isDone
+              ? 'bg-emerald-700 border-emerald-900'
+              : `${categoryConfig.bgColor} border-slate-300`
           }`}
         >
           <IconComponent
-            className={`w-5 h-5 ${isDone ? 'text-emerald-600' : categoryConfig.color}`}
+            className={`w-6 h-6 ${isDone ? 'text-white' : categoryConfig.color}`}
           />
         </div>
       )}
@@ -540,8 +543,8 @@ function RoutineItem({
       <div className="flex-1 min-w-0">
         {/* Title */}
         <p
-          className={`text-base font-bold leading-snug ${
-            isDone ? 'text-emerald-800 line-through decoration-emerald-400' : 'text-slate-800'
+          className={`text-base sm:text-lg font-black leading-snug ${
+            isDone ? 'text-emerald-950' : 'text-slate-950'
           }`}
         >
           {routine.title}
@@ -549,22 +552,26 @@ function RoutineItem({
 
         {/* Dosage */}
         {routine.dosage && (
-          <p
-            className={`text-sm font-semibold mt-0.5 ${
-              isDone ? 'text-emerald-600' : 'text-slate-700'
-            }`}
-          >
-            {routine.dosage}
-          </p>
+          <div className="mt-1">
+            <span
+              className={`inline-block text-sm font-black px-2.5 py-0.5 rounded-lg border ${
+                isDone
+                  ? 'bg-emerald-200 text-emerald-950 border-emerald-400'
+                  : 'bg-amber-100 text-amber-950 border-amber-400'
+              }`}
+            >
+              💊 Liều: {routine.dosage}
+            </span>
+          </div>
         )}
 
         {/* Description (Mô tả nhận diện thuốc / công dụng) */}
         {routine.description && (
           <p
-            className={`text-sm mt-1 px-2.5 py-1 rounded-xl border leading-snug ${
+            className={`text-sm font-bold mt-1.5 px-3 py-1.5 rounded-xl border leading-snug ${
               isDone
-                ? 'bg-emerald-100/50 border-emerald-200 text-emerald-800'
-                : 'bg-indigo-50/80 border-indigo-200/80 text-indigo-900 font-medium'
+                ? 'bg-emerald-100/80 border-emerald-300 text-emerald-950'
+                : 'bg-indigo-50 border-indigo-300 text-indigo-950'
             }`}
           >
             🔍 {routine.description}
@@ -573,15 +580,15 @@ function RoutineItem({
 
         {/* Instructions */}
         {routine.instructions && (
-          <p className="text-sm text-slate-500 mt-1 leading-snug">
-            {routine.instructions}
+          <p className="text-sm font-bold text-slate-800 mt-1.5 leading-snug">
+            👉 {routine.instructions}
           </p>
         )}
 
         {/* Condition Note — amber mini-banner */}
         {routine.conditionNote && (
-          <div className="mt-1.5 px-2.5 py-1.5 bg-amber-100 border border-amber-200 rounded-lg">
-            <p className="text-sm text-amber-800 font-medium leading-snug">
+          <div className="mt-2 px-3 py-1.5 bg-amber-100 border-2 border-amber-400 rounded-xl">
+            <p className="text-sm text-amber-950 font-black leading-snug">
               ⚠️ {routine.conditionNote}
             </p>
           </div>
@@ -589,32 +596,38 @@ function RoutineItem({
 
         {/* Done timestamp */}
         {isDone && log?.doneAt && (
-          <p className="text-xs text-emerald-600 mt-1.5 font-medium">
-            ✅ Xong lúc {log.doneAt}
-            {log.doneBy ? ` — ${log.doneBy}` : ''}
+          <p className="text-xs sm:text-sm text-emerald-900 mt-2 font-black bg-emerald-100 border border-emerald-300 inline-block px-2.5 py-0.5 rounded-lg">
+            ✅ Đã xong lúc {log.doneAt}
+            {log.doneBy ? ` • ${log.doneBy}` : ''}
           </p>
         )}
       </div>
 
-      {/* Right: Toggle Button (large touch target) */}
+      {/* Right: Nút Bấm Xong TO, CÓ CHỮ RÕ RÀNG CHO NGƯỜI LỚN TUỔI */}
       <button
         onClick={onToggle}
         disabled={isLoading}
-        className={`flex-shrink-0 min-h-[52px] min-w-[52px] rounded-2xl flex items-center justify-center transition-all active:scale-95 ${
+        className={`flex-shrink-0 min-h-[58px] px-3 sm:px-4 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 cursor-pointer border-2 ${
           isLoading
-            ? 'bg-slate-100 border-2 border-slate-200 cursor-wait'
+            ? 'bg-slate-200 border-slate-400 cursor-wait text-slate-700'
             : isDone
-              ? 'bg-emerald-500 border-2 border-emerald-500 shadow-sm hover:bg-emerald-600'
-              : 'bg-white border-2 border-slate-300 hover:border-blue-400 hover:bg-blue-50'
+              ? 'bg-emerald-700 border-emerald-900 shadow-sm hover:bg-emerald-800 text-white'
+              : 'bg-slate-100 border-slate-400 hover:border-emerald-600 hover:bg-emerald-50 text-slate-950'
         }`}
         aria-label={isDone ? 'Bỏ tích hoàn thành' : 'Tích hoàn thành'}
       >
         {isLoading ? (
-          <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-slate-400 border-t-slate-900 rounded-full animate-spin" />
         ) : isDone ? (
-          <Check className="w-6 h-6 text-white" strokeWidth={3} />
+          <>
+            <Check className="w-6 h-6 text-white" strokeWidth={3} />
+            <span className="text-xs font-black leading-tight">Đã Xong</span>
+          </>
         ) : (
-          <Circle className="w-6 h-6 text-slate-300" />
+          <>
+            <Circle className="w-6 h-6 text-slate-700" strokeWidth={2.5} />
+            <span className="text-xs font-black leading-tight">Bấm Xong</span>
+          </>
         )}
       </button>
     </div>

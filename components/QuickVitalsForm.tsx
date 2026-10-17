@@ -698,26 +698,26 @@ export default function QuickVitalsForm({
   };
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-4 sm:p-5 space-y-4">
+    <div className="rounded-3xl border-2 border-slate-300 bg-white shadow-md p-4 sm:p-6 space-y-4">
       {/* ===== HEADER ===== */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center shrink-0">
-            <HeartPulse className="w-5 h-5 text-rose-600" />
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-rose-700 flex items-center justify-center shrink-0 shadow-xs">
+            <HeartPulse className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-base font-black text-slate-900 tracking-tight">
-              Ghi Huyết Áp Nhanh
+            <h3 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight">
+              Đo & Ghi Huyết Áp Hôm Nay
             </h3>
-            <p className="text-xs text-slate-500 font-medium">
-              Mặc định người đo là {defaultRecorder || 'Mẹ Phương'}
+            <p className="text-xs sm:text-sm text-slate-700 font-bold">
+              Người đo mặc định: <span className="text-rose-800">{defaultRecorder || 'Mẹ Phương'}</span>
             </p>
           </div>
         </div>
 
-        {/* Nút nhỏ đổi người đo khi con cái đo hộ Mẹ */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-slate-500 font-medium">Người đo:</span>
+        {/* Nút đổi người đo rõ ràng khi con cái đo hộ Mẹ */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs sm:text-sm text-slate-800 font-black">Người đo:</span>
           <div className="relative">
             <select
               value={recorder}
@@ -726,7 +726,7 @@ export default function QuickVitalsForm({
                 setHasUserSelectedRecorder(true);
               }}
               aria-label="Chọn người đo huyết áp"
-              className="pl-2.5 pr-6 py-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-xs font-bold text-slate-800 appearance-none cursor-pointer focus:outline-none focus:border-rose-400"
+              className="pl-3 pr-8 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 text-sm font-black text-slate-950 appearance-none cursor-pointer focus:outline-none focus:border-rose-600 min-h-[44px]"
             >
               {familyList.length > 0 ? (
                 familyList.map((m) => (
@@ -738,60 +738,60 @@ export default function QuickVitalsForm({
                 <option value={recorder}>{recorder}</option>
               )}
             </select>
-            <ChevronDown className="w-3 h-3 text-slate-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-4 h-4 text-slate-800 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
       </div>
 
-      {/* ===== THANH GHI HUYẾT ÁP BẰNG GIỌNG NÓI (0 AI API — Nhạy 1 chạm & Đọc lại tiếng Việt chuẩn trên Điện Thoại) ===== */}
+      {/* ===== THANH GHI HUYẾT ÁP BẰNG GIỌNG NÓI (TO, RÕ, DỄ BẤM CHO NGƯỜI LỚN TUỔI) ===== */}
       <div
-        className={`rounded-2xl border-2 transition-all p-3 sm:p-3.5 ${
+        className={`rounded-2xl border-2 transition-all p-3.5 sm:p-4 ${
           isListening
-            ? 'border-rose-500 bg-rose-50/90 shadow-md'
+            ? 'border-rose-600 bg-rose-50 shadow-md'
             : voicePanelOpen
-              ? 'border-indigo-200 bg-indigo-50/50'
-              : 'border-rose-200/80 bg-gradient-to-r from-rose-50/70 via-orange-50/40 to-indigo-50/60'
+              ? 'border-indigo-400 bg-indigo-50/70'
+              : 'border-rose-300 bg-rose-50/60'
         }`}
       >
-        <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center justify-between gap-2.5 flex-wrap">
           {!isListening ? (
             <button
               type="button"
               onClick={() => startOrResetVoiceSession(true)}
-              className="flex-1 min-h-[48px] px-4 py-2.5 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.98] bg-rose-600 hover:bg-rose-700 text-white"
+              className="flex-1 min-h-[56px] px-4 py-3 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-sm active:scale-[0.98] bg-rose-700 hover:bg-rose-800 text-white border-2 border-rose-900"
             >
               {voiceTranscript ? (
                 <>
-                  <RotateCcw className="w-5 h-5 shrink-0" />
-                  <span>🎙️ Bấm Để Đọc Lại Từ Đầu</span>
+                  <RotateCcw className="w-6 h-6 shrink-0" />
+                  <span>🎙️ BẤM ĐỂ ĐỌC LẠI TỪ ĐẦU</span>
                 </>
               ) : (
                 <>
-                  <Mic className="w-5 h-5 shrink-0" />
-                  <span>🎙️ Đọc Huyết Áp Bằng Giọng Nói</span>
+                  <Mic className="w-6 h-6 shrink-0" />
+                  <span>🎙️ BẤM ĐỌC HUYẾT ÁP BẰNG GIỌNG NÓI</span>
                 </>
               )}
             </button>
           ) : (
             <>
-              {/* Khi đang thu âm: Tách rõ 2 nút "Đọc lại ngay (không ngắt mic)" và "Xong" để bấm 1 lần ăn ngay */}
+              {/* Khi đang thu âm: Tách rõ 2 nút to "Đọc lại từ đầu" và "Xong" */}
               <button
                 type="button"
                 onClick={() => startOrResetVoiceSession(true)}
-                className="flex-1 min-h-[48px] px-3 py-2.5 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.98] bg-amber-500 hover:bg-amber-600 text-white"
+                className="flex-1 min-h-[56px] px-4 py-3 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm active:scale-[0.98] bg-amber-500 hover:bg-amber-600 text-slate-950 border-2 border-amber-700"
                 title="Xoá câu vừa đọc nhầm và đọc lại ngay lập tức (không cần tắt Micro)"
               >
-                <RotateCcw className="w-5 h-5 shrink-0" />
-                <span>Đọc lại từ đầu</span>
+                <RotateCcw className="w-6 h-6 shrink-0" />
+                <span>ĐỌC LẠI TỪ ĐẦU</span>
               </button>
 
               <button
                 type="button"
                 onClick={stopVoiceSession}
-                className="px-4 min-h-[48px] py-2.5 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-[0.98] bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                className="px-5 min-h-[56px] py-3 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm active:scale-[0.98] bg-emerald-700 hover:bg-emerald-800 text-white border-2 border-emerald-900 shrink-0"
               >
-                <Check className="w-5 h-5 shrink-0" />
-                <span>Xong</span>
+                <Check className="w-6 h-6 shrink-0" />
+                <span>XONG</span>
               </button>
             </>
           )}
@@ -804,46 +804,46 @@ export default function QuickVitalsForm({
                 setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
               }
             }}
-            className="px-3 min-h-[48px] rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="px-3.5 min-h-[56px] rounded-2xl bg-white hover:bg-slate-100 text-slate-900 border-2 border-slate-300 text-sm font-black flex items-center gap-1.5 cursor-pointer shrink-0"
             title="Mở ô nhập/đọc 1 dòng nhanh"
           >
-            <Sparkles className="w-4 h-4 text-indigo-600" />
-            <span className="hidden sm:inline">Nhập/Đọc 1 dòng</span>
+            <Sparkles className="w-5 h-5 text-indigo-700" />
+            <span className="hidden sm:inline">Gõ 1 dòng</span>
             <span className="sm:hidden">Mở ô</span>
           </button>
         </div>
 
-        {/* Gợi ý ngắn gọn ngay bên dưới nút */}
+        {/* Gợi ý chữ to, đậm, dễ đọc ngay bên dưới nút */}
         {!voicePanelOpen && !isListening && (
-          <p className="text-[11px] text-slate-600 font-medium mt-2 text-center">
-            💡 Chỉ cần đọc tự nhiên: <strong className="text-slate-800">&ldquo;135 85 mạch 78&rdquo;</strong> hoặc{' '}
-            <strong className="text-slate-800">&ldquo;Trăm ba lăm trên tám lăm sau tập đứng&rdquo;</strong>
+          <p className="text-xs sm:text-sm text-slate-800 font-bold mt-2.5 text-center">
+            💡 Chỉ cần đọc tự nhiên: <strong className="text-rose-800">&ldquo;135 85 mạch 78&rdquo;</strong> hoặc{' '}
+            <strong className="text-rose-800">&ldquo;Trăm ba lăm trên tám lăm&rdquo;</strong>
           </p>
         )}
 
         {/* Khung chi tiết khi đang nghe hoặc mở bảng Giọng nói */}
         {(voicePanelOpen || isListening || voiceTranscript) && (
-          <div className="mt-3 pt-3 border-t border-slate-200/80 space-y-2.5">
+          <div className="mt-3.5 pt-3.5 border-t-2 border-slate-300 space-y-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <span className="text-sm font-black text-slate-900 flex items-center gap-2">
                 {isListening ? (
                   <>
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping inline-block" />
-                    <span className="text-rose-700">
-                      Đang lắng nghe... Hãy đọc số trên máy đo (Nếu đọc nhầm bấm &ldquo;Đọc lại từ đầu&rdquo;)
+                    <span className="w-3 h-3 rounded-full bg-rose-600 animate-ping inline-block" />
+                    <span className="text-rose-800">
+                      ĐANG NGHE... Hãy đọc các số trên màn hình máy đo huyết áp
                     </span>
                   </>
                 ) : isSpeakingBack ? (
                   <>
-                    <Volume2 className="w-4 h-4 text-indigo-600 animate-bounce" />
-                    <span className="text-indigo-700">Đang đọc xác nhận lại chỉ số huyết áp...</span>
+                    <Volume2 className="w-5 h-5 text-indigo-700 animate-bounce" />
+                    <span className="text-indigo-800">Đang đọc to lại chỉ số huyết áp...</span>
                   </>
                 ) : (
-                  <span>🗣️ Câu vừa đọc / Nhập nhanh 1 dòng:</span>
+                  <span>🗣️ Câu vừa đọc / Gõ nhanh 1 dòng:</span>
                 )}
               </span>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 {/* Nút bấm nghe đọc lại trực tiếp */}
                 {parsedPreview?.isComplete && (
                   <button
@@ -856,11 +856,11 @@ export default function QuickVitalsForm({
                         setIsSpeakingBack
                       );
                     }}
-                    className="px-2.5 py-1 rounded-lg text-[11px] font-black bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 cursor-pointer shadow-2xs"
+                    className="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black bg-indigo-700 hover:bg-indigo-800 text-white flex items-center gap-1.5 cursor-pointer shadow-xs min-h-[40px]"
                     title="Nghe điện thoại đọc lại chỉ số vừa nhận"
                   >
-                    <Volume2 className="w-3.5 h-3.5" />
-                    <span>Nghe đọc lại</span>
+                    <Volume2 className="w-4 h-4" />
+                    <span>🔊 Nghe đọc lại</span>
                   </button>
                 )}
 
@@ -874,15 +874,15 @@ export default function QuickVitalsForm({
                       setIsSpeakingBack(false);
                     }
                   }}
-                  className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 border cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black flex items-center gap-1.5 border-2 cursor-pointer min-h-[40px] ${
                     ttsEnabled
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-slate-100 text-slate-500 border-slate-200'
+                      ? 'bg-emerald-100 text-emerald-900 border-emerald-400'
+                      : 'bg-slate-200 text-slate-800 border-slate-400'
                   }`}
                   title="Bật/tắt tự động đọc xác nhận lại chỉ số"
                 >
-                  {ttsEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-                  <span>{ttsEnabled ? 'Tự đọc: Bật' : 'Tắt tiếng'}</span>
+                  {ttsEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  <span>{ttsEnabled ? 'Tự đọc: BẬT' : 'Tắt tiếng'}</span>
                 </button>
 
                 <button
@@ -893,15 +893,15 @@ export default function QuickVitalsForm({
                     setVoicePanelOpen(false);
                     setVoiceError(null);
                   }}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 cursor-pointer"
+                  className="p-2 rounded-xl text-slate-700 hover:text-slate-950 bg-white border border-slate-300 cursor-pointer"
                   title="Thu gọn"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            {/* Ô text nhận giọng nói hoặc gõ nhanh 1 dòng (hỗ trợ cả nút Micro trên bàn phím điện thoại) */}
+            {/* Ô text nhận giọng nói hoặc gõ nhanh 1 dòng */}
             <div className="relative">
               <input
                 ref={quickVoiceInputRef}
@@ -911,8 +911,8 @@ export default function QuickVitalsForm({
                   hasSpokenConfirmationRef.current = false;
                   applyTranscriptToForm(e.target.value);
                 }}
-                placeholder='VD: "135 85 mạch 78 sau tập đứng" (hoặc bấm 🎙️ trên bàn phím)'
-                className="w-full px-3.5 py-2.5 pr-9 rounded-xl bg-white border-2 border-indigo-200 focus:border-rose-500 focus:outline-none text-sm font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal"
+                placeholder='VD: "135 85 mạch 78 sau tập đứng"'
+                className="w-full px-4 py-3 pr-10 rounded-xl bg-white border-2 border-slate-400 focus:border-rose-600 focus:outline-none text-base font-black text-slate-950 placeholder:text-slate-500 placeholder:font-medium"
               />
               {voiceTranscript && (
                 <button
@@ -922,43 +922,43 @@ export default function QuickVitalsForm({
                     setParsedPreview(null);
                     latestParsedRef.current = null;
                   }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-950 p-1 cursor-pointer"
                   title="Xoá câu vừa đọc"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               )}
             </div>
 
             {/* Thông báo lỗi Micro nếu có */}
             {voiceError && (
-              <p className="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              <p className="text-sm font-black text-amber-950 bg-amber-100 border-2 border-amber-400 rounded-xl px-3.5 py-2.5">
                 ⚠️ {voiceError}
               </p>
             )}
 
             {/* Kết quả bóc tách tự động theo thời gian thực */}
             {parsedPreview && (parsedPreview.sys || parsedPreview.dia || parsedPreview.pulse || parsedPreview.note) && (
-              <div className="rounded-xl bg-white border border-emerald-200 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
-                  <span className="text-emerald-700">✅ Đã tách tự động:</span>
+              <div className="rounded-xl bg-emerald-50 border-2 border-emerald-400 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2 text-sm font-black">
+                  <span className="text-emerald-900">✅ Đã điền vào ô:</span>
                   {parsedPreview.sys && (
-                    <span className="px-2 py-0.5 rounded-lg bg-rose-100 text-rose-800">
-                      SYS: {parsedPreview.sys}
+                    <span className="px-2.5 py-1 rounded-lg bg-rose-700 text-white">
+                      Số trên: {parsedPreview.sys}
                     </span>
                   )}
                   {parsedPreview.dia && (
-                    <span className="px-2 py-0.5 rounded-lg bg-rose-100 text-rose-800">
-                      DIA: {parsedPreview.dia}
+                    <span className="px-2.5 py-1 rounded-lg bg-rose-700 text-white">
+                      Số dưới: {parsedPreview.dia}
                     </span>
                   )}
                   {parsedPreview.pulse && (
-                    <span className="px-2 py-0.5 rounded-lg bg-indigo-100 text-indigo-800">
+                    <span className="px-2.5 py-1 rounded-lg bg-indigo-700 text-white">
                       Mạch: {parsedPreview.pulse}
                     </span>
                   )}
                   {parsedPreview.note && (
-                    <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700">
+                    <span className="px-2.5 py-1 rounded-lg bg-slate-800 text-white">
                       📝 {parsedPreview.note}
                     </span>
                   )}
@@ -966,12 +966,12 @@ export default function QuickVitalsForm({
               </div>
             )}
 
-            {/* Các câu mẫu bấm thử 1 chạm + mẹo đọc "lưu luôn" */}
-            <div className="space-y-1.5">
-              <p className="text-[11px] font-bold text-slate-500">
-                📌 Cách đọc mẫu (bấm thử để nghe giọng đọc xác nhận, hoặc nói thêm chữ <span className="text-rose-600">&ldquo;lưu luôn&rdquo;</span> ở cuối để tự động lưu):
+            {/* Các câu mẫu bấm thử 1 chạm */}
+            <div className="space-y-2">
+              <p className="text-xs sm:text-sm font-bold text-slate-800">
+                📌 Bấm thử câu mẫu (hoặc nói thêm chữ <span className="text-rose-700 font-black">&ldquo;lưu luôn&rdquo;</span> ở cuối để tự động lưu):
               </p>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {[
                   '135 85 mạch 78',
                   'Trăm ba lăm tám lăm nhịp tim bảy tư sau tập đứng',
@@ -984,53 +984,46 @@ export default function QuickVitalsForm({
                       const parsed = applyTranscriptToForm(sample);
                       triggerConfirmationFeedback(parsed, true);
                     }}
-                    className="px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-50 border border-slate-200 text-[11px] font-semibold text-slate-700 cursor-pointer transition-colors"
+                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-indigo-50 border-2 border-slate-300 text-xs sm:text-sm font-bold text-slate-900 cursor-pointer transition-colors"
                   >
                     &ldquo;{sample}&rdquo;
                   </button>
                 ))}
               </div>
-              {!speechSupported && (
-                <p className="text-[11px] text-slate-500 italic">
-                  * Mẹo: Trên Zalo hoặc trình duyệt chặn Micro, bạn chỉ cần chạm vào ô chữ ở trên rồi bấm nút Micro 🎙️ sẵn có trên bàn phím điện thoại.
-                </p>
-              )}
             </div>
           </div>
         )}
       </div>
 
-      {/* ===== LAST READING COMPARISON ===== */}
+      {/* ===== LẦN ĐO GẦN NHẤT (CHỮ TO RÕ ĐỂ MẸ ĐỐI CHIẾU) ===== */}
       {lastEntry && (
         <div
-          className={`rounded-2xl border p-3 flex items-center justify-between gap-3 ${getLastEntryBorderColor(lastEntry.alertLevel)}`}
+          className={`rounded-2xl border-2 p-3.5 flex items-center justify-between gap-3 ${getLastEntryBorderColor(lastEntry.alertLevel)}`}
         >
           <div className="min-w-0">
-            <p className="text-xs font-bold text-slate-500 mb-0.5">Lần đo gần nhất</p>
-            <p className="text-base font-black text-slate-900">
+            <p className="text-xs sm:text-sm font-black text-slate-700 mb-0.5">
+              📊 Lần đo trước ({formatLastEntryTime(lastEntry)}):
+            </p>
+            <p className="text-xl sm:text-2xl font-black text-slate-950">
               {lastEntry.sys}/{lastEntry.dia}
-              <span className="text-sm font-bold text-slate-500 ml-1">mmHg</span>
+              <span className="text-sm font-bold text-slate-700 ml-1">mmHg</span>
               {lastEntry.pulse && (
-                <span className="text-sm font-bold text-slate-400 ml-2">
-                  <Activity className="w-3.5 h-3.5 inline -mt-0.5 mr-0.5" />
-                  {lastEntry.pulse}
+                <span className="text-base font-black text-indigo-800 ml-3">
+                  💓 Mạch {lastEntry.pulse}
                 </span>
               )}
-            </p>
-            <p className="text-xs text-slate-500 font-medium">
-              {formatLastEntryTime(lastEntry)}
             </p>
           </div>
 
           {/* Trend arrows — only show when user has entered values */}
           {hasBothValues && (
-            <div className="flex flex-col items-center gap-1 shrink-0">
-              <div className="flex items-center gap-1" title="Xu hướng tâm thu">
-                <span className="text-[11px] font-bold text-slate-400">SYS</span>
+            <div className="flex flex-col items-center gap-1 shrink-0 bg-white/80 px-2.5 py-1.5 rounded-xl border border-slate-300">
+              <div className="flex items-center gap-1" title="Xu hướng số trên">
+                <span className="text-xs font-black text-slate-700">Trên</span>
                 {renderTrendIcon(computeTrend(sysNum, lastEntry.sys))}
               </div>
-              <div className="flex items-center gap-1" title="Xu hướng tâm trương">
-                <span className="text-[11px] font-bold text-slate-400">DIA</span>
+              <div className="flex items-center gap-1" title="Xu hướng số dưới">
+                <span className="text-xs font-black text-slate-700">Dưới</span>
                 {renderTrendIcon(computeTrend(diaNum, lastEntry.dia))}
               </div>
             </div>
@@ -1038,12 +1031,12 @@ export default function QuickVitalsForm({
         </div>
       )}
 
-      {/* ===== MAIN FORM — SYS / DIA ===== */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* SYS */}
-        <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">
-            SYS <span className="normal-case text-slate-400">(Tâm thu)</span>
+      {/* ===== 2 Ô SỐ HUYẾT ÁP CHÍNH: SỐ TRÊN (SYS) & SỐ DƯỚI (DIA) ===== */}
+      <div className="grid grid-cols-2 gap-3.5">
+        {/* SYS — Số trên */}
+        <div className="bg-rose-50/50 p-3 rounded-2xl border-2 border-rose-200">
+          <label className="block text-sm sm:text-base font-black text-slate-900 mb-1.5 text-center">
+            1️⃣ SỐ TRÊN <span className="block text-xs font-bold text-slate-700">(Tâm thu - SYS)</span>
           </label>
           <input
             ref={sysInputRef}
@@ -1054,14 +1047,14 @@ export default function QuickVitalsForm({
             placeholder="135"
             min={40}
             max={300}
-            className="w-full text-3xl font-black text-center text-slate-900 bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-2 focus:outline-none focus:border-rose-400 focus:bg-white placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-full text-4xl font-black text-center text-slate-950 bg-white border-2 border-slate-400 rounded-2xl py-3.5 px-2 focus:outline-none focus:border-rose-700 focus:ring-2 focus:ring-rose-200 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
         </div>
 
-        {/* DIA */}
-        <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">
-            DIA <span className="normal-case text-slate-400">(Tâm trương)</span>
+        {/* DIA — Số dưới */}
+        <div className="bg-indigo-50/50 p-3 rounded-2xl border-2 border-indigo-200">
+          <label className="block text-sm sm:text-base font-black text-slate-900 mb-1.5 text-center">
+            2️⃣ SỐ DƯỚI <span className="block text-xs font-bold text-slate-700">(Tâm trương - DIA)</span>
           </label>
           <input
             type="number"
@@ -1071,52 +1064,51 @@ export default function QuickVitalsForm({
             placeholder="85"
             min={20}
             max={200}
-            className="w-full text-3xl font-black text-center text-slate-900 bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-2 focus:outline-none focus:border-rose-400 focus:bg-white placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-full text-4xl font-black text-center text-slate-950 bg-white border-2 border-slate-400 rounded-2xl py-3.5 px-2 focus:outline-none focus:border-indigo-700 focus:ring-2 focus:ring-indigo-200 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
         </div>
       </div>
 
-      {/* ===== PULSE + NOTE (optional, smaller) ===== */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* ===== NHỊP TIM (MẠCH) + GHI CHÚ ===== */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Pulse */}
         <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1">
-            <Activity className="w-3.5 h-3.5 inline -mt-0.5 mr-0.5" />
-            Mạch <span className="text-slate-400 font-medium">(tuỳ chọn)</span>
+          <label className="block text-sm font-black text-slate-900 mb-1">
+            💓 Nhịp tim / Mạch <span className="text-slate-600 font-bold text-xs">(số thứ 3 trên máy)</span>
           </label>
           <input
             type="number"
             inputMode="numeric"
             value={pulse}
             onChange={(e) => setPulse(e.target.value)}
-            placeholder="78"
+            placeholder="VD: 78"
             min={30}
             max={250}
-            className="w-full text-lg font-bold text-center text-slate-900 bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-2 focus:outline-none focus:border-indigo-400 focus:bg-white placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-full text-2xl font-black text-center text-slate-950 bg-white border-2 border-slate-400 rounded-xl py-2.5 px-3 focus:outline-none focus:border-indigo-700 placeholder:text-slate-300 transition-colors min-h-[50px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
         </div>
 
         {/* Note */}
         <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1">
-            📝 Ghi chú <span className="text-slate-400 font-medium">(tuỳ chọn)</span>
+          <label className="block text-sm font-black text-slate-900 mb-1">
+            📝 Ghi chú thêm <span className="text-slate-600 font-bold text-xs">(nếu có)</span>
           </label>
           <input
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="VD: Sau tập đứng"
-            className="w-full text-base font-medium text-slate-900 bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 focus:outline-none focus:border-indigo-400 focus:bg-white placeholder:text-slate-300 transition-colors"
+            placeholder="VD: Sau tập đứng, hơi mệt..."
+            className="w-full text-base font-bold text-slate-950 bg-white border-2 border-slate-400 rounded-xl py-2.5 px-3.5 focus:outline-none focus:border-indigo-700 placeholder:text-slate-400 transition-colors min-h-[50px]"
           />
         </div>
       </div>
 
-      {/* ===== PERIOD PILLS ===== */}
+      {/* ===== CHỌN BUỔI ĐO (NÚT TO, ĐẬM, RÕ RÀNG) ===== */}
       <div>
-        <label className="block text-xs font-bold text-slate-500 mb-1.5">
-          Buổi đo
+        <label className="block text-sm font-black text-slate-900 mb-2">
+          ⏰ Buổi đo huyết áp:
         </label>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {PERIOD_OPTIONS.map((p) => {
             const cfg = TIME_SLOT_CONFIG[p];
             const isActive = period === p;
@@ -1125,58 +1117,63 @@ export default function QuickVitalsForm({
                 key={p}
                 type="button"
                 onClick={() => setPeriod(p)}
-                className={`flex-1 min-h-[44px] rounded-xl text-sm font-bold transition-all cursor-pointer border ${
+                className={`min-h-[54px] rounded-xl text-sm sm:text-base font-black transition-all cursor-pointer border-2 ${
                   isActive
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-slate-900 text-white border-slate-950 shadow-sm scale-[1.02]'
+                    : 'bg-slate-100 text-slate-900 border-slate-300 hover:bg-slate-200'
                 }`}
               >
-                <span className="block text-base leading-none mb-0.5">{cfg.emoji}</span>
-                <span className="block text-xs">{cfg.label}</span>
+                <span className="block text-lg leading-none mb-1">{cfg.emoji}</span>
+                <span className="block text-xs sm:text-sm">{cfg.label}</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* ===== SAVE BUTTON ===== */}
+      {/* ===== NÚT LƯU HUYẾT ÁP CỰC LỚN CHO NGƯỜI LỚN TUỔI ===== */}
       {showSuccess ? (
-        <div className="min-h-[56px] rounded-2xl bg-emerald-50 border-2 border-emerald-300 flex items-center justify-center gap-2 animate-in fade-in duration-300">
-          <Check className="w-6 h-6 text-emerald-600" />
-          <span className="text-lg font-black text-emerald-700">✅ Đã lưu!</span>
+        <div className="min-h-[64px] rounded-2xl bg-emerald-100 border-2 border-emerald-600 flex items-center justify-center gap-2.5 animate-in fade-in duration-300">
+          <Check className="w-7 h-7 text-emerald-800" strokeWidth={3} />
+          <span className="text-xl font-black text-emerald-950">✅ ĐÃ LƯU HUYẾT ÁP THÀNH CÔNG!</span>
         </div>
       ) : (
         <button
           type="button"
           onClick={handleSave}
           disabled={!hasBothValues || isSaving}
-          className={`w-full min-h-[56px] rounded-2xl text-lg font-black text-white transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
+          className={`w-full min-h-[64px] rounded-2xl text-xl font-black text-white transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-md active:scale-[0.98] border-2 ${
             hasBothValues
-              ? `${alertDisplay.btnBg} ${alertDisplay.btnHoverBg}`
-              : 'bg-slate-300'
+              ? `${alertDisplay.btnBg} ${alertDisplay.btnHoverBg} border-black/20`
+              : 'bg-slate-300 text-slate-600 border-slate-400 cursor-not-allowed'
           }`}
         >
           {isSaving ? (
             <>
-              <Save className="w-5 h-5 animate-spin" />
-              <span>Đang lưu...</span>
+              <Save className="w-6 h-6 animate-spin" />
+              <span>ĐANG LƯU...</span>
+            </>
+          ) : hasBothValues ? (
+            <>
+              <span>💓</span>
+              <span>BẤM LƯU HUYẾT ÁP ({sysNum}/{diaNum})</span>
             </>
           ) : (
             <>
               <span>💓</span>
-              <span>Lưu Huyết Áp</span>
+              <span>NHẬP SỐ TRÊN & SỐ DƯỚI ĐỂ LƯU</span>
             </>
           )}
         </button>
       )}
 
-      {/* ===== ALERT BANNER ===== */}
+      {/* ===== CẢNH BÁO HUYẾT ÁP CAO/THẤP ===== */}
       {hasBothValues && currentAlertLevel !== 'normal' && (
         <div
-          className={`rounded-2xl border-2 p-3.5 flex items-start gap-2.5 animate-in fade-in duration-300 ${alertDisplay.bannerBg} ${alertDisplay.bannerBorder}`}
+          className={`rounded-2xl border-2 p-4 flex items-start gap-3 animate-in fade-in duration-300 ${alertDisplay.bannerBg} ${alertDisplay.bannerBorder}`}
         >
           <span className="text-2xl shrink-0 leading-none mt-0.5">{alertDisplay.bannerIcon}</span>
-          <p className={`text-base font-black ${alertDisplay.bannerText}`}>
+          <p className={`text-base sm:text-lg font-black ${alertDisplay.bannerText}`}>
             {alertDisplay.bannerMessage}
           </p>
         </div>
