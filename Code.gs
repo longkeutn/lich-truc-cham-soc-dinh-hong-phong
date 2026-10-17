@@ -338,12 +338,12 @@ function ensureSheetsSetup(ss) {
     sheetVitals.getRange('E:G').setNumberFormat('0');
   }
 
-  // Sheet 7: CareRoutines (Đơn thuốc & Bài tập phục hồi - 14 cột)
+  // Sheet 7: CareRoutines (Đơn thuốc & Bài tập phục hồi - 16 cột)
   let sheetRoutines = ss.getSheetByName('CareRoutines');
   const routineHeaders = [
     'id', 'stage_id', 'stage_name', 'category', 'med_type',
     'title', 'dosage', 'time_slots', 'instructions', 'condition_note',
-    'is_active', 'sort_order', 'created_at', 'updated_at'
+    'is_active', 'sort_order', 'created_at', 'updated_at', 'description', 'image_url'
   ];
   if (!sheetRoutines) {
     sheetRoutines = ss.insertSheet('CareRoutines');
@@ -358,37 +358,43 @@ function ensureSheetsSetup(ss) {
       ['routine-med-01', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'meds', 'scheduled',
        'Amlodipine (Amlor) 5mg', '1 viên', '["morning","evening"]',
        'Uống sau ăn 30 phút. Đo HA trước khi uống.', 'Nếu HA tâm thu < 110: hoãn uống, gọi BS',
-       'TRUE', 1, now, now],
+       'TRUE', 1, now, now, 'Thuốc hạ huyết áp — Viên nang cứng màu vàng-trắng (hoặc viên nén trắng)', ''],
       ['routine-med-02', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'meds', 'scheduled',
        'Aspirin 81mg', '1 viên', '["morning"]',
        'Uống sau ăn sáng, không uống khi đói.', '',
-       'TRUE', 2, now, now],
+       'TRUE', 2, now, now, 'Thuốc chống đông máu, ngừa tái phát đột quỵ — Viên nén nhỏ bao phim', ''],
       ['routine-med-03', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'meds', 'scheduled',
        'Atorvastatin 20mg', '1 viên', '["evening"]',
        'Uống buổi tối trước khi ngủ.', '',
-       'TRUE', 3, now, now],
+       'TRUE', 3, now, now, 'Thuốc hạ mỡ máu, ổn định thành mạch — Viên nén dài màu trắng', ''],
       ['routine-med-04', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'meds', 'as_needed',
        'Paracetamol 500mg', '1 viên', '[]',
        'Khi đau đầu hoặc sốt ≥ 38°C. Cách ít nhất 6 giờ giữa 2 lần.', 'Tối đa 3 viên/ngày',
-       'TRUE', 10, now, now],
+       'TRUE', 10, now, now, 'Thuốc giảm đau, hạ sốt — Viên nén dài màu trắng (hoặc sủi)', ''],
       ['routine-rehab-01', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'rehab', '',
        'Tập co duỗi tay chân (bên liệt)', '15 phút', '["morning","afternoon"]',
        'Từ từ, nhẹ nhàng. Dừng nếu bố kêu đau.', '',
-       'TRUE', 5, now, now],
+       'TRUE', 5, now, now, '', ''],
       ['routine-rehab-02', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'rehab', '',
        'Tập ngồi tựa lưng trên giường', '10–20 phút', '["morning"]',
        'Đỡ bố ngồi dậy tựa gối, giữ thẳng lưng.', '',
-       'TRUE', 6, now, now],
+       'TRUE', 6, now, now, '', ''],
       ['routine-care-01', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'care', '',
        'Lật trở & chống loét tì đè', 'Mỗi 2 giờ', '["morning","noon","afternoon","evening"]',
        'Xoay nghiêng trái/phải, kê gối đỡ lưng và gót chân.', '',
-       'TRUE', 7, now, now],
+       'TRUE', 7, now, now, '', ''],
       ['routine-care-02', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'care', '',
        'Vệ sinh răng miệng & thân thể', '', '["morning","evening"]',
        'Lau mặt ấm, đánh răng/lau nướu, thay quần áo sạch.', '',
-       'TRUE', 8, now, now],
+       'TRUE', 8, now, now, '', ''],
     ];
     sampleRoutines.forEach(r => sheetRoutines.appendRow(r));
+  } else {
+    if (sheetRoutines.getMaxColumns() < routineHeaders.length) {
+      sheetRoutines.insertColumnsAfter(sheetRoutines.getMaxColumns(), routineHeaders.length - sheetRoutines.getMaxColumns());
+    }
+    if (!sheetRoutines.getRange(1, 15).getValue()) sheetRoutines.getRange(1, 15).setValue('description');
+    if (!sheetRoutines.getRange(1, 16).getValue()) sheetRoutines.getRange(1, 16).setValue('image_url');
   }
 
   // Sheet 8: DailyLogs (Tích hoàn thành hàng ngày - 8 cột)
@@ -854,7 +860,9 @@ function readCareRoutines(ss) {
       isActive: String(row[10]).toUpperCase() === 'TRUE',
       sortOrder: Number(row[11]) || 0,
       createdAt: String(row[12] || ''),
-      updatedAt: String(row[13] || '')
+      updatedAt: String(row[13] || ''),
+      description: String(row[14] || ''),
+      imageUrl: String(row[15] || '')
     });
   }
   return results;
@@ -956,11 +964,15 @@ function saveVitalsLog(ss, v) {
 function saveRoutine(ss, r) {
   const sheet = ss.getSheetByName('CareRoutines');
   if (!sheet) return;
+  if (sheet.getMaxColumns() < 16) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), 16 - sheet.getMaxColumns());
+  }
   const timeSlotsStr = JSON.stringify(r.timeSlots || []);
   const now = new Date().toISOString();
   const row = [r.id, r.stageId, r.stageName, r.category, r.medType || '',
     r.title, r.dosage || '', timeSlotsStr, r.instructions || '', r.conditionNote || '',
-    r.isActive ? 'TRUE' : 'FALSE', r.sortOrder || 0, r.createdAt || now, now];
+    r.isActive ? 'TRUE' : 'FALSE', r.sortOrder || 0, r.createdAt || now, now,
+    r.description || '', r.imageUrl || ''];
 
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {

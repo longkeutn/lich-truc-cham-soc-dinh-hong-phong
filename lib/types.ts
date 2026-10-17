@@ -160,6 +160,8 @@ export interface CareRoutine {
   medType?: MedType;        // Chỉ khi category = 'meds'
   title: string;            // Tên thuốc / bài tập
   dosage: string;           // Liều lượng / Thời lượng
+  description?: string;     // Mô tả nhận diện thuốc / công dụng (VD: màu sắc, hình dáng viên thuốc, tác dụng)
+  imageUrl?: string;        // Hình ảnh thuốc / vỉ thuốc / minh hoạ (URL hoặc Base64 nén)
   timeSlots: TimeSlot[];    // Buổi áp dụng, VD: ['morning', 'evening']
   instructions: string;     // Hướng dẫn cho Mẹ
   conditionNote?: string;   // Điều kiện đặc biệt, VD: "Chỉ uống khi HA > 140"

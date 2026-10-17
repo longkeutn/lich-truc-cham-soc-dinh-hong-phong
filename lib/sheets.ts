@@ -403,7 +403,7 @@ class MemoryShiftStore {
     return filtered.sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
-  private sanitizeRoutine(r: CareRoutine): CareRoutine {
+  private sanitizeRoutine(r: CareRoutine, existing?: CareRoutine): CareRoutine {
     const validSlots = (Array.isArray(r.timeSlots) ? r.timeSlots : []).filter(
       (s) => s === 'morning' || s === 'noon' || s === 'afternoon' || s === 'evening'
     );
@@ -411,16 +411,28 @@ class MemoryShiftStore {
       r.category === 'meds' || r.category === 'rehab' || r.category === 'care'
         ? r.category
         : 'care';
+    const defaultMatch = DEFAULT_CARE_ROUTINES.find((d) => d.id === r.id);
     return {
       ...r,
       category: validCategory,
       timeSlots: validSlots,
+      description:
+        r.description !== undefined && r.description !== ''
+          ? r.description
+          : existing?.description || defaultMatch?.description || '',
+      imageUrl:
+        r.imageUrl !== undefined && r.imageUrl !== ''
+          ? r.imageUrl
+          : existing?.imageUrl || defaultMatch?.imageUrl || '',
     };
   }
 
   public saveRoutine(routine: CareRoutine): CareRoutine[] {
+    const idx = this.careRoutines.findIndex((r) => r.id === routine.id);
     const clean = this.sanitizeRoutine(routine);
-    const idx = this.careRoutines.findIndex((r) => r.id === clean.id);
+    // Khi người dùng chủ động lưu từ form, tôn trọng giá trị rỗng nếu họ xoá ảnh/mô tả
+    clean.description = routine.description || '';
+    clean.imageUrl = routine.imageUrl || '';
     if (idx >= 0) {
       this.careRoutines[idx] = clean;
     } else {
@@ -436,7 +448,8 @@ class MemoryShiftStore {
 
   public setCareRoutines(list: CareRoutine[]): void {
     if (list && Array.isArray(list) && list.length > 0) {
-      this.careRoutines = list.map((r) => this.sanitizeRoutine(r));
+      const existingMap = new Map(this.careRoutines.map((r) => [r.id, r]));
+      this.careRoutines = list.map((r) => this.sanitizeRoutine(r, existingMap.get(r.id)));
     }
   }
 

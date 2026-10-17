@@ -12,6 +12,8 @@ import {
   Circle,
   Zap,
   ListChecks,
+  X,
+  ZoomIn,
 } from 'lucide-react';
 import { CareRoutine, DailyLog, TimeSlot, RoutineCategory } from '@/lib/types';
 import { TIME_SLOT_CONFIG, detectCurrentTimeSlot, DEFAULT_RECORDER } from '@/lib/config';
@@ -83,6 +85,9 @@ export default function DailyRoutineView({
 
   // Loading state per item to prevent double-tap
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
+
+  // Lightbox xem ảnh thuốc lớn cho Mẹ
+  const [previewRoutine, setPreviewRoutine] = useState<CareRoutine | null>(null);
 
   // ===== DERIVED DATA =====
 
@@ -324,6 +329,7 @@ export default function DailyRoutineView({
                     log={logMap.get(`dl-${todayStr}-${routine.id}-${slot}`)}
                     isLoading={loadingIds.has(`dl-${todayStr}-${routine.id}-${slot}`)}
                     onToggle={() => handleToggle(routine, slot)}
+                    onPreviewImage={() => setPreviewRoutine(routine)}
                   />
                 ))}
               </div>
@@ -368,6 +374,7 @@ export default function DailyRoutineView({
                     log={log}
                     isLoading={isLoading}
                     isAsNeeded
+                    onPreviewImage={() => setPreviewRoutine(routine)}
                     onToggle={async () => {
                       if (isLoading) return;
                       setLoadingIds((prev) => new Set(prev).add(logId));
@@ -397,6 +404,70 @@ export default function DailyRoutineView({
           </div>
         </div>
       )}
+
+      {/* ===== LIGHTBOX XEM ẢNH THUỐC LỚN CHO MẸ ===== */}
+      {previewRoutine && previewRoutine.imageUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setPreviewRoutine(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative bg-slate-100 flex items-center justify-center max-h-[60vh] overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewRoutine.imageUrl}
+                alt={previewRoutine.title}
+                className="w-full h-auto max-h-[60vh] object-contain"
+              />
+              <button
+                type="button"
+                onClick={() => setPreviewRoutine(null)}
+                className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center"
+                aria-label="Đóng ảnh"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-5 space-y-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <h4 className="text-lg font-black text-slate-900">
+                  {previewRoutine.title}
+                </h4>
+                {previewRoutine.dosage && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 text-sm font-bold flex-shrink-0">
+                    {previewRoutine.dosage}
+                  </span>
+                )}
+              </div>
+              {previewRoutine.description && (
+                <p className="text-sm font-medium text-indigo-800 bg-indigo-50 border border-indigo-200 px-3 py-2 rounded-xl">
+                  🔍 {previewRoutine.description}
+                </p>
+              )}
+              {previewRoutine.instructions && (
+                <p className="text-sm text-slate-600">
+                  💡 {previewRoutine.instructions}
+                </p>
+              )}
+              {previewRoutine.conditionNote && (
+                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl font-medium">
+                  ⚠️ {previewRoutine.conditionNote}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setPreviewRoutine(null)}
+                className="w-full mt-2 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-800 transition"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -410,6 +481,7 @@ interface RoutineItemProps {
   isLoading: boolean;
   isAsNeeded?: boolean;
   onToggle: () => void;
+  onPreviewImage?: () => void;
 }
 
 function RoutineItem({
@@ -418,6 +490,7 @@ function RoutineItem({
   isLoading,
   isAsNeeded,
   onToggle,
+  onPreviewImage,
 }: RoutineItemProps) {
   const isDone = log?.isDone ?? false;
   const categoryConfig = CATEGORY_ICON[routine.category] || CATEGORY_ICON.care;
@@ -433,18 +506,37 @@ function RoutineItem({
             : 'bg-white border-slate-200 hover:border-slate-300'
       }`}
     >
-      {/* Left: Category Icon */}
-      <div
-        className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center mt-0.5 ${
-          isDone ? 'bg-emerald-100' : categoryConfig.bgColor
-        }`}
-      >
-        <IconComponent
-          className={`w-5 h-5 ${isDone ? 'text-emerald-600' : categoryConfig.color}`}
-        />
-      </div>
+      {/* Left: Image Thumbnail (if available) or Category Icon */}
+      {routine.imageUrl ? (
+        <button
+          type="button"
+          onClick={onPreviewImage}
+          className="relative flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 border-blue-200 bg-slate-100 mt-0.5 group shadow-sm hover:border-blue-400 transition"
+          title="Bấm để phóng to hình ảnh thuốc"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={routine.imageUrl}
+            alt={routine.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition"
+          />
+          <span className="absolute bottom-0.5 right-0.5 w-5 h-5 rounded-md bg-black/60 text-white flex items-center justify-center">
+            <ZoomIn className="w-3 h-3" />
+          </span>
+        </button>
+      ) : (
+        <div
+          className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center mt-0.5 ${
+            isDone ? 'bg-emerald-100' : categoryConfig.bgColor
+          }`}
+        >
+          <IconComponent
+            className={`w-5 h-5 ${isDone ? 'text-emerald-600' : categoryConfig.color}`}
+          />
+        </div>
+      )}
 
-      {/* Center: Title + Dosage + Instructions */}
+      {/* Center: Title + Dosage + Description + Instructions */}
       <div className="flex-1 min-w-0">
         {/* Title */}
         <p
@@ -458,7 +550,7 @@ function RoutineItem({
         {/* Dosage */}
         {routine.dosage && (
           <p
-            className={`text-sm mt-0.5 ${
+            className={`text-sm font-semibold mt-0.5 ${
               isDone ? 'text-emerald-600' : 'text-slate-700'
             }`}
           >
@@ -466,9 +558,22 @@ function RoutineItem({
           </p>
         )}
 
+        {/* Description (Mô tả nhận diện thuốc / công dụng) */}
+        {routine.description && (
+          <p
+            className={`text-sm mt-1 px-2.5 py-1 rounded-xl border leading-snug ${
+              isDone
+                ? 'bg-emerald-100/50 border-emerald-200 text-emerald-800'
+                : 'bg-indigo-50/80 border-indigo-200/80 text-indigo-900 font-medium'
+            }`}
+          >
+            🔍 {routine.description}
+          </p>
+        )}
+
         {/* Instructions */}
         {routine.instructions && (
-          <p className="text-sm text-slate-500 mt-0.5 leading-snug">
+          <p className="text-sm text-slate-500 mt-1 leading-snug">
             {routine.instructions}
           </p>
         )}
