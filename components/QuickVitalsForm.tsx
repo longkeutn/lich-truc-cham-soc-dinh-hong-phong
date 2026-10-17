@@ -10,6 +10,12 @@ import {
   Save,
   Check,
   ChevronDown,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Sparkles,
+  X,
 } from 'lucide-react';
 import { VitalsLogEntry, VitalsPeriod, BpThresholds, AlertLevel, FamilyMember } from '@/lib/types';
 import {
@@ -19,6 +25,7 @@ import {
   detectCurrentTimeSlot,
   computeAlertLevel,
 } from '@/lib/config';
+import { parseVoiceVitals, ParsedVoiceVitals } from '@/lib/voiceVitalsParser';
 
 // ===== PROPS =====
 interface QuickVitalsFormProps {
@@ -27,6 +34,39 @@ interface QuickVitalsFormProps {
   bpThresholds?: BpThresholds;
   defaultRecorder?: string;
   members?: FamilyMember[];
+}
+
+// Khai báo kiểu cho Web Speech API gốc của trình duyệt (Không dùng API AI ngoài)
+interface BrowserSpeechRecognitionEvent {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: {
+      isFinal: boolean;
+      [altIndex: number]: {
+        transcript: string;
+        confidence: number;
+      };
+    };
+  };
+}
+
+interface BrowserSpeechRecognitionErrorEvent {
+  error: string;
+  message?: string;
+}
+
+interface BrowserSpeechRecognitionInstance {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: BrowserSpeechRecognitionEvent) => void) | null;
+  onerror: ((event: BrowserSpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
 }
 
 // ===== HELPERS =====
@@ -58,6 +98,20 @@ function formatLastEntryTime(entry: VitalsLogEntry): string {
   if (diffDays === 1) return `${entry.time} hôm qua`;
   if (diffDays <= 7) return `${diffDays} ngày trước`;
   return entry.date;
+}
+
+/** Phát âm thanh đọc lại kết quả bằng bộ đọc tiếng Việt có sẵn trên thiết bị (0 tốn phí API) */
+function speakVietnameseConfirmation(text: string, enabled: boolean) {
+  if (!enabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'vi-VN';
+    utterance.rate = 1.0;
+    window.speechSynthesis.speak(utterance);
+  } catch {
+    // Bỏ qua nếu thiết bị tắt âm thanh
+  }
 }
 
 /** Config hiển thị cho từng alert level */
@@ -133,23 +187,42 @@ export default function QuickVitalsForm({
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // --- Voice Recognition state (Web Speech API + Local Vietnamese Parser) ---
+  const [isListening, setIsListening] = useState(false);
+  const [voicePanelOpen, setVoicePanelOpen] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState('');
+  const [parsedPreview, setParsedPreview] = useState<ParsedVoiceVitals | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [ttsEnabled, setTtsEnabled] = useState<boolean>(true);
+  const [speechSupported, setSpeechSupported] = useState<boolean>(true);
+
   // --- Refs ---
   const sysInputRef = useRef<HTMLInputElement>(null);
+  const quickVoiceInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<BrowserSpeechRecognitionInstance | null>(null);
+  const latestParsedRef = useRef<ParsedVoiceVitals | null>(null);
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-focus SYS input on mount
+  // Kiểm tra trình duyệt có hỗ trợ Web Speech API gốc hay không
   useEffect(() => {
-    // Small delay so mobile keyboards open smoothly
-    const timer = setTimeout(() => {
-      sysInputRef.current?.focus();
-    }, 300);
-    return () => clearTimeout(timer);
+    if (typeof window !== 'undefined') {
+      const w = window as unknown as Record<string, unknown>;
+      const SpeechRecognitionCtor = w.SpeechRecognition || w.webkitSpeechRecognition;
+      setSpeechSupported(Boolean(SpeechRecognitionCtor));
+    }
   }, []);
 
-  // Cleanup success timer on unmount
+  // Cleanup khi unmount
   useEffect(() => {
     return () => {
       if (successTimerRef.current) clearTimeout(successTimerRef.current);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // ignore
+        }
+      }
     };
   }, []);
 
@@ -170,43 +243,189 @@ export default function QuickVitalsForm({
     setDia('');
     setPulse('');
     setNote('');
+    setVoiceTranscript('');
+    setParsedPreview(null);
+    latestParsedRef.current = null;
     setPeriod(detectCurrentTimeSlot());
   }, []);
 
-  // --- Handle save ---
-  const handleSave = async () => {
-    if (!hasBothValues || isSaving) return;
+  // --- Lưu dữ liệu huyết áp (hỗ trợ truyền trực tiếp giá trị từ giọng nói khi nói "lưu luôn") ---
+  const performSave = useCallback(
+    async (overrideValues?: {
+      sysVal: number;
+      diaVal: number;
+      pulseVal?: number;
+      noteVal?: string;
+      periodVal?: VitalsPeriod;
+    }) => {
+      const finalSys = overrideValues ? overrideValues.sysVal : sysNum;
+      const finalDia = overrideValues ? overrideValues.diaVal : diaNum;
+      if (isNaN(finalSys) || isNaN(finalDia) || finalSys <= 0 || finalDia <= 0 || isSaving) return;
 
-    setIsSaving(true);
+      const finalPulse =
+        overrideValues !== undefined
+          ? overrideValues.pulseVal
+          : pulse
+            ? parseInt(pulse, 10)
+            : undefined;
+      const finalNote =
+        overrideValues !== undefined
+          ? overrideValues.noteVal?.trim() || undefined
+          : note.trim() || undefined;
+      const finalPeriod = overrideValues?.periodVal || period;
+      const finalAlert = computeAlertLevel(finalSys, finalDia, thresholds);
+
+      setIsSaving(true);
+      try {
+        const now = new Date();
+        const entry: VitalsLogEntry = {
+          id: `vl-${Date.now()}`,
+          date: now.toISOString().slice(0, 10),
+          time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+          period: finalPeriod,
+          sys: finalSys,
+          dia: finalDia,
+          pulse: finalPulse,
+          note: finalNote,
+          alertLevel: finalAlert,
+          recordedBy: recorder,
+          createdAt: now.toISOString(),
+        };
+
+        setShowSuccess(true);
+        resetForm();
+        setVoicePanelOpen(false);
+        void onSave(entry);
+
+        if (successTimerRef.current) clearTimeout(successTimerRef.current);
+        successTimerRef.current = setTimeout(() => {
+          setShowSuccess(false);
+        }, 1600);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [sysNum, diaNum, pulse, note, period, thresholds, recorder, isSaving, resetForm, onSave]
+  );
+
+  const handleSave = async () => {
+    await performSave();
+  };
+
+  // --- Áp dụng kết quả phân tích giọng nói vào các ô input ---
+  const applyTranscriptToForm = useCallback(
+    (text: string, isFinalSpeech: boolean = false) => {
+      setVoiceTranscript(text);
+      const parsed = parseVoiceVitals(text);
+      setParsedPreview(parsed);
+      latestParsedRef.current = parsed;
+
+      if (parsed.sys !== undefined) setSys(String(parsed.sys));
+      if (parsed.dia !== undefined) setDia(String(parsed.dia));
+      if (parsed.pulse !== undefined) setPulse(String(parsed.pulse));
+      if (parsed.period !== undefined) setPeriod(parsed.period);
+      if (parsed.note !== undefined) setNote(parsed.note);
+
+      if (isFinalSpeech && parsed.isComplete && parsed.sys && parsed.dia) {
+        if (parsed.autoSave) {
+          speakVietnameseConfirmation(
+            `Đã lưu huyết áp ${parsed.sys} trên ${parsed.dia}${parsed.pulse ? `, mạch ${parsed.pulse}` : ''}`,
+            ttsEnabled
+          );
+          void performSave({
+            sysVal: parsed.sys,
+            diaVal: parsed.dia,
+            pulseVal: parsed.pulse,
+            noteVal: parsed.note,
+            periodVal: parsed.period,
+          });
+        } else {
+          speakVietnameseConfirmation(
+            `Đã nhận huyết áp ${parsed.sys} trên ${parsed.dia}${parsed.pulse ? `, mạch ${parsed.pulse}` : ''}. Bấm lưu để hoàn tất.`,
+            ttsEnabled
+          );
+        }
+      }
+    },
+    [performSave, ttsEnabled]
+  );
+
+  // --- Bật / Tắt thu âm giọng nói trực tiếp trên trình duyệt ---
+  const toggleVoiceListening = useCallback(() => {
+    setVoiceError(null);
+
+    if (isListening && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // ignore
+      }
+      setIsListening(false);
+      return;
+    }
+
+    setVoicePanelOpen(true);
+
+    if (typeof window === 'undefined') return;
+    const w = window as unknown as Record<string, unknown>;
+    const SpeechRecognitionCtor = (w.SpeechRecognition || w.webkitSpeechRecognition) as
+      | (new () => BrowserSpeechRecognitionInstance)
+      | undefined;
+
+    if (!SpeechRecognitionCtor) {
+      setSpeechSupported(false);
+      setVoiceError(
+        'Trình duyệt này không hỗ trợ thu âm trực tiếp. Hãy bấm vào ô bên dưới rồi bấm biểu tượng Micro 🎙️ trên bàn phím điện thoại để đọc.'
+      );
+      setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
+      return;
+    }
+
     try {
-      const now = new Date();
-      const entry: VitalsLogEntry = {
-        id: `vl-${Date.now()}`,
-        date: now.toISOString().slice(0, 10),
-        time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-        period,
-        sys: sysNum,
-        dia: diaNum,
-        pulse: pulse ? parseInt(pulse, 10) : undefined,
-        note: note.trim() || undefined,
-        alertLevel: currentAlertLevel,
-        recordedBy: recorder,
-        createdAt: now.toISOString(),
+      const recognition = new SpeechRecognitionCtor();
+      recognition.lang = 'vi-VN';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = (event: BrowserSpeechRecognitionEvent) => {
+        let fullTranscript = '';
+        let isFinal = false;
+        for (let i = 0; i < event.results.length; i++) {
+          const res = event.results[i];
+          fullTranscript += res[0].transcript + ' ';
+          if (res.isFinal) isFinal = true;
+        }
+        applyTranscriptToForm(fullTranscript.trim(), isFinal);
       };
 
-      // Phản hồi tức thì và xóa ô nhập để sẵn sàng cho lần đo tiếp theo
-      setShowSuccess(true);
-      resetForm();
-      void onSave(entry);
+      recognition.onerror = (event: BrowserSpeechRecognitionErrorEvent) => {
+        setIsListening(false);
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setVoiceError(
+            'Chưa cấp quyền Micro cho trình duyệt. Bạn có thể cấp quyền Micro hoặc bấm biểu tượng 🎙️ trên bàn phím điện thoại vào ô bên dưới.'
+          );
+          setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
+        } else if (event.error === 'no-speech') {
+          setVoiceError('Chưa nghe thấy giọng nói. Hãy bấm nút Micro và đọc to rõ hơn nhé.');
+        } else if (event.error !== 'aborted') {
+          setVoiceError('Không thu âm được. Bạn có thể đọc qua Micro 🎙️ trên bàn phím ở ô dưới.');
+        }
+      };
 
-      if (successTimerRef.current) clearTimeout(successTimerRef.current);
-      successTimerRef.current = setTimeout(() => {
-        setShowSuccess(false);
-      }, 1400);
-    } finally {
-      setIsSaving(false);
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      setIsListening(true);
+      recognition.start();
+    } catch {
+      setIsListening(false);
+      setVoiceError('Không khởi động được Micro. Hãy dùng nút 🎙️ trên bàn phím ở ô bên dưới.');
+      setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
     }
-  };
+  }, [isListening, applyTranscriptToForm]);
 
   // --- Trend icons ---
   const renderTrendIcon = (trend: 'up' | 'down' | 'stable') => {
@@ -273,6 +492,200 @@ export default function QuickVitalsForm({
             <ChevronDown className="w-3 h-3 text-slate-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
+      </div>
+
+      {/* ===== THANH GHI HUYẾT ÁP BẰNG GIỌNG NÓI (0 AI API — Xử lý ngôn ngữ tiếng Việt nội bộ tức thì) ===== */}
+      <div
+        className={`rounded-2xl border-2 transition-all p-3 sm:p-3.5 ${
+          isListening
+            ? 'border-rose-500 bg-rose-50/90 shadow-md'
+            : voicePanelOpen
+              ? 'border-indigo-200 bg-indigo-50/50'
+              : 'border-rose-200/80 bg-gradient-to-r from-rose-50/70 via-orange-50/40 to-indigo-50/60'
+        }`}
+      >
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={toggleVoiceListening}
+            className={`flex-1 min-h-[48px] px-4 py-2.5 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.98] ${
+              isListening
+                ? 'bg-rose-600 text-white animate-pulse shadow-rose-300'
+                : 'bg-rose-600 hover:bg-rose-700 text-white'
+            }`}
+          >
+            {isListening ? (
+              <>
+                <MicOff className="w-5 h-5 shrink-0" />
+                <span>Đang nghe... (Bấm để dừng)</span>
+              </>
+            ) : (
+              <>
+                <Mic className="w-5 h-5 shrink-0" />
+                <span>🎙️ Đọc Huyết Áp Bằng Giọng Nói</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setVoicePanelOpen((prev) => !prev);
+              if (!voicePanelOpen) {
+                setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
+              }
+            }}
+            className="px-3 min-h-[48px] rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
+            title="Mở ô nhập/đọc 1 dòng nhanh"
+          >
+            <Sparkles className="w-4 h-4 text-indigo-600" />
+            <span className="hidden sm:inline">Nhập/Đọc 1 dòng</span>
+            <span className="sm:hidden">Hướng dẫn</span>
+          </button>
+        </div>
+
+        {/* Gợi ý ngắn gọn ngay bên dưới nút */}
+        {!voicePanelOpen && !isListening && (
+          <p className="text-[11px] text-slate-600 font-medium mt-2 text-center">
+            💡 Chỉ cần đọc tự nhiên: <strong className="text-slate-800">&ldquo;135 85 mạch 78&rdquo;</strong> hoặc{' '}
+            <strong className="text-slate-800">&ldquo;Trăm ba lăm trên tám lăm sau tập đứng&rdquo;</strong>
+          </p>
+        )}
+
+        {/* Khung chi tiết khi đang nghe hoặc mở bảng Giọng nói */}
+        {(voicePanelOpen || isListening || voiceTranscript) && (
+          <div className="mt-3 pt-3 border-t border-slate-200/80 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                {isListening ? (
+                  <>
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping inline-block" />
+                    <span className="text-rose-700">Hãy đọc số huyết áp trên máy đo...</span>
+                  </>
+                ) : (
+                  <span>🗣️ Câu vừa đọc / Nhập nhanh 1 dòng:</span>
+                )}
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setTtsEnabled((v) => !v)}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 border cursor-pointer ${
+                    ttsEnabled
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-slate-100 text-slate-500 border-slate-200'
+                  }`}
+                  title="Bật/tắt giọng đọc xác nhận lại chỉ số"
+                >
+                  {ttsEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                  <span>{ttsEnabled ? 'Đọc xác nhận: Bật' : 'Tắt tiếng'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVoicePanelOpen(false);
+                    setVoiceError(null);
+                  }}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 cursor-pointer"
+                  title="Thu gọn"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Ô text nhận giọng nói hoặc gõ nhanh 1 dòng (hỗ trợ cả nút Micro trên bàn phím điện thoại) */}
+            <div className="relative">
+              <input
+                ref={quickVoiceInputRef}
+                type="text"
+                value={voiceTranscript}
+                onChange={(e) => applyTranscriptToForm(e.target.value, false)}
+                placeholder='VD: "135 85 mạch 78 sau tập đứng" (hoặc bấm 🎙️ trên bàn phím)'
+                className="w-full px-3.5 py-2.5 pr-9 rounded-xl bg-white border-2 border-indigo-200 focus:border-rose-500 focus:outline-none text-sm font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal"
+              />
+              {voiceTranscript && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVoiceTranscript('');
+                    setParsedPreview(null);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                  title="Xoá câu vừa đọc"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Thông báo lỗi Micro nếu có */}
+            {voiceError && (
+              <p className="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                ⚠️ {voiceError}
+              </p>
+            )}
+
+            {/* Kết quả bóc tách tự động theo thời gian thực */}
+            {parsedPreview && (parsedPreview.sys || parsedPreview.dia || parsedPreview.pulse || parsedPreview.note) && (
+              <div className="rounded-xl bg-white border border-emerald-200 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
+                  <span className="text-emerald-700">✅ Đã tách tự động:</span>
+                  {parsedPreview.sys && (
+                    <span className="px-2 py-0.5 rounded-lg bg-rose-100 text-rose-800">
+                      SYS: {parsedPreview.sys}
+                    </span>
+                  )}
+                  {parsedPreview.dia && (
+                    <span className="px-2 py-0.5 rounded-lg bg-rose-100 text-rose-800">
+                      DIA: {parsedPreview.dia}
+                    </span>
+                  )}
+                  {parsedPreview.pulse && (
+                    <span className="px-2 py-0.5 rounded-lg bg-indigo-100 text-indigo-800">
+                      Mạch: {parsedPreview.pulse}
+                    </span>
+                  )}
+                  {parsedPreview.note && (
+                    <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700">
+                      📝 {parsedPreview.note}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Các câu mẫu bấm thử 1 chạm + mẹo đọc "lưu luôn" */}
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-bold text-slate-500">
+                📌 Cách đọc mẫu (bấm thử hoặc đọc tương tự, nói thêm chữ <span className="text-rose-600">&ldquo;lưu luôn&rdquo;</span> ở cuối để tự động lưu):
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  '135 85 mạch 78',
+                  'Trăm ba lăm tám lăm nhịp tim bảy tư sau tập đứng',
+                  '140 trên 85 mạch 80 buổi chiều',
+                ].map((sample) => (
+                  <button
+                    key={sample}
+                    type="button"
+                    onClick={() => applyTranscriptToForm(sample, false)}
+                    className="px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-50 border border-slate-200 text-[11px] font-semibold text-slate-700 cursor-pointer transition-colors"
+                  >
+                    &ldquo;{sample}&rdquo;
+                  </button>
+                ))}
+              </div>
+              {!speechSupported && (
+                <p className="text-[11px] text-slate-500 italic">
+                  * Mẹo: Trên Zalo hoặc trình duyệt chặn Micro, bạn chỉ cần chạm vào ô chữ ở trên rồi bấm nút Micro 🎙️ sẵn có trên bàn phím điện thoại.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ===== LAST READING COMPARISON ===== */}
