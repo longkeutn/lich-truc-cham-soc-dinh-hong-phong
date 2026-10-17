@@ -149,50 +149,103 @@ export default function PatientBanner({
     }
   }, [familyList, formAuthor]);
 
-  // Quản lý Web Speech API
+  // Quản lý phát giọng đọc tiếng Việt trên điện thoại & máy tính (qua /api/tts MP3 + fallback speechSynthesis)
+  const reminderAudioRef = React.useRef<HTMLAudioElement | null>(null);
+
   const stopSpeech = useCallback(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    if (typeof window !== 'undefined') {
+      try {
+        if (reminderAudioRef.current) {
+          reminderAudioRef.current.pause();
+          reminderAudioRef.current.currentTime = 0;
+        }
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+      } catch {
+        // ignore
+      }
     }
     setSpeakingId(null);
     setIsSpeakingAll(false);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+    };
+  }, [stopSpeech]);
+
   const speakText = useCallback(
     (text: string, id: string | 'all') => {
-      if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+      if (typeof window === 'undefined' || !text.trim()) return;
 
       stopSpeech();
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'vi-VN';
-      utterance.rate = 0.95;
-
-      const voices = window.speechSynthesis.getVoices();
-      const viVoice = voices.find((v) => v.lang.startsWith('vi') || v.lang.includes('VIE'));
-      if (viVoice) {
-        utterance.voice = viVoice;
+      if (id === 'all') {
+        setIsSpeakingAll(true);
+      } else {
+        setSpeakingId(id);
       }
 
-      utterance.onstart = () => {
-        if (id === 'all') {
-          setIsSpeakingAll(true);
-        } else {
-          setSpeakingId(id);
+      const fallbackToBrowserSpeech = () => {
+        try {
+          if (!('speechSynthesis' in window)) {
+            setSpeakingId(null);
+            setIsSpeakingAll(false);
+            return;
+          }
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'vi-VN';
+          utterance.rate = 0.95;
+
+          const voices = window.speechSynthesis.getVoices();
+          const viVoice = voices.find((v) => v.lang.toLowerCase().startsWith('vi'));
+          if (viVoice) {
+            utterance.voice = viVoice;
+          }
+
+          utterance.onend = () => {
+            setSpeakingId(null);
+            setIsSpeakingAll(false);
+          };
+
+          utterance.onerror = () => {
+            setSpeakingId(null);
+            setIsSpeakingAll(false);
+          };
+
+          window.speechSynthesis.speak(utterance);
+        } catch {
+          setSpeakingId(null);
+          setIsSpeakingAll(false);
         }
       };
 
-      utterance.onend = () => {
-        setSpeakingId(null);
-        setIsSpeakingAll(false);
-      };
-
-      utterance.onerror = () => {
-        setSpeakingId(null);
-        setIsSpeakingAll(false);
-      };
-
-      window.speechSynthesis.speak(utterance);
+      try {
+        if (!reminderAudioRef.current) {
+          reminderAudioRef.current = new Audio();
+        }
+        const audio = reminderAudioRef.current;
+        audio.volume = 1.0;
+        audio.src = `/api/tts?text=${encodeURIComponent(text)}`;
+        audio.onended = () => {
+          setSpeakingId(null);
+          setIsSpeakingAll(false);
+        };
+        audio.onerror = () => {
+          fallbackToBrowserSpeech();
+        };
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            fallbackToBrowserSpeech();
+          });
+        }
+      } catch {
+        fallbackToBrowserSpeech();
+      }
     },
     [stopSpeech]
   );
