@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useSyncExternalStore } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import HeaderBar, { AppView } from '@/components/HeaderBar';
 import PatientBanner from '@/components/PatientBanner';
 import QuickVitalsForm from '@/components/QuickVitalsForm';
@@ -29,7 +29,6 @@ import {
   RehabStage,
   AppointmentInfo,
   BpThresholds,
-  AppMode,
 } from '@/lib/types';
 import {
   FAMILY_MEMBERS,
@@ -60,34 +59,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-const subscribeStorage = (callback: () => void) => {
-  if (typeof window === 'undefined') return () => {};
-  window.addEventListener('storage', callback);
-  window.addEventListener('local-member-change', callback);
-  return () => {
-    window.removeEventListener('storage', callback);
-    window.removeEventListener('local-member-change', callback);
-  };
-};
-
-const getStoredMemberId = () => {
-  if (typeof window === 'undefined') return '';
-  try {
-    return localStorage.getItem('care_app_member_id') || '';
-  } catch {
-    return '';
-  }
-};
-
-const getServerMemberId = () => '';
-
 export default function CareSchedulePage() {
-  const storedMemberId = useSyncExternalStore(
-    subscribeStorage,
-    getStoredMemberId,
-    getServerMemberId
-  );
-
   // ===== Dữ liệu V1 (giữ lại cho backward compatibility) =====
   const [members, setMembers] = useState<FamilyMember[]>(FAMILY_MEMBERS);
   const [patientInfo, setPatientInfo] = useState<PatientInfo>(PATIENT_INFO);
@@ -103,7 +75,6 @@ export default function CareSchedulePage() {
   const [stages, setStages] = useState<RehabStage[]>(DEFAULT_REHAB_STAGES);
   const [appointment, setAppointment] = useState<AppointmentInfo>(DEFAULT_APPOINTMENT);
   const [bpThresholds, setBpThresholds] = useState<BpThresholds>(DEFAULT_BP_THRESHOLDS);
-  const [appMode, setAppMode] = useState<AppMode>('home_care');
 
   // V2.0: Phase cố định là 'phase2' (tại nhà), không cho user chuyển nữa
   const activePhase: CarePhase = 'phase2';
@@ -138,25 +109,6 @@ export default function CareSchedulePage() {
       // ignore
     }
   }, []);
-
-  const currentMember = useMemo(() => {
-    if (!storedMemberId) return null;
-    return members.find((m) => m.id === storedMemberId) || null;
-  }, [storedMemberId, members]);
-
-  const handleSelectMember = (member: FamilyMember | null) => {
-    try {
-      if (member) {
-        localStorage.setItem('care_app_member_id', member.id);
-        showToast(`Đã chọn: ${member.name} (${member.relation})`, 'info');
-      } else {
-        localStorage.removeItem('care_app_member_id');
-      }
-      window.dispatchEvent(new Event('local-member-change'));
-    } catch (e) {
-      console.warn('Cannot write localStorage', e);
-    }
-  };
 
   const showToast = (message: string, type: 'info' | 'success' | 'warn' = 'info') => {
     setNotification({ message, type });
@@ -212,7 +164,6 @@ export default function CareSchedulePage() {
           }
           if (appData.appointment) setAppointment(appData.appointment);
           if (appData.bpThresholds) setBpThresholds(appData.bpThresholds);
-          if (appData.appMode) setAppMode(appData.appMode);
 
           if (forceRefresh) {
             showToast('Đã đồng bộ dữ liệu mới nhất từ Google Sheets!', 'success');
@@ -363,8 +314,8 @@ export default function CareSchedulePage() {
     return vitalsLog[0] || null;
   }, [vitalsLog]);
 
-  // ===== Tên người ghi mặc định =====
-  const recorderName = currentMember?.name || DEFAULT_RECORDER;
+  // ===== Tên người ghi mặc định luôn là Mẹ =====
+  const recorderName = DEFAULT_RECORDER;
 
   // ===== CRUD Reminders =====
   const handleAddReminder = async (newReminder: PatientDailyReminder) => {
@@ -552,14 +503,11 @@ export default function CareSchedulePage() {
 
       {/* Header điều khiển cố định */}
       <HeaderBar
-        currentMember={currentMember}
-        onSelectMember={handleSelectMember}
         activeView={activeView}
         onChangeView={setActiveView}
         onOpenGuide={() => setGuideModalOpen(true)}
         onOpenEmergencyContacts={() => setEmergencyModalOpen(true)}
         patientInfo={patientInfo}
-        members={members}
         isAdmin={isAdmin}
         onOpenAdminPin={handleToggleAdmin}
         onOpenMembers={handleOpenMembers}
@@ -570,7 +518,6 @@ export default function CareSchedulePage() {
       <main className="flex-1 max-w-6xl w-full mx-auto p-2.5 sm:p-4 space-y-3.5">
         {/* Banner mini tóm tắt bệnh nhân & Nhắc nhở (Bấm mở rộng chi tiết) */}
         <PatientBanner
-          currentMember={currentMember}
           patientInfo={patientInfo}
           reminders={reminders}
           members={members}
@@ -590,6 +537,7 @@ export default function CareSchedulePage() {
               lastEntry={lastVitalsEntry}
               bpThresholds={bpThresholds}
               defaultRecorder={recorderName}
+              members={members}
             />
 
             {/* 2. Lịch tái khám */}
@@ -625,7 +573,6 @@ export default function CareSchedulePage() {
           <FamilySupportView
             shifts={shifts}
             members={members}
-            currentMember={currentMember}
             isAdmin={isAdmin}
             onSaveShift={handleSaveShift}
             onOpenMembers={handleOpenMembers}

@@ -9,12 +9,14 @@ import {
   Minus,
   Save,
   Check,
+  ChevronDown,
 } from 'lucide-react';
-import { VitalsLogEntry, VitalsPeriod, BpThresholds, AlertLevel } from '@/lib/types';
+import { VitalsLogEntry, VitalsPeriod, BpThresholds, AlertLevel, FamilyMember } from '@/lib/types';
 import {
   TIME_SLOT_CONFIG,
   DEFAULT_BP_THRESHOLDS,
   DEFAULT_RECORDER,
+  FAMILY_MEMBERS,
   detectCurrentTimeSlot,
   computeAlertLevel,
 } from '@/lib/config';
@@ -25,6 +27,7 @@ interface QuickVitalsFormProps {
   lastEntry?: VitalsLogEntry | null;
   bpThresholds?: BpThresholds;
   defaultRecorder?: string;
+  members?: FamilyMember[];
 }
 
 // ===== HELPERS =====
@@ -106,9 +109,11 @@ export default function QuickVitalsForm({
   lastEntry,
   bpThresholds,
   defaultRecorder,
+  members,
 }: QuickVitalsFormProps) {
   const thresholds = bpThresholds || DEFAULT_BP_THRESHOLDS;
-  const recorder = defaultRecorder || DEFAULT_RECORDER;
+  const familyList = members && members.length > 0 ? members : FAMILY_MEMBERS;
+  const [recorder, setRecorder] = useState<string>(defaultRecorder || DEFAULT_RECORDER);
 
   // --- Form state ---
   const [sys, setSys] = useState('');
@@ -221,17 +226,42 @@ export default function QuickVitalsForm({
   return (
     <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-4 sm:p-5 space-y-4">
       {/* ===== HEADER ===== */}
-      <div className="flex items-center gap-2">
-        <div className="w-9 h-9 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center shrink-0">
-          <HeartPulse className="w-5 h-5 text-rose-600" />
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center shrink-0">
+            <HeartPulse className="w-5 h-5 text-rose-600" />
+          </div>
+          <div>
+            <h3 className="text-base font-black text-slate-900 tracking-tight">
+              Ghi Huyết Áp Nhanh
+            </h3>
+            <p className="text-xs text-slate-500 font-medium">
+              Mặc định người đo là Mẹ
+            </p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-base font-black text-slate-900 tracking-tight">
-            Ghi Huyết Áp Nhanh
-          </h3>
-          <p className="text-xs text-slate-500 font-medium">
-            Người ghi: <span className="font-bold text-slate-700">{recorder}</span>
-          </p>
+
+        {/* Nút nhỏ đổi người đo khi con cái đo hộ Mẹ */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-slate-500 font-medium">Người đo:</span>
+          <div className="relative">
+            <select
+              value={recorder}
+              onChange={(e) => setRecorder(e.target.value)}
+              aria-label="Chọn người đo huyết áp"
+              className="pl-2.5 pr-6 py-1 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-xs font-bold text-slate-800 appearance-none cursor-pointer focus:outline-none focus:border-rose-400"
+            >
+              <option value="Mẹ">👩‍🦳 Mẹ (Mặc định)</option>
+              {familyList
+                .filter((m) => m.name !== 'Mẹ')
+                .map((m) => (
+                  <option key={m.id} value={m.name}>
+                    {m.name} ({m.relation})
+                  </option>
+                ))}
+            </select>
+            <ChevronDown className="w-3 h-3 text-slate-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
         </div>
       </div>
 

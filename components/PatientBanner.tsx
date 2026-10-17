@@ -116,18 +116,9 @@ export default function PatientBanner({
   const [formCategory, setFormCategory] = useState<ReminderCategory>('meds');
   const [formTitle, setFormTitle] = useState('');
   const [formContent, setFormContent] = useState('');
-  const [formAuthor, setFormAuthor] = useState('');
+  const [formAuthor, setFormAuthor] = useState('Mẹ (Chăm sóc chính)');
   const [formIsUrgent, setFormIsUrgent] = useState(false);
   const [formError, setFormError] = useState('');
-
-  // Tự động gán người ghi nếu currentMember thay đổi
-  useEffect(() => {
-    if (currentMember) {
-      setFormAuthor(`${currentMember.name} (${currentMember.relation})`);
-    } else if (!formAuthor && familyList.length > 0) {
-      setFormAuthor(`${familyList[0].name} (${familyList[0].relation})`);
-    }
-  }, [currentMember, formAuthor, familyList]);
 
   // Quản lý Web Speech API
   const stopSpeech = useCallback(() => {
@@ -688,13 +679,13 @@ export default function PatientBanner({
                   onChange={(e) => setFormAuthor(e.target.value)}
                   className="bg-white border-2 border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-amber-500 cursor-pointer"
                 >
-                  <option value="BS. Nguyễn Văn Thắng (ICU)">BS. Nguyễn Văn Thắng (ICU)</option>
+                  <option value="Mẹ (Chăm sóc chính)">👩‍🦳 Mẹ (Chăm sóc chính)</option>
                   {familyList.map((m) => (
                     <option key={m.id} value={`${m.name} (${m.relation})`}>
                       {m.name} ({m.relation})
                     </option>
                   ))}
-                  <option value="Điều dưỡng ca trực">Điều dưỡng ca trực</option>
+                  <option value="Bác sĩ điều trị">Bác sĩ điều trị</option>
                   <option value="Người nhà chăm sóc">Người nhà chăm sóc</option>
                 </select>
               </div>

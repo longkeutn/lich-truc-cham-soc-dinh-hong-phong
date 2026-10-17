@@ -1,14 +1,13 @@
 'use client';
 
 import React from 'react';
-import { FamilyMember, PatientInfo } from '@/lib/types';
-import { FAMILY_MEMBERS, PATIENT_INFO } from '@/lib/config';
+import { PatientInfo } from '@/lib/types';
+import { PATIENT_INFO } from '@/lib/config';
 import {
   HeartPulse,
   TrendingUp,
   Users as UsersIcon,
   FileSpreadsheet,
-  ChevronDown,
   PhoneCall,
   Edit3,
   Home,
@@ -18,14 +17,11 @@ import {
 export type AppView = 'today' | 'charts' | 'family';
 
 interface HeaderBarProps {
-  currentMember: FamilyMember | null;
-  onSelectMember: (member: FamilyMember | null) => void;
   activeView: AppView;
   onChangeView: (view: AppView) => void;
   onOpenGuide: () => void;
   onOpenEmergencyContacts: () => void;
   patientInfo?: PatientInfo;
-  members?: FamilyMember[];
   isAdmin?: boolean;
   onOpenAdminPin?: () => void;
   onOpenMembers?: () => void;
@@ -33,27 +29,22 @@ interface HeaderBarProps {
 }
 
 export default function HeaderBar({
-  currentMember,
-  onSelectMember,
   activeView,
   onChangeView,
   onOpenGuide,
   onOpenEmergencyContacts,
   patientInfo,
-  members,
   isAdmin,
   onOpenAdminPin,
   onOpenMembers,
   onEditPatient,
 }: HeaderBarProps) {
   const patient: PatientInfo = patientInfo || PATIENT_INFO;
-  const familyList = members && members.length > 0 ? members : FAMILY_MEMBERS;
 
   return (
     <>
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs">
-        <div className="max-w-6xl mx-auto px-3 py-2 sm:px-5 sm:py-2.5 space-y-2">
-          {/* HÀNG 1: Tên bệnh nhân + Tab (Desktop) + Nút công cụ nhanh */}
+        <div className="max-w-6xl mx-auto px-3 py-2 sm:px-5 sm:py-2.5">
           <div className="flex items-center justify-between gap-2">
             {/* Cụm Trái: Tên app & Bệnh nhân */}
             <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
@@ -128,41 +119,8 @@ export default function HeaderBar({
               </button>
             </div>
 
-            {/* Cụm Phải: Chọn thành viên (trên >= sm) + SOS + Admin + Sheet */}
+            {/* Cụm Phải: Thành viên + Admin + Sheet + SOS */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              {/* Quick Member Selector (Hiển thị trên >= sm, còn trên mobile nằm ở hàng dưới rộng rãi) */}
-              <div className="relative hidden sm:block">
-                <select
-                  id="member-select-desktop"
-                  suppressHydrationWarning
-                  value={currentMember?.id || ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const found = familyList.find((m) => m.id === val) || null;
-                    onSelectMember(found);
-                  }}
-                  className={`min-h-[40px] pl-3 pr-8 py-1.5 rounded-xl text-xs font-bold border-2 transition appearance-none cursor-pointer shadow-2xs max-w-[190px] truncate ${
-                    currentMember
-                      ? `${currentMember.bgLight || 'bg-indigo-50'} ${
-                          currentMember.borderLight || 'border-indigo-300'
-                        } ${currentMember.textColor || 'text-indigo-950'}`
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-white'
-                  }`}
-                >
-                  <option value="" className="bg-white text-slate-500">
-                    👤 Tôi là ai?
-                  </option>
-                  {familyList.map((m) => (
-                    <option key={m.id} value={m.id} className="bg-white text-slate-900 font-bold">
-                      {m.name} ({m.relation})
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </div>
-              </div>
-
               {/* Quản lý thành viên */}
               {onOpenMembers && (
                 <button
@@ -222,42 +180,6 @@ export default function HeaderBar({
                 <PhoneCall className="w-4 h-4 text-white group-hover:animate-bounce shrink-0" />
                 <span>SOS</span>
               </button>
-            </div>
-          </div>
-
-          {/* HÀNG 2 TRÊN MOBILE (< sm): Chọn thành viên rộng rãi, dễ bấm cho Mẹ */}
-          <div className="sm:hidden flex items-center gap-2 pt-1 border-t border-slate-100">
-            <span className="text-xs font-bold text-slate-500 shrink-0">Người dùng:</span>
-            <div className="relative flex-1">
-              <select
-                id="member-select-mobile"
-                suppressHydrationWarning
-                value={currentMember?.id || ''}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const found = familyList.find((m) => m.id === val) || null;
-                  onSelectMember(found);
-                }}
-                className={`w-full min-h-[42px] pl-3 pr-8 py-1.5 rounded-xl text-sm font-bold border transition appearance-none cursor-pointer ${
-                  currentMember
-                    ? `${currentMember.bgLight || 'bg-indigo-50'} ${
-                        currentMember.borderLight || 'border-indigo-300'
-                      } ${currentMember.textColor || 'text-indigo-950'}`
-                    : 'bg-slate-50 text-slate-800 border-slate-200'
-                }`}
-              >
-                <option value="" className="bg-white text-slate-500">
-                  👩‍🦳 Mặc định: Mẹ (Bấm để đổi người ghi)
-                </option>
-                {familyList.map((m) => (
-                  <option key={m.id} value={m.id} className="bg-white text-slate-900 font-bold">
-                    {m.name} ({m.relation})
-                  </option>
-                ))}
-              </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                <ChevronDown className="w-4 h-4" />
-              </div>
             </div>
           </div>
         </div>

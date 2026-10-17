@@ -24,7 +24,7 @@ import {
 interface FamilySupportViewProps {
   shifts: ShiftRecord[];
   members: FamilyMember[];
-  currentMember: FamilyMember | null;
+  currentMember?: FamilyMember | null;
   isAdmin?: boolean;
   onSaveShift: (shift: ShiftRecord) => Promise<void>;
   onOpenMembers?: () => void;
