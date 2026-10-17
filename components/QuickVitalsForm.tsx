@@ -11,9 +11,9 @@ import {
   Check,
   ChevronDown,
   Mic,
-  MicOff,
   Volume2,
   VolumeX,
+  RotateCcw,
   Sparkles,
   X,
 } from 'lucide-react';
@@ -64,6 +64,7 @@ interface BrowserSpeechRecognitionInstance {
   start: () => void;
   stop: () => void;
   abort: () => void;
+  onstart: (() => void) | null;
   onresult: ((event: BrowserSpeechRecognitionEvent) => void) | null;
   onerror: ((event: BrowserSpeechRecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
@@ -100,18 +101,136 @@ function formatLastEntryTime(entry: VitalsLogEntry): string {
   return entry.date;
 }
 
-/** Phát âm thanh đọc lại kết quả bằng bộ đọc tiếng Việt có sẵn trên thiết bị (0 tốn phí API) */
-function speakVietnameseConfirmation(text: string, enabled: boolean) {
-  if (!enabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-  try {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'vi-VN';
-    utterance.rate = 1.0;
-    window.speechSynthesis.speak(utterance);
-  } catch {
-    // Bỏ qua nếu thiết bị tắt âm thanh
+// ===== HỆ THỐNG ÂM THANH & GIỌNG ĐỌC TIẾNG VIỆT TRÊN ĐIỆN THOẠI (0 AI API) =====
+// File WAV im lặng 1ms dùng để mở khóa (unlock) quyền phát loa trên iOS Safari & Android Chrome
+const SILENT_WAV_DATA_URI =
+  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+
+let sharedTtsAudio: HTMLAudioElement | null = null;
+let sharedAudioUnlocked = false;
+let ttsPlaybackTimer: ReturnType<typeof setTimeout> | null = null;
+
+function getOrCreateTtsAudioElement(): HTMLAudioElement | null {
+  if (typeof window === 'undefined') return null;
+  if (!sharedTtsAudio) {
+    sharedTtsAudio = new Audio();
+    sharedTtsAudio.preload = 'auto';
   }
+  return sharedTtsAudio;
+}
+
+/**
+ * Mở khóa HTMLAudioElement ngay từ cú chạm đầu tiên của người dùng trên trang
+ * (KHÔNG mở khóa ngay lúc bấm nút Micro để tránh giành quyền âm thanh của Micro trên điện thoại!)
+ */
+function unlockAudioElementOnFirstInteraction() {
+  if (sharedAudioUnlocked || typeof window === 'undefined') return;
+  try {
+    const audio = getOrCreateTtsAudioElement();
+    if (audio) {
+      audio.src = SILENT_WAV_DATA_URI;
+      audio.volume = 0.01;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            audio.pause();
+            audio.volume = 1.0;
+            sharedAudioUnlocked = true;
+          })
+          .catch(() => {
+            // Sẽ thử lại ở lần chạm tiếp theo
+          });
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
+/** Dừng ngay lập tức mọi âm thanh đọc xác nhận đang phát (để nhường 100% kênh âm thanh cho Micro) */
+function stopVietnameseSpeech() {
+  if (ttsPlaybackTimer) {
+    clearTimeout(ttsPlaybackTimer);
+    ttsPlaybackTimer = null;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      if (sharedTtsAudio) {
+        sharedTtsAudio.pause();
+        sharedTtsAudio.currentTime = 0;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    } catch {
+      // ignore
+    }
+  }
+}
+
+/**
+ * Phát giọng đọc tiếng Việt xác nhận kết quả trên điện thoại:
+ * - Ưu tiên 1: Phát luồng âm thanh tiếng Việt chuẩn qua `/api/tts` bằng HTMLAudioElement
+ *   (Hoạt động 100% trên mọi iPhone, Samsung, Xiaomi, Oppo kể cả khi máy không cài gói giọng đọc tiếng Việt!)
+ * - Ưu tiên 2 (Dự phòng khi mất mạng): Dùng `window.speechSynthesis` nội bộ.
+ */
+function speakVietnameseConfirmation(
+  text: string,
+  enabled: boolean,
+  delayMs: number = 350,
+  onSpeakingChange?: (speaking: boolean) => void
+) {
+  if (!enabled || typeof window === 'undefined' || !text.trim()) return;
+
+  stopVietnameseSpeech();
+
+  ttsPlaybackTimer = setTimeout(() => {
+    const audio = getOrCreateTtsAudioElement();
+    const ttsUrl = `/api/tts?text=${encodeURIComponent(text)}`;
+
+    const fallbackToBrowserSpeech = () => {
+      try {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'vi-VN';
+          utterance.rate = 1.0;
+          utterance.onstart = () => onSpeakingChange?.(true);
+          utterance.onend = () => onSpeakingChange?.(false);
+          utterance.onerror = () => onSpeakingChange?.(false);
+          window.speechSynthesis.speak(utterance);
+        } else {
+          onSpeakingChange?.(false);
+        }
+      } catch {
+        onSpeakingChange?.(false);
+      }
+    };
+
+    if (audio) {
+      try {
+        audio.volume = 1.0;
+        audio.src = ttsUrl;
+        audio.onplay = () => onSpeakingChange?.(true);
+        audio.onended = () => onSpeakingChange?.(false);
+        audio.onerror = () => {
+          onSpeakingChange?.(false);
+          fallbackToBrowserSpeech();
+        };
+        const p = audio.play();
+        if (p !== undefined) {
+          p.catch(() => {
+            fallbackToBrowserSpeech();
+          });
+        }
+      } catch {
+        fallbackToBrowserSpeech();
+      }
+    } else {
+      fallbackToBrowserSpeech();
+    }
+  }, delayMs);
 }
 
 /** Config hiển thị cho từng alert level */
@@ -189,6 +308,7 @@ export default function QuickVitalsForm({
 
   // --- Voice Recognition state (Web Speech API + Local Vietnamese Parser) ---
   const [isListening, setIsListening] = useState(false);
+  const [isSpeakingBack, setIsSpeakingBack] = useState(false);
   const [voicePanelOpen, setVoicePanelOpen] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const [parsedPreview, setParsedPreview] = useState<ParsedVoiceVitals | null>(null);
@@ -200,15 +320,51 @@ export default function QuickVitalsForm({
   const sysInputRef = useRef<HTMLInputElement>(null);
   const quickVoiceInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<BrowserSpeechRecognitionInstance | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Lưu vị trí bắt đầu đọc kết quả trong phiên thu âm liên tục để khi bấm "Đọc lại" không cần đóng/mở lại phần cứng Micro!
+  const resultOffsetRef = useRef<number>(0);
+  const totalResultsCountRef = useRef<number>(0);
   const latestParsedRef = useRef<ParsedVoiceVitals | null>(null);
+  const hasSpokenConfirmationRef = useRef<boolean>(false);
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Kiểm tra trình duyệt có hỗ trợ Web Speech API gốc hay không
+  // Kiểm tra trình duyệt có hỗ trợ Web Speech API gốc & mở khóa trước bộ phát âm thanh khi người dùng chạm màn hình
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const w = window as unknown as Record<string, unknown>;
       const SpeechRecognitionCtor = w.SpeechRecognition || w.webkitSpeechRecognition;
       setSpeechSupported(Boolean(SpeechRecognitionCtor));
+
+      const handleFirstTouch = () => {
+        unlockAudioElementOnFirstInteraction();
+      };
+      window.addEventListener('touchstart', handleFirstTouch, { passive: true });
+      window.addEventListener('click', handleFirstTouch, { passive: true });
+      return () => {
+        window.removeEventListener('touchstart', handleFirstTouch);
+        window.removeEventListener('click', handleFirstTouch);
+      };
+    }
+  }, []);
+
+  // Hàm dọn dẹp triệt để phiên thu âm cũ
+  const cleanupRecognitionInstance = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    const inst = recognitionRef.current;
+    if (inst) {
+      inst.onstart = null;
+      inst.onresult = null;
+      inst.onerror = null;
+      inst.onend = null;
+      try {
+        inst.abort();
+      } catch {
+        // ignore
+      }
+      recognitionRef.current = null;
     }
   }, []);
 
@@ -216,15 +372,10 @@ export default function QuickVitalsForm({
   useEffect(() => {
     return () => {
       if (successTimerRef.current) clearTimeout(successTimerRef.current);
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch {
-          // ignore
-        }
-      }
+      stopVietnameseSpeech();
+      cleanupRecognitionInstance();
     };
-  }, []);
+  }, [cleanupRecognitionInstance]);
 
   // --- Derived values ---
   const sysNum = parseInt(sys, 10);
@@ -246,6 +397,7 @@ export default function QuickVitalsForm({
     setVoiceTranscript('');
     setParsedPreview(null);
     latestParsedRef.current = null;
+    hasSpokenConfirmationRef.current = false;
     setPeriod(detectCurrentTimeSlot());
   }, []);
 
@@ -312,120 +464,217 @@ export default function QuickVitalsForm({
     await performSave();
   };
 
-  // --- Áp dụng kết quả phân tích giọng nói vào các ô input ---
-  const applyTranscriptToForm = useCallback(
-    (text: string, isFinalSpeech: boolean = false) => {
-      setVoiceTranscript(text);
-      const parsed = parseVoiceVitals(text);
-      setParsedPreview(parsed);
-      latestParsedRef.current = parsed;
+  // --- Phát âm xác nhận kết quả hiện tại (gọi khi kết thúc phiên đọc hoặc khi bấm nút "Nghe lại") ---
+  const triggerConfirmationFeedback = useCallback(
+    (parsed: ParsedVoiceVitals | null, immediateGesture: boolean = false) => {
+      if (!parsed || !parsed.isComplete || !parsed.sys || !parsed.dia) return;
 
-      if (parsed.sys !== undefined) setSys(String(parsed.sys));
-      if (parsed.dia !== undefined) setDia(String(parsed.dia));
-      if (parsed.pulse !== undefined) setPulse(String(parsed.pulse));
-      if (parsed.period !== undefined) setPeriod(parsed.period);
-      if (parsed.note !== undefined) setNote(parsed.note);
-
-      if (isFinalSpeech && parsed.isComplete && parsed.sys && parsed.dia) {
-        if (parsed.autoSave) {
-          speakVietnameseConfirmation(
-            `Đã lưu huyết áp ${parsed.sys} trên ${parsed.dia}${parsed.pulse ? `, mạch ${parsed.pulse}` : ''}`,
-            ttsEnabled
-          );
-          void performSave({
-            sysVal: parsed.sys,
-            diaVal: parsed.dia,
-            pulseVal: parsed.pulse,
-            noteVal: parsed.note,
-            periodVal: parsed.period,
-          });
-        } else {
-          speakVietnameseConfirmation(
-            `Đã nhận huyết áp ${parsed.sys} trên ${parsed.dia}${parsed.pulse ? `, mạch ${parsed.pulse}` : ''}. Bấm lưu để hoàn tất.`,
-            ttsEnabled
-          );
-        }
+      if (parsed.autoSave) {
+        speakVietnameseConfirmation(
+          `Đã lưu huyết áp ${parsed.sys} trên ${parsed.dia}${parsed.pulse ? `, mạch ${parsed.pulse}` : ''}`,
+          ttsEnabled,
+          immediateGesture ? 30 : 350,
+          setIsSpeakingBack
+        );
+        void performSave({
+          sysVal: parsed.sys,
+          diaVal: parsed.dia,
+          pulseVal: parsed.pulse,
+          noteVal: parsed.note,
+          periodVal: parsed.period,
+        });
+      } else {
+        speakVietnameseConfirmation(
+          `Huyết áp ${parsed.sys} trên ${parsed.dia}${parsed.pulse ? `, mạch ${parsed.pulse}` : ''}`,
+          ttsEnabled,
+          immediateGesture ? 30 : 350,
+          setIsSpeakingBack
+        );
       }
     },
     [performSave, ttsEnabled]
   );
 
-  // --- Bật / Tắt thu âm giọng nói trực tiếp trên trình duyệt ---
-  const toggleVoiceListening = useCallback(() => {
-    setVoiceError(null);
+  // --- Áp dụng kết quả phân tích giọng nói vào các ô input ---
+  const applyTranscriptToForm = useCallback((text: string) => {
+    setVoiceTranscript(text);
+    const parsed = parseVoiceVitals(text);
+    setParsedPreview(parsed);
+    latestParsedRef.current = parsed;
 
-    if (isListening && recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        // ignore
+    if (parsed.sys !== undefined) setSys(String(parsed.sys));
+    if (parsed.dia !== undefined) setDia(String(parsed.dia));
+    if (parsed.pulse !== undefined) setPulse(String(parsed.pulse));
+    if (parsed.period !== undefined) setPeriod(parsed.period);
+    if (parsed.note !== undefined) setNote(parsed.note);
+
+    return parsed;
+  }, []);
+
+  // --- Khởi chạy hoặc Đặt lại phiên thu âm (Nhạy 100% ngay ở lần bấm đầu tiên trên điện thoại) ---
+  const startOrResetVoiceSession = useCallback(
+    (clearFields: boolean = true) => {
+      setVoiceError(null);
+      setVoicePanelOpen(true);
+
+      // 1. Tắt ngay mọi giọng đọc TTS đang phát để trả lại kênh âm thanh cho Micro
+      stopVietnameseSpeech();
+      setIsSpeakingBack(false);
+
+      // 2. Xoá dữ liệu cũ trên form nếu người dùng bấm "Đọc lại"
+      if (clearFields) {
+        setSys('');
+        setDia('');
+        setPulse('');
+        setNote('');
+        setVoiceTranscript('');
+        setParsedPreview(null);
+        latestParsedRef.current = null;
       }
-      setIsListening(false);
-      return;
-    }
+      hasSpokenConfirmationRef.current = false;
 
-    setVoicePanelOpen(true);
-
-    if (typeof window === 'undefined') return;
-    const w = window as unknown as Record<string, unknown>;
-    const SpeechRecognitionCtor = (w.SpeechRecognition || w.webkitSpeechRecognition) as
-      | (new () => BrowserSpeechRecognitionInstance)
-      | undefined;
-
-    if (!SpeechRecognitionCtor) {
-      setSpeechSupported(false);
-      setVoiceError(
-        'Trình duyệt này không hỗ trợ thu âm trực tiếp. Hãy bấm vào ô bên dưới rồi bấm biểu tượng Micro 🎙️ trên bàn phím điện thoại để đọc.'
-      );
-      setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognitionCtor();
-      recognition.lang = 'vi-VN';
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-
-      recognition.onresult = (event: BrowserSpeechRecognitionEvent) => {
-        let fullTranscript = '';
-        let isFinal = false;
-        for (let i = 0; i < event.results.length; i++) {
-          const res = event.results[i];
-          fullTranscript += res[0].transcript + ' ';
-          if (res.isFinal) isFinal = true;
+      // 3. KỸ THUẬT QUAN TRỌNG TRÊN ĐIỆN THOẠI:
+      // Nếu Micro ĐANG MỞ (isListening === true), TUYỆT ĐỐI KHÔNG đóng rồi mở lại phần cứng Micro
+      // (vì Android/iOS cần 400ms mới nhả phần cứng Micro, đóng/mở liền sẽ làm kẹt Micro!).
+      // Thay vào đó, ta chỉ cần dịch mốc resultOffsetRef sang vị trí mới và giữ nguyên Micro đang mở!
+      if (isListening && recognitionRef.current) {
+        resultOffsetRef.current = totalResultsCountRef.current;
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
         }
-        applyTranscriptToForm(fullTranscript.trim(), isFinal);
-      };
+        return;
+      }
 
-      recognition.onerror = (event: BrowserSpeechRecognitionErrorEvent) => {
+      if (typeof window === 'undefined') return;
+      const w = window as unknown as Record<string, unknown>;
+      const SpeechRecognitionCtor = (w.SpeechRecognition || w.webkitSpeechRecognition) as
+        | (new () => BrowserSpeechRecognitionInstance)
+        | undefined;
+
+      if (!SpeechRecognitionCtor) {
+        setSpeechSupported(false);
         setIsListening(false);
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          setVoiceError(
-            'Chưa cấp quyền Micro cho trình duyệt. Bạn có thể cấp quyền Micro hoặc bấm biểu tượng 🎙️ trên bàn phím điện thoại vào ô bên dưới.'
-          );
-          setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
-        } else if (event.error === 'no-speech') {
-          setVoiceError('Chưa nghe thấy giọng nói. Hãy bấm nút Micro và đọc to rõ hơn nhé.');
-        } else if (event.error !== 'aborted') {
-          setVoiceError('Không thu âm được. Bạn có thể đọc qua Micro 🎙️ trên bàn phím ở ô dưới.');
-        }
-      };
+        setVoiceError(
+          'Trình duyệt này không hỗ trợ thu âm trực tiếp. Hãy bấm vào ô bên dưới rồi bấm biểu tượng Micro 🎙️ trên bàn phím điện thoại để đọc.'
+        );
+        setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
+        return;
+      }
 
-      recognition.onend = () => {
+      // Dọn sạch biến tham chiếu cũ (nếu có) và gọi recognition.start() ĐỒNG BỘ (synchronously) ngay trong cú chạm!
+      cleanupRecognitionInstance();
+      resultOffsetRef.current = 0;
+      totalResultsCountRef.current = 0;
+
+      try {
+        const recognition = new SpeechRecognitionCtor();
+        recognition.lang = 'vi-VN';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+          setIsListening(true);
+        };
+
+        recognition.onresult = (event: BrowserSpeechRecognitionEvent) => {
+          totalResultsCountRef.current = event.results.length;
+          let fullTranscript = '';
+          const startIdx = Math.min(resultOffsetRef.current, event.results.length);
+          for (let i = startIdx; i < event.results.length; i++) {
+            fullTranscript += event.results[i][0].transcript + ' ';
+          }
+          const cleanText = fullTranscript.trim();
+          if (!cleanText) return;
+
+          const parsed = applyTranscriptToForm(cleanText);
+
+          // Tự động dừng thông minh sau khi người dùng đọc xong:
+          // - Đã đủ 3 số (SYS + DIA + Mạch) hoặc có lệnh "lưu luôn": dừng sau 1.2 giây ngừng nói
+          // - Đã đủ 2 số (SYS + DIA): dừng sau 2.0 giây ngừng nói
+          // - Mới đọc 1 số: giữ Micro mở 4.0 giây để chờ đọc nốt số thứ 2
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+          const waitMs =
+            parsed.autoSave || (parsed.isComplete && parsed.pulse !== undefined)
+              ? 1200
+              : parsed.isComplete
+                ? 2000
+                : 4000;
+
+          silenceTimerRef.current = setTimeout(() => {
+            if (recognitionRef.current === recognition) {
+              try {
+                recognition.stop();
+              } catch {
+                // ignore
+              }
+            }
+          }, waitMs);
+        };
+
+        recognition.onerror = (event: BrowserSpeechRecognitionErrorEvent) => {
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+          setIsListening(false);
+          if (recognitionRef.current === recognition) {
+            recognitionRef.current = null;
+          }
+          if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            setVoiceError(
+              'Chưa cấp quyền Micro cho trình duyệt. Bạn có thể cấp quyền Micro hoặc bấm biểu tượng 🎙️ trên bàn phím điện thoại vào ô bên dưới.'
+            );
+            setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
+          } else if (event.error === 'no-speech') {
+            setVoiceError('Chưa nghe thấy giọng nói. Hãy bấm nút "Đọc lại" và đọc to rõ hơn nhé.');
+          } else if (event.error !== 'aborted') {
+            setVoiceError('Micro bị ngắt. Hãy bấm lại nút "Đọc Huyết Áp" hoặc dùng nút 🎙️ trên bàn phím.');
+          }
+        };
+
+        recognition.onend = () => {
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+          setIsListening(false);
+          if (recognitionRef.current === recognition) {
+            recognitionRef.current = null;
+          }
+
+          // Khi Micro trên điện thoại đã đóng hoàn toàn, tự động phát giọng đọc tiếng Việt xác nhận!
+          if (!hasSpokenConfirmationRef.current && latestParsedRef.current?.isComplete) {
+            hasSpokenConfirmationRef.current = true;
+            triggerConfirmationFeedback(latestParsedRef.current, false);
+          }
+        };
+
+        recognitionRef.current = recognition;
+        setIsListening(true);
+        recognition.start();
+      } catch {
         setIsListening(false);
-      };
+        setVoiceError('Không khởi động được Micro. Hãy bấm lại hoặc dùng nút 🎙️ trên bàn phím ở ô bên dưới.');
+        setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
+      }
+    },
+    [isListening, cleanupRecognitionInstance, applyTranscriptToForm, triggerConfirmationFeedback]
+  );
 
-      recognitionRef.current = recognition;
-      setIsListening(true);
-      recognition.start();
-    } catch {
-      setIsListening(false);
-      setVoiceError('Không khởi động được Micro. Hãy dùng nút 🎙️ trên bàn phím ở ô bên dưới.');
-      setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
+  // --- Dừng thu âm chủ động (khi người dùng bấm nút "Xong / Dừng") ---
+  const stopVoiceSession = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
     }
-  }, [isListening, applyTranscriptToForm]);
+    const inst = recognitionRef.current;
+    if (inst) {
+      try {
+        inst.stop();
+      } catch {
+        cleanupRecognitionInstance();
+        setIsListening(false);
+      }
+    } else {
+      setIsListening(false);
+    }
+  }, [cleanupRecognitionInstance]);
 
   // --- Trend icons ---
   const renderTrendIcon = (trend: 'up' | 'down' | 'stable') => {
@@ -494,7 +743,7 @@ export default function QuickVitalsForm({
         </div>
       </div>
 
-      {/* ===== THANH GHI HUYẾT ÁP BẰNG GIỌNG NÓI (0 AI API — Xử lý ngôn ngữ tiếng Việt nội bộ tức thì) ===== */}
+      {/* ===== THANH GHI HUYẾT ÁP BẰNG GIỌNG NÓI (0 AI API — Nhạy 1 chạm & Đọc lại tiếng Việt chuẩn trên Điện Thoại) ===== */}
       <div
         className={`rounded-2xl border-2 transition-all p-3 sm:p-3.5 ${
           isListening
@@ -505,27 +754,47 @@ export default function QuickVitalsForm({
         }`}
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={toggleVoiceListening}
-            className={`flex-1 min-h-[48px] px-4 py-2.5 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.98] ${
-              isListening
-                ? 'bg-rose-600 text-white animate-pulse shadow-rose-300'
-                : 'bg-rose-600 hover:bg-rose-700 text-white'
-            }`}
-          >
-            {isListening ? (
-              <>
-                <MicOff className="w-5 h-5 shrink-0" />
-                <span>Đang nghe... (Bấm để dừng)</span>
-              </>
-            ) : (
-              <>
-                <Mic className="w-5 h-5 shrink-0" />
-                <span>🎙️ Đọc Huyết Áp Bằng Giọng Nói</span>
-              </>
-            )}
-          </button>
+          {!isListening ? (
+            <button
+              type="button"
+              onClick={() => startOrResetVoiceSession(true)}
+              className="flex-1 min-h-[48px] px-4 py-2.5 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.98] bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {voiceTranscript ? (
+                <>
+                  <RotateCcw className="w-5 h-5 shrink-0" />
+                  <span>🎙️ Bấm Để Đọc Lại Từ Đầu</span>
+                </>
+              ) : (
+                <>
+                  <Mic className="w-5 h-5 shrink-0" />
+                  <span>🎙️ Đọc Huyết Áp Bằng Giọng Nói</span>
+                </>
+              )}
+            </button>
+          ) : (
+            <>
+              {/* Khi đang thu âm: Tách rõ 2 nút "Đọc lại ngay (không ngắt mic)" và "Xong" để bấm 1 lần ăn ngay */}
+              <button
+                type="button"
+                onClick={() => startOrResetVoiceSession(true)}
+                className="flex-1 min-h-[48px] px-3 py-2.5 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.98] bg-amber-500 hover:bg-amber-600 text-white"
+                title="Xoá câu vừa đọc nhầm và đọc lại ngay lập tức (không cần tắt Micro)"
+              >
+                <RotateCcw className="w-5 h-5 shrink-0" />
+                <span>Đọc lại từ đầu</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={stopVoiceSession}
+                className="px-4 min-h-[48px] py-2.5 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-[0.98] bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+              >
+                <Check className="w-5 h-5 shrink-0" />
+                <span>Xong</span>
+              </button>
+            </>
+          )}
 
           <button
             type="button"
@@ -540,7 +809,7 @@ export default function QuickVitalsForm({
           >
             <Sparkles className="w-4 h-4 text-indigo-600" />
             <span className="hidden sm:inline">Nhập/Đọc 1 dòng</span>
-            <span className="sm:hidden">Hướng dẫn</span>
+            <span className="sm:hidden">Mở ô</span>
           </button>
         </div>
 
@@ -555,12 +824,19 @@ export default function QuickVitalsForm({
         {/* Khung chi tiết khi đang nghe hoặc mở bảng Giọng nói */}
         {(voicePanelOpen || isListening || voiceTranscript) && (
           <div className="mt-3 pt-3 border-t border-slate-200/80 space-y-2.5">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 {isListening ? (
                   <>
                     <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping inline-block" />
-                    <span className="text-rose-700">Hãy đọc số huyết áp trên máy đo...</span>
+                    <span className="text-rose-700">
+                      Đang lắng nghe... Hãy đọc số trên máy đo (Nếu đọc nhầm bấm &ldquo;Đọc lại từ đầu&rdquo;)
+                    </span>
+                  </>
+                ) : isSpeakingBack ? (
+                  <>
+                    <Volume2 className="w-4 h-4 text-indigo-600 animate-bounce" />
+                    <span className="text-indigo-700">Đang đọc xác nhận lại chỉ số huyết áp...</span>
                   </>
                 ) : (
                   <span>🗣️ Câu vừa đọc / Nhập nhanh 1 dòng:</span>
@@ -568,23 +844,52 @@ export default function QuickVitalsForm({
               </span>
 
               <div className="flex items-center gap-1.5">
+                {/* Nút bấm nghe đọc lại trực tiếp */}
+                {parsedPreview?.isComplete && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      speakVietnameseConfirmation(
+                        `Huyết áp ${parsedPreview.sys} trên ${parsedPreview.dia}${parsedPreview.pulse ? `, mạch ${parsedPreview.pulse}` : ''}`,
+                        true,
+                        10,
+                        setIsSpeakingBack
+                      );
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-[11px] font-black bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 cursor-pointer shadow-2xs"
+                    title="Nghe điện thoại đọc lại chỉ số vừa nhận"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                    <span>Nghe đọc lại</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
-                  onClick={() => setTtsEnabled((v) => !v)}
+                  onClick={() => {
+                    const nextVal = !ttsEnabled;
+                    setTtsEnabled(nextVal);
+                    if (!nextVal) {
+                      stopVietnameseSpeech();
+                      setIsSpeakingBack(false);
+                    }
+                  }}
                   className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 border cursor-pointer ${
                     ttsEnabled
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       : 'bg-slate-100 text-slate-500 border-slate-200'
                   }`}
-                  title="Bật/tắt giọng đọc xác nhận lại chỉ số"
+                  title="Bật/tắt tự động đọc xác nhận lại chỉ số"
                 >
                   {ttsEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-                  <span>{ttsEnabled ? 'Đọc xác nhận: Bật' : 'Tắt tiếng'}</span>
+                  <span>{ttsEnabled ? 'Tự đọc: Bật' : 'Tắt tiếng'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
+                    stopVoiceSession();
+                    stopVietnameseSpeech();
                     setVoicePanelOpen(false);
                     setVoiceError(null);
                   }}
@@ -602,7 +907,10 @@ export default function QuickVitalsForm({
                 ref={quickVoiceInputRef}
                 type="text"
                 value={voiceTranscript}
-                onChange={(e) => applyTranscriptToForm(e.target.value, false)}
+                onChange={(e) => {
+                  hasSpokenConfirmationRef.current = false;
+                  applyTranscriptToForm(e.target.value);
+                }}
                 placeholder='VD: "135 85 mạch 78 sau tập đứng" (hoặc bấm 🎙️ trên bàn phím)'
                 className="w-full px-3.5 py-2.5 pr-9 rounded-xl bg-white border-2 border-indigo-200 focus:border-rose-500 focus:outline-none text-sm font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal"
               />
@@ -612,6 +920,7 @@ export default function QuickVitalsForm({
                   onClick={() => {
                     setVoiceTranscript('');
                     setParsedPreview(null);
+                    latestParsedRef.current = null;
                   }}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                   title="Xoá câu vừa đọc"
@@ -660,7 +969,7 @@ export default function QuickVitalsForm({
             {/* Các câu mẫu bấm thử 1 chạm + mẹo đọc "lưu luôn" */}
             <div className="space-y-1.5">
               <p className="text-[11px] font-bold text-slate-500">
-                📌 Cách đọc mẫu (bấm thử hoặc đọc tương tự, nói thêm chữ <span className="text-rose-600">&ldquo;lưu luôn&rdquo;</span> ở cuối để tự động lưu):
+                📌 Cách đọc mẫu (bấm thử để nghe giọng đọc xác nhận, hoặc nói thêm chữ <span className="text-rose-600">&ldquo;lưu luôn&rdquo;</span> ở cuối để tự động lưu):
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {[
@@ -671,7 +980,10 @@ export default function QuickVitalsForm({
                   <button
                     key={sample}
                     type="button"
-                    onClick={() => applyTranscriptToForm(sample, false)}
+                    onClick={() => {
+                      const parsed = applyTranscriptToForm(sample);
+                      triggerConfirmationFeedback(parsed, true);
+                    }}
                     className="px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-50 border border-slate-200 text-[11px] font-semibold text-slate-700 cursor-pointer transition-colors"
                   >
                     &ldquo;{sample}&rdquo;
