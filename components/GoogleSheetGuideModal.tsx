@@ -23,8 +23,10 @@ interface GoogleSheetGuideModalProps {
 }
 
 const APPS_SCRIPT_5_SHEETS_CODE = `/**
- * GOOGLE APPS SCRIPT WEB APP - LỊCH TRỰC CHĂM SÓC GIA ĐÌNH ĐINH HỒNG PHONG
- * Tự động tạo và quản lý 5 Bảng Tính: Shifts, Members, Settings, Contacts, Reminders
+ * GOOGLE APPS SCRIPT WEB APP — SỔ SỨC KHỎE BỐ (ĐINH HỒNG PHONG) v2.0
+ * Tự động tạo và quản lý 8 Bảng Tính:
+ *   Cũ: Shifts, Members, Settings, Contacts, Reminders
+ *   Mới: VitalsLog, CareRoutines, DailyLogs
  * Hỗ trợ API CRUD 2 chiều thời gian thực (Zero Hardcode).
  */
 
@@ -46,7 +48,13 @@ function doGet(e) {
         patientInfo: readPatientInfo(ss),
         contacts: readContacts(ss),
         reminders: readReminders(ss),
-        adminPin: readAdminPin(ss)
+        adminPin: readAdminPin(ss),
+        // === V2.0: Sổ Sức Khỏe Bố ===
+        vitalsLog: readVitalsLog(ss),
+        careRoutines: readCareRoutines(ss),
+        dailyLogs: readDailyLogs(ss),
+        appointment: readAppointment(ss),
+        bpThresholds: readBpThresholds(ss),
       });
     }
 
@@ -150,6 +158,46 @@ function doPost(e) {
       }
       saveAdminPin(ss, newPin);
       return jsonResponse({ success: true, message: 'Đã đổi mã PIN Admin thành công' });
+    }
+
+    // ==========================================
+    // V2.0 — SỔ SỨC KHỎE BỐ — ACTIONS MỚI
+    // ==========================================
+
+    // 7. Lưu / Xoá Huyết Áp & Sinh Hiệu (VitalsLog)
+    if (action === 'saveVitals' && postData.vitals) {
+      saveVitalsLog(ss, postData.vitals);
+      return jsonResponse({ success: true, message: 'Đã lưu chỉ số sinh hiệu' });
+    }
+    if (action === 'deleteVitals' && postData.vitalsId) {
+      deleteRowById(ss, 'VitalsLog', postData.vitalsId);
+      return jsonResponse({ success: true, message: 'Đã xoá bản ghi sinh hiệu' });
+    }
+
+    // 8. Lưu / Xoá Đơn Thuốc & Bài Tập (CareRoutines)
+    if (action === 'saveRoutine' && postData.routine) {
+      saveRoutine(ss, postData.routine);
+      return jsonResponse({ success: true, message: 'Đã lưu đầu việc chăm sóc' });
+    }
+    if (action === 'deleteRoutine' && postData.routineId) {
+      deleteRowById(ss, 'CareRoutines', postData.routineId);
+      return jsonResponse({ success: true, message: 'Đã xoá đầu việc' });
+    }
+
+    // 9. Tích / Bỏ Tích Hoàn Thành Hàng Ngày (DailyLogs)
+    if (action === 'toggleDailyLog' && postData.dailyLog) {
+      upsertDailyLog(ss, postData.dailyLog);
+      return jsonResponse({ success: true, message: 'Đã cập nhật trạng thái' });
+    }
+
+    // 10. Lưu Lịch Tái Khám & Ngưỡng HA (Settings)
+    if (action === 'saveAppointment' && postData.appointment) {
+      saveAppointmentToSettings(ss, postData.appointment);
+      return jsonResponse({ success: true, message: 'Đã lưu lịch tái khám' });
+    }
+    if (action === 'saveBpThresholds' && postData.bpThresholds) {
+      saveBpThresholdsToSettings(ss, postData.bpThresholds);
+      return jsonResponse({ success: true, message: 'Đã lưu ngưỡng huyết áp' });
     }
 
     return jsonResponse({ success: false, message: 'Thao tác không hợp lệ' });
@@ -282,6 +330,93 @@ function ensureSheetsSetup(ss) {
       ['reminder-condition-3', 'condition', 'Hút đờm & theo dõi SpO2', 'Hôm nay đờm hơi đặc đục, nhớ vỗ rung lồng ngực trước khi hút đờm. Bật oxy 2L/phút nếu SpO2 tụt dưới 94%.', 'BS. Nguyễn Văn Thắng', '07:30', 'TRUE', new Date().toISOString()]
     ];
     defaultReminders.forEach(r => sheetReminders.appendRow(r));
+  }
+
+  // ==========================================
+  // V2.0 — 3 SHEETS MỚI: VitalsLog, CareRoutines, DailyLogs
+  // ==========================================
+
+  // Sheet 6: VitalsLog (Nhật ký huyết áp & sinh hiệu - 14 cột)
+  let sheetVitals = ss.getSheetByName('VitalsLog');
+  const vitalsHeaders = [
+    'id', 'date', 'time', 'period',
+    'sys', 'dia', 'pulse', 'spo2', 'temp', 'blood_sugar',
+    'note', 'alert_level', 'recorded_by', 'created_at'
+  ];
+  if (!sheetVitals) {
+    sheetVitals = ss.insertSheet('VitalsLog');
+    sheetVitals.appendRow(vitalsHeaders);
+    sheetVitals.getRange(1, 1, 1, vitalsHeaders.length)
+      .setFontWeight('bold').setBackground('#FDE2E2');
+    sheetVitals.setFrozenRows(1);
+    sheetVitals.getRange('E:G').setNumberFormat('0');
+  }
+
+  // Sheet 7: CareRoutines (Đơn thuốc & Bài tập phục hồi - 14 cột)
+  let sheetRoutines = ss.getSheetByName('CareRoutines');
+  const routineHeaders = [
+    'id', 'stage_id', 'stage_name', 'category', 'med_type',
+    'title', 'dosage', 'time_slots', 'instructions', 'condition_note',
+    'is_active', 'sort_order', 'created_at', 'updated_at'
+  ];
+  if (!sheetRoutines) {
+    sheetRoutines = ss.insertSheet('CareRoutines');
+    sheetRoutines.appendRow(routineHeaders);
+    sheetRoutines.getRange(1, 1, 1, routineHeaders.length)
+      .setFontWeight('bold').setBackground('#DBEAFE');
+    sheetRoutines.setFrozenRows(1);
+
+    // DỮ LIỆU MẪU — Đơn thuốc giai đoạn 1 (Mẹ thấy ngay khi mở app)
+    const now = new Date().toISOString();
+    const sampleRoutines = [
+      ['routine-med-01', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'meds', 'scheduled',
+       'Amlodipine (Amlor) 5mg', '1 viên', '["morning","evening"]',
+       'Uống sau ăn 30 phút. Đo HA trước khi uống.', 'Nếu HA tâm thu < 110: hoãn uống, gọi BS',
+       'TRUE', 1, now, now],
+      ['routine-med-02', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'meds', 'scheduled',
+       'Aspirin 81mg', '1 viên', '["morning"]',
+       'Uống sau ăn sáng, không uống khi đói.', '',
+       'TRUE', 2, now, now],
+      ['routine-med-03', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'meds', 'scheduled',
+       'Atorvastatin 20mg', '1 viên', '["evening"]',
+       'Uống buổi tối trước khi ngủ.', '',
+       'TRUE', 3, now, now],
+      ['routine-med-04', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'meds', 'as_needed',
+       'Paracetamol 500mg', '1 viên', '["as_needed"]',
+       'Khi đau đầu hoặc sốt ≥ 38°C. Cách ít nhất 6 giờ giữa 2 lần.', 'Tối đa 3 viên/ngày',
+       'TRUE', 10, now, now],
+      ['routine-rehab-01', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'rehab', '',
+       'Tập co duỗi tay chân (bên liệt)', '15 phút', '["morning","afternoon"]',
+       'Từ từ, nhẹ nhàng. Dừng nếu bố kêu đau.', '',
+       'TRUE', 5, now, now],
+      ['routine-rehab-02', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'rehab', '',
+       'Tập ngồi tựa lưng trên giường', '10–20 phút', '["morning"]',
+       'Đỡ bố ngồi dậy tựa gối, giữ thẳng lưng.', '',
+       'TRUE', 6, now, now],
+      ['routine-care-01', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'care', '',
+       'Lật trở & chống loét tì đè', 'Mỗi 2 giờ', '["morning","noon","afternoon","evening"]',
+       'Xoay nghiêng trái/phải, kê gối đỡ lưng và gót chân.', '',
+       'TRUE', 7, now, now],
+      ['routine-care-02', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'care', '',
+       'Vệ sinh răng miệng & thân thể', '', '["morning","evening"]',
+       'Lau mặt ấm, đánh răng/lau nướu, thay quần áo sạch.', '',
+       'TRUE', 8, now, now],
+    ];
+    sampleRoutines.forEach(r => sheetRoutines.appendRow(r));
+  }
+
+  // Sheet 8: DailyLogs (Tích hoàn thành hàng ngày - 8 cột)
+  let sheetDailyLogs = ss.getSheetByName('DailyLogs');
+  const dailyLogHeaders = [
+    'id', 'date', 'routine_id', 'time_slot',
+    'is_done', 'done_at', 'done_by', 'note'
+  ];
+  if (!sheetDailyLogs) {
+    sheetDailyLogs = ss.insertSheet('DailyLogs');
+    sheetDailyLogs.appendRow(dailyLogHeaders);
+    sheetDailyLogs.getRange(1, 1, 1, dailyLogHeaders.length)
+      .setFontWeight('bold').setBackground('#D1FAE5');
+    sheetDailyLogs.setFrozenRows(1);
   }
 }
 
@@ -655,6 +790,230 @@ function saveAdminPin(ss, pin) {
     }
   }
   sheet.appendRow(['admin_pin', String(pin).trim(), 'Mã PIN quyền Admin bảo mật']);
+}
+
+// ==========================================
+// V2.0 — ĐỌC DỮ LIỆU MỚI (VitalsLog, CareRoutines, DailyLogs)
+// ==========================================
+
+function readVitalsLog(ss) {
+  const sheet = ss.getSheetByName('VitalsLog');
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  const data = sheet.getDataRange().getValues();
+  const results = [];
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row[0]) continue;
+    results.push({
+      id: String(row[0]),
+      date: String(row[1]),
+      time: String(row[2]),
+      period: String(row[3]),
+      sys: Number(row[4]) || 0,
+      dia: Number(row[5]) || 0,
+      pulse: row[6] ? Number(row[6]) : undefined,
+      spo2: row[7] ? Number(row[7]) : undefined,
+      temp: row[8] ? Number(row[8]) : undefined,
+      bloodSugar: row[9] ? Number(row[9]) : undefined,
+      note: String(row[10] || ''),
+      alertLevel: String(row[11] || 'normal'),
+      recordedBy: String(row[12] || 'Mẹ'),
+      createdAt: String(row[13] || '')
+    });
+  }
+  return results;
+}
+
+function readCareRoutines(ss) {
+  const sheet = ss.getSheetByName('CareRoutines');
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  const data = sheet.getDataRange().getValues();
+  const results = [];
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row[0]) continue;
+    let timeSlots = [];
+    try { timeSlots = JSON.parse(String(row[7] || '[]')); } catch(e) { timeSlots = []; }
+    results.push({
+      id: String(row[0]),
+      stageId: String(row[1]),
+      stageName: String(row[2]),
+      category: String(row[3]),
+      medType: String(row[4] || ''),
+      title: String(row[5]),
+      dosage: String(row[6] || ''),
+      timeSlots: timeSlots,
+      instructions: String(row[8] || ''),
+      conditionNote: String(row[9] || ''),
+      isActive: String(row[10]).toUpperCase() === 'TRUE',
+      sortOrder: Number(row[11]) || 0,
+      createdAt: String(row[12] || ''),
+      updatedAt: String(row[13] || '')
+    });
+  }
+  return results;
+}
+
+function readDailyLogs(ss) {
+  const sheet = ss.getSheetByName('DailyLogs');
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  const data = sheet.getDataRange().getValues();
+  const results = [];
+  // Chỉ trả về 30 ngày gần nhất
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+  const cutoffStr = Utilities.formatDate(cutoff, 'GMT+7', 'yyyy-MM-dd');
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row[0]) continue;
+    const dateStr = String(row[1]);
+    if (dateStr < cutoffStr) continue;
+    results.push({
+      id: String(row[0]),
+      date: dateStr,
+      routineId: String(row[2]),
+      timeSlot: String(row[3]),
+      isDone: String(row[4]).toUpperCase() === 'TRUE',
+      doneAt: String(row[5] || ''),
+      doneBy: String(row[6] || ''),
+      note: String(row[7] || '')
+    });
+  }
+  return results;
+}
+
+function readAppointment(ss) {
+  const sheet = ss.getSheetByName('Settings');
+  if (!sheet) return {};
+  const data = sheet.getDataRange().getValues();
+  const result = {};
+  const keys = ['appt_next_date', 'appt_next_note', 'appt_next_who', 'appt_last_date', 'appt_last_note'];
+  const map = { appt_next_date: 'nextDate', appt_next_note: 'nextNote', appt_next_who: 'nextWho', appt_last_date: 'lastDate', appt_last_note: 'lastNote' };
+  for (let i = 1; i < data.length; i++) {
+    const key = String(data[i][0]);
+    if (map[key]) result[map[key]] = String(data[i][1] || '');
+  }
+  return result;
+}
+
+function readBpThresholds(ss) {
+  const sheet = ss.getSheetByName('Settings');
+  if (!sheet) return { highSys: 140, highDia: 90, lowSys: 100, lowDia: 60 };
+  const data = sheet.getDataRange().getValues();
+  const result = { highSys: 140, highDia: 90, lowSys: 100, lowDia: 60 };
+  for (let i = 1; i < data.length; i++) {
+    const key = String(data[i][0]);
+    if (key === 'bp_high_sys') result.highSys = Number(data[i][1]) || 140;
+    if (key === 'bp_high_dia') result.highDia = Number(data[i][1]) || 90;
+    if (key === 'bp_low_sys') result.lowSys = Number(data[i][1]) || 100;
+    if (key === 'bp_low_dia') result.lowDia = Number(data[i][1]) || 60;
+  }
+  return result;
+}
+
+// ==========================================
+// V2.0 — GHI DỮ LIỆU MỚI
+// ==========================================
+
+function saveVitalsLog(ss, v) {
+  const sheet = ss.getSheetByName('VitalsLog');
+  if (!sheet) return;
+  // Tìm row cũ theo id để update, hoặc append mới
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === v.id) {
+      const row = [v.id, v.date, v.time, v.period, v.sys, v.dia,
+        v.pulse || '', v.spo2 || '', v.temp || '', v.bloodSugar || '',
+        v.note || '', v.alertLevel || 'normal', v.recordedBy || 'Mẹ', v.createdAt || new Date().toISOString()];
+      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+      return;
+    }
+  }
+  sheet.appendRow([v.id, v.date, v.time, v.period, v.sys, v.dia,
+    v.pulse || '', v.spo2 || '', v.temp || '', v.bloodSugar || '',
+    v.note || '', v.alertLevel || 'normal', v.recordedBy || 'Mẹ', v.createdAt || new Date().toISOString()]);
+}
+
+function saveRoutine(ss, r) {
+  const sheet = ss.getSheetByName('CareRoutines');
+  if (!sheet) return;
+  const timeSlotsStr = JSON.stringify(r.timeSlots || []);
+  const now = new Date().toISOString();
+  const row = [r.id, r.stageId, r.stageName, r.category, r.medType || '',
+    r.title, r.dosage || '', timeSlotsStr, r.instructions || '', r.conditionNote || '',
+    r.isActive ? 'TRUE' : 'FALSE', r.sortOrder || 0, r.createdAt || now, now];
+
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === r.id) {
+      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+      return;
+    }
+  }
+  sheet.appendRow(row);
+}
+
+function upsertDailyLog(ss, log) {
+  const sheet = ss.getSheetByName('DailyLogs');
+  if (!sheet) return;
+  const row = [log.id, log.date, log.routineId, log.timeSlot,
+    log.isDone ? 'TRUE' : 'FALSE', log.doneAt || '', log.doneBy || '', log.note || ''];
+
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === log.id) {
+      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+      return;
+    }
+  }
+  sheet.appendRow(row);
+}
+
+function saveAppointmentToSettings(ss, appt) {
+  const sheet = ss.getSheetByName('Settings');
+  if (!sheet) return;
+  const map = {
+    appt_next_date: appt.nextDate || '',
+    appt_next_note: appt.nextNote || '',
+    appt_next_who: appt.nextWho || '',
+    appt_last_date: appt.lastDate || '',
+    appt_last_note: appt.lastNote || ''
+  };
+  const data = sheet.getDataRange().getValues();
+  for (const [key, val] of Object.entries(map)) {
+    let found = false;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === key) {
+        sheet.getRange(i + 1, 2).setValue(val);
+        found = true;
+        break;
+      }
+    }
+    if (!found) sheet.appendRow([key, val, 'Lịch tái khám']);
+  }
+}
+
+function saveBpThresholdsToSettings(ss, bp) {
+  const sheet = ss.getSheetByName('Settings');
+  if (!sheet) return;
+  const map = {
+    bp_high_sys: bp.highSys || 140,
+    bp_high_dia: bp.highDia || 90,
+    bp_low_sys: bp.lowSys || 100,
+    bp_low_dia: bp.lowDia || 60
+  };
+  const data = sheet.getDataRange().getValues();
+  for (const [key, val] of Object.entries(map)) {
+    let found = false;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === key) {
+        sheet.getRange(i + 1, 2).setValue(val);
+        found = true;
+        break;
+      }
+    }
+    if (!found) sheet.appendRow([key, val, 'Ngưỡng huyết áp']);
+  }
 }
 
 function deleteRowById(ss, sheetName, id) {

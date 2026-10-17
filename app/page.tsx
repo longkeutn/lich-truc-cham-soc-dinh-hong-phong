@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useSyncExternalStore, useRef } from 'react';
-import HeaderBar from '@/components/HeaderBar';
+import React, { useState, useEffect, useMemo, useCallback, useSyncExternalStore } from 'react';
+import HeaderBar, { AppView } from '@/components/HeaderBar';
 import PatientBanner from '@/components/PatientBanner';
-import WeeklyView, { DaySchedule } from '@/components/WeeklyView';
-import MonthlyView from '@/components/MonthlyView';
-import ShiftHistoryView from '@/components/ShiftHistoryView';
+import QuickVitalsForm from '@/components/QuickVitalsForm';
+import DailyRoutineView from '@/components/DailyRoutineView';
+import { AppointmentSection } from '@/components/AppointmentSection';
+import { RoutineManagerModal } from '@/components/RoutineManagerModal';
 import GoogleSheetGuideModal from '@/components/GoogleSheetGuideModal';
 import EmergencyContactsModal from '@/components/EmergencyContactsModal';
 import { AdminPinModal } from '@/components/AdminPinModal';
@@ -16,38 +17,45 @@ import {
   CarePhase,
   FamilyMember,
   ShiftRecord,
-  PatientVitals,
   SystemSettings,
   PatientInfo,
   EmergencyContact,
   PatientDailyReminder,
+  VitalsLogEntry,
+  CareRoutine,
+  DailyLog,
+  RehabStage,
+  AppointmentInfo,
+  BpThresholds,
+  AppMode,
 } from '@/lib/types';
 import {
   FAMILY_MEMBERS,
-  PHASE_CONFIGS,
   PATIENT_INFO,
-  DEFAULT_EMERGENCY_CONTACTS,
-  DEFAULT_PATIENT_REMINDERS,
+  DEFAULT_BP_THRESHOLDS,
+  DEFAULT_APPOINTMENT,
+  DEFAULT_REHAB_STAGES,
+  DEFAULT_RECORDER,
 } from '@/lib/config';
 import {
-  fetchAllAppDataAction,
-  assignShiftSlotAction,
-  unassignShiftSlotAction,
-  saveShiftAction,
-  toggleChecklistAction,
-  saveHandoverAction,
-  getSettingsAction,
   saveContactAction,
   deleteContactAction,
   saveReminderAction,
   deleteReminderAction,
-  changePhaseAction,
+  // V2.0 actions
+  saveVitalsAction,
+  saveRoutineAction,
+  deleteRoutineAction,
+  toggleDailyLogAction,
+  saveAppointmentAction,
+  fetchAllAppDataV2Action,
 } from '@/lib/actions';
 
 import {
-  RefreshCw,
   AlertTriangle,
   ShieldCheck,
+  TrendingUp,
+  Users as UsersIcon,
 } from 'lucide-react';
 
 const subscribeStorage = (callback: () => void) => {
@@ -78,7 +86,7 @@ export default function CareSchedulePage() {
     getServerMemberId
   );
 
-  // Dynamic state từ Google Sheets
+  // ===== Dữ liệu V1 (giữ lại cho backward compatibility) =====
   const [members, setMembers] = useState<FamilyMember[]>(FAMILY_MEMBERS);
   const [patientInfo, setPatientInfo] = useState<PatientInfo>(PATIENT_INFO);
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
@@ -86,9 +94,21 @@ export default function CareSchedulePage() {
   const [shifts, setShifts] = useState<ShiftRecord[]>([]);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
 
-  const [activePhase, setActivePhase] = useState<CarePhase>('phase1');
-  const [activeView, setActiveView] = useState<'weekly' | 'monthly' | 'analytics'>('weekly');
-  const [weekOffset, setWeekOffset] = useState<number>(0);
+  // ===== Dữ liệu V2.0 mới =====
+  const [vitalsLog, setVitalsLog] = useState<VitalsLogEntry[]>([]);
+  const [careRoutines, setCareRoutines] = useState<CareRoutine[]>([]);
+  const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
+  const [stages, setStages] = useState<RehabStage[]>(DEFAULT_REHAB_STAGES);
+  const [appointment, setAppointment] = useState<AppointmentInfo>(DEFAULT_APPOINTMENT);
+  const [bpThresholds, setBpThresholds] = useState<BpThresholds>(DEFAULT_BP_THRESHOLDS);
+  const [appMode, setAppMode] = useState<AppMode>('home_care');
+
+  // V2.0: Phase cố định là 'phase2' (tại nhà), không cho user chuyển nữa
+  const activePhase: CarePhase = 'phase2';
+
+  // V2.0: 3 tab mới thay thế weekly/monthly/analytics
+  const [activeView, setActiveView] = useState<AppView>('today');
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [guideModalOpen, setGuideModalOpen] = useState<boolean>(false);
   const [emergencyModalOpen, setEmergencyModalOpen] = useState<boolean>(false);
@@ -101,6 +121,10 @@ export default function CareSchedulePage() {
   const [editPatientModalOpen, setEditPatientModalOpen] = useState<boolean>(false);
   const [membersModalOpen, setMembersModalOpen] = useState<boolean>(false);
   const [pendingAdminAction, setPendingAdminAction] = useState<(() => void) | null>(null);
+
+  // V2.0: RoutineManager Modal
+  const [routineManagerOpen, setRoutineManagerOpen] = useState<boolean>(false);
+  const [activeStageId, setActiveStageId] = useState<string>('stage-1');
 
   // Khôi phục phiên Admin nếu trước đó đã xác thực trong tab hiện tại
   useEffect(() => {
@@ -139,32 +163,13 @@ export default function CareSchedulePage() {
     }, 3500);
   };
 
-  // Tính toán khoảng ngày cho tuần hiện tại
-  const weekDates = useMemo(() => {
+  // ===== Ngày hiện tại =====
+  const todayStr = useMemo(() => {
     const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = Chủ Nhật, 1 = T2...
-    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  }, []);
 
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + diffToMonday + weekOffset * 7);
-
-    const dates: Date[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      dates.push(d);
-    }
-    return dates;
-  }, [weekOffset]);
-
-  // Concurrency Guard: bảo vệ các ca trực vừa thao tác trên client tránh bị server response cũ ghi đè
-  const recentLocalShiftUpdates = useRef<Map<string, number>>(new Map());
-
-  const markShiftLocallyUpdated = (shiftId: string) => {
-    recentLocalShiftUpdates.current.set(shiftId, Date.now());
-  };
-
-  // Tải toàn bộ dữ liệu 5 thực thể từ Google Sheets (có Cache TTL và Safe Merge)
+  // V2.0: Tải toàn bộ dữ liệu V2 từ Google Sheets
   const loadAllData = useCallback(
     async (forceRefresh = false) => {
       setIsLoading(true);
@@ -173,64 +178,39 @@ export default function CareSchedulePage() {
       }
 
       try {
-        let qStart: string;
-        let qEnd: string;
+        // Lấy khoảng ngày: 30 ngày trước → 7 ngày sau (đủ cho biểu đồ HA)
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + 7);
 
-        if (activeView === 'monthly') {
-          // View tháng: Lấy từ đầu tháng đến cuối tháng (+/- 5 ngày)
-          const midDate = weekDates[3] || new Date();
-          const firstDay = new Date(midDate.getFullYear(), midDate.getMonth(), 1);
-          firstDay.setDate(firstDay.getDate() - 5);
-          const lastDay = new Date(midDate.getFullYear(), midDate.getMonth() + 1, 0);
-          lastDay.setDate(lastDay.getDate() + 5);
+        const qStart = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+        const qEnd = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
 
-          qStart = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-${String(firstDay.getDate()).padStart(2, '0')}`;
-          qEnd = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
-        } else {
-          // View tuần: Thu hẹp đúng 21 ngày (Thứ 2 tuần trước -> Chủ nhật tuần sau)
-          const qStartDate = new Date(weekDates[0]);
-          qStartDate.setDate(qStartDate.getDate() - 7);
-          const qEndDate = new Date(weekDates[weekDates.length - 1]);
-          qEndDate.setDate(qEndDate.getDate() + 7);
-
-          qStart = `${qStartDate.getFullYear()}-${String(qStartDate.getMonth() + 1).padStart(2, '0')}-${String(qStartDate.getDate()).padStart(2, '0')}`;
-          qEnd = `${qEndDate.getFullYear()}-${String(qEndDate.getMonth() + 1).padStart(2, '0')}-${String(qEndDate.getDate()).padStart(2, '0')}`;
-        }
-
-        if (forceRefresh) {
-          recentLocalShiftUpdates.current.clear();
-        }
-
-        const appData = await fetchAllAppDataAction(qStart, qEnd, activePhase, forceRefresh);
+        const appData = await fetchAllAppDataV2Action(qStart, qEnd, activePhase, forceRefresh);
 
         if (appData) {
-          // Concurrency Guard: Hợp nhất shifts, bảo vệ các ca vừa sửa trên giao diện trong 8s
-          if (appData.shifts) {
-            setShifts((prevShifts) => {
-              const now = Date.now();
-              const shiftMap = new Map<string, ShiftRecord>();
-              prevShifts.forEach((s) => shiftMap.set(s.id, s));
-
-              appData.shifts.forEach((serverShift) => {
-                if (!forceRefresh) {
-                  const localTimestamp = recentLocalShiftUpdates.current.get(serverShift.id);
-                  if (localTimestamp && now - localTimestamp < 8000) {
-                    // Giữ nguyên bản ghi optimistic UI gần nhất của client
-                    return;
-                  }
-                }
-                shiftMap.set(serverShift.id, serverShift);
-              });
-
-              return Array.from(shiftMap.values());
-            });
-          }
-
+          // V1 data — giữ backward compatibility
+          if (appData.shifts) setShifts(appData.shifts);
           if (appData.members && appData.members.length > 0) setMembers(appData.members);
           if (appData.patientInfo && appData.patientInfo.name) setPatientInfo(appData.patientInfo);
           if (Array.isArray(appData.contacts)) setContacts(appData.contacts);
           if (Array.isArray(appData.reminders)) setReminders(appData.reminders);
           if (appData.settings) setSettings(appData.settings);
+
+          // V2 data
+          if (Array.isArray(appData.vitalsLog)) setVitalsLog(appData.vitalsLog);
+          if (Array.isArray(appData.careRoutines)) setCareRoutines(appData.careRoutines);
+          if (Array.isArray(appData.dailyLogs)) setDailyLogs(appData.dailyLogs);
+          if (Array.isArray(appData.stages) && appData.stages.length > 0) {
+            setStages(appData.stages);
+            // Set active stage to first active stage
+            const firstActive = appData.stages.find((s) => s.isActive);
+            if (firstActive) setActiveStageId(firstActive.id);
+          }
+          if (appData.appointment) setAppointment(appData.appointment);
+          if (appData.bpThresholds) setBpThresholds(appData.bpThresholds);
+          if (appData.appMode) setAppMode(appData.appMode);
 
           if (forceRefresh) {
             showToast('Đã đồng bộ dữ liệu mới nhất từ Google Sheets!', 'success');
@@ -243,217 +223,129 @@ export default function CareSchedulePage() {
         setIsLoading(false);
       }
     },
-    [weekDates, activePhase, activeView]
+    [activePhase]
   );
 
   useEffect(() => {
     loadAllData(false);
   }, [loadAllData]);
 
-  // Cấu trúc 7 ngày theo định dạng tiếng Việt
-  const weeklyDays = useMemo<DaySchedule[]>(() => {
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    const dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
+  // ===== V2.0 HANDLERS =====
 
-    return weekDates.map((dateObj, idx) => {
-      const yyyy = dateObj.getFullYear();
-      const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-      const dd = String(dateObj.getDate()).padStart(2, '0');
-      const dateStr = `${yyyy}-${mm}-${dd}`;
-      const displayDate = `${dd}/${mm}`;
-      const dayOfWeekVi = dayNames[idx];
-
-      const dayShifts = shifts.filter((s) => s.date === dateStr && s.phase === activePhase);
-      const understaffedCount = dayShifts.filter((s) => s.isUnderstaffed).length;
-
-      return {
-        dateStr,
-        dayOfWeekVi,
-        displayDate,
-        dayOfMonth: dateObj.getDate(),
-        month: dateObj.getMonth() + 1,
-        year: yyyy,
-        isToday: dateStr === todayStr,
-        shifts: dayShifts,
-        understaffedCount,
-      };
+  // Lưu huyết áp
+  const handleSaveVitals = useCallback(async (entry: VitalsLogEntry) => {
+    // Optimistic update
+    setVitalsLog((prev) => {
+      const exists = prev.findIndex((v) => v.id === entry.id);
+      if (exists >= 0) {
+        const updated = [...prev];
+        updated[exists] = entry;
+        return updated;
+      }
+      return [entry, ...prev];
     });
-  }, [weekDates, shifts, activePhase]);
-
-  // Tổng số ca thiếu người trong tuần
-  const totalUnderstaffedThisWeek = useMemo(() => {
-    return weeklyDays.reduce((sum, d) => sum + d.understaffedCount, 0);
-  }, [weeklyDays]);
-
-  // Xử lý nhận ca trực
-  const handleAssign = async (shift: ShiftRecord, slotIndex: number, specificMember?: FamilyMember) => {
-    const memberToAssign = specificMember || currentMember;
-
-    if (!memberToAssign) {
-      showToast('Vui lòng chọn tên của bạn để nhận ca trực!', 'warn');
-      return;
-    }
-
-    if (specificMember && (!currentMember || currentMember.id !== specificMember.id)) {
-      handleSelectMember(specificMember);
-    }
-
-    // Optimistic UI update
-    const previousShifts = [...shifts];
-    const assignees = [...shift.assignees];
-    while (assignees.length < shift.requiredPax) {
-      assignees.push('');
-    }
-    assignees[slotIndex] = memberToAssign.name;
-    const isUnderstaffed = assignees.filter(Boolean).length < shift.requiredPax;
-
-    const optimisticShift: ShiftRecord = {
-      ...shift,
-      assignees,
-      isUnderstaffed,
-    };
-
-    markShiftLocallyUpdated(shift.id);
-    setShifts((prev) => prev.map((s) => (s.id === shift.id ? optimisticShift : s)));
-    showToast(`Đã nhận: ${memberToAssign.name} - ${shift.name} (${shift.date.split('-').reverse().join('/')})`, 'success');
 
     try {
-      const res = await assignShiftSlotAction(shift, memberToAssign.name, slotIndex);
-      if (!res.success) {
-        setShifts(previousShifts);
-        showToast(res.message || 'Không thể nhận ca.', 'warn');
-      } else if (res.updatedShift) {
-        markShiftLocallyUpdated(res.updatedShift.id);
-        setShifts((prev) => prev.map((s) => (s.id === shift.id ? res.updatedShift! : s)));
+      const res = await saveVitalsAction(entry);
+      if (res.success && res.entry) {
+        setVitalsLog((prev) =>
+          prev.map((v) => (v.id === entry.id ? res.entry! : v))
+        );
+        showToast('💓 Đã lưu huyết áp!', 'success');
       }
     } catch {
-      setShifts(previousShifts);
-      showToast('Lỗi máy chủ khi nhận ca.', 'warn');
+      // Rollback
+      setVitalsLog((prev) => prev.filter((v) => v.id !== entry.id));
+      showToast('Lỗi lưu huyết áp.', 'warn');
     }
-  };
+  }, []);
 
-  // Xử lý huỷ ca trực
-  const handleUnassign = async (shift: ShiftRecord, slotIndex: number) => {
-    const previousShifts = [...shifts];
-    const assignees = [...shift.assignees];
-    const removedName = assignees[slotIndex];
-    assignees[slotIndex] = '';
-    const isUnderstaffed = assignees.filter(Boolean).length < shift.requiredPax;
-
-    const optimisticShift: ShiftRecord = {
-      ...shift,
-      assignees,
-      isUnderstaffed,
-    };
-
-    markShiftLocallyUpdated(shift.id);
-    setShifts((prev) => prev.map((s) => (s.id === shift.id ? optimisticShift : s)));
-    showToast(`Đã huỷ trực cho ${removedName || 'vị trí ' + (slotIndex + 1)}`, 'info');
+  // Toggle checklist thuốc/tập
+  const handleToggleDailyLog = useCallback(async (log: DailyLog) => {
+    // Optimistic update
+    setDailyLogs((prev) => {
+      const exists = prev.findIndex((l) => l.id === log.id);
+      if (exists >= 0) {
+        const updated = [...prev];
+        updated[exists] = log;
+        return updated;
+      }
+      return [...prev, log];
+    });
 
     try {
-      const res = await unassignShiftSlotAction(shift, slotIndex);
-      if (!res.success) {
-        setShifts(previousShifts);
-        showToast(res.message || 'Không thể huỷ nhận ca.', 'warn');
-      } else if (res.updatedShift) {
-        markShiftLocallyUpdated(res.updatedShift.id);
-        setShifts((prev) => prev.map((s) => (s.id === shift.id ? res.updatedShift! : s)));
+      const res = await toggleDailyLogAction(log);
+      if (res.success && res.log) {
+        setDailyLogs((prev) =>
+          prev.map((l) => (l.id === log.id ? res.log! : l))
+        );
       }
     } catch {
-      setShifts(previousShifts);
-      showToast('Lỗi máy chủ khi huỷ ca.', 'warn');
+      showToast('Lỗi cập nhật checklist.', 'warn');
     }
-  };
+  }, []);
 
-  // Cập nhật toàn diện ca trực (số người trực, người trực chính, người hỗ trợ)
-  const handleUpdateShift = async (updatedShift: ShiftRecord) => {
-    const previousShifts = [...shifts];
-    markShiftLocallyUpdated(updatedShift.id);
-    setShifts((prev) => prev.map((s) => (s.id === updatedShift.id ? updatedShift : s)));
-
+  // Lưu routine (thuốc/bài tập)
+  const handleSaveRoutine = useCallback(async (routine: CareRoutine) => {
     try {
-      const res = await saveShiftAction(updatedShift);
-      if (!res.success) {
-        setShifts(previousShifts);
-        showToast(res.message || 'Không thể cập nhật ca trực.', 'warn');
-      } else if (res.updatedShift) {
-        markShiftLocallyUpdated(res.updatedShift.id);
-        setShifts((prev) => prev.map((s) => (s.id === updatedShift.id ? res.updatedShift! : s)));
-        showToast(`Đã cập nhật: ${updatedShift.name}`, 'success');
+      const res = await saveRoutineAction(routine);
+      if (res.success && res.routines) {
+        setCareRoutines(res.routines);
+        showToast(`✅ Đã lưu: ${routine.title}`, 'success');
       }
     } catch {
-      setShifts(previousShifts);
-      showToast('Lỗi máy chủ khi cập nhật ca.', 'warn');
+      showToast('Lỗi lưu đơn thuốc/bài tập.', 'warn');
     }
-  };
+  }, []);
 
-  // Đánh dấu công việc chăm sóc trong ca
-  const handleToggleChecklist = async (
-    shift: ShiftRecord,
-    itemKey: 'feeding' | 'meds' | 'hygiene' | 'turning',
-    isChecked: boolean
-  ) => {
-    const previousShifts = [...shifts];
-    const updatedChecklist = {
-      ...shift.checklist,
-      [itemKey]: isChecked,
-    };
-
-    const optimisticShift: ShiftRecord = {
-      ...shift,
-      checklist: updatedChecklist,
-    };
-
-    markShiftLocallyUpdated(shift.id);
-    setShifts((prev) => prev.map((s) => (s.id === shift.id ? optimisticShift : s)));
-
+  // Xóa routine
+  const handleDeleteRoutine = useCallback(async (id: string) => {
     try {
-      const res = await toggleChecklistAction(shift, itemKey, isChecked);
-      if (res.updatedShift) {
-        markShiftLocallyUpdated(res.updatedShift.id);
-        setShifts((prev) => prev.map((s) => (s.id === shift.id ? res.updatedShift! : s)));
+      const res = await deleteRoutineAction(id);
+      if (res.success && res.routines) {
+        setCareRoutines(res.routines);
+        showToast('Đã xoá thành công.', 'info');
       }
     } catch {
-      setShifts(previousShifts);
+      showToast('Lỗi xoá đơn thuốc/bài tập.', 'warn');
     }
-  };
+  }, []);
 
-  // Lưu sổ bàn giao ca & sinh hiệu
-  const handleSaveHandover = async (
-    shift: ShiftRecord,
-    note: string,
-    author: string,
-    vitals?: PatientVitals
-  ) => {
-    const previousShifts = [...shifts];
-    const optimisticShift: ShiftRecord = {
-      ...shift,
-      handover: {
-        note,
-        author,
-        updatedAt: new Date().toISOString(),
-        vitals: vitals || shift.handover.vitals,
-      },
-    };
-
-    markShiftLocallyUpdated(shift.id);
-    setShifts((prev) => prev.map((s) => (s.id === shift.id ? optimisticShift : s)));
-    showToast('Đã lưu nội dung bàn giao ca lên Sheet!', 'success');
-
+  // Lưu lịch tái khám
+  const handleSaveAppointment = useCallback(async (info: AppointmentInfo) => {
+    setAppointment(info); // Optimistic
     try {
-      const res = await saveHandoverAction(shift, note, author, vitals);
-      if (res.updatedShift) {
-        markShiftLocallyUpdated(res.updatedShift.id);
-        setShifts((prev) => prev.map((s) => (s.id === shift.id ? res.updatedShift! : s)));
+      const res = await saveAppointmentAction(info);
+      if (res.success && res.appointment) {
+        setAppointment(res.appointment);
+        showToast('📅 Đã lưu lịch tái khám!', 'success');
       }
     } catch {
-      setShifts(previousShifts);
-      showToast('Lỗi lưu sổ bàn giao.', 'warn');
+      showToast('Lỗi lưu lịch tái khám.', 'warn');
     }
-  };
+  }, []);
 
-  // CRUD Reminders
+  // ===== Lấy các routines đang hoạt động cho stage hiện tại =====
+  const activeRoutines = useMemo(() => {
+    return careRoutines.filter((r) => r.isActive && r.stageId === activeStageId);
+  }, [careRoutines, activeStageId]);
+
+  // ===== Lấy daily logs cho hôm nay =====
+  const todayDailyLogs = useMemo(() => {
+    return dailyLogs.filter((l) => l.date === todayStr);
+  }, [dailyLogs, todayStr]);
+
+  // ===== Vitals gần nhất =====
+  const lastVitalsEntry = useMemo(() => {
+    if (vitalsLog.length === 0) return null;
+    // vitalsLog đã sorted DESC by date+time từ backend
+    return vitalsLog[0] || null;
+  }, [vitalsLog]);
+
+  // ===== Tên người ghi mặc định =====
+  const recorderName = currentMember?.name || DEFAULT_RECORDER;
+
+  // ===== CRUD Reminders =====
   const handleAddReminder = async (newReminder: PatientDailyReminder) => {
     try {
       const res = await saveReminderAction(newReminder);
@@ -558,27 +450,6 @@ export default function CareSchedulePage() {
     });
   };
 
-  const performChangePhase = async (phase: CarePhase) => {
-    setActivePhase(phase);
-    try {
-      const updatedSettings = await changePhaseAction(phase);
-      setSettings(updatedSettings);
-    } catch {
-      // ignore
-    }
-    showToast(
-      phase === 'phase1'
-        ? 'Đã chuyển sang Giai đoạn 1: Nằm viện ICU (3 ca 8h, 1 người/ca)'
-        : 'Đã chuyển sang Giai đoạn 2: Phục hồi / Tại nhà (Ca 12 tiếng, 2 người/ca)',
-      'info'
-    );
-  };
-
-  const handleChangePhase = (phase: CarePhase) => {
-    if (phase === activePhase) return;
-    requireAdmin(() => performChangePhase(phase));
-  };
-
   // CRUD Patient Details
   const handleOpenEditPatient = () => {
     requireAdmin(() => setEditPatientModalOpen(true));
@@ -599,6 +470,11 @@ export default function CareSchedulePage() {
     showToast('Đã cập nhật danh sách thành viên gia đình!', 'success');
   };
 
+  // Mở RoutineManager (cần Admin PIN)
+  const handleOpenRoutineManager = () => {
+    requireAdmin(() => setRoutineManagerOpen(true));
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-rose-500 selection:text-white">
       {/* Toast Notification */}
@@ -617,13 +493,10 @@ export default function CareSchedulePage() {
       <HeaderBar
         currentMember={currentMember}
         onSelectMember={handleSelectMember}
-        activePhase={activePhase}
-        onChangePhase={handleChangePhase}
         activeView={activeView}
         onChangeView={setActiveView}
         onOpenGuide={() => setGuideModalOpen(true)}
         onOpenEmergencyContacts={() => setEmergencyModalOpen(true)}
-        understaffedTotal={totalUnderstaffedThisWeek}
         patientInfo={patientInfo}
         members={members}
         isAdmin={isAdmin}
@@ -647,36 +520,84 @@ export default function CareSchedulePage() {
           isLoading={isLoading}
         />
 
-        {/* Nội dung View: Theo Tuần, Theo Tháng hoặc Lịch Sử Trực */}
-        {activeView === 'weekly' ? (
-          <WeeklyView
-            days={weeklyDays}
-            currentMember={currentMember}
-            activePhase={activePhase}
-            currentWeekOffset={weekOffset}
-            onChangeWeekOffset={(delta) => setWeekOffset((prev) => prev + delta)}
-            onResetToCurrentWeek={() => setWeekOffset(0)}
-            onAssign={handleAssign}
-            onUnassign={handleUnassign}
-            onToggleChecklist={handleToggleChecklist}
-            onSaveHandover={handleSaveHandover}
-            onUpdateShift={handleUpdateShift}
-            members={members}
-            patientInfo={patientInfo}
-          />
-        ) : activeView === 'monthly' ? (
-          <MonthlyView
-            shifts={shifts}
-            currentMember={currentMember}
-            activePhase={activePhase}
-            onAssign={handleAssign}
-            onUnassign={handleUnassign}
-            onToggleChecklist={handleToggleChecklist}
-            onSaveHandover={handleSaveHandover}
-            members={members}
-          />
+        {/* ===== NỘI DUNG THEO TAB ===== */}
+        {activeView === 'today' ? (
+          <div className="space-y-4">
+            {/* 1. Form ghi huyết áp nhanh */}
+            <QuickVitalsForm
+              onSave={handleSaveVitals}
+              lastEntry={lastVitalsEntry}
+              bpThresholds={bpThresholds}
+              defaultRecorder={recorderName}
+            />
+
+            {/* 2. Lịch tái khám */}
+            <AppointmentSection
+              appointment={appointment}
+              onSave={handleSaveAppointment}
+              isAdmin={isAdmin}
+            />
+
+            {/* 3. Checklist thuốc + tập phục hồi hôm nay */}
+            <DailyRoutineView
+              routines={activeRoutines}
+              dailyLogs={todayDailyLogs}
+              todayStr={todayStr}
+              onToggle={handleToggleDailyLog}
+              onOpenManager={handleOpenRoutineManager}
+              defaultRecorder={recorderName}
+            />
+          </div>
+        ) : activeView === 'charts' ? (
+          /* ===== TAB BIỂU ĐỒ — Placeholder Đợt B ===== */
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-6 sm:p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center">
+              <TrendingUp className="w-8 h-8 text-indigo-500" />
+            </div>
+            <h2 className="text-lg font-black text-slate-900 mb-2">
+              📊 Biểu Đồ Huyết Áp
+            </h2>
+            <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+              Tính năng biểu đồ xu hướng huyết áp sẽ sẵn sàng trong bản cập nhật tiếp theo (Đợt B). 
+              Hiện tại, hãy sử dụng tab <strong>Hôm Nay</strong> để ghi huyết áp hàng ngày.
+            </p>
+            {vitalsLog.length > 0 && (
+              <div className="mt-4 p-3 rounded-2xl bg-indigo-50 border border-indigo-100">
+                <p className="text-sm font-bold text-indigo-800">
+                  📈 Đã có {vitalsLog.length} lần đo huyết áp được ghi nhận
+                </p>
+                <p className="text-xs text-indigo-600 mt-1">
+                  Dữ liệu đã sẵn sàng để hiển thị biểu đồ khi tính năng hoàn thiện.
+                </p>
+              </div>
+            )}
+          </div>
         ) : (
-          <ShiftHistoryView shifts={shifts} members={members} />
+          /* ===== TAB GIA ĐÌNH — Placeholder Đợt C ===== */
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-6 sm:p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+              <UsersIcon className="w-8 h-8 text-emerald-500" />
+            </div>
+            <h2 className="text-lg font-black text-slate-900 mb-2">
+              👨‍👩‍👦 Lịch Hỗ Trợ Gia Đình
+            </h2>
+            <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+              Tính năng lịch phân công hỗ trợ mẹ sẽ sẵn sàng trong bản cập nhật tiếp theo (Đợt C). 
+              Các thành viên có thể đăng ký lịch đến phụ mẹ chăm bố.
+            </p>
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {members.slice(0, 6).map((m) => (
+                <div
+                  key={m.id}
+                  className={`p-2 rounded-xl border text-xs font-bold text-center ${
+                    m.bgLight || 'bg-slate-50'
+                  } ${m.borderLight || 'border-slate-200'} ${m.textColor || 'text-slate-700'}`}
+                >
+                  {m.avatarInitials} · {m.name}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </main>
 
@@ -684,13 +605,15 @@ export default function CareSchedulePage() {
       <footer className="border-t border-slate-200 bg-white p-4 mt-8 text-center text-xs text-slate-600">
         <div className="max-w-md mx-auto space-y-1">
           <p className="text-slate-800 font-bold">
-            Hệ thống điều phối ca trực gia đình • Bệnh nhân: {patientInfo.name}
+            Sổ Sức Khỏe Bố • Bệnh nhân: {patientInfo.name}
           </p>
           <p className="text-[11px] text-slate-500">
-            Dữ liệu đồng bộ 5 Bảng Tính Google Sheets thời gian thực • Không còn hardcode
+            Theo dõi huyết áp, thuốc & phục hồi chức năng hàng ngày — Đồng bộ Google Sheets
           </p>
         </div>
       </footer>
+
+      {/* ===== MODALS ===== */}
 
       {/* Modal Hướng Dẫn & Schema Google Sheets */}
       <GoogleSheetGuideModal
@@ -734,6 +657,17 @@ export default function CareSchedulePage() {
         onClose={() => setMembersModalOpen(false)}
         members={members}
         onMembersUpdated={handleMembersUpdated}
+      />
+
+      {/* V2.0: Modal Quản Lý Đơn Thuốc & Bài Tập (Admin) */}
+      <RoutineManagerModal
+        isOpen={routineManagerOpen}
+        onClose={() => setRoutineManagerOpen(false)}
+        routines={careRoutines}
+        stages={stages}
+        activeStageId={activeStageId}
+        onSaveRoutine={handleSaveRoutine}
+        onDeleteRoutine={handleDeleteRoutine}
       />
     </div>
   );

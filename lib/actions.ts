@@ -10,6 +10,11 @@ import {
   EmergencyContact,
   PatientDailyReminder,
   AllAppData,
+  VitalsLogEntry,
+  CareRoutine,
+  DailyLog,
+  AppointmentInfo,
+  AllAppDataV2,
 } from './types';
 import {
   fetchAppDataFromStorage,
@@ -26,6 +31,13 @@ import {
   setSystemPhase,
   verifyAdminPinStorage,
   changeAdminPinStorage,
+  saveVitalsToStorage,
+  deleteVitalsFromStorage,
+  saveRoutineToStorage,
+  deleteRoutineFromStorage,
+  upsertDailyLogToStorage,
+  saveAppointmentToStorage,
+  fetchAllAppDataV2,
 } from './sheets';
 
 // Tải toàn bộ 5 thực thể trong 1 lần gọi (hỗ trợ Cache và Force Refresh)
@@ -392,3 +404,114 @@ export async function changeAdminPinAction(
   }
 }
 
+
+// ==========================================
+// V2.0 — SỔ SỨC KHỎE BỐ — Server Actions mới
+// ==========================================
+
+// --- V2.0: Vitals Log (Nhật ký Huyết áp & Sinh hiệu) ---
+
+export async function saveVitalsAction(
+  entry: VitalsLogEntry
+): Promise<{ success: boolean; entry?: VitalsLogEntry }> {
+  try {
+    const saved = await saveVitalsToStorage(entry);
+    return { success: true, entry: saved };
+  } catch (error) {
+    console.error('saveVitalsAction error:', error);
+    return { success: false };
+  }
+}
+
+export async function deleteVitalsAction(
+  id: string
+): Promise<{ success: boolean }> {
+  try {
+    await deleteVitalsFromStorage(id);
+    return { success: true };
+  } catch (error) {
+    console.error('deleteVitalsAction error:', error);
+    return { success: false };
+  }
+}
+
+// --- V2.0: Care Routines (Đơn thuốc & Bài tập phục hồi) ---
+
+export async function saveRoutineAction(
+  routine: CareRoutine
+): Promise<{ success: boolean; routines: CareRoutine[] }> {
+  try {
+    const routines = await saveRoutineToStorage(routine);
+    return { success: true, routines };
+  } catch (error) {
+    console.error('saveRoutineAction error:', error);
+    return { success: false, routines: [] };
+  }
+}
+
+export async function deleteRoutineAction(
+  id: string
+): Promise<{ success: boolean; routines: CareRoutine[] }> {
+  try {
+    const routines = await deleteRoutineFromStorage(id);
+    return { success: true, routines };
+  } catch (error) {
+    console.error('deleteRoutineAction error:', error);
+    return { success: false, routines: [] };
+  }
+}
+
+// --- V2.0: Daily Logs (Tích hoàn thành hàng ngày) ---
+
+export async function toggleDailyLogAction(
+  log: DailyLog
+): Promise<{ success: boolean; log?: DailyLog }> {
+  try {
+    const saved = await upsertDailyLogToStorage(log);
+    return { success: true, log: saved };
+  } catch (error) {
+    console.error('toggleDailyLogAction error:', error);
+    return { success: false };
+  }
+}
+
+// --- V2.0: Appointment (Lịch tái khám) ---
+
+export async function saveAppointmentAction(
+  info: AppointmentInfo
+): Promise<{ success: boolean; appointment: AppointmentInfo }> {
+  try {
+    const appointment = await saveAppointmentToStorage(info);
+    return { success: true, appointment };
+  } catch (error) {
+    console.error('saveAppointmentAction error:', error);
+    return { success: false, appointment: info };
+  }
+}
+
+// --- V2.0: Fetch All App Data V2 (mở rộng fetchAllAppDataAction) ---
+
+export async function fetchAllAppDataV2Action(
+  startDate: string,
+  endDate: string,
+  phase: CarePhase,
+  forceRefresh: boolean = false
+): Promise<AllAppDataV2> {
+  try {
+    return await fetchAllAppDataV2(startDate, endDate, phase, forceRefresh);
+  } catch (error) {
+    console.error('fetchAllAppDataV2Action error:', error);
+    // Fallback: trả về v1 data + defaults cho v2 fields
+    const v1Data = await fetchAppDataFromStorage(startDate, endDate, phase, false);
+    return {
+      ...v1Data,
+      vitalsLog: [],
+      careRoutines: [],
+      dailyLogs: [],
+      stages: [],
+      appointment: {},
+      bpThresholds: { highSys: 140, highDia: 90, lowSys: 100, lowDia: 60 },
+      appMode: 'home_care',
+    };
+  }
+}

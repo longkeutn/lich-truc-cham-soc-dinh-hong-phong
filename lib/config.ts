@@ -1,11 +1,11 @@
-import { FamilyMember, PhaseConfig, EmergencyContact, ShiftRecord, CarePhase, ShiftType, PatientDailyReminder, PatientInfo } from './types';
+import { FamilyMember, PhaseConfig, EmergencyContact, ShiftRecord, CarePhase, ShiftType, PatientDailyReminder, PatientInfo, TimeSlot, BpThresholds, RehabStage, AppointmentInfo } from './types';
 
 export const PATIENT_INFO: PatientInfo = {
   name: 'Đinh Hồng Phong',
-  diagnosis: 'Tai biến mạch máu não nặng (Đột quỵ diện rộng), liệt nửa người, thở máy/sonde',
-  hospital: 'Bệnh viện Bạch Mai - Hà Nội',
-  room: 'Khoa Hồi Sức Tích Cực (ICU) • Phòng 402, Giường 12',
-  notes: 'Cần lật trở chống loét 2h/lần, kiểm tra SpO2 và hút đờm thường xuyên.',
+  diagnosis: 'Đang phục hồi chức năng sau đột quỵ (tai biến mạch máu não)',
+  hospital: 'Bệnh viện Bạch Mai - Hà Nội (nơi điều trị trước đó)',
+  room: 'Phục hồi tại nhà',
+  notes: 'Cần theo dõi huyết áp hàng ngày, uống thuốc đúng giờ, tập phục hồi chức năng đều đặn.',
   emergencyPhone: '0913 218 765',
 };
 
@@ -271,8 +271,8 @@ export const DEFAULT_PATIENT_REMINDERS: PatientDailyReminder[] = [
   {
     id: 'reminder-meds-1',
     category: 'meds',
-    title: 'Lưu ý thuốc huyết áp 14:00',
-    content: 'Đo huyết áp trước khi cho uống Amlodipine 5mg lúc 14h. Nếu huyết áp tâm thu < 110 hoặc tâm trương < 70, hoãn uống và gọi BS Thắng.',
+    title: 'Lưu ý thuốc huyết áp',
+    content: 'Đo huyết áp trước khi cho uống Amlodipine 5mg. Nếu huyết áp tâm thu < 110 hoặc tâm trương < 70, hoãn uống và gọi BS.',
     author: 'Cô Lan (Em gái)',
     time: '08:15',
     isUrgent: true,
@@ -280,8 +280,8 @@ export const DEFAULT_PATIENT_REMINDERS: PatientDailyReminder[] = [
   {
     id: 'reminder-feeding-2',
     category: 'feeding',
-    title: 'Quy trình bơm súp qua sonde',
-    content: 'Bơm súp ấm (khoảng 37°C) chậm qua sonde, mỗi cữ 250ml. Nâng đầu giường 45 độ trong và sau ăn ít nhất 30 phút để chống trào ngược sặc phổi.',
+    title: 'Chế độ ăn & dinh dưỡng',
+    content: 'Ăn mềm, dễ nuốt, chia nhỏ bữa. Uống đủ nước. Hạn chế muối, mỡ.',
     author: 'Anh Dũng (Con trai)',
     time: '09:00',
     isUrgent: false,
@@ -289,11 +289,95 @@ export const DEFAULT_PATIENT_REMINDERS: PatientDailyReminder[] = [
   {
     id: 'reminder-condition-3',
     category: 'condition',
-    title: 'Hút đờm & theo dõi SpO2',
-    content: 'Hôm nay đờm hơi đặc đục, nhớ vỗ rung lồng ngực trước khi hút đờm. Bật oxy 2L/phút nếu SpO2 tụt dưới 94%.',
-    author: 'BS. Nguyễn Văn Thắng',
+    title: 'Theo dõi tình trạng phục hồi',
+    content: 'Quan sát khả năng cử động tay chân bên liệt mỗi ngày. Ghi nhận tiến triển để báo BS khi tái khám.',
+    author: 'BS. Nguyễn Văn Hùng',
     time: '07:30',
-    isUrgent: true,
+    isUrgent: false,
   },
 ];
+
+// =============================================
+// V2.0 — SỔ SỨC KHỎE BỐ — Constants mới
+// =============================================
+
+/** Cấu hình hiển thị 4 buổi trong ngày */
+export const TIME_SLOT_CONFIG: Record<TimeSlot, { label: string; emoji: string; timeRange: string; hourStart: number; hourEnd: number }> = {
+  morning: {
+    label: 'Sáng',
+    emoji: '🌅',
+    timeRange: '06:00 – 11:00',
+    hourStart: 6,
+    hourEnd: 11,
+  },
+  noon: {
+    label: 'Trưa',
+    emoji: '☀️',
+    timeRange: '11:00 – 14:00',
+    hourStart: 11,
+    hourEnd: 14,
+  },
+  afternoon: {
+    label: 'Chiều',
+    emoji: '🌇',
+    timeRange: '14:00 – 18:00',
+    hourStart: 14,
+    hourEnd: 18,
+  },
+  evening: {
+    label: 'Tối',
+    emoji: '🌙',
+    timeRange: '18:00 – 22:00',
+    hourStart: 18,
+    hourEnd: 22,
+  },
+};
+
+/** Ngưỡng cảnh báo HA mặc định (có thể chỉnh qua Settings) */
+export const DEFAULT_BP_THRESHOLDS: BpThresholds = {
+  highSys: 140,
+  highDia: 90,
+  lowSys: 100,
+  lowDia: 60,
+};
+
+/** Giai đoạn phục hồi mặc định */
+export const DEFAULT_REHAB_STAGES: RehabStage[] = [
+  { id: 'stage-1', name: 'Mới về nhà — Chăm sóc tích cực', isActive: true },
+];
+
+/** Lịch tái khám mặc định (trống) */
+export const DEFAULT_APPOINTMENT: AppointmentInfo = {
+  nextDate: '',
+  nextNote: '',
+  nextWho: '',
+  lastDate: '',
+  lastNote: '',
+};
+
+/** Tên người ghi mặc định (Mẹ không cần chọn "Tôi là ai") */
+export const DEFAULT_RECORDER = 'Mẹ';
+
+/** Tự động nhận diện buổi hiện tại theo giờ */
+export function detectCurrentTimeSlot(): TimeSlot {
+  const hour = new Date().getHours();
+  if (hour >= 6 && hour < 11) return 'morning';
+  if (hour >= 11 && hour < 14) return 'noon';
+  if (hour >= 14 && hour < 18) return 'afternoon';
+  return 'evening';
+}
+
+/** Tính alert level cho huyết áp dựa trên ngưỡng */
+export function computeAlertLevel(
+  sys: number,
+  dia: number,
+  thresholds: BpThresholds = DEFAULT_BP_THRESHOLDS
+): 'normal' | 'warning' | 'critical' {
+  // Critical: quá cao hoặc quá thấp nguy hiểm
+  if (sys >= 180 || sys <= 90 || dia >= 120 || dia <= 50) return 'critical';
+  // Warning: vượt ngưỡng cấu hình
+  if (sys >= thresholds.highSys || sys <= thresholds.lowSys ||
+      dia >= thresholds.highDia || dia <= thresholds.lowDia) return 'warning';
+  return 'normal';
+}
 

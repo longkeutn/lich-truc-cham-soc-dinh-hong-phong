@@ -2,11 +2,11 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Lịch Trực Chăm Sóc - Đinh Hồng Phong',
-  description: 'Ứng dụng điều phối ca trực chăm sóc bệnh nhân tai biến nặng Đinh Hồng Phong (7 thành viên gia đình, tích hợp Google Sheets thời gian thực)',
+  title: 'Sổ Sức Khỏe Bố - Đinh Hồng Phong',
+  description: 'Ứng dụng theo dõi sức khỏe hàng ngày cho bố Đinh Hồng Phong: ghi huyết áp, quản lý thuốc & bài tập phục hồi chức năng, lịch tái khám (tích hợp Google Sheets thời gian thực)',
   openGraph: {
-    title: 'Lịch Trực Chăm Sóc - Đinh Hồng Phong',
-    description: 'Ứng dụng điều phối ca trực chăm sóc bệnh nhân tai biến nặng Đinh Hồng Phong',
+    title: 'Sổ Sức Khỏe Bố - Đinh Hồng Phong',
+    description: 'Theo dõi huyết áp, thuốc & phục hồi chức năng hàng ngày cho bố Đinh Hồng Phong',
   },
 };
 

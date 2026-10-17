@@ -121,3 +121,100 @@ export interface AllAppData {
   reminders: PatientDailyReminder[];
   settings: SystemSettings;
 }
+
+// =============================================
+// V2.0 — SỔ SỨC KHỎE BỐ (Chăm sóc tại nhà)
+// =============================================
+
+// ===== VITALS LOG — Nhật ký Huyết áp & Sinh hiệu =====
+export type VitalsPeriod = 'morning' | 'noon' | 'afternoon' | 'evening';
+export type AlertLevel = 'normal' | 'warning' | 'critical';
+
+export interface VitalsLogEntry {
+  id: string;
+  date: string;           // YYYY-MM-DD
+  time: string;           // HH:mm
+  period: VitalsPeriod;
+  sys: number;            // Tâm thu (mmHg)
+  dia: number;            // Tâm trương (mmHg)
+  pulse?: number;         // Mạch (lần/phút)
+  spo2?: number;          // SpO2 (%)
+  temp?: number;          // Nhiệt độ (°C)
+  bloodSugar?: number;    // Đường huyết (mg/dL)
+  note?: string;          // Ghi chú ngắn
+  alertLevel: AlertLevel; // Tự động tính dựa trên ngưỡng HA
+  recordedBy: string;     // Ai ghi (mặc định "Mẹ")
+  createdAt: string;      // ISO timestamp
+}
+
+// ===== CARE ROUTINES — Đơn thuốc & Bài tập phục hồi =====
+export type RoutineCategory = 'meds' | 'rehab' | 'care';
+export type MedType = 'scheduled' | 'as_needed';
+export type TimeSlot = 'morning' | 'noon' | 'afternoon' | 'evening';
+
+export interface CareRoutine {
+  id: string;
+  stageId: string;          // FK → RehabStage.id
+  stageName: string;        // Tên giai đoạn (hiển thị)
+  category: RoutineCategory;
+  medType?: MedType;        // Chỉ khi category = 'meds'
+  title: string;            // Tên thuốc / bài tập
+  dosage: string;           // Liều lượng / Thời lượng
+  timeSlots: TimeSlot[];    // Buổi áp dụng, VD: ['morning', 'evening']
+  instructions: string;     // Hướng dẫn cho Mẹ
+  conditionNote?: string;   // Điều kiện đặc biệt, VD: "Chỉ uống khi HA > 140"
+  isActive: boolean;        // Đang áp dụng hay đã ngưng
+  sortOrder: number;        // Thứ tự hiển thị trong buổi
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ===== DAILY LOGS — Tích hoàn thành hàng ngày =====
+export interface DailyLog {
+  id: string;               // `dl-${date}-${routineId}-${timeSlot}`
+  date: string;             // YYYY-MM-DD
+  routineId: string;        // FK → CareRoutine.id
+  timeSlot: TimeSlot;
+  isDone: boolean;
+  doneAt?: string;          // HH:mm
+  doneBy?: string;          // Ai tích
+  note?: string;            // Ghi chú khi tích
+}
+
+// ===== REHAB STAGE — Giai đoạn phục hồi =====
+export interface RehabStage {
+  id: string;               // VD: 'stage-1'
+  name: string;             // VD: 'Mới về nhà — Chăm sóc tích cực'
+  isActive: boolean;
+}
+
+// ===== APPOINTMENT — Lịch tái khám =====
+export interface AppointmentInfo {
+  nextDate?: string;        // Ngày tái khám tiếp theo (YYYY-MM-DD)
+  nextNote?: string;        // BV nào, BS nào
+  nextWho?: string;         // Ai đưa bố đi
+  lastDate?: string;        // Ngày khám gần nhất
+  lastNote?: string;        // BS nói gì lần khám gần nhất
+}
+
+// ===== BP THRESHOLDS — Ngưỡng cảnh báo HA (Admin cấu hình) =====
+export interface BpThresholds {
+  highSys: number;          // Mặc định 140
+  highDia: number;          // Mặc định 90
+  lowSys: number;           // Mặc định 100
+  lowDia: number;           // Mặc định 60
+}
+
+// ===== APP MODE =====
+export type AppMode = 'home_care' | 'icu';
+
+// ===== EXTENDED AllAppData cho v2.0 =====
+export interface AllAppDataV2 extends AllAppData {
+  vitalsLog: VitalsLogEntry[];
+  careRoutines: CareRoutine[];
+  dailyLogs: DailyLog[];
+  stages: RehabStage[];
+  appointment: AppointmentInfo;
+  bpThresholds: BpThresholds;
+  appMode: AppMode;
+}

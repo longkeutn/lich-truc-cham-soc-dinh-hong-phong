@@ -7,12 +7,22 @@ import {
   EmergencyContact,
   PatientDailyReminder,
   AllAppData,
+  VitalsLogEntry,
+  CareRoutine,
+  DailyLog,
+  RehabStage,
+  AppointmentInfo,
+  BpThresholds,
+  AllAppDataV2,
+  AppMode,
 } from './types';
 import {
   PHASE_CONFIGS,
   buildDefaultShiftRecord,
   FAMILY_MEMBERS,
   PATIENT_INFO,
+  DEFAULT_BP_THRESHOLDS,
+  DEFAULT_APPOINTMENT,
 } from './config';
 
 // Tên các trang tính trong Google Sheet
@@ -104,6 +114,14 @@ class MemoryShiftStore {
     googleSheetsConnected: false,
   };
   private adminPin: string = '1234';
+
+  // --- V2.0: Sổ Sức Khỏe Bố — Private fields ---
+  private vitalsLog: VitalsLogEntry[] = [];
+  private careRoutines: CareRoutine[] = [];
+  private dailyLogs: DailyLog[] = [];
+  private bpThresholds: BpThresholds = { ...DEFAULT_BP_THRESHOLDS };
+  private appointment: AppointmentInfo = { ...DEFAULT_APPOINTMENT };
+  private appMode: AppMode = 'home_care';
 
   constructor() {
     // Không nạp dữ liệu mẫu giả lập - mọi ca trực bắt đầu sạch sẽ 100%
@@ -334,6 +352,152 @@ class MemoryShiftStore {
       settings: this.getSettings(),
     };
   }
+
+  // =============================================
+  // V2.0 — SỔ SỨC KHỎE BỐ — Methods mới
+  // =============================================
+
+  // --- VitalsLog (Nhật ký Huyết áp & Sinh hiệu) ---
+  public getVitalsLog(): VitalsLogEntry[] {
+    return [...this.vitalsLog].sort((a, b) => {
+      const dateCompare = b.date.localeCompare(a.date);
+      if (dateCompare !== 0) return dateCompare;
+      return b.time.localeCompare(a.time);
+    });
+  }
+
+  public saveVitalsEntry(entry: VitalsLogEntry): VitalsLogEntry {
+    const idx = this.vitalsLog.findIndex((v) => v.id === entry.id);
+    if (idx >= 0) {
+      this.vitalsLog[idx] = entry;
+    } else {
+      this.vitalsLog.push(entry);
+    }
+    return entry;
+  }
+
+  public deleteVitalsEntry(id: string): void {
+    this.vitalsLog = this.vitalsLog.filter((v) => v.id !== id);
+  }
+
+  public setVitalsLog(list: VitalsLogEntry[]): void {
+    if (list && Array.isArray(list)) {
+      this.vitalsLog = list;
+    }
+  }
+
+  // --- CareRoutines (Đơn thuốc & Bài tập phục hồi) ---
+  public getCareRoutines(): CareRoutine[] {
+    return this.careRoutines;
+  }
+
+  public getActiveRoutines(stageId?: string): CareRoutine[] {
+    let filtered = this.careRoutines.filter((r) => r.isActive);
+    if (stageId) {
+      filtered = filtered.filter((r) => r.stageId === stageId);
+    }
+    return filtered.sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  public saveRoutine(routine: CareRoutine): CareRoutine[] {
+    const idx = this.careRoutines.findIndex((r) => r.id === routine.id);
+    if (idx >= 0) {
+      this.careRoutines[idx] = routine;
+    } else {
+      this.careRoutines.push(routine);
+    }
+    return this.careRoutines;
+  }
+
+  public deleteRoutine(id: string): CareRoutine[] {
+    this.careRoutines = this.careRoutines.filter((r) => r.id !== id);
+    return this.careRoutines;
+  }
+
+  public setCareRoutines(list: CareRoutine[]): void {
+    if (list && Array.isArray(list)) {
+      this.careRoutines = list;
+    }
+  }
+
+  public getStages(): RehabStage[] {
+    const stageMap = new Map<string, RehabStage>();
+    for (const r of this.careRoutines) {
+      if (!stageMap.has(r.stageId)) {
+        stageMap.set(r.stageId, {
+          id: r.stageId,
+          name: r.stageName,
+          isActive: r.isActive,
+        });
+      }
+    }
+    return Array.from(stageMap.values());
+  }
+
+  // --- DailyLogs (Tích hoàn thành hàng ngày) ---
+  public getDailyLogs(date?: string): DailyLog[] {
+    if (date) {
+      return this.dailyLogs.filter((dl) => dl.date === date);
+    }
+    return this.dailyLogs;
+  }
+
+  public upsertDailyLog(log: DailyLog): DailyLog {
+    const idx = this.dailyLogs.findIndex((dl) => dl.id === log.id);
+    if (idx >= 0) {
+      this.dailyLogs[idx] = log;
+    } else {
+      this.dailyLogs.push(log);
+    }
+    return log;
+  }
+
+  public setDailyLogs(list: DailyLog[]): void {
+    if (list && Array.isArray(list)) {
+      this.dailyLogs = list;
+    }
+  }
+
+  // --- Appointment (Lịch tái khám) ---
+  public getAppointment(): AppointmentInfo {
+    return this.appointment;
+  }
+
+  public setAppointment(info: AppointmentInfo): void {
+    this.appointment = { ...this.appointment, ...info };
+  }
+
+  // --- BP Thresholds (Ngưỡng cảnh báo HA) ---
+  public getBpThresholds(): BpThresholds {
+    return this.bpThresholds;
+  }
+
+  public setBpThresholds(t: BpThresholds): void {
+    this.bpThresholds = { ...this.bpThresholds, ...t };
+  }
+
+  // --- App Mode ---
+  public getAppMode(): AppMode {
+    return this.appMode;
+  }
+
+  public setAppMode(mode: AppMode): void {
+    this.appMode = mode;
+  }
+
+  // --- All App Data V2 (mở rộng getAllData) ---
+  public getAllDataV2(startDate: string, endDate: string, phase: CarePhase): AllAppDataV2 {
+    return {
+      ...this.getAllData(startDate, endDate, phase),
+      vitalsLog: this.getVitalsLog(),
+      careRoutines: this.getCareRoutines(),
+      dailyLogs: this.getDailyLogs(),
+      stages: this.getStages(),
+      appointment: this.getAppointment(),
+      bpThresholds: this.getBpThresholds(),
+      appMode: this.getAppMode(),
+    };
+  }
 }
 
 // Global singleton
@@ -521,6 +685,23 @@ export async function fetchAppDataFromStorage(
             }
           }
 
+          // V2.0: Nạp dữ liệu mới nếu có từ webapp response
+          if (Array.isArray(data.vitalsLog)) {
+            memoryStore.setVitalsLog(data.vitalsLog as VitalsLogEntry[]);
+          }
+          if (Array.isArray(data.careRoutines)) {
+            memoryStore.setCareRoutines(data.careRoutines as CareRoutine[]);
+          }
+          if (Array.isArray(data.dailyLogs)) {
+            memoryStore.setDailyLogs(data.dailyLogs as DailyLog[]);
+          }
+          if (data.appointment && typeof data.appointment === 'object') {
+            memoryStore.setAppointment(data.appointment as AppointmentInfo);
+          }
+          if (data.bpThresholds && typeof data.bpThresholds === 'object') {
+            memoryStore.setBpThresholds(data.bpThresholds as BpThresholds);
+          }
+
           const freshData: AllAppData = {
             shifts: memoryStore.getShifts(startDate, endDate, phase),
             members: memoryStore.getMembers(),
@@ -700,3 +881,108 @@ export async function changeAdminPinStorage(
 }
 
 
+
+// ==========================================
+// V2.0 — SỔ SỨC KHỎE BỐ — CRUD Storage Functions
+// ==========================================
+
+// --- VitalsLog (Nhật ký Huyết áp & Sinh hiệu) ---
+
+export async function saveVitalsToStorage(entry: VitalsLogEntry): Promise<VitalsLogEntry> {
+  const saved = memoryStore.saveVitalsEntry(entry);
+  serverCacheManager.invalidateAll();
+
+  const syncRes = await sendToWebappWithTimeout({ action: 'saveVitals', vitals: saved }, 15000);
+  if (!syncRes.success) {
+    console.warn('[saveVitalsToStorage] Đồng bộ Google Sheets thất bại:', syncRes.error || syncRes);
+  }
+
+  return saved;
+}
+
+export async function deleteVitalsFromStorage(id: string): Promise<void> {
+  memoryStore.deleteVitalsEntry(id);
+  serverCacheManager.invalidateAll();
+
+  const syncRes = await sendToWebappWithTimeout({ action: 'deleteVitals', vitalsId: id }, 15000);
+  if (!syncRes.success) {
+    console.warn('[deleteVitalsFromStorage] Đồng bộ Google Sheets thất bại:', syncRes.error || syncRes);
+  }
+}
+
+export async function fetchVitalsLogFromStorage(): Promise<VitalsLogEntry[]> {
+  return memoryStore.getVitalsLog();
+}
+
+// --- CareRoutines (Đơn thuốc & Bài tập phục hồi) ---
+
+export async function saveRoutineToStorage(routine: CareRoutine): Promise<CareRoutine[]> {
+  const updatedList = memoryStore.saveRoutine(routine);
+  serverCacheManager.invalidateAll();
+
+  const syncRes = await sendToWebappWithTimeout({ action: 'saveRoutine', routine }, 15000);
+  if (!syncRes.success) {
+    console.warn('[saveRoutineToStorage] Đồng bộ Google Sheets thất bại:', syncRes.error || syncRes);
+  }
+
+  return updatedList;
+}
+
+export async function deleteRoutineFromStorage(id: string): Promise<CareRoutine[]> {
+  const updatedList = memoryStore.deleteRoutine(id);
+  serverCacheManager.invalidateAll();
+
+  const syncRes = await sendToWebappWithTimeout({ action: 'deleteRoutine', routineId: id }, 15000);
+  if (!syncRes.success) {
+    console.warn('[deleteRoutineFromStorage] Đồng bộ Google Sheets thất bại:', syncRes.error || syncRes);
+  }
+
+  return updatedList;
+}
+
+// --- DailyLogs (Tích hoàn thành hàng ngày) ---
+
+export async function upsertDailyLogToStorage(log: DailyLog): Promise<DailyLog> {
+  const saved = memoryStore.upsertDailyLog(log);
+  serverCacheManager.invalidateAll();
+
+  const syncRes = await sendToWebappWithTimeout({ action: 'toggleDailyLog', dailyLog: saved }, 15000);
+  if (!syncRes.success) {
+    console.warn('[upsertDailyLogToStorage] Đồng bộ Google Sheets thất bại:', syncRes.error || syncRes);
+  }
+
+  return saved;
+}
+
+export async function fetchDailyLogsFromStorage(date?: string): Promise<DailyLog[]> {
+  return memoryStore.getDailyLogs(date);
+}
+
+// --- Appointment (Lịch tái khám) ---
+
+export async function saveAppointmentToStorage(info: AppointmentInfo): Promise<AppointmentInfo> {
+  memoryStore.setAppointment(info);
+  serverCacheManager.invalidateAll();
+
+  const syncRes = await sendToWebappWithTimeout({ action: 'saveAppointment', appointment: info }, 15000);
+  if (!syncRes.success) {
+    console.warn('[saveAppointmentToStorage] Đồng bộ Google Sheets thất bại:', syncRes.error || syncRes);
+  }
+
+  return memoryStore.getAppointment();
+}
+
+// --- Fetch All App Data V2 (mở rộng fetchAppDataFromStorage) ---
+
+export async function fetchAllAppDataV2(
+  startDate: string,
+  endDate: string,
+  phase: CarePhase,
+  forceRefresh: boolean = false
+): Promise<AllAppDataV2> {
+  // Tải & nạp dữ liệu v1 + v2.0 từ webapp (hoặc memory fallback)
+  await fetchAppDataFromStorage(startDate, endDate, phase, forceRefresh);
+
+  // Trả về AllAppDataV2 đầy đủ từ memory store
+  return memoryStore.getAllDataV2(startDate, endDate, phase);
+}
