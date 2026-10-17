@@ -191,7 +191,11 @@ export function MembersManagementModal({
     try {
       const res = await saveMemberAction(memberToSave);
       if (res.success) {
-        onMembersUpdated(res.members);
+        const exists = members.some((m) => m.id === memberToSave.id);
+        const updatedList = exists
+          ? members.map((m) => (m.id === memberToSave.id ? memberToSave : m))
+          : [...members, memberToSave];
+        onMembersUpdated(updatedList);
         cancelForm();
       } else {
         setErrorMsg('Không thể lưu thành viên. Vui lòng thử lại.');
@@ -209,7 +213,8 @@ export function MembersManagementModal({
     try {
       const res = await deleteMemberAction(memberId);
       if (res.success) {
-        onMembersUpdated(res.members);
+        const updatedList = members.filter((m) => m.id !== memberId);
+        onMembersUpdated(updatedList);
         setConfirmDeleteId(null);
         if (editingMember?.id === memberId) {
           cancelForm();

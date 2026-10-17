@@ -13,7 +13,6 @@ import {
   Edit2,
   Trash2,
   AlertTriangle,
-  RotateCcw,
   Search,
   Stethoscope,
   Ambulance,
@@ -36,63 +35,6 @@ interface EmergencyContactsModalProps {
   onSaveContact?: (contact: EmergencyContact) => Promise<void>;
   onDeleteContact?: (id: string, name: string) => Promise<void>;
 }
-
-const DEFAULT_EMERGENCY_CONTACTS: EmergencyContact[] = [
-  {
-    id: 'bs-hung',
-    name: 'BS. Nguyễn Văn Hùng',
-    category: 'doctor',
-    phone: '0913 218 765',
-    note: 'Bác sĩ điều trị chính ICU - Bệnh viện Bạch Mai. Gọi khi bệnh nhân có biểu hiện sốt cao co giật hoặc khó thở tím tái',
-    address: 'Khoa Hồi sức tích cực (ICU), Bệnh viện Bạch Mai, Hà Nội',
-    isPrimary: true,
-  },
-  {
-    id: 'cap-cuu-115',
-    name: 'Cấp cứu 115 Hà Nội',
-    category: 'ambulance',
-    phone: '115',
-    note: 'Tổng đài điều phối xe cấp cứu chuyên dụng có bình oxy và máy hút đờm',
-    address: 'Toàn thành phố Hà Nội',
-    isPrimary: true,
-  },
-  {
-    id: 'dieu-duong-thu',
-    name: 'Điều Dưỡng Thu (Thay sonde & Tiêm truyền)',
-    category: 'nurse',
-    phone: '0904 888 222',
-    note: 'Hỗ trợ đặt lại ống thông dạ dày (sonde ăn) khi bị tuột hoặc tắc, đặt ống thông tiểu và truyền đạm tại nhà',
-    address: 'Cách nhà 1.5km - Có mặt sau 20 phút',
-    isPrimary: false,
-  },
-  {
-    id: 'ong-nam-hang-xom',
-    name: 'Bác Nam (Tổ trưởng / Hàng xóm sát vách)',
-    category: 'neighbor',
-    phone: '0988 333 444',
-    note: 'Hỗ trợ bế người bệnh lên cáng khi cần xe cấp cứu, mở cổng ngõ cho xe vào',
-    address: 'Nhà số 14 sát vách',
-    isPrimary: false,
-  },
-  {
-    id: 'phong-truc-khoa',
-    name: 'Phòng trực cấp cứu Bạch Mai',
-    category: 'doctor',
-    phone: '024 3869 3731',
-    note: 'Đường dây nóng khoa Cấp cứu tiếp nhận bệnh nhân chuyển viện khẩn cấp',
-    address: 'Số 78 Đường Giải Phóng, Phương Mai, Đống Đa, Hà Nội',
-    isPrimary: false,
-  },
-  {
-    id: 'nguoi-dieu-phoi-phuong',
-    name: 'Bác Thành (Trưởng ban điều phối)',
-    category: 'family',
-    phone: '0912 345 678',
-    note: 'Bác cả gia đình - Điều phối viện phí, liên hệ bác sĩ và phân công ca trực',
-    address: 'Túc trực thường xuyên',
-    isPrimary: true,
-  },
-];
 
 const CATEGORY_MAP: Record<
   EmergencyContact['category'],
@@ -135,11 +77,11 @@ export default function EmergencyContactsModal({
 }: EmergencyContactsModalProps) {
   const patient: PatientInfo = patientInfoProp || PATIENT_INFO;
   const [localContacts, setLocalContacts] = useState<EmergencyContact[]>(
-    contactsProp || DEFAULT_EMERGENCY_CONTACTS
+    contactsProp || []
   );
 
   useEffect(() => {
-    if (contactsProp) {
+    if (Array.isArray(contactsProp)) {
       setLocalContacts(contactsProp);
     }
   }, [contactsProp]);
@@ -204,18 +146,6 @@ export default function EmergencyContactsModal({
       if (onDeleteContact) {
         await onDeleteContact(id, name);
       }
-    }
-  };
-
-  const handleResetDefaults = () => {
-    if (
-      window.confirm(
-        'Khôi phục danh bạ về mặc định của Bệnh viện Bạch Mai, 115 và bác sĩ trực?'
-      )
-    ) {
-      setLocalContacts(DEFAULT_EMERGENCY_CONTACTS);
-      setIsFormOpen(false);
-      setEditingContactId(null);
     }
   };
 
@@ -385,25 +315,38 @@ export default function EmergencyContactsModal({
               <Phone className="w-6 h-6 text-white group-hover:scale-110 transition" />
             </a>
 
-            <a
-              href={`tel:${patient.emergencyPhone?.replace(/[^0-9]/g, '') || '0913218765'}`}
-              className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white flex items-center justify-between shadow-lg shadow-blue-950/50 transition active:scale-95 group min-h-[60px] border-2 border-blue-400"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center font-black text-sm">
-                  ICU
-                </div>
-                <div>
-                  <div className="text-xs font-bold uppercase tracking-wider text-blue-100">
-                    Bác Sĩ Điều Trị Chính
+            {(() => {
+              const primaryDoctor =
+                localContacts.find((c) => c.category === 'doctor') ||
+                localContacts.find((c) => c.isPrimary && c.phone !== '115');
+              const phoneDigits =
+                primaryDoctor?.phone.replace(/[^0-9+]/g, '') ||
+                patient.emergencyPhone?.replace(/[^0-9+]/g, '');
+
+              if (!primaryDoctor && !phoneDigits) return null;
+
+              return (
+                <a
+                  href={`tel:${phoneDigits}`}
+                  className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white flex items-center justify-between shadow-lg shadow-blue-950/50 transition active:scale-95 group min-h-[60px] border-2 border-blue-400"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center font-black text-sm shrink-0">
+                      BS
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold uppercase tracking-wider text-blue-100">
+                        Liên Hệ Y Tế Ưu Tiên
+                      </div>
+                      <div className="text-base font-black text-white truncate max-w-[180px]">
+                        {primaryDoctor?.name || patient.emergencyPhone || 'Bác sĩ điều trị'}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-base font-black text-white truncate max-w-[170px]">
-                    BS. Nguyễn Văn Hùng
-                  </div>
-                </div>
-              </div>
-              <Phone className="w-6 h-6 text-white group-hover:scale-110 transition" />
-            </a>
+                  <Phone className="w-6 h-6 text-white group-hover:scale-110 transition shrink-0" />
+                </a>
+              );
+            })()}
           </div>
 
           {/* Hộp thông tin nhanh bệnh nhân */}
@@ -411,12 +354,15 @@ export default function EmergencyContactsModal({
             <div className="flex items-center gap-2">
               <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
               <span>
-                <strong className="text-white">Bệnh nhân:</strong> {patient.name} ({patient.room})
+                <strong className="text-white">Bệnh nhân:</strong> {patient.name}
+                {patient.room ? ` (${patient.room})` : ''}
               </span>
             </div>
-            <span className="text-xs text-amber-300 font-bold">
-              Chỉ định: Thở oxy & chống sặc sonde ăn
-            </span>
+            {patient.notes && (
+              <span className="text-xs text-amber-300 font-bold">
+                Lưu ý: {patient.notes}
+              </span>
+            )}
           </div>
 
           {/* Tìm kiếm & Lọc danh mục */}
@@ -605,16 +551,6 @@ export default function EmergencyContactsModal({
               >
                 <Plus className="w-5 h-5" />
                 <span>Thêm số khẩn cấp mới</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleResetDefaults}
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-bold flex items-center gap-1.5 transition min-h-[44px] cursor-pointer border border-slate-600"
-                title="Khôi phục về danh bạ bệnh viện gốc"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Khôi phục mặc định</span>
               </button>
             </div>
           )}

@@ -15,7 +15,7 @@ function doGet(e) {
     if (action === 'getAllData') {
       const startDate = (e.parameter && e.parameter.startDate) || '';
       const endDate = (e.parameter && e.parameter.endDate) || '';
-      const phase = (e.parameter && e.parameter.phase) || 'phase1';
+      const phase = (e.parameter && e.parameter.phase) || '';
 
       return jsonResponse({
         success: true,
@@ -37,7 +37,7 @@ function doGet(e) {
     if (action === 'getShifts') {
       const startDate = (e.parameter && e.parameter.startDate) || '';
       const endDate = (e.parameter && e.parameter.endDate) || '';
-      const phase = (e.parameter && e.parameter.phase) || 'phase1';
+      const phase = (e.parameter && e.parameter.phase) || '';
       return jsonResponse({ success: true, shifts: readShifts(ss, startDate, endDate, phase) });
     }
 

@@ -16,7 +16,6 @@ import {
   TIME_SLOT_CONFIG,
   DEFAULT_BP_THRESHOLDS,
   DEFAULT_RECORDER,
-  FAMILY_MEMBERS,
   detectCurrentTimeSlot,
   computeAlertLevel,
 } from '@/lib/config';
@@ -112,7 +111,7 @@ export default function QuickVitalsForm({
   members,
 }: QuickVitalsFormProps) {
   const thresholds = bpThresholds || DEFAULT_BP_THRESHOLDS;
-  const familyList = members && members.length > 0 ? members : FAMILY_MEMBERS;
+  const familyList = members || [];
   const [recorder, setRecorder] = useState<string>(defaultRecorder || DEFAULT_RECORDER);
 
   // --- Form state ---

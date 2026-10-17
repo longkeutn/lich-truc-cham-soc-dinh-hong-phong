@@ -19,11 +19,8 @@ import {
 import {
   PHASE_CONFIGS,
   buildDefaultShiftRecord,
-  FAMILY_MEMBERS,
-  PATIENT_INFO,
   DEFAULT_BP_THRESHOLDS,
   DEFAULT_APPOINTMENT,
-  DEFAULT_CARE_ROUTINES,
 } from './config';
 
 // Tên các trang tính trong Google Sheet (8 Sheets V2.0)
@@ -100,35 +97,51 @@ function getServiceAccountCreds() {
   return { sheetId, clientEmail, privateKey };
 }
 
-// In-memory fallback database hoàn chỉnh cho 5 thực thể
+// In-memory store đồng bộ trực tiếp từ Google Sheets (Zero Hardcode)
 class MemoryShiftStore {
+  private hasSyncedWithSheet: boolean = false;
   private shifts: Map<string, ShiftRecord> = new Map();
-  private members: FamilyMember[] = [...FAMILY_MEMBERS];
-  private patientInfo: PatientInfo = { ...PATIENT_INFO };
+  private members: FamilyMember[] = [];
+  private patientInfo: PatientInfo = {
+    name: 'Đinh Hồng Phong',
+    diagnosis: '',
+    hospital: '',
+    room: '',
+    notes: '',
+    emergencyPhone: '',
+  };
   private contacts: EmergencyContact[] = [];
   private reminders: PatientDailyReminder[] = [];
   private systemSettings: SystemSettings = {
-    currentPhase: 'phase1',
-    patientName: PATIENT_INFO.name,
-    patientRoom: PATIENT_INFO.room,
-    hospital: PATIENT_INFO.hospital,
-    diagnosis: PATIENT_INFO.diagnosis,
-    doctorNotes: PATIENT_INFO.notes,
-    emergencyPhone: '0913 218 765 (BS. Hùng - ICU)',
+    currentPhase: 'phase2',
+    patientName: 'Đinh Hồng Phong',
+    patientRoom: '',
+    hospital: '',
+    diagnosis: '',
+    doctorNotes: '',
+    emergencyPhone: '',
     googleSheetsConnected: false,
   };
   private adminPin: string = '1234';
 
   // --- V2.0: Sổ Sức Khỏe Bố — Private fields ---
   private vitalsLog: VitalsLogEntry[] = [];
-  private careRoutines: CareRoutine[] = [...DEFAULT_CARE_ROUTINES];
+  private careRoutines: CareRoutine[] = [];
   private dailyLogs: DailyLog[] = [];
   private bpThresholds: BpThresholds = { ...DEFAULT_BP_THRESHOLDS };
   private appointment: AppointmentInfo = { ...DEFAULT_APPOINTMENT };
   private appMode: AppMode = 'home_care';
 
   constructor() {
-    // Không nạp dữ liệu mẫu giả lập - mọi ca trực bắt đầu sạch sẽ 100%
+    // Khởi tạo rỗng 100% — chỉ hiển thị dữ liệu thực tế từ Google Sheets
+  }
+
+  public isSynced(): boolean {
+    return this.hasSyncedWithSheet;
+  }
+
+  public markSynced(synced: boolean): void {
+    this.hasSyncedWithSheet = synced;
   }
 
   // --- Shifts ---
@@ -236,7 +249,7 @@ class MemoryShiftStore {
   }
 
   public setMembers(list: FamilyMember[]): void {
-    if (list && list.length > 0) {
+    if (Array.isArray(list)) {
       this.members = list;
     }
   }
@@ -271,7 +284,7 @@ class MemoryShiftStore {
   }
 
   public getSettings(): SystemSettings {
-    const isConnected = Boolean(getWebappUrl() || getServiceAccountCreds());
+    const isConnected = Boolean(getWebappUrl() || getServiceAccountCreds()) && this.hasSyncedWithSheet;
     return {
       ...this.systemSettings,
       googleSheetsConnected: isConnected,
@@ -289,7 +302,7 @@ class MemoryShiftStore {
   }
 
   public setContacts(list: EmergencyContact[]): void {
-    if (list && list.length > 0) {
+    if (Array.isArray(list)) {
       this.contacts = list;
     }
   }
@@ -315,7 +328,7 @@ class MemoryShiftStore {
   }
 
   public setReminders(list: PatientDailyReminder[]): void {
-    if (list && list.length > 0) {
+    if (Array.isArray(list)) {
       this.reminders = list;
     }
   }
@@ -426,7 +439,6 @@ class MemoryShiftStore {
       r.category === 'meds' || r.category === 'rehab' || r.category === 'care'
         ? r.category
         : 'care';
-    const defaultMatch = DEFAULT_CARE_ROUTINES.find((d) => d.id === r.id);
     return {
       ...r,
       category: validCategory,
@@ -434,11 +446,11 @@ class MemoryShiftStore {
       description:
         r.description !== undefined && r.description !== ''
           ? r.description
-          : existing?.description || defaultMatch?.description || '',
+          : existing?.description || '',
       imageUrl:
         r.imageUrl !== undefined && r.imageUrl !== ''
           ? r.imageUrl
-          : existing?.imageUrl || defaultMatch?.imageUrl || '',
+          : existing?.imageUrl || '',
     };
   }
 
@@ -462,7 +474,7 @@ class MemoryShiftStore {
   }
 
   public setCareRoutines(list: CareRoutine[]): void {
-    if (list && Array.isArray(list) && list.length > 0) {
+    if (Array.isArray(list)) {
       const existingMap = new Map(this.careRoutines.map((r) => [r.id, r]));
       this.careRoutines = list.map((r) => this.sanitizeRoutine(r, existingMap.get(r.id)));
     }
@@ -549,7 +561,7 @@ class MemoryShiftStore {
   }
 }
 
-// Global singleton
+// Global singleton (giữ trên cả môi trường dev & warm serverless container)
 declare global {
   var __memoryShiftStore: MemoryShiftStore | undefined;
   var __serverCacheManager: ServerCacheManager | undefined;
@@ -592,14 +604,10 @@ class ServerCacheManager {
 }
 
 const memoryStore = globalThis.__memoryShiftStore ?? new MemoryShiftStore();
-if (process.env.NODE_ENV !== 'production') {
-  globalThis.__memoryShiftStore = memoryStore;
-}
+globalThis.__memoryShiftStore = memoryStore;
 
 const serverCacheManager = globalThis.__serverCacheManager ?? new ServerCacheManager();
-if (process.env.NODE_ENV !== 'production') {
-  globalThis.__serverCacheManager = serverCacheManager;
-}
+globalThis.__serverCacheManager = serverCacheManager;
 
 interface WebappResponse {
   success?: boolean;
@@ -608,10 +616,10 @@ interface WebappResponse {
   [key: string]: unknown;
 }
 
-// Hàm gửi POST đồng bộ tới Google Apps Script với Timeout 15s an toàn
+// Hàm gửi POST đồng bộ tới Google Apps Script với Timeout 20s an toàn
 async function sendToWebappWithTimeout(
   payload: Record<string, unknown>,
-  timeoutMs: number = 15000
+  timeoutMs: number = 20000
 ): Promise<{ success: boolean; data?: WebappResponse; error?: string }> {
   const webappUrl = getWebappUrl();
   if (!webappUrl) return { success: false, error: 'Chưa cấu hình GOOGLE_SHEETS_WEBAPP_URL' };
@@ -658,6 +666,34 @@ async function sendToWebappWithTimeout(
   }
 }
 
+// Hàm hỗ trợ đọc JSON từ Google Apps Script GET với tự động thử lại 1 lần nếu timeout/mạng chập chờn
+async function fetchJsonFromWebappGet(urlStr: string, timeoutMs: number = 25000): Promise<Record<string, unknown> | null> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(urlStr, {
+        cache: 'no-store',
+        redirect: 'follow',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const text = await res.text();
+      if (text.includes('accounts.google.com') || text.includes('Sign in - Google Accounts')) {
+        console.warn('[Fetch App Data] Web App trả về trang đăng nhập Google! Cần kiểm tra quyền "Anyone" (Bất kỳ ai).');
+        return null;
+      }
+      return JSON.parse(text) as Record<string, unknown>;
+    } catch (err: unknown) {
+      clearTimeout(timeoutId);
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.warn(`[Fetch App Data] Lần thử ${attempt} thất bại:`, error.message);
+      if (attempt === 2) return null;
+    }
+  }
+  return null;
+}
+
 // ==========================================
 // TẢI TOÀN BỘ DỮ LIỆU ĐỘNG TỪ GOOGLE SHEETS
 // ==========================================
@@ -667,8 +703,8 @@ export async function fetchAppDataFromStorage(
   phase: CarePhase,
   forceRefresh: boolean = false
 ): Promise<AllAppData> {
-  // 1. Kiểm tra cache nếu không yêu cầu làm mới bắt buộc
-  if (!forceRefresh) {
+  // 1. Kiểm tra cache nếu không yêu cầu làm mới bắt buộc và đã đồng bộ với Sheet
+  if (!forceRefresh && memoryStore.isSynced()) {
     const cached = serverCacheManager.get(startDate, endDate, phase);
     if (cached) {
       return cached;
@@ -677,111 +713,101 @@ export async function fetchAppDataFromStorage(
 
   const webappUrl = getWebappUrl();
 
-  // 2. Nếu có Google Apps Script Web App, truy vấn dữ liệu với Timeout 15s
+  // 2. Truy vấn dữ liệu trực tiếp từ Google Apps Script Web App
   if (webappUrl) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
     try {
-      const url = new URL(webappUrl);
-      url.searchParams.set('action', 'getAllData');
-      // LƯU Ý: Không gửi startDate/endDate để Google Apps Script trả về toàn bộ ca thực tế đang có trên Sheet.
-      // Next.js sẽ nạp toàn bộ ca vào memoryStore và tự động điều phối đúng tuần/tháng theo múi giờ chuẩn,
-      // loại bỏ hoàn toàn các lỗi lọc ngày (DD/MM/YYYY vs YYYY-MM-DD) và lệch múi giờ trên Apps Script.
+      const urlPhase2 = new URL(webappUrl);
+      urlPhase2.searchParams.set('action', 'getAllData');
+      // Truyền phase=phase2 để ngay cả khi Code.gs cũ mặc định lọc phase1 thì vẫn lấy được ca chăm sóc tại nhà (phase2)
+      urlPhase2.searchParams.set('phase', 'phase2');
 
-      const res = await fetch(url.toString(), {
-        cache: 'no-store',
-        redirect: 'follow',
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+      const urlPhase1Shifts = new URL(webappUrl);
+      urlPhase1Shifts.searchParams.set('action', 'getShifts');
+      urlPhase1Shifts.searchParams.set('phase', 'phase1');
 
-      const text = await res.text();
+      const [data, phase1Data] = await Promise.all([
+        fetchJsonFromWebappGet(urlPhase2.toString(), 25000),
+        fetchJsonFromWebappGet(urlPhase1Shifts.toString(), 15000).catch(() => null),
+      ]);
 
-      if (text.includes('accounts.google.com') || text.includes('Sign in - Google Accounts')) {
-        console.warn('[Fetch App Data] Web App trả về trang đăng nhập Google! Cần kiểm tra quyền "Anyone" (Bất kỳ ai).');
-      } else {
-        let data: Record<string, unknown> | null = null;
-        try {
-          data = JSON.parse(text);
-        } catch {
-          console.warn('[Fetch App Data] Phản hồi không phải JSON:', text.substring(0, 150));
+      if (data && data.success) {
+        if (Array.isArray(data.members)) {
+          memoryStore.setMembers(data.members as FamilyMember[]);
+        }
+        if (data.patientInfo && typeof data.patientInfo === 'object' && (data.patientInfo as PatientInfo).name) {
+          memoryStore.setPatientInfo(data.patientInfo as PatientInfo);
+        }
+        if (data.adminPin) {
+          memoryStore.setAdminPin(String(data.adminPin));
+        } else if (data.settings && typeof data.settings === 'object' && (data.settings as Record<string, unknown>).adminPin) {
+          memoryStore.setAdminPin(String((data.settings as Record<string, unknown>).adminPin));
+        }
+        if (Array.isArray(data.contacts)) {
+          memoryStore.setContacts(data.contacts as EmergencyContact[]);
+        }
+        if (Array.isArray(data.reminders)) {
+          memoryStore.setReminders(data.reminders as PatientDailyReminder[]);
         }
 
-        if (data && data.success) {
-          if (Array.isArray(data.members) && data.members.length > 0) {
-            memoryStore.setMembers(data.members as FamilyMember[]);
-          }
-          if (data.patientInfo && typeof data.patientInfo === 'object' && (data.patientInfo as PatientInfo).name) {
-            memoryStore.setPatientInfo(data.patientInfo as PatientInfo);
-          }
-          if (data.adminPin) {
-            memoryStore.setAdminPin(String(data.adminPin));
-          } else if (data.settings && typeof data.settings === 'object' && (data.settings as Record<string, unknown>).adminPin) {
-            memoryStore.setAdminPin(String((data.settings as Record<string, unknown>).adminPin));
-          }
-          if (Array.isArray(data.contacts)) {
-            memoryStore.setContacts(data.contacts as EmergencyContact[]);
-          }
-          if (Array.isArray(data.reminders)) {
-            memoryStore.setReminders(data.reminders as PatientDailyReminder[]);
-          }
-          if (Array.isArray(data.shifts)) {
-            if (data.shifts.length > 0) {
-              // Nạp chính xác những ca thực tế trên Google Sheets vào bộ nhớ
-              memoryStore.clearShifts();
-              (data.shifts as ShiftRecord[]).forEach((s: ShiftRecord) => memoryStore.saveShift(s));
-            }
-          }
-
-          // V2.0: Nạp dữ liệu mới nếu có từ webapp response
-          if (Array.isArray(data.vitalsLog)) {
-            memoryStore.setVitalsLog(data.vitalsLog as VitalsLogEntry[]);
-          }
-          if (Array.isArray(data.careRoutines)) {
-            memoryStore.setCareRoutines(data.careRoutines as CareRoutine[]);
-          }
-          if (Array.isArray(data.dailyLogs)) {
-            memoryStore.setDailyLogs(data.dailyLogs as DailyLog[]);
-          }
-          if (data.appointment && typeof data.appointment === 'object') {
-            memoryStore.setAppointment(data.appointment as AppointmentInfo);
-          }
-          if (data.bpThresholds && typeof data.bpThresholds === 'object') {
-            memoryStore.setBpThresholds(data.bpThresholds as BpThresholds);
-          }
-
-          const freshData: AllAppData = {
-            shifts: memoryStore.getShifts(startDate, endDate, phase),
-            members: memoryStore.getMembers(),
-            patientInfo: memoryStore.getPatientInfo(),
-            contacts: memoryStore.getContacts(),
-            reminders: memoryStore.getReminders(),
-            settings: {
-              ...memoryStore.getSettings(),
-              googleSheetsConnected: true,
-            },
-          };
-
-          // CHỈ lưu vào Server Cache khi đã kết nối và đọc thành công!
-          serverCacheManager.set(startDate, endDate, phase, freshData);
-          return freshData;
+        // Nạp toàn bộ ca trực thực tế từ cả phase1 (nằm viện ICU) và phase2 (chăm sóc tại nhà)
+        memoryStore.clearShifts();
+        if (phase1Data && Array.isArray(phase1Data.shifts)) {
+          (phase1Data.shifts as ShiftRecord[]).forEach((s: ShiftRecord) => memoryStore.saveShift(s));
         }
+        if (Array.isArray(data.shifts)) {
+          (data.shifts as ShiftRecord[]).forEach((s: ShiftRecord) => memoryStore.saveShift(s));
+        }
+
+        // V2.0: Nạp dữ liệu mới từ Google Sheets (kể cả khi mảng rỗng)
+        if (Array.isArray(data.vitalsLog)) {
+          memoryStore.setVitalsLog(data.vitalsLog as VitalsLogEntry[]);
+        }
+        if (Array.isArray(data.careRoutines)) {
+          memoryStore.setCareRoutines(data.careRoutines as CareRoutine[]);
+        }
+        if (Array.isArray(data.dailyLogs)) {
+          memoryStore.setDailyLogs(data.dailyLogs as DailyLog[]);
+        }
+        if (data.appointment && typeof data.appointment === 'object') {
+          memoryStore.setAppointment(data.appointment as AppointmentInfo);
+        }
+        if (data.bpThresholds && typeof data.bpThresholds === 'object') {
+          memoryStore.setBpThresholds(data.bpThresholds as BpThresholds);
+        }
+
+        memoryStore.markSynced(true);
+
+        const freshData: AllAppData = {
+          shifts: memoryStore.getShifts(startDate, endDate, phase),
+          members: memoryStore.getMembers(),
+          patientInfo: memoryStore.getPatientInfo(),
+          contacts: memoryStore.getContacts(),
+          reminders: memoryStore.getReminders(),
+          settings: {
+            ...memoryStore.getSettings(),
+            googleSheetsConnected: true,
+          },
+        };
+
+        // CHỈ lưu vào Server Cache khi đã kết nối và đọc thành công!
+        serverCacheManager.set(startDate, endDate, phase, freshData);
+        return freshData;
       }
     } catch (err: unknown) {
-      clearTimeout(timeoutId);
       const error = err instanceof Error ? err : new Error(String(err));
-      if (error.name === 'AbortError') {
-        console.warn('[Fetch App Data] Timeout Web App 15s, dùng bộ nhớ đệm');
-      } else {
-        console.warn('Lỗi kết nối Apps Script Web App getAllData:', error.message);
-      }
+      console.warn('Lỗi kết nối Apps Script Web App getAllData:', error.message);
     }
   }
 
   // 3. Dự phòng: Memory Store (KHÔNG cache dữ liệu thất bại để lần đọc kế tiếp thử kết nối lại ngay)
-  const fallbackData = memoryStore.getAllData(startDate, endDate, phase);
-  return fallbackData;
+  return memoryStore.getAllData(startDate, endDate, phase);
+}
+
+// Đảm bảo instance Serverless đã nạp dữ liệu từ Google Sheets trước khi thực hiện thao tác thay đổi danh sách
+async function ensureMemoryStoreSynced(): Promise<void> {
+  if (!memoryStore.isSynced() && getWebappUrl()) {
+    await fetchAppDataFromStorage('2026-01-01', '2026-12-31', 'phase2', true);
+  }
 }
 
 // ==========================================
@@ -803,7 +829,7 @@ export async function saveShiftToStorage(shift: ShiftRecord): Promise<ShiftRecor
   serverCacheManager.invalidateAll();
 
   // BẮT BUỘC AWAIT để Server Action không bị runtime tắt đột ngột trước khi Google Sheets ghi xong
-  const syncRes = await sendToWebappWithTimeout({ action: 'saveShift', shift: updated }, 15000);
+  const syncRes = await sendToWebappWithTimeout({ action: 'saveShift', shift: updated }, 20000);
   if (!syncRes.success) {
     console.warn('[saveShiftToStorage] Đồng bộ Google Sheets thất bại hoặc timeout:', syncRes.error || syncRes);
   }
@@ -815,16 +841,18 @@ export async function saveShiftToStorage(shift: ShiftRecord): Promise<ShiftRecor
 // CRUD MEMBERS (THÀNH VIÊN)
 // ==========================================
 export async function saveMemberToStorage(member: FamilyMember): Promise<FamilyMember[]> {
+  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.saveMember(member);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'saveMember', member }, 15000);
+  await sendToWebappWithTimeout({ action: 'saveMember', member }, 20000);
   return updatedList;
 }
 
 export async function deleteMemberFromStorage(memberId: string): Promise<FamilyMember[]> {
+  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.deleteMember(memberId);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'deleteMember', memberId }, 15000);
+  await sendToWebappWithTimeout({ action: 'deleteMember', memberId }, 20000);
   return updatedList;
 }
 
@@ -832,16 +860,18 @@ export async function deleteMemberFromStorage(memberId: string): Promise<FamilyM
 // CRUD CONTACTS (DANH BẠ SOS KHẨN CẤP)
 // ==========================================
 export async function saveContactToStorage(contact: EmergencyContact): Promise<EmergencyContact[]> {
+  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.saveContact(contact);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'saveContact', contact }, 15000);
+  await sendToWebappWithTimeout({ action: 'saveContact', contact }, 20000);
   return updatedList;
 }
 
 export async function deleteContactFromStorage(contactId: string): Promise<EmergencyContact[]> {
+  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.deleteContact(contactId);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'deleteContact', contactId }, 15000);
+  await sendToWebappWithTimeout({ action: 'deleteContact', contactId }, 20000);
   return updatedList;
 }
 
@@ -849,16 +879,18 @@ export async function deleteContactFromStorage(contactId: string): Promise<Emerg
 // CRUD REMINDERS (NHẮC NHỞ Y TẾ TRONG NGÀY)
 // ==========================================
 export async function saveReminderToStorage(reminder: PatientDailyReminder): Promise<PatientDailyReminder[]> {
+  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.saveReminder(reminder);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'saveReminder', reminder }, 15000);
+  await sendToWebappWithTimeout({ action: 'saveReminder', reminder }, 20000);
   return updatedList;
 }
 
 export async function deleteReminderFromStorage(reminderId: string): Promise<PatientDailyReminder[]> {
+  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.deleteReminder(reminderId);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'deleteReminder', reminderId }, 15000);
+  await sendToWebappWithTimeout({ action: 'deleteReminder', reminderId }, 20000);
   return updatedList;
 }
 
@@ -868,7 +900,7 @@ export async function deleteReminderFromStorage(reminderId: string): Promise<Pat
 export async function savePatientSettingsToStorage(info: PatientInfo): Promise<PatientInfo> {
   memoryStore.setPatientInfo(info);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'saveSettings', patientInfo: info }, 15000);
+  await sendToWebappWithTimeout({ action: 'saveSettings', patientInfo: info }, 20000);
   return memoryStore.getPatientInfo();
 }
 
@@ -879,7 +911,7 @@ export function getSystemSettings(): SystemSettings {
 export async function setSystemPhase(phase: CarePhase): Promise<SystemSettings> {
   const updated = memoryStore.setPhase(phase);
   serverCacheManager.invalidateAll();
-  await sendToWebappWithTimeout({ action: 'saveSettings', currentPhase: phase }, 15000);
+  await sendToWebappWithTimeout({ action: 'saveSettings', currentPhase: phase }, 20000);
   return updated;
 }
 
@@ -889,7 +921,7 @@ export async function setSystemPhase(phase: CarePhase): Promise<SystemSettings> 
 export async function verifyAdminPinStorage(pin: string): Promise<boolean> {
   const syncRes = await sendToWebappWithTimeout(
     { action: 'verifyAdminPin', pin: pin.trim() },
-    5000
+    8000
   );
   if (syncRes.success && typeof syncRes.data?.valid === 'boolean') {
     return syncRes.data.valid;
@@ -911,7 +943,7 @@ export async function changeAdminPinStorage(
       oldPin: oldPin.trim(),
       newPin: newPin.trim(),
     },
-    7000
+    10000
   );
 
   if (syncRes.success) {
@@ -941,7 +973,7 @@ export async function saveVitalsToStorage(entry: VitalsLogEntry): Promise<Vitals
   const saved = memoryStore.saveVitalsEntry(entry);
   serverCacheManager.invalidateAll();
 
-  const syncRes = await sendToWebappWithTimeout({ action: 'saveVitals', vitals: saved }, 15000);
+  const syncRes = await sendToWebappWithTimeout({ action: 'saveVitals', vitals: saved }, 20000);
   if (!syncRes.success) {
     console.warn('[saveVitalsToStorage] Đồng bộ Google Sheets thất bại:', syncRes.error || syncRes);
   }
@@ -953,7 +985,7 @@ export async function deleteVitalsFromStorage(id: string): Promise<void> {
   memoryStore.deleteVitalsEntry(id);
   serverCacheManager.invalidateAll();
 
-  const syncRes = await sendToWebappWithTimeout({ action: 'deleteVitals', vitalsId: id }, 15000);
+  const syncRes = await sendToWebappWithTimeout({ action: 'deleteVitals', vitalsId: id }, 20000);
   if (!syncRes.success) {
     console.warn('[deleteVitalsFromStorage] Đồng bộ Google Sheets thất bại:', syncRes.error || syncRes);
   }
@@ -966,10 +998,11 @@ export async function fetchVitalsLogFromStorage(): Promise<VitalsLogEntry[]> {
 // --- CareRoutines (Đơn thuốc & Bài tập phục hồi) ---
 
 export async function saveRoutineToStorage(routine: CareRoutine): Promise<CareRoutine[]> {
+  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.saveRoutine(routine);
   serverCacheManager.invalidateAll();
 
-  const syncRes = await sendToWebappWithTimeout({ action: 'saveRoutine', routine }, 15000);
+  const syncRes = await sendToWebappWithTimeout({ action: 'saveRoutine', routine }, 20000);
   if (!syncRes.success) {
     console.warn('[saveRoutineToStorage] Đồng bộ Google Sheets thất bại:', syncRes.error || syncRes);
   }
@@ -978,10 +1011,11 @@ export async function saveRoutineToStorage(routine: CareRoutine): Promise<CareRo
 }
 
 export async function deleteRoutineFromStorage(id: string): Promise<CareRoutine[]> {
+  await ensureMemoryStoreSynced();
   const updatedList = memoryStore.deleteRoutine(id);
   serverCacheManager.invalidateAll();
 
-  const syncRes = await sendToWebappWithTimeout({ action: 'deleteRoutine', routineId: id }, 15000);
+  const syncRes = await sendToWebappWithTimeout({ action: 'deleteRoutine', routineId: id }, 20000);
   if (!syncRes.success) {
     console.warn('[deleteRoutineFromStorage] Đồng bộ Google Sheets thất bại:', syncRes.error || syncRes);
   }
@@ -995,7 +1029,7 @@ export async function upsertDailyLogToStorage(log: DailyLog): Promise<DailyLog> 
   const saved = memoryStore.upsertDailyLog(log);
   serverCacheManager.invalidateAll();
 
-  const syncRes = await sendToWebappWithTimeout({ action: 'toggleDailyLog', dailyLog: saved }, 15000);
+  const syncRes = await sendToWebappWithTimeout({ action: 'toggleDailyLog', dailyLog: saved }, 20000);
   if (!syncRes.success) {
     console.warn('[upsertDailyLogToStorage] Đồng bộ Google Sheets thất bại:', syncRes.error || syncRes);
   }
@@ -1013,7 +1047,7 @@ export async function saveAppointmentToStorage(info: AppointmentInfo): Promise<A
   memoryStore.setAppointment(info);
   serverCacheManager.invalidateAll();
 
-  const syncRes = await sendToWebappWithTimeout({ action: 'saveAppointment', appointment: info }, 15000);
+  const syncRes = await sendToWebappWithTimeout({ action: 'saveAppointment', appointment: info }, 20000);
   if (!syncRes.success) {
     console.warn('[saveAppointmentToStorage] Đồng bộ Google Sheets thất bại:', syncRes.error || syncRes);
   }

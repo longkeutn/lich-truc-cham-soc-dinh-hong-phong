@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { PATIENT_INFO, FAMILY_MEMBERS, DEFAULT_PATIENT_REMINDERS } from '@/lib/config';
+import { PATIENT_INFO } from '@/lib/config';
 import { FamilyMember, PatientDailyReminder, ReminderCategory, PatientInfo } from '@/lib/types';
 import {
   AlertCircle,
@@ -93,14 +93,14 @@ export default function PatientBanner({
   isLoading,
 }: PatientBannerProps) {
   const patient = patientInfoProp || PATIENT_INFO;
-  const familyList = membersProp && membersProp.length > 0 ? membersProp : FAMILY_MEMBERS;
+  const familyList = membersProp || [];
 
   const [localReminders, setLocalReminders] = useState<PatientDailyReminder[]>(
-    remindersProp || DEFAULT_PATIENT_REMINDERS
+    remindersProp || []
   );
 
   useEffect(() => {
-    if (remindersProp) {
+    if (Array.isArray(remindersProp)) {
       setLocalReminders(remindersProp);
     }
   }, [remindersProp]);
@@ -320,13 +320,22 @@ export default function PatientBanner({
 
           <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold text-slate-800 min-w-0 flex-1">
             <span className="font-black text-rose-950 shrink-0 hidden sm:inline">{patient.name}</span>
+            {(patient.hospital || patient.room) && (
+              <>
+                <span className="text-slate-300 hidden md:inline">•</span>
+                <span className="text-slate-600 text-xs hidden md:inline truncate">
+                  {patient.hospital}
+                  {patient.room ? ` (${patient.room})` : ''}
+                </span>
+              </>
+            )}
             <span className="text-slate-300 hidden sm:inline">•</span>
-            <span className="text-slate-600 text-xs hidden md:inline truncate">
-              {patient.hospital} ({patient.room})
-            </span>
-            <span className="text-slate-300 hidden md:inline">•</span>
             <span className="text-xs sm:text-sm text-rose-900 font-bold truncate">
-              ⚠️ {patient.notes}
+              {patient.notes
+                ? `⚠️ ${patient.notes}`
+                : isLoading
+                  ? 'Đang tải thông tin bệnh án từ Google Sheets...'
+                  : patient.diagnosis || 'Theo dõi huyết áp & chăm sóc hàng ngày'}
             </span>
           </div>
         </div>

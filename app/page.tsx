@@ -31,8 +31,6 @@ import {
   BpThresholds,
 } from '@/lib/types';
 import {
-  FAMILY_MEMBERS,
-  PATIENT_INFO,
   DEFAULT_BP_THRESHOLDS,
   DEFAULT_APPOINTMENT,
   DEFAULT_REHAB_STAGES,
@@ -57,12 +55,22 @@ import {
 import {
   AlertTriangle,
   ShieldCheck,
+  RefreshCw,
 } from 'lucide-react';
 
+const EMPTY_PATIENT_INFO: PatientInfo = {
+  name: 'Đinh Hồng Phong',
+  diagnosis: '',
+  hospital: '',
+  room: '',
+  notes: '',
+  emergencyPhone: '',
+};
+
 export default function CareSchedulePage() {
-  // ===== Dữ liệu V1 (giữ lại cho backward compatibility) =====
-  const [members, setMembers] = useState<FamilyMember[]>(FAMILY_MEMBERS);
-  const [patientInfo, setPatientInfo] = useState<PatientInfo>(PATIENT_INFO);
+  // ===== Dữ liệu khởi tạo RỖNG 100% — Chỉ hiển thị dữ liệu thực từ Google Sheets =====
+  const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [patientInfo, setPatientInfo] = useState<PatientInfo>(EMPTY_PATIENT_INFO);
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [reminders, setReminders] = useState<PatientDailyReminder[]>([]);
   const [shifts, setShifts] = useState<ShiftRecord[]>([]);
@@ -82,7 +90,8 @@ export default function CareSchedulePage() {
   // V2.0: 3 tab mới thay thế weekly/monthly/analytics
   const [activeView, setActiveView] = useState<AppView>('today');
 
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [hasInitialLoaded, setHasInitialLoaded] = useState<boolean>(false);
   const [guideModalOpen, setGuideModalOpen] = useState<boolean>(false);
   const [emergencyModalOpen, setEmergencyModalOpen] = useState<boolean>(false);
   const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'warn' } | null>(null);
@@ -99,11 +108,14 @@ export default function CareSchedulePage() {
   const [routineManagerOpen, setRoutineManagerOpen] = useState<boolean>(false);
   const [activeStageId, setActiveStageId] = useState<string>('stage-1');
 
-  // Khôi phục phiên Admin nếu trước đó đã xác thực trong tab hiện tại
+  // Dọn dẹp bộ nhớ trình duyệt cũ (localStorage) để tránh lưu cache gây nhầm lẫn
   useEffect(() => {
     try {
-      if (typeof window !== 'undefined' && sessionStorage.getItem('care_admin_auth') === 'true') {
-        setIsAdmin(true);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('care_app_member_id');
+        if (sessionStorage.getItem('care_admin_auth') === 'true') {
+          setIsAdmin(true);
+        }
       }
     } catch {
       // ignore
@@ -144,9 +156,9 @@ export default function CareSchedulePage() {
         const appData = await fetchAllAppDataV2Action(qStart, qEnd, activePhase, forceRefresh);
 
         if (appData) {
-          // V1 data — giữ backward compatibility
-          if (appData.shifts) setShifts(appData.shifts);
-          if (appData.members && appData.members.length > 0) setMembers(appData.members);
+          // Luôn cập nhật đúng danh sách từ Google Sheets (kể cả khi bảng trên Sheet đang trống)
+          if (Array.isArray(appData.shifts)) setShifts(appData.shifts);
+          if (Array.isArray(appData.members)) setMembers(appData.members);
           if (appData.patientInfo && appData.patientInfo.name) setPatientInfo(appData.patientInfo);
           if (Array.isArray(appData.contacts)) setContacts(appData.contacts);
           if (Array.isArray(appData.reminders)) setReminders(appData.reminders);
@@ -158,7 +170,6 @@ export default function CareSchedulePage() {
           if (Array.isArray(appData.dailyLogs)) setDailyLogs(appData.dailyLogs);
           if (Array.isArray(appData.stages) && appData.stages.length > 0) {
             setStages(appData.stages);
-            // Set active stage to first active stage
             const firstActive = appData.stages.find((s) => s.isActive);
             if (firstActive) setActiveStageId(firstActive.id);
           }
@@ -174,6 +185,7 @@ export default function CareSchedulePage() {
         showToast('Không thể kết nối máy chủ để tải dữ liệu.', 'warn');
       } finally {
         setIsLoading(false);
+        setHasInitialLoaded(true);
       }
     },
     [activePhase]
@@ -257,26 +269,39 @@ export default function CareSchedulePage() {
     }
   }, []);
 
-  // Lưu routine (thuốc/bài tập)
+  // Lưu routine (thuốc/bài tập) — Cập nhật trực tiếp trên state hiện tại để không bao giờ bị ghi đè nhầm
   const handleSaveRoutine = useCallback(async (routine: CareRoutine) => {
+    setCareRoutines((prev) => {
+      const idx = prev.findIndex((r) => r.id === routine.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = routine;
+        return copy;
+      }
+      return [...prev, routine];
+    });
+
     try {
       const res = await saveRoutineAction(routine);
-      if (res.success && res.routines) {
-        setCareRoutines(res.routines);
-        showToast(`✅ Đã lưu: ${routine.title}`, 'success');
+      if (res.success) {
+        showToast(`✅ Đã lưu lên Sheet: ${routine.title}`, 'success');
+      } else {
+        showToast('Lỗi lưu đơn thuốc/bài tập.', 'warn');
       }
     } catch {
       showToast('Lỗi lưu đơn thuốc/bài tập.', 'warn');
     }
   }, []);
 
-  // Xóa routine
+  // Xóa routine — Xoá trực tiếp trên state hiện tại
   const handleDeleteRoutine = useCallback(async (id: string) => {
+    setCareRoutines((prev) => prev.filter((r) => r.id !== id));
     try {
       const res = await deleteRoutineAction(id);
-      if (res.success && res.routines) {
-        setCareRoutines(res.routines);
-        showToast('Đã xoá thành công.', 'info');
+      if (res.success) {
+        showToast('Đã xoá khỏi Google Sheets.', 'info');
+      } else {
+        showToast('Lỗi xoá đơn thuốc/bài tập.', 'warn');
       }
     } catch {
       showToast('Lỗi xoá đơn thuốc/bài tập.', 'warn');
@@ -319,10 +344,18 @@ export default function CareSchedulePage() {
 
   // ===== CRUD Reminders =====
   const handleAddReminder = async (newReminder: PatientDailyReminder) => {
+    setReminders((prev) => {
+      const idx = prev.findIndex((r) => r.id === newReminder.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = newReminder;
+        return copy;
+      }
+      return [newReminder, ...prev];
+    });
     try {
       const res = await saveReminderAction(newReminder);
-      if (res.success && res.reminders) {
-        setReminders(res.reminders);
+      if (res.success) {
         showToast('Đã lưu nhắc nhở mới lên Google Sheets!', 'success');
       }
     } catch (err) {
@@ -332,10 +365,10 @@ export default function CareSchedulePage() {
   };
 
   const handleDeleteReminder = async (reminderId: string, title: string) => {
+    setReminders((prev) => prev.filter((r) => r.id !== reminderId));
     try {
       const res = await deleteReminderAction(reminderId);
-      if (res.success && res.reminders) {
-        setReminders(res.reminders);
+      if (res.success) {
         showToast(`Đã xoá nhắc nhở "${title}"`, 'info');
       }
     } catch (err) {
@@ -395,10 +428,18 @@ export default function CareSchedulePage() {
   // CRUD Contacts (Bảo vệ bằng Admin PIN)
   const handleSaveContact = async (contact: EmergencyContact) => {
     requireAdmin(async () => {
+      setContacts((prev) => {
+        const idx = prev.findIndex((c) => c.id === contact.id);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = contact;
+          return copy;
+        }
+        return [contact, ...prev];
+      });
       try {
         const res = await saveContactAction(contact);
-        if (res.success && res.contacts) {
-          setContacts(res.contacts);
+        if (res.success) {
           showToast(`Đã lưu liên hệ ${contact.name} lên Google Sheets!`, 'success');
         }
       } catch (err) {
@@ -410,10 +451,10 @@ export default function CareSchedulePage() {
 
   const handleDeleteContact = async (contactId: string, name: string) => {
     requireAdmin(async () => {
+      setContacts((prev) => prev.filter((c) => c.id !== contactId));
       try {
         const res = await deleteContactAction(contactId);
-        if (res.success && res.contacts) {
-          setContacts(res.contacts);
+        if (res.success) {
           showToast(`Đã xoá liên hệ "${name}" khỏi Google Sheets`, 'info');
         }
       } catch (err) {
@@ -516,6 +557,16 @@ export default function CareSchedulePage() {
 
       {/* Thân ứng dụng */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-2.5 sm:p-4 space-y-3.5">
+        {!hasInitialLoaded && isLoading && (
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 text-blue-900 shadow-2xs">
+            <div className="flex items-center gap-2.5 text-sm font-bold">
+              <RefreshCw className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+              <span>Đang tải dữ liệu thực tế từ Google Sheets...</span>
+            </div>
+            <span className="text-xs text-blue-600 font-semibold hidden sm:inline">Vui lòng đợi giây lát</span>
+          </div>
+        )}
+
         {/* Banner mini tóm tắt bệnh nhân & Nhắc nhở (Bấm mở rộng chi tiết) */}
         <PatientBanner
           patientInfo={patientInfo}
