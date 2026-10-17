@@ -403,12 +403,28 @@ class MemoryShiftStore {
     return filtered.sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
+  private sanitizeRoutine(r: CareRoutine): CareRoutine {
+    const validSlots = (Array.isArray(r.timeSlots) ? r.timeSlots : []).filter(
+      (s) => s === 'morning' || s === 'noon' || s === 'afternoon' || s === 'evening'
+    );
+    const validCategory =
+      r.category === 'meds' || r.category === 'rehab' || r.category === 'care'
+        ? r.category
+        : 'care';
+    return {
+      ...r,
+      category: validCategory,
+      timeSlots: validSlots,
+    };
+  }
+
   public saveRoutine(routine: CareRoutine): CareRoutine[] {
-    const idx = this.careRoutines.findIndex((r) => r.id === routine.id);
+    const clean = this.sanitizeRoutine(routine);
+    const idx = this.careRoutines.findIndex((r) => r.id === clean.id);
     if (idx >= 0) {
-      this.careRoutines[idx] = routine;
+      this.careRoutines[idx] = clean;
     } else {
-      this.careRoutines.push(routine);
+      this.careRoutines.push(clean);
     }
     return this.careRoutines;
   }
@@ -420,7 +436,7 @@ class MemoryShiftStore {
 
   public setCareRoutines(list: CareRoutine[]): void {
     if (list && Array.isArray(list) && list.length > 0) {
-      this.careRoutines = list;
+      this.careRoutines = list.map((r) => this.sanitizeRoutine(r));
     }
   }
 

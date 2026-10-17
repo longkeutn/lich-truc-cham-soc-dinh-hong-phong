@@ -124,7 +124,10 @@ export function RoutineManagerModal({
   };
 
   const startEdit = (routine: CareRoutine) => {
-    setFormData({ ...routine });
+    const validSlots = (Array.isArray(routine.timeSlots) ? routine.timeSlots : []).filter(
+      (s): s is TimeSlot => Boolean(TIME_SLOT_CONFIG[s as TimeSlot])
+    );
+    setFormData({ ...routine, timeSlots: validSlots });
     setEditingRoutine(routine);
     setIsAddingNew(false);
     setErrorMsg('');
@@ -155,7 +158,11 @@ export function RoutineManagerModal({
       setErrorMsg('Vui lòng nhập tên thuốc / bài tập');
       return;
     }
-    if (formData.timeSlots.length === 0 && formData.medType !== 'as_needed') {
+    const validSlots = (Array.isArray(formData.timeSlots) ? formData.timeSlots : []).filter(
+      (s): s is TimeSlot => Boolean(TIME_SLOT_CONFIG[s as TimeSlot])
+    );
+    const isAsNeededMed = formData.category === 'meds' && formData.medType === 'as_needed';
+    if (validSlots.length === 0 && !isAsNeededMed) {
       setErrorMsg('Vui lòng chọn ít nhất 1 buổi áp dụng');
       return;
     }
@@ -168,6 +175,7 @@ export function RoutineManagerModal({
       const routineToSave: CareRoutine = {
         ...formData,
         id: formData.id || `routine-${formData.category.substring(0, 3)}-${Date.now()}`,
+        timeSlots: isAsNeededMed ? [] : validSlots,
         updatedAt: now,
         createdAt: formData.createdAt || now,
         // Clear medType if not meds category
@@ -584,14 +592,16 @@ export function RoutineManagerModal({
                                     )}
                                     {/* Time slot pills */}
                                     <div className="flex flex-wrap gap-1 mt-1.5">
-                                      {routine.timeSlots.map(slot => (
-                                        <span
-                                          key={slot}
-                                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${TIME_SLOT_PILL_COLORS[slot]}`}
-                                        >
-                                          {TIME_SLOT_CONFIG[slot].emoji} {TIME_SLOT_CONFIG[slot].label}
-                                        </span>
-                                      ))}
+                                      {(Array.isArray(routine.timeSlots) ? routine.timeSlots : [])
+                                        .filter((slot): slot is TimeSlot => Boolean(TIME_SLOT_CONFIG[slot as TimeSlot]))
+                                        .map(slot => (
+                                          <span
+                                            key={slot}
+                                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${TIME_SLOT_PILL_COLORS[slot] || 'bg-slate-100 text-slate-700 border-slate-300'}`}
+                                          >
+                                            {TIME_SLOT_CONFIG[slot]?.emoji} {TIME_SLOT_CONFIG[slot]?.label}
+                                          </span>
+                                        ))}
                                     </div>
                                   </div>
                                 </div>

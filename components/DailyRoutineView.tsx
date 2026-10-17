@@ -114,7 +114,7 @@ export default function DailyRoutineView({
       evening: [],
     };
     scheduledRoutines.forEach((routine) => {
-      routine.timeSlots.forEach((slot) => {
+      (Array.isArray(routine.timeSlots) ? routine.timeSlots : []).forEach((slot) => {
         if (grouped[slot]) {
           grouped[slot].push(routine);
         }
@@ -420,7 +420,7 @@ function RoutineItem({
   onToggle,
 }: RoutineItemProps) {
   const isDone = log?.isDone ?? false;
-  const categoryConfig = CATEGORY_ICON[routine.category];
+  const categoryConfig = CATEGORY_ICON[routine.category] || CATEGORY_ICON.care;
   const IconComponent = categoryConfig.icon;
 
   return (

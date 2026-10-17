@@ -389,7 +389,7 @@ function ensureSheetsSetup(ss) {
        'Uống buổi tối trước khi ngủ.', '',
        'TRUE', 3, now, now],
       ['routine-med-04', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'meds', 'as_needed',
-       'Paracetamol 500mg', '1 viên', '["as_needed"]',
+       'Paracetamol 500mg', '1 viên', '[]',
        'Khi đau đầu hoặc sốt ≥ 38°C. Cách ít nhất 6 giờ giữa 2 lần.', 'Tối đa 3 viên/ngày',
        'TRUE', 10, now, now],
       ['routine-rehab-01', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'rehab', '',
@@ -853,7 +853,14 @@ function readCareRoutines(ss) {
     const row = data[i];
     if (!row[0]) continue;
     let timeSlots = [];
-    try { timeSlots = JSON.parse(String(row[7] || '[]')); } catch(e) { timeSlots = []; }
+    try {
+      const parsed = JSON.parse(String(row[7] || '[]'));
+      if (Array.isArray(parsed)) {
+        timeSlots = parsed.filter(function(s) {
+          return s === 'morning' || s === 'noon' || s === 'afternoon' || s === 'evening';
+        });
+      }
+    } catch(e) { timeSlots = []; }
     results.push({
       id: String(row[0]),
       stageId: String(row[1]),
