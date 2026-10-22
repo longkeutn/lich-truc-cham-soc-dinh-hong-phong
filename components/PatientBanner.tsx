@@ -387,24 +387,24 @@ export default function PatientBanner({
   return (
     <div
       id="patient-banner-container"
-      className="bg-white border-2 border-slate-300 rounded-3xl shadow-xs overflow-hidden transition-all duration-200"
+      className="bg-white border border-slate-200/90 border-l-4 border-l-teal-600 rounded-2xl shadow-2xs overflow-hidden transition-all duration-200"
     >
-      {/* THANH TÓM TẮT THÔNG MINH (CHỮ TO, NÚT ĐỌC DẶN DÒ 1 CHẠM CHO NGƯỜI LỚN TUỔI) */}
+      {/* THANH TÓM TẮT Y KHOA GỌN GÀNG (1 CHẠM ĐỂ ĐỌC DẶN DÒ HOẶC MỞ HỒ SƠ) */}
       <div
-        className="p-3 sm:p-3.5 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-amber-50/70 cursor-pointer select-none"
+        className="p-3 sm:px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white hover:bg-slate-50/60 transition-colors cursor-pointer select-none"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
-          <span className="relative flex h-3 w-3 shrink-0 mt-1.5 sm:mt-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-700"></span>
+          <span className="relative flex h-2.5 w-2.5 shrink-0 mt-1.5 sm:mt-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-teal-600"></span>
           </span>
 
-          <div className="flex items-center gap-2 text-sm sm:text-base font-black text-slate-950 min-w-0 flex-1">
-            <span className="font-black text-rose-900 shrink-0 hidden sm:inline">{patient.name}:</span>
-            <span className="text-sm sm:text-base text-slate-950 font-black line-clamp-2 sm:truncate leading-snug">
+          <div className="flex items-center gap-1.5 text-sm min-w-0 flex-1">
+            <span className="font-bold text-teal-800 shrink-0 hidden sm:inline">Lưu ý chăm sóc:</span>
+            <span className="text-sm text-slate-700 font-medium line-clamp-2 sm:truncate leading-snug">
               {patient.notes
-                ? `⚠️ ${patient.notes}`
+                ? patient.notes
                 : isLoading
                   ? 'Đang tải thông tin bệnh án từ Google Sheets...'
                   : patient.diagnosis || 'Bấm vào đây để xem Bệnh án & Lưu ý chăm sóc'}
@@ -412,10 +412,10 @@ export default function PatientBanner({
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap w-full sm:w-auto shrink-0">
+        <div className="flex items-center gap-1.5 flex-wrap w-full sm:w-auto shrink-0">
           {urgentTotal > 0 && (
-            <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-rose-700 text-white shadow-2xs shrink-0">
-              {urgentTotal} khẩn
+            <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200 shrink-0">
+              {urgentTotal} lưu ý quan trọng
             </span>
           )}
 
@@ -428,14 +428,14 @@ export default function PatientBanner({
                 handleReadAloudAll();
               }}
               title="Nghe điện thoại đọc to toàn bộ dặn dò hôm nay"
-              className={`flex-1 sm:flex-initial justify-center min-h-[42px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black border-2 flex items-center gap-1.5 transition shadow-2xs cursor-pointer whitespace-nowrap ${
+              className={`flex-1 sm:flex-initial justify-center min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap ${
                 isSpeakingAll
-                  ? 'bg-rose-700 text-white border-rose-900 animate-pulse'
-                  : 'bg-indigo-700 hover:bg-indigo-800 text-white border-indigo-900'
+                  ? 'bg-rose-600 text-white border-rose-700 animate-pulse'
+                  : 'bg-teal-50 hover:bg-teal-100 text-teal-800 border-teal-200'
               }`}
             >
-              {isSpeakingAll ? <VolumeX className="w-4 h-4 shrink-0" /> : <Volume2 className="w-4 h-4 shrink-0" />}
-              <span>{isSpeakingAll ? 'Dừng đọc' : '🔊 Đọc dặn dò'}</span>
+              {isSpeakingAll ? <VolumeX className="w-3.5 h-3.5 shrink-0" /> : <Volume2 className="w-3.5 h-3.5 shrink-0" />}
+              <span>{isSpeakingAll ? 'Dừng đọc' : 'Đọc dặn dò'}</span>
             </button>
           )}
 
@@ -448,9 +448,9 @@ export default function PatientBanner({
               }}
               disabled={isLoading}
               title="Tải lại dữ liệu mới nhất từ Google Sheets"
-              className="min-h-[42px] min-w-[42px] p-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 border-2 border-slate-300 transition shadow-2xs cursor-pointer disabled:opacity-50 flex items-center justify-center shrink-0"
+              className="min-h-[38px] min-w-[38px] p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition cursor-pointer disabled:opacity-50 flex items-center justify-center shrink-0"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-700' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-teal-700' : ''}`} />
             </button>
           )}
 
@@ -460,11 +460,11 @@ export default function PatientBanner({
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
-            className="flex-1 sm:flex-initial justify-center min-h-[42px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black bg-white hover:bg-slate-100 text-slate-950 border-2 border-slate-300 flex items-center gap-1.5 transition shadow-2xs cursor-pointer whitespace-nowrap"
+            className="flex-1 sm:flex-initial justify-center min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center gap-1 transition cursor-pointer whitespace-nowrap"
           >
-            <span>{isExpanded ? 'Thu gọn' : `Bệnh án & Dặn dò (${localReminders.length})`}</span>
+            <span>{isExpanded ? 'Thu gọn' : `Hồ sơ & Dặn dò (${localReminders.length})`}</span>
             <ChevronDown
-              className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+              className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
                 isExpanded ? 'rotate-180' : ''
               }`}
             />
@@ -474,7 +474,7 @@ export default function PatientBanner({
 
       {/* CHI TIẾT BỆNH ÁN & DANH SÁCH NHẮC NHỞ (CHỈ HIỂN THỊ KHI BẤM MỞ RỘNG) */}
       {isExpanded && (
-        <div className="p-4 sm:p-6 border-t border-rose-100 bg-white space-y-5 animate-in fade-in duration-200">
+        <div className="p-4 sm:p-6 border-t border-slate-100 bg-white space-y-5 animate-in fade-in duration-200">
           <div className="absolute -right-10 -top-10 w-44 h-44 bg-rose-50 rounded-full blur-3xl pointer-events-none" />
 
           {/* PHẦN 1: THÔNG TIN HÀNH CHÍNH & CHẨN ĐOÁN BỆNH NHÂN (ĐẦY ĐỦ CRUD) */}

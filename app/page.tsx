@@ -610,10 +610,10 @@ export default function CareSchedulePage() {
   }, [showToast]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-rose-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-teal-600 selection:text-white">
       {/* Toast Notification (nâng cao hơn trên mobile để không đè lên thanh điều hướng đáy) */}
       {notification && (
-        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-white border-2 border-slate-300 shadow-2xl text-slate-900 text-xs sm:text-sm font-bold flex items-center gap-2 animate-bounce max-w-[92vw]">
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-white border border-slate-300 shadow-xl text-slate-900 text-xs sm:text-sm font-bold flex items-center gap-2 animate-bounce max-w-[92vw]">
           {notification.type === 'warn' ? (
             <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
           ) : (
@@ -640,12 +640,12 @@ export default function CareSchedulePage() {
       {/* Thân ứng dụng */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-2.5 sm:p-4 space-y-3.5">
         {!hasInitialLoaded && isLoading && (
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 text-blue-900 shadow-2xs">
+          <div className="bg-teal-50 border border-teal-200 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3 text-teal-900 shadow-2xs">
             <div className="flex items-center gap-2.5 text-sm font-bold">
-              <RefreshCw className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+              <RefreshCw className="w-4 h-4 text-teal-600 animate-spin shrink-0" />
               <span>Đang tải dữ liệu thực tế từ Google Sheets...</span>
             </div>
-            <span className="text-xs text-blue-600 font-semibold hidden sm:inline">Vui lòng đợi giây lát</span>
+            <span className="text-xs text-teal-700 font-semibold hidden sm:inline">Vui lòng đợi giây lát</span>
           </div>
         )}
 
@@ -663,32 +663,82 @@ export default function CareSchedulePage() {
         />
 
         {/* ===== NỘI DUNG THEO TAB (Giữ DOM sau khi mở để chuyển tab phản hồi 0ms) ===== */}
-        <div className={activeView === 'today' ? 'space-y-4' : 'hidden'}>
-          {/* 1. Form ghi huyết áp nhanh */}
-          <QuickVitalsForm
-            onSave={handleSaveVitals}
-            lastEntry={lastVitalsEntry}
-            bpThresholds={bpThresholds}
-            defaultRecorder={recorderName}
-            members={members}
-          />
+        <div className={activeView === 'today' ? 'space-y-3.5' : 'hidden'}>
+          {/* Thanh điều hướng nhanh 3 khu vực thao tác trong ngày */}
+          <div className="grid grid-cols-3 gap-2">
+            <a
+              href="#section-vitals"
+              className="rounded-xl border border-slate-200/90 bg-white hover:bg-teal-50/50 hover:border-teal-300 px-2.5 py-2 flex items-center justify-between gap-1.5 shadow-2xs transition"
+            >
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-slate-500 block truncate">1. Huyết áp</span>
+                <span className="text-xs sm:text-sm font-extrabold text-slate-900 block truncate">
+                  {lastVitalsEntry ? `${lastVitalsEntry.sys}/${lastVitalsEntry.dia} mmHg` : 'Đo ngay'}
+                </span>
+              </div>
+              <span className="text-base shrink-0">💓</span>
+            </a>
 
-          {/* 2. Lịch tái khám */}
-          <AppointmentSection
-            appointment={appointment}
-            onSave={handleSaveAppointment}
-            isAdmin={isAdmin}
-          />
+            <a
+              href="#section-routine"
+              className="rounded-xl border border-slate-200/90 bg-white hover:bg-teal-50/50 hover:border-teal-300 px-2.5 py-2 flex items-center justify-between gap-1.5 shadow-2xs transition"
+            >
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-slate-500 block truncate">2. Thuốc & Tập</span>
+                <span className="text-xs sm:text-sm font-extrabold text-teal-800 block truncate">
+                  {todayDailyLogs.filter((l) => l.isDone).length} đã xong
+                </span>
+              </div>
+              <span className="text-base shrink-0">💊</span>
+            </a>
 
-          {/* 3. Checklist thuốc + tập phục hồi hôm nay */}
-          <DailyRoutineView
-            routines={activeRoutines}
-            dailyLogs={todayDailyLogs}
-            todayStr={todayStr}
-            onToggle={handleToggleDailyLog}
-            onOpenManager={handleOpenRoutineManager}
-            defaultRecorder={recorderName}
-          />
+            <a
+              href="#section-appointment"
+              className="rounded-xl border border-slate-200/90 bg-white hover:bg-teal-50/50 hover:border-teal-300 px-2.5 py-2 flex items-center justify-between gap-1.5 shadow-2xs transition"
+            >
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-slate-500 block truncate">3. Tái khám</span>
+                <span className="text-xs sm:text-sm font-extrabold text-slate-900 block truncate">
+                  {appointment.nextDate
+                    ? appointment.nextDate.split('-').reverse().slice(0, 2).join('/')
+                    : 'Xem lịch'}
+                </span>
+              </div>
+              <span className="text-base shrink-0">📅</span>
+            </a>
+          </div>
+
+          {/* 1. Form ghi huyết áp nhanh (Ưu tiên số 1 mỗi ca) */}
+          <div id="section-vitals" className="scroll-mt-20">
+            <QuickVitalsForm
+              onSave={handleSaveVitals}
+              lastEntry={lastVitalsEntry}
+              bpThresholds={bpThresholds}
+              defaultRecorder={recorderName}
+              members={members}
+            />
+          </div>
+
+          {/* 2. Checklist thuốc + tập phục hồi hôm nay (Ưu tiên số 2 ngay sau khi đo HA) */}
+          <div id="section-routine" className="scroll-mt-20">
+            <DailyRoutineView
+              routines={activeRoutines}
+              dailyLogs={todayDailyLogs}
+              todayStr={todayStr}
+              onToggle={handleToggleDailyLog}
+              onOpenManager={handleOpenRoutineManager}
+              defaultRecorder={recorderName}
+            />
+          </div>
+
+          {/* 3. Lịch tái khám & lời dặn bác sĩ */}
+          <div id="section-appointment" className="scroll-mt-20">
+            <AppointmentSection
+              appointment={appointment}
+              onSave={handleSaveAppointment}
+              isAdmin={isAdmin}
+            />
+          </div>
         </div>
 
         {visitedViews.charts && (

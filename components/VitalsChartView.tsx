@@ -333,8 +333,8 @@ export function VitalsChartView({
   if (vitalsLog.length === 0) {
     return (
       <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-6 sm:p-8 text-center">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center">
-          <Activity className="w-8 h-8 text-indigo-500" />
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center">
+          <Activity className="w-8 h-8 text-teal-500" />
         </div>
         <h2 className="text-lg font-black text-slate-900 mb-2">
           📈 Biểu Đồ Huyết Áp
@@ -460,9 +460,9 @@ export function VitalsChartView({
           <button
             key={value}
             onClick={() => setDateRange(value)}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
               dateRange === value
-                ? 'bg-indigo-600 text-white shadow-md'
+                ? 'bg-teal-700 text-white shadow-xs'
                 : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
             }`}
           >
@@ -474,7 +474,7 @@ export function VitalsChartView({
       {/* ===== SECTION 3: Biểu đồ / Timeline ===== */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-          <Activity className="w-4 h-4 text-indigo-500" />
+          <Activity className="w-4 h-4 text-teal-600" />
           <h3 className="text-sm font-black text-slate-800">
             {filteredLog.length >= 7 ? 'Biểu Đồ Xu Hướng Huyết Áp' : 'Dòng Thời Gian Đo Huyết Áp'}
           </h3>
@@ -626,7 +626,7 @@ export function VitalsChartView({
                       <button
                         type="button"
                         onClick={() => handleOpenEdit(v)}
-                        className="px-2.5 py-1 rounded-lg bg-white/80 hover:bg-white text-indigo-700 border border-indigo-200 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-white/80 hover:bg-white text-teal-700 border border-teal-200 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                         <span>Sửa</span>
@@ -652,7 +652,7 @@ export function VitalsChartView({
       {/* ===== SECTION 4: Bảng lịch sử đo chi tiết ===== */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-indigo-500" />
+          <Calendar className="w-4 h-4 text-teal-500" />
           <h3 className="text-sm font-black text-slate-800">Lịch Sử Đo Chi Tiết</h3>
           <span className="text-xs text-slate-400 ml-auto">
             {filteredLog.length} bản ghi
@@ -720,7 +720,7 @@ export function VitalsChartView({
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(v)}
-                            className="p-2 rounded-xl bg-indigo-50/70 hover:bg-indigo-100 text-indigo-600 hover:text-indigo-800 transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
+                            className="p-2 rounded-xl bg-teal-50/70 hover:bg-teal-100 text-teal-600 hover:text-teal-800 transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
                             title="Sửa lại chỉ số này"
                           >
                             <Edit3 className="w-4 h-4" />
@@ -748,7 +748,7 @@ export function VitalsChartView({
         {hasMoreHistory && (
           <button
             onClick={() => setHistoryExpanded(!historyExpanded)}
-            className="w-full px-4 py-2.5 text-sm font-bold text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center justify-center gap-1.5 border-t border-slate-100"
+            className="w-full px-4 py-2.5 text-sm font-bold text-teal-600 hover:bg-teal-50 transition-colors flex items-center justify-center gap-1.5 border-t border-slate-100"
           >
             {historyExpanded ? (
               <>
@@ -832,7 +832,7 @@ export function VitalsChartView({
             {/* Header Modal */}
             <div className="px-4 sm:px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2 shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shrink-0">
                   <Edit3 className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
@@ -873,7 +873,7 @@ export function VitalsChartView({
                   />
                 </div>
 
-                <div className="bg-indigo-50/60 p-3 rounded-2xl border-2 border-indigo-200 flex flex-col justify-between">
+                <div className="bg-teal-50/60 p-3 rounded-2xl border-2 border-teal-200 flex flex-col justify-between">
                   <label className="block text-xs sm:text-sm font-black text-slate-900 mb-1.5 text-center">
                     2️⃣ SỐ DƯỚI (DIA)
                   </label>
@@ -885,7 +885,7 @@ export function VitalsChartView({
                     min={20}
                     max={200}
                     required
-                    className="w-full text-2xl sm:text-3xl font-black text-center text-slate-950 bg-white border-2 border-slate-300 rounded-xl py-2.5 px-2 focus:outline-none focus:border-indigo-600"
+                    className="w-full text-2xl sm:text-3xl font-black text-center text-slate-950 bg-white border-2 border-slate-300 rounded-xl py-2.5 px-2 focus:outline-none focus:border-teal-600"
                   />
                 </div>
               </div>
@@ -923,7 +923,7 @@ export function VitalsChartView({
                     placeholder="VD: 78"
                     min={30}
                     max={250}
-                    className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-base font-black text-slate-900 focus:outline-none focus:border-indigo-600"
+                    className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-base font-black text-slate-900 focus:outline-none focus:border-teal-600"
                   />
                 </div>
 
@@ -935,7 +935,7 @@ export function VitalsChartView({
                     <select
                       value={editRecorder}
                       onChange={(e) => setEditRecorder(e.target.value)}
-                      className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-600"
+                      className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:border-teal-600"
                     >
                       {!members.some((m) => m.name === editRecorder) && editRecorder && (
                         <option value={editRecorder}>{editRecorder}</option>
@@ -951,7 +951,7 @@ export function VitalsChartView({
                       type="text"
                       value={editRecorder}
                       onChange={(e) => setEditRecorder(e.target.value)}
-                      className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-600"
+                      className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:border-teal-600"
                     />
                   )}
                 </div>
@@ -968,7 +968,7 @@ export function VitalsChartView({
                     value={editDate}
                     onChange={(e) => setEditDate(e.target.value)}
                     required
-                    className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-600"
+                    className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:border-teal-600"
                   />
                 </div>
                 <div>
@@ -980,7 +980,7 @@ export function VitalsChartView({
                     value={editTime}
                     onChange={(e) => setEditTime(e.target.value)}
                     required
-                    className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-600"
+                    className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:border-teal-600"
                   />
                 </div>
               </div>
@@ -1023,7 +1023,7 @@ export function VitalsChartView({
                   value={editNote}
                   onChange={(e) => setEditNote(e.target.value)}
                   placeholder="VD: Sau tập đứng, hơi mệt..."
-                  className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-600"
+                  className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-medium text-slate-900 focus:outline-none focus:border-teal-600"
                 />
               </div>
 
@@ -1039,7 +1039,7 @@ export function VitalsChartView({
                 <button
                   type="submit"
                   disabled={isSavingEdit}
-                  className="min-h-[46px] px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black shadow-md flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
+                  className="min-h-[46px] px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-black shadow-md flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>{isSavingEdit ? 'Đang lưu...' : 'Lưu thay đổi'}</span>
