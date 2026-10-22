@@ -256,12 +256,17 @@ export default function CareSchedulePage() {
   const handleSaveVitals = useCallback(async (entry: VitalsLogEntry) => {
     setVitalsLog((prev) => {
       const exists = prev.findIndex((v) => v.id === entry.id);
+      let next: VitalsLogEntry[];
       if (exists >= 0) {
-        const updated = [...prev];
-        updated[exists] = entry;
-        return updated;
+        next = [...prev];
+        next[exists] = entry;
+      } else {
+        next = [entry, ...prev];
       }
-      return [entry, ...prev];
+      return next.sort((a, b) => {
+        const cmp = b.date.localeCompare(a.date);
+        return cmp !== 0 ? cmp : b.time.localeCompare(a.time);
+      });
     });
     showToast('💓 Đã lưu chỉ số huyết áp!', 'success');
 
@@ -695,6 +700,7 @@ export default function CareSchedulePage() {
               dailyLogs={dailyLogs}
               careRoutines={careRoutines}
               isAdmin={isAdmin}
+              members={members}
               onDeleteVitals={handleDeleteVitals}
               onSaveVitals={handleSaveVitals}
             />

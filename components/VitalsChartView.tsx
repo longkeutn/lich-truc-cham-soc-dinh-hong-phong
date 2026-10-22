@@ -16,6 +16,9 @@ import {
   TrendingDown,
   ArrowRight,
   Trash2,
+  Edit3,
+  X,
+  Check,
   Activity,
   Pill,
   Heart,
@@ -25,12 +28,14 @@ import {
 } from 'lucide-react';
 import type {
   VitalsLogEntry,
+  VitalsPeriod,
   BpThresholds,
   DailyLog,
   CareRoutine,
   AlertLevel,
+  FamilyMember,
 } from '@/lib/types';
-import { TIME_SLOT_CONFIG } from '@/lib/config';
+import { TIME_SLOT_CONFIG, computeAlertLevel } from '@/lib/config';
 
 // =============================================
 // TYPES & HELPERS
@@ -44,6 +49,7 @@ interface VitalsChartViewProps {
   dailyLogs: DailyLog[];
   careRoutines: CareRoutine[];
   isAdmin: boolean;
+  members?: FamilyMember[];
   onDeleteVitals: (id: string) => Promise<void>;
   onSaveVitals: (entry: VitalsLogEntry) => Promise<void>;
 }
@@ -123,12 +129,25 @@ export function VitalsChartView({
   bpThresholds,
   dailyLogs,
   careRoutines,
-  isAdmin,
+  members = [],
   onDeleteVitals,
+  onSaveVitals,
 }: VitalsChartViewProps) {
   const [dateRange, setDateRange] = useState<DateRange>('7d');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [historyExpanded, setHistoryExpanded] = useState(false);
+
+  // ===== State sửa bản ghi huyết áp =====
+  const [editingEntry, setEditingEntry] = useState<VitalsLogEntry | null>(null);
+  const [editSys, setEditSys] = useState('');
+  const [editDia, setEditDia] = useState('');
+  const [editPulse, setEditPulse] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [editPeriod, setEditPeriod] = useState<VitalsPeriod>('morning');
+  const [editRecorder, setEditRecorder] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // ===== Lọc dữ liệu theo khoảng thời gian =====
   const filteredLog = useMemo(() => {
@@ -241,13 +260,64 @@ export function VitalsChartView({
   }, [filteredLog]);
 
   // ===== Xóa vitals handler =====
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (entry: VitalsLogEntry) => {
     if (deletingId) return;
-    setDeletingId(id);
+    const confirmed = window.confirm(
+      `Bạn muốn xóa bản ghi huyết áp ${entry.sys}/${entry.dia} mmHg lúc ${entry.time} (${fmtDateShort(entry.date)})?`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(entry.id);
     try {
-      await onDeleteVitals(id);
+      await onDeleteVitals(entry.id);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  // ===== Mở form sửa bản ghi huyết áp =====
+  const handleOpenEdit = (entry: VitalsLogEntry) => {
+    setEditingEntry(entry);
+    setEditSys(String(entry.sys));
+    setEditDia(String(entry.dia));
+    setEditPulse(entry.pulse ? String(entry.pulse) : '');
+    setEditDate(entry.date);
+    setEditTime(entry.time);
+    setEditPeriod(entry.period);
+    setEditRecorder(entry.recordedBy || 'Mẹ');
+    setEditNote(entry.note || '');
+  };
+
+  // ===== Lưu bản ghi huyết áp sau khi sửa =====
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEntry || isSavingEdit) return;
+    const sysNum = parseInt(editSys, 10);
+    const diaNum = parseInt(editDia, 10);
+    if (isNaN(sysNum) || isNaN(diaNum) || sysNum <= 0 || diaNum <= 0) return;
+
+    const pulseNum = editPulse.trim() ? parseInt(editPulse, 10) : undefined;
+    const newAlert = computeAlertLevel(sysNum, diaNum, bpThresholds);
+
+    const updated: VitalsLogEntry = {
+      ...editingEntry,
+      date: editDate || editingEntry.date,
+      time: editTime || editingEntry.time,
+      period: editPeriod,
+      sys: sysNum,
+      dia: diaNum,
+      pulse: pulseNum && !isNaN(pulseNum) && pulseNum > 0 ? pulseNum : undefined,
+      note: editNote.trim() || undefined,
+      recordedBy: editRecorder.trim() || editingEntry.recordedBy,
+      alertLevel: newAlert,
+    };
+
+    setIsSavingEdit(true);
+    try {
+      await onSaveVitals(updated);
+      setEditingEntry(null);
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -552,6 +622,25 @@ export function VitalsChartView({
                     {v.note && (
                       <div className="text-xs text-slate-500 mt-1 italic break-words">📝 {v.note}</div>
                     )}
+                    <div className="flex items-center justify-end gap-1.5 mt-2 pt-2 border-t border-black/5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(v)}
+                        className="px-2.5 py-1 rounded-lg bg-white/80 hover:bg-white text-indigo-700 border border-indigo-200 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Sửa</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(v)}
+                        disabled={deletingId === v.id}
+                        className="px-2.5 py-1 rounded-lg bg-white/80 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 text-xs font-bold flex items-center gap-1 transition disabled:opacity-50 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Xóa</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -584,7 +673,7 @@ export function VitalsChartView({
                   <th className="text-center px-3 py-2.5 font-bold hidden sm:table-cell">Mạch</th>
                   <th className="text-center px-2 sm:px-3 py-2.5 font-bold">Trạng thái</th>
                   <th className="text-left px-3 py-2.5 font-bold hidden sm:table-cell">Ghi chú</th>
-                  {isAdmin && <th className="text-center px-1.5 sm:px-3 py-2.5 font-bold w-10 sm:w-12"></th>}
+                  <th className="text-center px-2 sm:px-3 py-2.5 font-bold">Sửa / Xóa</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -626,18 +715,27 @@ export function VitalsChartView({
                       <td className="px-3 py-3 text-slate-600 text-xs hidden sm:table-cell max-w-[180px] truncate">
                         {v.note || '—'}
                       </td>
-                      {isAdmin && (
-                        <td className="px-1.5 sm:px-3 py-3 text-center">
+                      <td className="px-1.5 sm:px-3 py-3 text-center">
+                        <div className="inline-flex items-center justify-center gap-1">
                           <button
-                            onClick={() => handleDelete(v.id)}
+                            type="button"
+                            onClick={() => handleOpenEdit(v)}
+                            className="p-2 rounded-xl bg-indigo-50/70 hover:bg-indigo-100 text-indigo-600 hover:text-indigo-800 transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
+                            title="Sửa lại chỉ số này"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(v)}
                             disabled={deletingId === v.id}
-                            className="p-2 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-500 transition-colors disabled:opacity-50 min-h-[40px] min-w-[40px]"
+                            className="p-2 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-500 transition-colors disabled:opacity-50 min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
                             title="Xóa bản ghi"
                           >
-                            <Trash2 className="w-4 h-4 mx-auto" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                        </td>
-                      )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -717,6 +815,237 @@ export function VitalsChartView({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== MODAL SỬA LẠI BẢN GHI HUYẾT ÁP ===== */}
+      {editingEntry && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+          onClick={() => setEditingEntry(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-lg w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border-2 border-slate-200 animate-in fade-in duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Modal */}
+            <div className="px-4 sm:px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 truncate">
+                    Sửa Lại Bản Ghi Huyết Áp
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate">
+                    Cập nhật trực tiếp lên biểu đồ & Google Sheets
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingEntry(null)}
+                className="w-9 h-9 rounded-xl bg-slate-200/70 hover:bg-slate-300 text-slate-700 flex items-center justify-center shrink-0 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body Form */}
+            <form onSubmit={handleSaveEdit} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+              {/* 1. Hai ô số SYS / DIA */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-rose-50/60 p-3 rounded-2xl border-2 border-rose-200 flex flex-col justify-between">
+                  <label className="block text-xs sm:text-sm font-black text-slate-900 mb-1.5 text-center">
+                    1️⃣ SỐ TRÊN (SYS)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={editSys}
+                    onChange={(e) => setEditSys(e.target.value)}
+                    min={40}
+                    max={300}
+                    required
+                    className="w-full text-2xl sm:text-3xl font-black text-center text-slate-950 bg-white border-2 border-slate-300 rounded-xl py-2.5 px-2 focus:outline-none focus:border-rose-600"
+                  />
+                </div>
+
+                <div className="bg-indigo-50/60 p-3 rounded-2xl border-2 border-indigo-200 flex flex-col justify-between">
+                  <label className="block text-xs sm:text-sm font-black text-slate-900 mb-1.5 text-center">
+                    2️⃣ SỐ DƯỚI (DIA)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={editDia}
+                    onChange={(e) => setEditDia(e.target.value)}
+                    min={20}
+                    max={200}
+                    required
+                    className="w-full text-2xl sm:text-3xl font-black text-center text-slate-950 bg-white border-2 border-slate-300 rounded-xl py-2.5 px-2 focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+              </div>
+
+              {/* Xem trước trạng thái cảnh báo sau khi sửa */}
+              {(() => {
+                const sNum = parseInt(editSys, 10);
+                const dNum = parseInt(editDia, 10);
+                if (!isNaN(sNum) && !isNaN(dNum) && sNum > 0 && dNum > 0) {
+                  const previewLevel = computeAlertLevel(sNum, dNum, bpThresholds);
+                  const previewColors = alertColors(previewLevel);
+                  return (
+                    <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                      <span className="font-bold text-slate-600">Đánh giá chỉ số mới:</span>
+                      <span className={`px-2.5 py-0.5 rounded-full font-bold border ${previewColors.badge}`}>
+                        {alertLabel(previewLevel)}
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* 2. Nhịp tim & Người đo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-black text-slate-700 mb-1">
+                    💓 Nhịp tim / Mạch (bpm)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={editPulse}
+                    onChange={(e) => setEditPulse(e.target.value)}
+                    placeholder="VD: 78"
+                    min={30}
+                    max={250}
+                    className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-base font-black text-slate-900 focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black text-slate-700 mb-1">
+                    👤 Người đo
+                  </label>
+                  {members.length > 0 ? (
+                    <select
+                      value={editRecorder}
+                      onChange={(e) => setEditRecorder(e.target.value)}
+                      className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-600"
+                    >
+                      {!members.some((m) => m.name === editRecorder) && editRecorder && (
+                        <option value={editRecorder}>{editRecorder}</option>
+                      )}
+                      {members.map((m) => (
+                        <option key={m.id} value={m.name}>
+                          {m.name} ({m.relation})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={editRecorder}
+                      onChange={(e) => setEditRecorder(e.target.value)}
+                      className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-600"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* 3. Ngày đo & Giờ đo */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-black text-slate-700 mb-1">
+                    📅 Ngày đo
+                  </label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    required
+                    className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-700 mb-1">
+                    🕒 Giờ đo
+                  </label>
+                  <input
+                    type="time"
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    required
+                    className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-600"
+                  />
+                </div>
+              </div>
+
+              {/* 4. Buổi đo */}
+              <div>
+                <label className="block text-xs font-black text-slate-700 mb-1.5">
+                  ⏰ Buổi đo
+                </label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(['morning', 'noon', 'afternoon', 'evening'] as VitalsPeriod[]).map((p) => {
+                    const cfg = TIME_SLOT_CONFIG[p];
+                    const active = editPeriod === p;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setEditPeriod(p)}
+                        className={`min-h-[46px] rounded-xl text-xs font-black border-2 transition cursor-pointer ${
+                          active
+                            ? 'bg-slate-900 text-white border-slate-950'
+                            : 'bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200'
+                        }`}
+                      >
+                        <span className="block text-sm leading-none mb-0.5">{cfg.emoji}</span>
+                        <span>{cfg.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 5. Ghi chú */}
+              <div>
+                <label className="block text-xs font-black text-slate-700 mb-1">
+                  📝 Ghi chú
+                </label>
+                <input
+                  type="text"
+                  value={editNote}
+                  onChange={(e) => setEditNote(e.target.value)}
+                  placeholder="VD: Sau tập đứng, hơi mệt..."
+                  className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-medium text-slate-900 focus:outline-none focus:border-indigo-600"
+                />
+              </div>
+
+              {/* Footer buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingEntry(null)}
+                  className="min-h-[46px] px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold transition cursor-pointer"
+                >
+                  Huỷ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="min-h-[46px] px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black shadow-md flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{isSavingEdit ? 'Đang lưu...' : 'Lưu thay đổi'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

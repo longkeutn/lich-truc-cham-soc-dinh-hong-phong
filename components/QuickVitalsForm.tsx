@@ -16,6 +16,7 @@ import {
   RotateCcw,
   Sparkles,
   X,
+  Edit3,
 } from 'lucide-react';
 import { VitalsLogEntry, VitalsPeriod, BpThresholds, AlertLevel, FamilyMember } from '@/lib/types';
 import {
@@ -313,6 +314,7 @@ export default function QuickVitalsForm({
   // --- UI state ---
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<VitalsLogEntry | null>(null);
 
   // --- Voice Recognition state (Web Speech API + Local Vietnamese Parser) ---
   const [isListening, setIsListening] = useState(false);
@@ -398,6 +400,7 @@ export default function QuickVitalsForm({
 
   // --- Reset form ---
   const resetForm = useCallback(() => {
+    setEditingEntry(null);
     setSys('');
     setDia('');
     setPulse('');
@@ -408,6 +411,25 @@ export default function QuickVitalsForm({
     hasSpokenConfirmationRef.current = false;
     setPeriod(detectCurrentTimeSlot());
   }, []);
+
+  // --- Bắt đầu sửa lại lần đo gần nhất (nếu vừa nhập nhầm) ---
+  const handleStartEditLastEntry = useCallback(() => {
+    if (!lastEntry) return;
+    setEditingEntry(lastEntry);
+    setSys(String(lastEntry.sys));
+    setDia(String(lastEntry.dia));
+    setPulse(lastEntry.pulse ? String(lastEntry.pulse) : '');
+    setNote(lastEntry.note || '');
+    setPeriod(lastEntry.period);
+    if (lastEntry.recordedBy) {
+      setRecorder(lastEntry.recordedBy);
+      setHasUserSelectedRecorder(true);
+    }
+    setTimeout(() => {
+      sysInputRef.current?.focus();
+      sysInputRef.current?.select();
+    }, 50);
+  }, [lastEntry]);
 
   // --- Lưu dữ liệu huyết áp (hỗ trợ truyền trực tiếp giá trị từ giọng nói khi nói "lưu luôn") ---
   const performSave = useCallback(
@@ -439,17 +461,22 @@ export default function QuickVitalsForm({
       try {
         const now = new Date();
         const entry: VitalsLogEntry = {
-          id: `vl-${Date.now()}`,
-          date: now.toISOString().slice(0, 10),
-          time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+          id: editingEntry ? editingEntry.id : `vl-${Date.now()}`,
+          date: editingEntry ? editingEntry.date : now.toISOString().slice(0, 10),
+          time: editingEntry
+            ? editingEntry.time
+            : `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
           period: finalPeriod,
           sys: finalSys,
           dia: finalDia,
           pulse: finalPulse,
+          spo2: editingEntry?.spo2,
+          temp: editingEntry?.temp,
+          bloodSugar: editingEntry?.bloodSugar,
           note: finalNote,
           alertLevel: finalAlert,
           recordedBy: recorder,
-          createdAt: now.toISOString(),
+          createdAt: editingEntry ? editingEntry.createdAt : now.toISOString(),
         };
 
         setShowSuccess(true);
@@ -465,7 +492,7 @@ export default function QuickVitalsForm({
         setIsSaving(false);
       }
     },
-    [sysNum, diaNum, pulse, note, period, thresholds, recorder, isSaving, resetForm, onSave]
+    [sysNum, diaNum, pulse, note, period, thresholds, recorder, isSaving, editingEntry, resetForm, onSave]
   );
 
   const handleSave = async () => {
@@ -1002,10 +1029,10 @@ export default function QuickVitalsForm({
         )}
       </div>
 
-      {/* ===== LẦN ĐO GẦN NHẤT (CHỮ TO RÕ ĐỂ MẸ ĐỐI CHIẾU) ===== */}
+      {/* ===== LẦN ĐO GẦN NHẤT (CHỮ TO RÕ ĐỂ MẸ ĐỐI CHIẾU + NÚT SỬA LẠI NẾU NHẬP NHẦM) ===== */}
       {lastEntry && (
         <div
-          className={`rounded-2xl border-2 p-3.5 flex items-center justify-between gap-3 ${getLastEntryBorderColor(lastEntry.alertLevel)}`}
+          className={`rounded-2xl border-2 p-3.5 flex items-center justify-between gap-2.5 flex-wrap ${getLastEntryBorderColor(lastEntry.alertLevel)}`}
         >
           <div className="min-w-0">
             <p className="text-xs sm:text-sm font-black text-slate-700 mb-0.5">
@@ -1022,19 +1049,62 @@ export default function QuickVitalsForm({
             </p>
           </div>
 
-          {/* Trend arrows — only show when user has entered values */}
-          {hasBothValues && (
-            <div className="flex flex-col items-center gap-1 shrink-0 bg-white/80 px-2.5 py-1.5 rounded-xl border border-slate-300">
-              <div className="flex items-center gap-1" title="Xu hướng số trên">
-                <span className="text-xs font-black text-slate-700">Trên</span>
-                {renderTrendIcon(computeTrend(sysNum, lastEntry.sys))}
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            {/* Trend arrows — only show when user has entered values */}
+            {hasBothValues && !editingEntry && (
+              <div className="flex flex-col items-center gap-1 shrink-0 bg-white/80 px-2.5 py-1.5 rounded-xl border border-slate-300">
+                <div className="flex items-center gap-1" title="Xu hướng số trên">
+                  <span className="text-xs font-black text-slate-700">Trên</span>
+                  {renderTrendIcon(computeTrend(sysNum, lastEntry.sys))}
+                </div>
+                <div className="flex items-center gap-1" title="Xu hướng số dưới">
+                  <span className="text-xs font-black text-slate-700">Dưới</span>
+                  {renderTrendIcon(computeTrend(diaNum, lastEntry.dia))}
+                </div>
               </div>
-              <div className="flex items-center gap-1" title="Xu hướng số dưới">
-                <span className="text-xs font-black text-slate-700">Dưới</span>
-                {renderTrendIcon(computeTrend(diaNum, lastEntry.dia))}
-              </div>
-            </div>
-          )}
+            )}
+
+            {/* Nút sửa lại lần đo gần nhất nếu nhập nhầm */}
+            {editingEntry?.id === lastEntry.id ? (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="min-h-[42px] px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs sm:text-sm font-black flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <X className="w-4 h-4 shrink-0" />
+                <span>Huỷ sửa</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleStartEditLastEntry}
+                className="min-h-[42px] px-3 py-2 rounded-xl bg-white hover:bg-amber-50 text-slate-800 hover:text-amber-900 border-2 border-slate-300 hover:border-amber-400 text-xs sm:text-sm font-black flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+                title="Sửa lại chỉ số của lần đo này nếu vừa nhập nhầm"
+              >
+                <Edit3 className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Sửa lại</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== THÔNG BÁO ĐANG Ở CHẾ ĐỘ SỬA LẠI LẦN ĐO ===== */}
+      {editingEntry && (
+        <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-3 flex items-center justify-between gap-2 animate-in fade-in duration-200">
+          <div className="text-xs sm:text-sm font-black text-amber-950 flex items-center gap-2 min-w-0">
+            <Edit3 className="w-4 h-4 text-amber-700 shrink-0" />
+            <span className="truncate">
+              Đang sửa lại lần đo lúc <u>{editingEntry.time}</u> ({editingEntry.sys}/{editingEntry.dia} mmHg)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={resetForm}
+            className="px-2.5 py-1 rounded-lg bg-amber-200/80 hover:bg-amber-300 text-amber-950 text-xs font-black shrink-0 cursor-pointer"
+          >
+            Huỷ
+          </button>
         </div>
       )}
 
@@ -1162,8 +1232,12 @@ export default function QuickVitalsForm({
             </>
           ) : hasBothValues ? (
             <>
-              <span className="shrink-0">💓</span>
-              <span>BẤM LƯU HUYẾT ÁP ({sysNum}/{diaNum})</span>
+              <span className="shrink-0">{editingEntry ? '💾' : '💓'}</span>
+              <span>
+                {editingEntry
+                  ? `CẬP NHẬT LẠI HUYẾT ÁP (${sysNum}/${diaNum})`
+                  : `BẤM LƯU HUYẾT ÁP (${sysNum}/{diaNum})`}
+              </span>
             </>
           ) : (
             <>
