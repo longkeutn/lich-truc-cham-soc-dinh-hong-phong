@@ -749,16 +749,16 @@ export function RoutineManagerModal({
                           return (
                             <div
                               key={routine.id}
-                              className={`p-3.5 rounded-2xl border transition ${
+                              className={`p-3 sm:p-3.5 rounded-2xl border transition space-y-2 ${
                                 routine.isActive
                                   ? 'bg-white dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
                                   : 'bg-slate-50/50 dark:bg-slate-900/30 border-slate-200/50 opacity-60'
                               }`}
                             >
-                              <div className="flex items-start justify-between gap-3">
-                                {/* Left: info */}
-                                <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                                  <GripVertical size={16} className="text-slate-300 mt-1 flex-shrink-0" />
+                              {/* Tầng 1: Ảnh + Tên + Liều lượng (Trái) & Nút thao tác (Phải) */}
+                              <div className="flex items-start justify-between gap-2.5">
+                                <div className="flex items-start gap-2 sm:gap-2.5 min-w-0 flex-1">
+                                  <GripVertical size={16} className="text-slate-300 mt-1 flex-shrink-0 hidden sm:block" />
                                   {routine.imageUrl && (
                                     <button
                                       type="button"
@@ -780,9 +780,9 @@ export function RoutineManagerModal({
                                       />
                                     </button>
                                   )}
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <h5 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <h5 className="text-sm font-bold text-slate-800 dark:text-slate-100 break-words">
                                         {routine.title}
                                       </h5>
                                       {!routine.isActive && (
@@ -798,12 +798,7 @@ export function RoutineManagerModal({
                                     </div>
                                     {routine.dosage && (
                                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 font-medium">
-                                        {routine.dosage}
-                                      </p>
-                                    )}
-                                    {routine.description && (
-                                      <p className="text-xs text-indigo-700 dark:text-indigo-300 mt-1 bg-indigo-50/70 dark:bg-indigo-950/40 px-2 py-1 rounded-lg border border-indigo-100 dark:border-indigo-900/60">
-                                        🔍 {routine.description}
+                                        💊 Liều: {routine.dosage}
                                       </p>
                                     )}
                                     {/* Time slot pills */}
@@ -823,70 +818,81 @@ export function RoutineManagerModal({
                                 </div>
 
                                 {/* Right: actions */}
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  {isConfirming ? (
-                                    <div className="flex items-center gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDelete(routine.id)}
-                                        disabled={isSaving}
-                                        className="px-2 py-1.5 rounded-lg text-[11px] font-bold bg-rose-600 text-white hover:bg-rose-500 transition min-h-[36px]"
-                                      >
-                                        Xoá hẳn!
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSoftDelete(routine)}
-                                        disabled={isSaving}
-                                        className="px-2 py-1.5 rounded-lg text-[11px] font-bold bg-amber-500 text-white hover:bg-amber-400 transition min-h-[36px]"
-                                      >
-                                        Tạm ngưng
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => setConfirmDeleteId(null)}
-                                        className="px-2 py-1.5 rounded-lg text-[11px] text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 min-h-[36px]"
-                                      >
-                                        Huỷ
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      {/* Toggle active */}
-                                      <button
-                                        type="button"
-                                        onClick={() => handleToggleActive(routine)}
-                                        className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs transition ${
-                                          routine.isActive
-                                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                                            : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                                        }`}
-                                        title={routine.isActive ? 'Tạm ngưng' : 'Kích hoạt lại'}
-                                      >
-                                        {routine.isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                                      </button>
-                                      {/* Edit */}
-                                      <button
-                                        type="button"
-                                        onClick={() => startEdit(routine)}
-                                        className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center text-xs transition"
-                                        title="Sửa"
-                                      >
-                                        ✏️
-                                      </button>
-                                      {/* Delete */}
-                                      <button
-                                        type="button"
-                                        onClick={() => setConfirmDeleteId(routine.id)}
-                                        className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-950/40 text-slate-400 flex items-center justify-center text-xs transition"
-                                        title="Xoá"
-                                      >
-                                        <Trash2 size={14} />
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
+                                {!isConfirming && (
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    {/* Toggle active */}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleActive(routine)}
+                                      className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs transition ${
+                                        routine.isActive
+                                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                          : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                      }`}
+                                      title={routine.isActive ? 'Tạm ngưng' : 'Kích hoạt lại'}
+                                    >
+                                      {routine.isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                    </button>
+                                    {/* Edit */}
+                                    <button
+                                      type="button"
+                                      onClick={() => startEdit(routine)}
+                                      className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center text-xs transition"
+                                      title="Sửa"
+                                    >
+                                      ✏️
+                                    </button>
+                                    {/* Delete */}
+                                    <button
+                                      type="button"
+                                      onClick={() => setConfirmDeleteId(routine.id)}
+                                      className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-950/40 text-slate-400 flex items-center justify-center text-xs transition"
+                                      title="Xoá"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                )}
                               </div>
+
+                              {/* Tầng 2: Mô tả thuốc trải rộng đều 100% chiều ngang thẻ */}
+                              {routine.description && (
+                                <p className="w-full text-xs text-indigo-800 dark:text-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/40 px-2.5 py-1.5 rounded-xl border border-indigo-100 dark:border-indigo-900/60 line-clamp-2 leading-relaxed">
+                                  🔍 {routine.description}
+                                </p>
+                              )}
+
+                              {/* Thanh xác nhận xoá full-width trên mobile */}
+                              {isConfirming && (
+                                <div className="flex items-center justify-end gap-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800 flex-wrap">
+                                  <span className="text-[11px] font-bold text-rose-600 mr-auto">
+                                    Bạn muốn xoá hay tạm ngưng?
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDelete(routine.id)}
+                                    disabled={isSaving}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 transition min-h-[36px]"
+                                  >
+                                    Xoá hẳn!
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSoftDelete(routine)}
+                                    disabled={isSaving}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white hover:bg-amber-400 transition min-h-[36px]"
+                                  >
+                                    Tạm ngưng
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmDeleteId(null)}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 min-h-[36px]"
+                                  >
+                                    Huỷ
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -922,15 +928,15 @@ export function RoutineManagerModal({
           }}
         >
           <div
-            className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-700"
+            className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-700"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative bg-slate-100 dark:bg-slate-800 flex items-center justify-center max-h-[65vh] overflow-hidden">
+            <div className="relative bg-slate-100 dark:bg-slate-800 flex items-center justify-center max-h-[55vh] sm:max-h-[65vh] overflow-hidden flex-shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={previewLightbox.url}
                 alt={previewLightbox.title}
-                className="w-full h-auto max-h-[65vh] object-contain"
+                className="w-full h-auto max-h-[55vh] sm:max-h-[65vh] object-contain"
               />
               <button
                 type="button"
@@ -940,12 +946,12 @@ export function RoutineManagerModal({
                 <X size={18} />
               </button>
             </div>
-            <div className="p-4 text-center">
+            <div className="p-4 text-center overflow-y-auto">
               <h4 className="text-base font-black text-slate-900 dark:text-white">
                 {previewLightbox.title}
               </h4>
               {previewLightbox.description && (
-                <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                <p className="text-sm text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed text-left">
                   {previewLightbox.description}
                 </p>
               )}

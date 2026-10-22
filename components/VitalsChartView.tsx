@@ -534,8 +534,8 @@ export function VitalsChartView({
                     )}
                   </div>
                   {/* Card */}
-                  <div className={`flex-1 rounded-xl border ${colors.border} ${colors.bg} p-3`}>
-                    <div className="flex items-baseline justify-between">
+                  <div className={`flex-1 min-w-0 rounded-xl border ${colors.border} ${colors.bg} p-3`}>
+                    <div className="flex items-baseline justify-between flex-wrap gap-1">
                       <span className={`text-lg font-black ${colors.text}`}>
                         {v.sys}/{v.dia}
                         <span className="text-xs font-bold ml-1">mmHg</span>
@@ -544,13 +544,13 @@ export function VitalsChartView({
                         {fmtDateFull(v.date)} · {v.time}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                    <div className="flex items-center gap-2 mt-1 text-xs text-slate-500 flex-wrap">
                       <span>{periodLabel(v.period)}</span>
                       {v.pulse && <span>❤️ {v.pulse} bpm</span>}
                       <span className="ml-auto">{v.recordedBy}</span>
                     </div>
                     {v.note && (
-                      <div className="text-xs text-slate-500 mt-1 italic">📝 {v.note}</div>
+                      <div className="text-xs text-slate-500 mt-1 italic break-words">📝 {v.note}</div>
                     )}
                   </div>
                 </div>
@@ -579,12 +579,12 @@ export function VitalsChartView({
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 text-xs text-slate-500 uppercase">
-                  <th className="text-left px-3 py-2.5 font-bold">Ngày / Giờ</th>
-                  <th className="text-center px-3 py-2.5 font-bold">Huyết áp</th>
+                  <th className="text-left px-2.5 sm:px-3 py-2.5 font-bold">Ngày / Giờ</th>
+                  <th className="text-center px-2 sm:px-3 py-2.5 font-bold">Huyết áp</th>
                   <th className="text-center px-3 py-2.5 font-bold hidden sm:table-cell">Mạch</th>
-                  <th className="text-center px-3 py-2.5 font-bold">Trạng thái</th>
+                  <th className="text-center px-2 sm:px-3 py-2.5 font-bold">Trạng thái</th>
                   <th className="text-left px-3 py-2.5 font-bold hidden sm:table-cell">Ghi chú</th>
-                  {isAdmin && <th className="text-center px-3 py-2.5 font-bold w-12"></th>}
+                  {isAdmin && <th className="text-center px-1.5 sm:px-3 py-2.5 font-bold w-10 sm:w-12"></th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -592,7 +592,7 @@ export function VitalsChartView({
                   const colors = alertColors(v.alertLevel);
                   return (
                     <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-3 py-3 text-slate-700">
+                      <td className="px-2.5 sm:px-3 py-3 text-slate-700">
                         <div className="font-bold text-slate-900">
                           {fmtDateShort(v.date)} <span className="font-normal text-slate-500">· {v.time}</span>
                         </div>
@@ -600,12 +600,12 @@ export function VitalsChartView({
                           {periodLabel(v.period)}
                         </div>
                         {v.note && (
-                          <div className="sm:hidden text-xs text-slate-600 italic mt-1">
+                          <div className="sm:hidden text-xs text-slate-600 italic mt-1 break-words">
                             📝 {v.note}
                           </div>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-center">
+                      <td className="px-2 sm:px-3 py-3 text-center whitespace-nowrap">
                         <span className={`font-black text-base sm:text-lg ${colors.text}`}>
                           {v.sys}/{v.dia}
                         </span>
@@ -618,8 +618,8 @@ export function VitalsChartView({
                       <td className="px-3 py-3 text-center text-slate-600 hidden sm:table-cell font-medium">
                         {v.pulse ? `${v.pulse} bpm` : '—'}
                       </td>
-                      <td className="px-3 py-3 text-center">
-                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${colors.badge}`}>
+                      <td className="px-2 sm:px-3 py-3 text-center">
+                        <span className={`inline-flex whitespace-nowrap px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-bold border ${colors.badge}`}>
                           {alertLabel(v.alertLevel)}
                         </span>
                       </td>
@@ -627,7 +627,7 @@ export function VitalsChartView({
                         {v.note || '—'}
                       </td>
                       {isAdmin && (
-                        <td className="px-3 py-3 text-center">
+                        <td className="px-1.5 sm:px-3 py-3 text-center">
                           <button
                             onClick={() => handleDelete(v.id)}
                             disabled={deletingId === v.id}
@@ -674,7 +674,7 @@ export function VitalsChartView({
             <Pill className="w-4 h-4 text-emerald-500" />
             Thống Kê Tuân Thủ (7 Ngày Qua)
           </h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {complianceStats.medsPercentage !== null && (
               <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
                 <div className="text-xs font-bold text-emerald-600 mb-1">💊 Uống Thuốc Đủ</div>

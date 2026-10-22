@@ -391,18 +391,18 @@ export default function PatientBanner({
     >
       {/* THANH TÓM TẮT THÔNG MINH (CHỮ TO, NÚT ĐỌC DẶN DÒ 1 CHẠM CHO NGƯỜI LỚN TUỔI) */}
       <div
-        className="p-3.5 sm:px-5 flex flex-wrap items-center justify-between gap-2.5 bg-amber-50/70 cursor-pointer select-none"
+        className="p-3 sm:p-3.5 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-amber-50/70 cursor-pointer select-none"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          <span className="relative flex h-3 w-3 shrink-0">
+        <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+          <span className="relative flex h-3 w-3 shrink-0 mt-1.5 sm:mt-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-700"></span>
           </span>
 
           <div className="flex items-center gap-2 text-sm sm:text-base font-black text-slate-950 min-w-0 flex-1">
             <span className="font-black text-rose-900 shrink-0 hidden sm:inline">{patient.name}:</span>
-            <span className="text-sm sm:text-base text-slate-950 font-black truncate">
+            <span className="text-sm sm:text-base text-slate-950 font-black line-clamp-2 sm:truncate leading-snug">
               {patient.notes
                 ? `⚠️ ${patient.notes}`
                 : isLoading
@@ -412,9 +412,9 @@ export default function PatientBanner({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap w-full sm:w-auto shrink-0">
           {urgentTotal > 0 && (
-            <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-rose-700 text-white shadow-2xs">
+            <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-rose-700 text-white shadow-2xs shrink-0">
               {urgentTotal} khẩn
             </span>
           )}
@@ -428,13 +428,13 @@ export default function PatientBanner({
                 handleReadAloudAll();
               }}
               title="Nghe điện thoại đọc to toàn bộ dặn dò hôm nay"
-              className={`min-h-[42px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black border-2 flex items-center gap-1.5 transition shadow-2xs cursor-pointer ${
+              className={`flex-1 sm:flex-initial justify-center min-h-[42px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black border-2 flex items-center gap-1.5 transition shadow-2xs cursor-pointer whitespace-nowrap ${
                 isSpeakingAll
                   ? 'bg-rose-700 text-white border-rose-900 animate-pulse'
                   : 'bg-indigo-700 hover:bg-indigo-800 text-white border-indigo-900'
               }`}
             >
-              {isSpeakingAll ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              {isSpeakingAll ? <VolumeX className="w-4 h-4 shrink-0" /> : <Volume2 className="w-4 h-4 shrink-0" />}
               <span>{isSpeakingAll ? 'Dừng đọc' : '🔊 Đọc dặn dò'}</span>
             </button>
           )}
@@ -448,7 +448,7 @@ export default function PatientBanner({
               }}
               disabled={isLoading}
               title="Tải lại dữ liệu mới nhất từ Google Sheets"
-              className="min-h-[42px] min-w-[42px] p-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 border-2 border-slate-300 transition shadow-2xs cursor-pointer disabled:opacity-50 flex items-center justify-center"
+              className="min-h-[42px] min-w-[42px] p-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 border-2 border-slate-300 transition shadow-2xs cursor-pointer disabled:opacity-50 flex items-center justify-center shrink-0"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-700' : ''}`} />
             </button>
@@ -460,11 +460,11 @@ export default function PatientBanner({
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
-            className="min-h-[42px] px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black bg-white hover:bg-slate-100 text-slate-950 border-2 border-slate-300 flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+            className="flex-1 sm:flex-initial justify-center min-h-[42px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black bg-white hover:bg-slate-100 text-slate-950 border-2 border-slate-300 flex items-center gap-1.5 transition shadow-2xs cursor-pointer whitespace-nowrap"
           >
             <span>{isExpanded ? 'Thu gọn' : `Bệnh án & Dặn dò (${localReminders.length})`}</span>
             <ChevronDown
-              className={`w-4 h-4 transition-transform duration-200 ${
+              className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
                 isExpanded ? 'rotate-180' : ''
               }`}
             />
@@ -814,13 +814,13 @@ export default function PatientBanner({
       {/* PHẦN 2: TÍNH NĂNG NHẮC NHỞ QUAN TRỌNG TRONG NGÀY */}
       <div id="patient-important-reminders" className="space-y-3.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50/50 p-3 rounded-2xl border border-amber-200/80">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 shrink-0">
+          <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 shrink-0 mt-0.5 sm:mt-0">
               <BellRing className="w-4 h-4" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
                   <span>Nhắc nhở & Lưu ý quan trọng</span>
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-900 border border-amber-300">
@@ -833,18 +833,18 @@ export default function PatientBanner({
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500 font-medium">
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                 Đồng bộ thời gian thực từ Google Sheets để cả gia đình cùng nắm rõ
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto shrink-0">
             <button
               type="button"
               id="btn-read-aloud-reminders"
               onClick={handleReadAloudAll}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ${
+              className={`flex-1 sm:flex-initial justify-center px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer min-h-[40px] ${
                 isSpeakingAll
                   ? 'bg-rose-600 text-white animate-pulse hover:bg-rose-700'
                   : 'bg-white hover:bg-amber-50 text-amber-900 border border-amber-300'
@@ -853,12 +853,12 @@ export default function PatientBanner({
             >
               {isSpeakingAll ? (
                 <>
-                  <VolumeX className="w-4 h-4" />
+                  <VolumeX className="w-4 h-4 shrink-0" />
                   <span>Dừng đọc</span>
                 </>
               ) : (
                 <>
-                  <Volume2 className="w-4 h-4 text-amber-600" />
+                  <Volume2 className="w-4 h-4 text-amber-600 shrink-0" />
                   <span>Đọc to nhắc nhở</span>
                 </>
               )}
@@ -875,9 +875,9 @@ export default function PatientBanner({
                 setFormError('');
                 setIsFormOpen(!isFormOpen);
               }}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all flex items-center gap-1.5 shadow-xs active:scale-95 cursor-pointer"
+              className="flex-1 sm:flex-initial justify-center px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all flex items-center gap-1.5 shadow-xs active:scale-95 cursor-pointer min-h-[40px]"
             >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <Plus className="w-4 h-4 stroke-[2.5] shrink-0" />
               <span>Ghi chú mới</span>
             </button>
           </div>

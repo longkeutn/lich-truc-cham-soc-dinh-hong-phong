@@ -78,37 +78,46 @@ export default function HeaderBar({
   return (
     <>
       <header className="sticky top-0 z-30 bg-white border-b-2 border-slate-300 shadow-xs">
-        <div className="max-w-6xl mx-auto px-3 py-2.5 sm:px-5 sm:py-3">
-          <div className="flex items-center justify-between gap-2">
+        <div className="max-w-6xl mx-auto px-2.5 py-2 sm:px-5 sm:py-3">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2">
             {/* Cụm Trái: Tên app & Bệnh nhân */}
-            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-rose-700 flex items-center justify-center shrink-0 text-white shadow-xs">
-                <HeartPulse className="w-6 h-6" />
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1 overflow-hidden">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-rose-700 flex items-center justify-center shrink-0 text-white shadow-xs">
+                <HeartPulse className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-lg sm:text-xl font-black text-slate-950 truncate">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-base sm:text-xl font-black text-slate-950 truncate leading-tight">
                     {patient.name}
                   </span>
                   {onEditPatient && (
                     <button
                       type="button"
                       onClick={onEditPatient}
-                      className="p-1.5 rounded-lg text-slate-600 hover:text-blue-700 hover:bg-blue-50 transition hidden sm:inline-flex cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-600 hover:text-blue-700 hover:bg-blue-50 transition hidden sm:inline-flex cursor-pointer shrink-0"
                       title="Chỉnh sửa thông tin bệnh nhân (Admin PIN)"
                     >
                       <Edit3 className="w-4 h-4" />
                     </button>
                   )}
                   {(patient.headerBadge ?? 'Tại nhà') !== '' && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-700 text-white text-xs font-black shrink-0">
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-700 text-white text-xs font-black shrink-0">
                       <Home className="w-3.5 h-3.5" />
                       {patient.headerBadge ?? 'Tại nhà'}
                     </span>
                   )}
                 </div>
-                <div className="text-xs sm:text-sm text-slate-700 font-bold truncate">
-                  Sổ Sức Khỏe Bố — Chăm Bố Mỗi Ngày
+                <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                  {(patient.headerBadge ?? 'Tại nhà') !== '' && (
+                    <span className="inline-flex sm:hidden items-center gap-0.5 px-1.5 py-0.2 rounded-md bg-emerald-700 text-white text-[10px] font-black shrink-0">
+                      <Home className="w-2.5 h-2.5" />
+                      {patient.headerBadge ?? 'Tại nhà'}
+                    </span>
+                  )}
+                  <span className="text-[11px] sm:text-sm text-slate-700 font-bold truncate">
+                    Sổ Sức Khỏe Bố
+                    <span className="hidden sm:inline"> — Chăm Bố Mỗi Ngày</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -156,20 +165,21 @@ export default function HeaderBar({
             </div>
 
             {/* Cụm Phải: Nút Chữ To + Thành viên + Admin + Sheet + SOS */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               {/* Nút bật/tắt Chữ Cực To cho người lớn tuổi */}
               <button
                 type="button"
                 onClick={toggleLargeText}
-                className={`inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black border-2 transition min-h-[44px] shadow-2xs cursor-pointer shrink-0 ${
+                className={`inline-flex items-center justify-center gap-1 px-2 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black border-2 transition min-h-[40px] sm:min-h-[44px] shadow-2xs cursor-pointer shrink-0 ${
                   isLargeText
                     ? 'bg-indigo-700 text-white border-indigo-800'
                     : 'bg-slate-100 hover:bg-slate-200 text-slate-900 border-slate-300'
                 }`}
                 title="Bật/tắt chế độ Chữ Cực To dành cho người lớn tuổi"
               >
-                <Type className="w-4 h-4 shrink-0" />
-                <span>{isLargeText ? 'Chữ To: BẬT' : 'A+ Chữ To'}</span>
+                <Type className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                <span className="sm:hidden">{isLargeText ? 'Chữ To' : 'A+'}</span>
+                <span className="hidden sm:inline">{isLargeText ? 'Chữ To: BẬT' : 'A+ Chữ To'}</span>
               </button>
 
               {/* Quản lý thành viên */}
@@ -178,7 +188,7 @@ export default function HeaderBar({
                   type="button"
                   onClick={onOpenMembers}
                   id="btn-open-members-mgmt"
-                  className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-slate-900 border-2 border-slate-300 text-xs sm:text-sm font-black transition min-h-[44px] min-w-[44px] shadow-2xs cursor-pointer shrink-0"
+                  className="inline-flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-slate-900 border-2 border-slate-300 text-xs sm:text-sm font-black transition min-h-[40px] min-w-[40px] sm:min-h-[44px] sm:min-w-[44px] shadow-2xs cursor-pointer shrink-0"
                   title="Quản lý thành viên gia đình"
                 >
                   <UsersIcon className="w-4 h-4 text-emerald-700 shrink-0" />
@@ -192,7 +202,7 @@ export default function HeaderBar({
                   type="button"
                   onClick={onOpenAdminPin}
                   id="btn-admin-pin-toggle"
-                  className={`inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black border-2 transition min-h-[44px] shadow-2xs cursor-pointer shrink-0 ${
+                  className={`inline-flex items-center justify-center gap-1 px-2 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black border-2 transition min-h-[40px] min-w-[40px] sm:min-h-[44px] shadow-2xs cursor-pointer shrink-0 ${
                     isAdmin
                       ? 'bg-amber-400 hover:bg-amber-500 text-slate-950 border-amber-600'
                       : 'bg-white hover:bg-amber-50 text-slate-900 border-slate-300'
@@ -239,10 +249,10 @@ export default function HeaderBar({
                 type="button"
                 onClick={onOpenEmergencyContacts}
                 id="btn-open-emergency-contacts"
-                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-sm font-black border-2 border-rose-900 transition min-h-[44px] shadow-sm cursor-pointer active:scale-95 shrink-0"
+                className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs sm:text-sm font-black border-2 border-rose-900 transition min-h-[40px] sm:min-h-[44px] shadow-sm cursor-pointer active:scale-95 shrink-0"
                 title="Danh bạ số khẩn cấp (Bác sĩ, 115, Điều dưỡng)"
               >
-                <PhoneCall className="w-4 h-4 text-white shrink-0" />
+                <PhoneCall className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white shrink-0" />
                 <span>SOS</span>
               </button>
             </div>

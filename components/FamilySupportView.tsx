@@ -381,26 +381,26 @@ export default function FamilySupportView({
         <button
           type="button"
           onClick={() => setSubTab('schedule')}
-          className={`min-h-[48px] px-3 py-2.5 rounded-xl text-sm sm:text-base font-black flex items-center justify-center gap-2 transition cursor-pointer ${
+          className={`min-h-[48px] px-2 sm:px-3 py-2.5 rounded-xl text-xs sm:text-base font-black flex items-center justify-center gap-1.5 sm:gap-2 text-center leading-tight transition cursor-pointer ${
             subTab === 'schedule'
               ? 'bg-white text-emerald-900 shadow-sm border border-emerald-200'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <HeartHandshake className="w-5 h-5 text-emerald-600 shrink-0" />
+          <HeartHandshake className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 shrink-0" />
           <span>Lịch Qua Phụ Mẹ</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSubTab('history')}
-          className={`min-h-[48px] px-3 py-2.5 rounded-xl text-sm sm:text-base font-black flex items-center justify-center gap-2 transition cursor-pointer ${
+          className={`min-h-[48px] px-2 sm:px-3 py-2.5 rounded-xl text-xs sm:text-base font-black flex items-center justify-center gap-1.5 sm:gap-2 text-center leading-tight transition cursor-pointer ${
             subTab === 'history'
               ? 'bg-white text-indigo-900 shadow-sm border border-indigo-200'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <History className="w-5 h-5 text-indigo-600 shrink-0" />
+          <History className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 shrink-0" />
           <span>Kỷ Niệm & Lịch Sử ICU</span>
         </button>
       </div>
@@ -678,20 +678,20 @@ export default function FamilySupportView({
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => setWeekOffset((w) => w - 1)}
-                className="min-h-[44px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-bold flex items-center gap-1 transition cursor-pointer"
+                className="flex-1 sm:flex-initial justify-center min-h-[44px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-bold flex items-center gap-1 transition cursor-pointer"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-4 h-4 shrink-0" />
                 <span>Tuần trước</span>
               </button>
               {weekOffset !== 0 && (
                 <button
                   type="button"
                   onClick={() => setWeekOffset(0)}
-                  className="min-h-[44px] px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs sm:text-sm font-bold transition cursor-pointer"
+                  className="flex-1 sm:flex-initial justify-center min-h-[44px] px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs sm:text-sm font-bold flex items-center transition cursor-pointer"
                 >
                   Hôm nay
                 </button>
@@ -699,10 +699,10 @@ export default function FamilySupportView({
               <button
                 type="button"
                 onClick={() => setWeekOffset((w) => w + 1)}
-                className="min-h-[44px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-bold flex items-center gap-1 transition cursor-pointer"
+                className="flex-1 sm:flex-initial justify-center min-h-[44px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-bold flex items-center gap-1 transition cursor-pointer"
               >
                 <span>Tuần sau</span>
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-4 h-4 shrink-0" />
               </button>
             </div>
           </div>

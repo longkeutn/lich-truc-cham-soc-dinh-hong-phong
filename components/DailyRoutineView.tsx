@@ -215,12 +215,12 @@ export default function DailyRoutineView({
   return (
     <div className="space-y-4">
       {/* ===== HEADER: Progress + Admin button ===== */}
-      <div className="rounded-3xl border-2 border-slate-300 bg-white p-4 sm:p-5 shadow-xs flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex-1 min-w-[200px]">
+      <div className="rounded-3xl border-2 border-slate-300 bg-white p-3.5 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
           {/* Progress text */}
           <div className="flex items-center gap-2 mb-2">
             <ListChecks className={`w-6 h-6 shrink-0 ${progressTextColor}`} />
-            <span className={`text-base sm:text-lg font-black ${progressTextColor}`}>
+            <span className={`text-base sm:text-lg font-black leading-snug ${progressTextColor}`}>
               Đã làm {doneItems}/{totalItems} việc hôm nay ({progressPercent}%)
             </span>
           </div>
@@ -237,10 +237,10 @@ export default function DailyRoutineView({
         {onOpenManager && (
           <button
             onClick={onOpenManager}
-            className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-2xl border-2 border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-900 font-black text-sm transition-colors min-h-[48px] cursor-pointer"
+            className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border-2 border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-900 font-black text-sm transition-colors min-h-[46px] cursor-pointer"
             title="Quản lý đơn thuốc & bài tập"
           >
-            <Settings className="w-5 h-5 text-slate-800" />
+            <Settings className="w-5 h-5 text-slate-800 shrink-0" />
             <span>Sửa Thuốc / Bài Tập</span>
           </button>
         )}
@@ -277,7 +277,7 @@ export default function DailyRoutineView({
             {/* Section Header — Collapsible */}
             <button
               onClick={() => toggleSection(slot)}
-              className={`w-full flex items-center justify-between px-4 py-4 text-left transition-colors min-h-[60px] cursor-pointer ${
+              className={`w-full flex items-center justify-between gap-2 px-3.5 sm:px-4 py-3.5 sm:py-4 text-left transition-colors min-h-[60px] cursor-pointer ${
                 isCurrent
                   ? 'bg-blue-100/90 hover:bg-blue-200/70'
                   : slotAllDone
@@ -285,26 +285,26 @@ export default function DailyRoutineView({
                     : 'bg-slate-100 hover:bg-slate-200/70'
               }`}
             >
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="text-2xl" role="img" aria-label={slotConfig.label}>
+              <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                <span className="text-2xl shrink-0" role="img" aria-label={slotConfig.label}>
                   {slotConfig.emoji}
                 </span>
-                <span className="text-lg font-black text-slate-950">
+                <span className="text-base sm:text-lg font-black text-slate-950">
                   Buổi {slotConfig.label}
                 </span>
-                <span className="text-sm font-bold text-slate-700">
+                <span className="text-xs sm:text-sm font-bold text-slate-700">
                   ({slotConfig.timeRange})
                 </span>
                 {isCurrent && (
-                  <span className="px-2.5 py-0.5 text-xs font-black bg-blue-700 text-white rounded-lg">
+                  <span className="px-2 py-0.5 text-[11px] sm:text-xs font-black bg-blue-700 text-white rounded-lg">
                     ĐANG Ở CA NÀY
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 {/* Slot progress mini badge */}
                 <span
-                  className={`text-sm font-black px-3 py-1 rounded-xl border ${
+                  className={`text-xs sm:text-sm font-black px-2.5 sm:px-3 py-1 rounded-xl border whitespace-nowrap ${
                     slotAllDone
                       ? 'bg-emerald-700 text-white border-emerald-900'
                       : slotDone > 0
@@ -315,16 +315,16 @@ export default function DailyRoutineView({
                   {slotAllDone ? `✅ Đủ ${slotDone}/${slotTotal}` : `${slotDone}/${slotTotal} việc`}
                 </span>
                 {isExpanded ? (
-                  <ChevronUp className="w-6 h-6 text-slate-800" />
+                  <ChevronUp className="w-5 h-5 sm:w-6 sm:h-6 text-slate-800 shrink-0" />
                 ) : (
-                  <ChevronDown className="w-6 h-6 text-slate-800" />
+                  <ChevronDown className="w-5 h-5 sm:w-6 sm:h-6 text-slate-800 shrink-0" />
                 )}
               </div>
             </button>
 
             {/* Section Body — Routine items */}
             {isExpanded && (
-              <div className="px-3 sm:px-4 pb-4 pt-3 space-y-3">
+              <div className="px-2.5 sm:px-4 pb-3.5 sm:pb-4 pt-2.5 sm:pt-3 space-y-2.5 sm:space-y-3">
                 {slotRoutines.map((routine) => (
                   <RoutineItem
                     key={`${routine.id}-${slot}`}
@@ -347,19 +347,19 @@ export default function DailyRoutineView({
       {asNeededRoutines.length > 0 && (
         <div className="rounded-3xl border-2 border-amber-500 bg-amber-50/50 overflow-hidden shadow-xs">
           {/* Header */}
-          <div className="px-4 py-3.5 bg-amber-200/70 border-b border-amber-300">
-            <div className="flex items-center gap-2">
-              <Zap className="w-6 h-6 text-amber-900" />
-              <span className="text-lg font-black text-amber-950">
+          <div className="px-3.5 sm:px-4 py-3 sm:py-3.5 bg-amber-200/70 border-b border-amber-300">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-amber-900 shrink-0" />
+              <span className="text-base sm:text-lg font-black text-amber-950">
                 Thuốc Dùng Khi Cần
               </span>
-              <span className="text-sm font-bold text-amber-900">
+              <span className="text-xs sm:text-sm font-bold text-amber-900">
                 (Chỉ uống khi có triệu chứng)
               </span>
             </div>
           </div>
           {/* Items */}
-          <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-2 space-y-2.5">
+          <div className="px-2.5 sm:px-4 pb-3 sm:pb-4 pt-2.5 space-y-2.5">
             {asNeededRoutines
               .sort((a, b) => a.sortOrder - b.sortOrder)
               .map((routine) => {
@@ -413,31 +413,31 @@ export default function DailyRoutineView({
       {/* ===== LIGHTBOX XEM ẢNH THUỐC LỚN CHO MẸ ===== */}
       {previewRoutine && previewRoutine.imageUrl && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
           onClick={() => setPreviewRoutine(null)}
         >
           <div
-            className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200"
+            className="bg-white rounded-3xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative bg-slate-100 flex items-center justify-center max-h-[60vh] overflow-hidden">
+            <div className="relative bg-slate-100 flex items-center justify-center max-h-[48vh] sm:max-h-[55vh] overflow-hidden shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={previewRoutine.imageUrl}
                 alt={previewRoutine.title}
-                className="w-full h-auto max-h-[60vh] object-contain"
+                className="w-full h-auto max-h-[48vh] sm:max-h-[55vh] object-contain"
               />
               <button
                 type="button"
                 onClick={() => setPreviewRoutine(null)}
-                className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center"
+                className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center cursor-pointer"
                 aria-label="Đóng ảnh"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-4 sm:p-5 space-y-2">
-              <div className="flex items-baseline justify-between gap-2">
+            <div className="p-4 sm:p-5 space-y-2.5 overflow-y-auto">
+              <div className="flex items-baseline justify-between gap-2 flex-wrap">
                 <h4 className="text-lg font-black text-slate-900">
                   {previewRoutine.title}
                 </h4>
@@ -448,24 +448,24 @@ export default function DailyRoutineView({
                 )}
               </div>
               {previewRoutine.description && (
-                <p className="text-sm font-medium text-indigo-800 bg-indigo-50 border border-indigo-200 px-3 py-2 rounded-xl">
+                <p className="text-sm font-medium text-indigo-900 bg-indigo-50 border border-indigo-200 px-3 py-2 rounded-xl leading-relaxed">
                   🔍 {previewRoutine.description}
                 </p>
               )}
               {previewRoutine.instructions && (
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-slate-700 font-medium leading-relaxed">
                   💡 {previewRoutine.instructions}
                 </p>
               )}
               {previewRoutine.conditionNote && (
-                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl font-medium">
+                <p className="text-sm text-amber-900 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl font-medium leading-relaxed">
                   ⚠️ {previewRoutine.conditionNote}
                 </p>
               )}
               <button
                 type="button"
                 onClick={() => setPreviewRoutine(null)}
-                className="w-full mt-2 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-800 transition"
+                className="w-full mt-2 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-800 transition cursor-pointer"
               >
                 Đóng
               </button>
@@ -500,10 +500,16 @@ function RoutineItem({
   const isDone = log?.isDone ?? false;
   const categoryConfig = CATEGORY_ICON[routine.category] || CATEGORY_ICON.care;
   const IconComponent = categoryConfig.icon;
+  const [descExpanded, setDescExpanded] = useState(false);
+
+  const hasBottomDetails = Boolean(
+    routine.description || routine.instructions || routine.conditionNote
+  );
+  const isLongDesc = Boolean(routine.description && routine.description.length > 120);
 
   return (
     <div
-      className={`rounded-2xl border-2 p-3.5 sm:p-4 flex items-start gap-3 transition-all ${
+      className={`rounded-2xl border-2 p-3 sm:p-4 flex flex-col gap-2.5 transition-all ${
         isDone
           ? 'bg-emerald-50 border-emerald-500 shadow-2xs'
           : isAsNeeded
@@ -511,130 +517,156 @@ function RoutineItem({
             : 'bg-white border-slate-300 hover:border-slate-400 shadow-2xs'
       }`}
     >
-      {/* Left: Image Thumbnail (if available) or Category Icon */}
-      {routine.imageUrl ? (
-        <button
-          type="button"
-          onClick={onPreviewImage}
-          className="relative flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-blue-500 bg-slate-100 mt-0.5 group shadow-xs cursor-pointer"
-          title="Bấm để phóng to hình ảnh thuốc"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={routine.imageUrl}
-            alt={routine.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition"
-          />
-          <span className="absolute bottom-0 inset-x-0 bg-black/75 text-white text-[10px] font-black py-0.5 text-center flex items-center justify-center gap-0.5">
-            <ZoomIn className="w-3 h-3" />
-            <span>Xem ảnh</span>
-          </span>
-        </button>
-      ) : (
-        <div
-          className={`flex-shrink-0 w-12 h-12 rounded-2xl border flex items-center justify-center mt-0.5 ${
-            isDone
-              ? 'bg-emerald-700 border-emerald-900'
-              : `${categoryConfig.bgColor} border-slate-300`
-          }`}
-        >
-          <IconComponent
-            className={`w-6 h-6 ${isDone ? 'text-white' : categoryConfig.color}`}
-          />
-        </div>
-      )}
-
-      {/* Center: Title + Dosage + Description + Instructions */}
-      <div className="flex-1 min-w-0">
-        {/* Title */}
-        <p
-          className={`text-base sm:text-lg font-black leading-snug ${
-            isDone ? 'text-emerald-950' : 'text-slate-950'
-          }`}
-        >
-          {routine.title}
-        </p>
-
-        {/* Dosage */}
-        {routine.dosage && (
-          <div className="mt-1">
-            <span
-              className={`inline-block text-sm font-black px-2.5 py-0.5 rounded-lg border ${
-                isDone
-                  ? 'bg-emerald-200 text-emerald-950 border-emerald-400'
-                  : 'bg-amber-100 text-amber-950 border-amber-400'
-              }`}
-            >
-              💊 Liều: {routine.dosage}
+      {/* TẦNG 1: Ảnh/Icon (Trái) + Tên & Liều lượng (Giữa) + Nút Bấm Xong (Phải) */}
+      <div className="flex items-center justify-between gap-2.5 sm:gap-3">
+        {/* Left: Image Thumbnail (if available) or Category Icon */}
+        {routine.imageUrl ? (
+          <button
+            type="button"
+            onClick={onPreviewImage}
+            className="relative flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-blue-500 bg-slate-100 group shadow-xs cursor-pointer"
+            title="Bấm để phóng to hình ảnh thuốc"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={routine.imageUrl}
+              alt={routine.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition"
+            />
+            <span className="absolute bottom-0 inset-x-0 bg-black/75 text-white text-[10px] font-black py-0.5 text-center flex items-center justify-center gap-0.5">
+              <ZoomIn className="w-3 h-3" />
+              <span>Xem ảnh</span>
             </span>
-          </div>
-        )}
-
-        {/* Description (Mô tả nhận diện thuốc / công dụng) */}
-        {routine.description && (
-          <p
-            className={`text-sm font-bold mt-1.5 px-3 py-1.5 rounded-xl border leading-snug ${
+          </button>
+        ) : (
+          <div
+            className={`flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border flex items-center justify-center ${
               isDone
-                ? 'bg-emerald-100/80 border-emerald-300 text-emerald-950'
-                : 'bg-indigo-50 border-indigo-300 text-indigo-950'
+                ? 'bg-emerald-700 border-emerald-900'
+                : `${categoryConfig.bgColor} border-slate-300`
             }`}
           >
-            🔍 {routine.description}
-          </p>
-        )}
-
-        {/* Instructions */}
-        {routine.instructions && (
-          <p className="text-sm font-bold text-slate-800 mt-1.5 leading-snug">
-            👉 {routine.instructions}
-          </p>
-        )}
-
-        {/* Condition Note — amber mini-banner */}
-        {routine.conditionNote && (
-          <div className="mt-2 px-3 py-1.5 bg-amber-100 border-2 border-amber-400 rounded-xl">
-            <p className="text-sm text-amber-950 font-black leading-snug">
-              ⚠️ {routine.conditionNote}
-            </p>
+            <IconComponent
+              className={`w-6 h-6 ${isDone ? 'text-white' : categoryConfig.color}`}
+            />
           </div>
         )}
 
-        {/* Done timestamp */}
-        {isDone && log?.doneAt && (
-          <p className="text-xs sm:text-sm text-emerald-900 mt-2 font-black bg-emerald-100 border border-emerald-300 inline-block px-2.5 py-0.5 rounded-lg">
-            ✅ Đã xong lúc {log.doneAt}
-            {log.doneBy ? ` • ${log.doneBy}` : ''}
+        {/* Center: Title + Dosage + Done timestamp */}
+        <div className="flex-1 min-w-0">
+          {/* Title */}
+          <p
+            className={`text-base sm:text-lg font-black leading-snug break-words ${
+              isDone ? 'text-emerald-950' : 'text-slate-950'
+            }`}
+          >
+            {routine.title}
           </p>
-        )}
+
+          {/* Dosage + Done timestamp */}
+          {(routine.dosage || (isDone && log?.doneAt)) && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {routine.dosage && (
+                <span
+                  className={`inline-block text-xs sm:text-sm font-black px-2.5 py-0.5 rounded-lg border ${
+                    isDone
+                      ? 'bg-emerald-200 text-emerald-950 border-emerald-400'
+                      : 'bg-amber-100 text-amber-950 border-amber-400'
+                  }`}
+                >
+                  💊 Liều: {routine.dosage}
+                </span>
+              )}
+
+              {isDone && log?.doneAt && (
+                <span className="text-xs font-black text-emerald-900 bg-emerald-100 border border-emerald-300 inline-block px-2 py-0.5 rounded-lg">
+                  ✅ {log.doneAt}
+                  {log.doneBy ? ` • ${log.doneBy}` : ''}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Right: Nút Bấm Xong TO, CÓ CHỮ RÕ RÀNG CHO NGƯỜI LỚN TUỔI */}
+        <button
+          onClick={onToggle}
+          disabled={isLoading}
+          className={`flex-shrink-0 min-h-[56px] min-w-[76px] sm:min-w-[88px] px-2.5 sm:px-3.5 py-1.5 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 cursor-pointer border-2 ${
+            isLoading
+              ? 'bg-slate-200 border-slate-400 cursor-wait text-slate-700'
+              : isDone
+                ? 'bg-emerald-700 border-emerald-900 shadow-sm hover:bg-emerald-800 text-white'
+                : 'bg-slate-100 border-slate-400 hover:border-emerald-600 hover:bg-emerald-50 text-slate-950'
+          }`}
+          aria-label={isDone ? 'Bỏ tích hoàn thành' : 'Tích hoàn thành'}
+        >
+          {isLoading ? (
+            <div className="w-6 h-6 border-2 border-slate-400 border-t-slate-900 rounded-full animate-spin" />
+          ) : isDone ? (
+            <>
+              <Check className="w-6 h-6 text-white" strokeWidth={3} />
+              <span className="text-xs font-black leading-tight whitespace-nowrap">Đã Xong</span>
+            </>
+          ) : (
+            <>
+              <Circle className="w-6 h-6 text-slate-700" strokeWidth={2.5} />
+              <span className="text-xs font-black leading-tight whitespace-nowrap">Bấm Xong</span>
+            </>
+          )}
+        </button>
       </div>
 
-      {/* Right: Nút Bấm Xong TO, CÓ CHỮ RÕ RÀNG CHO NGƯỜI LỚN TUỔI */}
-      <button
-        onClick={onToggle}
-        disabled={isLoading}
-        className={`flex-shrink-0 min-h-[58px] px-3 sm:px-4 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 cursor-pointer border-2 ${
-          isLoading
-            ? 'bg-slate-200 border-slate-400 cursor-wait text-slate-700'
-            : isDone
-              ? 'bg-emerald-700 border-emerald-900 shadow-sm hover:bg-emerald-800 text-white'
-              : 'bg-slate-100 border-slate-400 hover:border-emerald-600 hover:bg-emerald-50 text-slate-950'
-        }`}
-        aria-label={isDone ? 'Bỏ tích hoàn thành' : 'Tích hoàn thành'}
-      >
-        {isLoading ? (
-          <div className="w-6 h-6 border-2 border-slate-400 border-t-slate-900 rounded-full animate-spin" />
-        ) : isDone ? (
-          <>
-            <Check className="w-6 h-6 text-white" strokeWidth={3} />
-            <span className="text-xs font-black leading-tight">Đã Xong</span>
-          </>
-        ) : (
-          <>
-            <Circle className="w-6 h-6 text-slate-700" strokeWidth={2.5} />
-            <span className="text-xs font-black leading-tight">Bấm Xong</span>
-          </>
-        )}
-      </button>
+      {/* TẦNG 2: Mô tả thuốc, Hướng dẫn & Lưu ý — Trải rộng đều 100% chiều ngang thẻ */}
+      {hasBottomDetails && (
+        <div className="w-full space-y-1.5 pt-0.5">
+          {/* Description (Mô tả nhận diện thuốc / công dụng) */}
+          {routine.description && (
+            <div
+              onClick={isLongDesc ? () => setDescExpanded((prev) => !prev) : undefined}
+              className={`w-full text-sm font-bold px-3 py-2 rounded-xl border leading-relaxed ${
+                isLongDesc ? 'cursor-pointer select-none' : ''
+              } ${
+                isDone
+                  ? 'bg-emerald-100/80 border-emerald-300 text-emerald-950'
+                  : 'bg-indigo-50/90 border-indigo-200 text-indigo-950'
+              }`}
+            >
+              <p className={isLongDesc && !descExpanded ? 'line-clamp-2' : ''}>
+                🔍 {routine.description}
+              </p>
+              {isLongDesc && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDescExpanded((prev) => !prev);
+                  }}
+                  className="mt-1 text-xs font-black text-indigo-700 hover:text-indigo-900 underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  {descExpanded ? 'Thu gọn ▲' : 'Xem đầy đủ tác dụng ▼'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Instructions */}
+          {routine.instructions && (
+            <p className="w-full text-sm font-bold text-slate-800 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl leading-snug">
+              👉 {routine.instructions}
+            </p>
+          )}
+
+          {/* Condition Note — amber mini-banner */}
+          {routine.conditionNote && (
+            <div className="w-full px-3 py-1.5 bg-amber-100 border-2 border-amber-400 rounded-xl">
+              <p className="text-sm text-amber-950 font-black leading-snug">
+                ⚠️ {routine.conditionNote}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

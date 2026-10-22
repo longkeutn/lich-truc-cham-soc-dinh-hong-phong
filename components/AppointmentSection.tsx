@@ -211,23 +211,23 @@ export function AppointmentSection({
       {/* Next appointment */}
       {hasNextAppointment && (
         <div className="space-y-2 bg-violet-50/60 border-2 border-violet-200 rounded-2xl p-3.5">
-          <div className="flex items-start justify-between gap-2 flex-wrap">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
             <div className="flex items-start gap-2.5 min-w-0 flex-1">
               <span className="text-xl flex-shrink-0 mt-0.5">📅</span>
               <div className="min-w-0 flex-1">
-                <p className="text-base sm:text-lg font-black text-slate-950">
+                <p className="text-base sm:text-lg font-black text-slate-950 leading-snug">
                   Ngày tái khám tiếp: <span className="text-violet-900">{formatDateVN(appointment.nextDate!)}</span>
                 </p>
                 {appointment.nextNote && (
-                  <p className="text-sm sm:text-base font-bold text-slate-800 mt-1 flex items-center gap-1.5">
-                    <Stethoscope size={16} className="text-violet-700 flex-shrink-0" />
-                    {appointment.nextNote}
+                  <p className="text-sm sm:text-base font-bold text-slate-800 mt-1 flex items-start gap-1.5 leading-snug">
+                    <Stethoscope size={16} className="text-violet-700 flex-shrink-0 mt-0.5" />
+                    <span>{appointment.nextNote}</span>
                   </p>
                 )}
                 {appointment.nextWho && (
-                  <p className="text-sm sm:text-base font-bold text-slate-800 mt-1 flex items-center gap-1.5">
-                    <User size={16} className="text-emerald-700 flex-shrink-0" />
-                    {appointment.nextWho}
+                  <p className="text-sm sm:text-base font-bold text-slate-800 mt-1 flex items-start gap-1.5 leading-snug">
+                    <User size={16} className="text-emerald-700 flex-shrink-0 mt-0.5" />
+                    <span>{appointment.nextWho}</span>
                   </p>
                 )}
               </div>
@@ -236,7 +236,7 @@ export function AppointmentSection({
             {/* Days countdown */}
             {daysLeft !== null && (
               <div
-                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm sm:text-base font-black border-2 shrink-0 ${
+                className={`self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-base font-black border-2 shrink-0 ${
                   daysLeft <= 0
                     ? 'bg-rose-700 text-white border-rose-900'
                     : daysLeft <= 3
