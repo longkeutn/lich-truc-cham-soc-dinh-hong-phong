@@ -46,9 +46,9 @@ function doGet(e) {
     }
 
     if (action === 'getAllData') {
-      const startDate = (e.parameter && e.parameter.startDate) || '';
-      const endDate = (e.parameter && e.parameter.endDate) || '';
-      const phase = (e.parameter && e.parameter.phase) || 'phase1';
+      const startDate = (e && e.parameter && e.parameter.startDate) || '';
+      const endDate = (e && e.parameter && e.parameter.endDate) || '';
+      const phase = (e && e.parameter && e.parameter.phase) || '';
 
       return jsonResponse({
         success: true,
@@ -70,9 +70,9 @@ function doGet(e) {
     }
 
     if (action === 'getShifts') {
-      const startDate = (e.parameter && e.parameter.startDate) || '';
-      const endDate = (e.parameter && e.parameter.endDate) || '';
-      const phase = (e.parameter && e.parameter.phase) || 'phase1';
+      const startDate = (e && e.parameter && e.parameter.startDate) || '';
+      const endDate = (e && e.parameter && e.parameter.endDate) || '';
+      const phase = (e && e.parameter && e.parameter.phase) || '';
       return jsonResponse({ success: true, shifts: readShifts(ss, startDate, endDate, phase) });
     }
 
@@ -250,6 +250,7 @@ function doPost(e) {
 // TỰ ĐỘNG THIẾT LẬP 9 BẢNG TÍNH & DỮ LIỆU GỐC
 // ==========================================
 function ensureSheetsSetup(ss) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   // Sheet 1: Shifts (Ca trực - 24 cột)
   let sheetShifts = ss.getSheetByName('Shifts');
   const shiftHeaders = [
