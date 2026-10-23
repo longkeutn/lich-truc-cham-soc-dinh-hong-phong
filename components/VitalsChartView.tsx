@@ -35,7 +35,13 @@ import type {
   AlertLevel,
   FamilyMember,
 } from '@/lib/types';
-import { TIME_SLOT_CONFIG, computeAlertLevel, getVietnamDateOffsetStr } from '@/lib/config';
+import {
+  TIME_SLOT_CONFIG,
+  computeAlertLevel,
+  getVietnamDateOffsetStr,
+  getVietnamDateStr,
+  detectCurrentTimeSlot,
+} from '@/lib/config';
 
 // =============================================
 // TYPES & HELPERS
@@ -199,52 +205,95 @@ export function VitalsChartView({
     return { latest, previous, avgSys, avgDia, trend, totalReadings: vitalsLog.length };
   }, [vitalsLog]);
 
-  // ===== Thống kê tuân thủ thuốc =====
+  // ===== Thống kê tuân thủ thuốc & bài tập (7 Ngày Qua) =====
   const complianceStats = useMemo(() => {
-    const medsRoutines = careRoutines.filter((r) => r.category === 'meds' && r.isActive && r.medType === 'scheduled');
-    const rehabRoutines = careRoutines.filter((r) => r.category === 'rehab' && r.isActive);
+    // Thuốc uống theo lịch (bất kể ghi 'scheduled' hay để trống, miễn là không phải 'as_needed')
+    const medsRoutines = careRoutines.filter(
+      (r) => r.category === 'meds' && r.isActive && r.medType !== 'as_needed'
+    );
+    const rehabRoutines = careRoutines.filter(
+      (r) => r.category === 'rehab' && r.isActive
+    );
 
-    // Tính % ngày uống thuốc đủ trong 7 ngày qua
+    const todayStr = getVietnamDateStr();
+    const currentSlot = detectCurrentTimeSlot();
+    const SLOT_RANK: Record<string, number> = { morning: 1, noon: 2, afternoon: 3, evening: 4 };
+    const currentRank = SLOT_RANK[currentSlot] || 1;
+
+    // Danh sách 7 ngày gần nhất: [hôm nay, hôm qua, ..., 6 ngày trước]
     const last7Days: string[] = [];
     for (let i = 0; i < 7; i++) {
-      last7Days.push(daysAgo(i));
+      last7Days.push(getVietnamDateOffsetStr(-i));
     }
 
+    let totalExpectedDoses = 0;
+    let totalDoneDoses = 0;
     let daysFullMeds = 0;
     let totalRehabDone = 0;
 
     for (const day of last7Days) {
-      // Mỗi ngày: kiểm tra tất cả meds routine × timeSlots đều isDone
+      const isToday = day === todayStr;
       const dayLogs = dailyLogs.filter((l) => l.date === day);
-      let allMedsDone = true;
+
+      let dayExpectedDoses = 0;
+      let dayDoneDoses = 0;
 
       for (const routine of medsRoutines) {
-        for (const slot of routine.timeSlots) {
-          const found = dayLogs.find(
-            (l) => l.routineId === routine.id && l.timeSlot === slot && l.isDone
+        const slots = Array.isArray(routine.timeSlots) ? routine.timeSlots : [];
+        for (const slot of slots) {
+          const slotRank = SLOT_RANK[slot] || 1;
+          const isDone = dayLogs.some(
+            (l) => (l.routineId === routine.id || l.id.includes(routine.id)) && l.timeSlot === slot && l.isDone
           );
-          if (!found) allMedsDone = false;
+
+          // Nếu là hôm nay: chỉ tính cữ đã đến giờ hoặc cữ đã uống (không coi cữ tối chưa tới là bị bỏ lỡ)
+          // Nếu là ngày trước: tất cả các cữ đều được tính là cần uống
+          const isExpected = !isToday || slotRank <= currentRank || isDone;
+
+          if (isExpected) {
+            dayExpectedDoses++;
+            if (isDone) {
+              dayDoneDoses++;
+            }
+          }
         }
       }
 
-      if (medsRoutines.length > 0 && allMedsDone) daysFullMeds++;
+      totalExpectedDoses += dayExpectedDoses;
+      totalDoneDoses += dayDoneDoses;
 
-      // Đếm rehab done
+      if (dayExpectedDoses > 0 && dayDoneDoses === dayExpectedDoses) {
+        daysFullMeds++;
+      }
+
+      // Đếm số bài tập phục hồi đã hoàn thành trong 7 ngày
       for (const routine of rehabRoutines) {
-        for (const slot of routine.timeSlots) {
-          const found = dayLogs.find(
-            (l) => l.routineId === routine.id && l.timeSlot === slot && l.isDone
+        const slots = Array.isArray(routine.timeSlots) && routine.timeSlots.length > 0
+          ? routine.timeSlots
+          : ['morning'];
+        for (const slot of slots) {
+          const isDone = dayLogs.some(
+            (l) => (l.routineId === routine.id || l.id.includes(routine.id)) && (l.timeSlot === slot || !l.timeSlot) && l.isDone
           );
-          if (found) totalRehabDone++;
+          if (isDone) {
+            totalRehabDone++;
+          }
         }
       }
     }
 
-    const medsPercentage = medsRoutines.length > 0
-      ? Math.round((daysFullMeds / 7) * 100)
+    // Tỷ lệ phần trăm tuân thủ cữ thuốc (%)
+    const medsPercentage = totalExpectedDoses > 0
+      ? Math.min(100, Math.round((totalDoneDoses / totalExpectedDoses) * 100))
       : null;
 
-    return { daysFullMeds, medsPercentage, totalRehabDone };
+    return {
+      daysFullMeds,
+      totalExpectedDoses,
+      totalDoneDoses,
+      medsPercentage,
+      totalRehabDone,
+    };
   }, [dailyLogs, careRoutines]);
 
   // ===== Dữ liệu cho biểu đồ Recharts =====
@@ -437,8 +486,8 @@ export function VitalsChartView({
               }`}>
                 {complianceStats.medsPercentage}%
               </div>
-              <div className="text-xs text-slate-400 mt-0.5">
-                {complianceStats.daysFullMeds}/7 ngày đủ thuốc
+              <div className="text-xs text-slate-500 mt-0.5 font-medium">
+                {complianceStats.totalDoneDoses}/{complianceStats.totalExpectedDoses} cữ ({complianceStats.daysFullMeds} ngày đủ)
               </div>
             </>
           ) : (
@@ -773,7 +822,7 @@ export function VitalsChartView({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {complianceStats.medsPercentage !== null && (
               <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
-                <div className="text-xs font-bold text-emerald-600 mb-1">💊 Uống Thuốc Đủ</div>
+                <div className="text-xs font-bold text-emerald-600 mb-1">💊 Tuân Thủ Uống Thuốc</div>
                 <div className="flex items-end gap-2">
                   <span className={`text-2xl font-black ${
                     complianceStats.medsPercentage >= 80 ? 'text-emerald-700' :
@@ -782,8 +831,8 @@ export function VitalsChartView({
                   }`}>
                     {complianceStats.medsPercentage}%
                   </span>
-                  <span className="text-xs text-emerald-600 mb-1">
-                    ({complianceStats.daysFullMeds}/7 ngày)
+                  <span className="text-xs text-emerald-700 font-bold mb-1">
+                    ({complianceStats.totalDoneDoses}/{complianceStats.totalExpectedDoses} cữ • {complianceStats.daysFullMeds}/7 ngày đủ 100%)
                   </span>
                 </div>
                 {/* Progress bar */}

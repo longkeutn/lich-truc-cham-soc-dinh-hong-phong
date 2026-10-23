@@ -267,10 +267,44 @@ export default function CareSchedulePage() {
     loadAllData(false, false);
   }, [loadAllData]);
 
-  // ===== CƠ CHẾ TỰ ĐỘNG NHẢY NGÀY & TỰ ĐỘNG LÀM MỚI DỮ LIỆU KHI MỞ PWA TRÊN DI ĐỘNG =====
+  // ===== CƠ CHẾ TỰ ĐỘNG NHẢY NGÀY & TỰ ĐỘNG LÀM MỚI DỮ LIỆU & TỰ ĐỘNG CẬP NHẬT MÃ NGUỒN PWA =====
   // Khắc phục triệt để việc cài PWA trên điện thoại và không tắt app qua nhiều ngày
+  const clientBuildIdRef = useRef<string>(
+    process.env.NEXT_PUBLIC_BUILD_TIME || 'initial-build'
+  );
+  const isUpdatingCodeRef = useRef<boolean>(false);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Kiểm tra phiên bản mã nguồn mới nhất trên máy chủ (qua /api/version)
+    const checkForNewCodeVersion = async () => {
+      if (isUpdatingCodeRef.current) return;
+      try {
+        const res = await fetch(`/api/version?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { Pragma: 'no-cache', 'Cache-Control': 'no-cache' },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.buildId) {
+            if (clientBuildIdRef.current === 'initial-build') {
+              clientBuildIdRef.current = String(data.buildId);
+              return;
+            }
+            if (String(data.buildId) !== clientBuildIdRef.current) {
+              isUpdatingCodeRef.current = true;
+              showToast('🚀 Đang tải phiên bản ứng dụng mới nhất...', 'info');
+              setTimeout(() => {
+                window.location.reload();
+              }, 900);
+            }
+          }
+        }
+      } catch {
+        // bỏ qua lỗi nếu mạng tạm gián đoạn
+      }
+    };
 
     const checkDateAndRefreshOnWakeUp = (source: 'wakeup' | 'interval' | 'interaction') => {
       const currentVnDate = getVietnamDateStr();
@@ -281,20 +315,23 @@ export default function CareSchedulePage() {
         setTodayStr(currentVnDate);
         showToast(`🌅 Đã chuyển sang ${formatVietnamDateFull(currentVnDate)}`, 'info');
         void loadAllData(true, true);
+        void checkForNewCodeVersion();
         return;
       }
 
-      // Nếu người dùng mở lại màn hình PWA sau hơn 45 giây ở chế độ nền, tự động đồng bộ ngầm với Google Sheets
+      // Nếu người dùng mở lại màn hình PWA sau hơn 45 giây ở chế độ nền, tự động đồng bộ ngầm với Google Sheets & kiểm tra code mới
       const elapsedSinceLastSync = Date.now() - lastSyncTimestampRef.current;
       if (source === 'wakeup' && elapsedSinceLastSync > 45 * 1000) {
         void loadAllData(true, true);
+        void checkForNewCodeVersion();
       } else if (
         source === 'interval' &&
         document.visibilityState === 'visible' &&
-        elapsedSinceLastSync > 180 * 1000
+        elapsedSinceLastSync > 90 * 1000
       ) {
-        // Khi đang mở app liên tục, tự động làm mới ngầm mỗi 3 phút
+        // Khi đang mở app liên tục, tự động làm mới ngầm và kiểm tra phiên bản mới mỗi 90 giây
         void loadAllData(true, true);
+        void checkForNewCodeVersion();
       }
     };
 
@@ -311,10 +348,32 @@ export default function CareSchedulePage() {
     const handleOnline = () => checkDateAndRefreshOnWakeUp('wakeup');
     const handleTouchStart = () => checkDateAndRefreshOnWakeUp('interaction');
 
+    // Quản lý Service Worker tự động reload khi có bản build mới
     if ('serviceWorker' in navigator) {
+      let isRefreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!isRefreshing) {
+          isRefreshing = true;
+          window.location.reload();
+        }
+      });
+
       navigator.serviceWorker
         .register('/sw.js')
-        .then((reg) => reg.update())
+        .then((reg) => {
+          reg.update().catch(() => {});
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // Yêu cầu worker mới kích hoạt ngay lập tức
+                  newWorker.postMessage({ type: 'SKIP_WAITING' });
+                }
+              });
+            }
+          });
+        })
         .catch(() => {});
     }
 
@@ -324,10 +383,15 @@ export default function CareSchedulePage() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('touchstart', handleTouchStart, { passive: true });
 
-    // Kiểm tra định kỳ mỗi 20 giây để tự nhảy ngày ngay khi qua 00:00 nửa đêm giờ Việt Nam
+    // Kiểm tra định kỳ mỗi 20 giây để tự nhảy ngày và mỗi 90s kiểm tra code mới
     const intervalId = setInterval(() => {
       checkDateAndRefreshOnWakeUp('interval');
     }, 20 * 1000);
+
+    // Kiểm tra version lần đầu sau 3 giây mở app
+    const initialVersionCheck = setTimeout(() => {
+      void checkForNewCodeVersion();
+    }, 3000);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -336,6 +400,7 @@ export default function CareSchedulePage() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('touchstart', handleTouchStart);
       clearInterval(intervalId);
+      clearTimeout(initialVersionCheck);
     };
   }, [loadAllData, showToast]);
 

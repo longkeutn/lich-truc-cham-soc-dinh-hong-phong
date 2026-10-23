@@ -1,8 +1,9 @@
-// Service Worker cho PWA "Sổ Sức Khỏe Bố" (v2)
-// Chiến lược: LUÔN ƯU TIÊN MẠNG (Network-Only với cache: 'no-store' cho HTML/trang) để tránh hiển thị nhầm trang/dữ liệu cũ khi mở lại PWA sau nhiều ngày,
-// đảm bảo 100% dữ liệu và ngày giờ hiển thị luôn khớp thời gian thực với Google Sheets.
+// Service Worker cho PWA "Sổ Sức Khỏe Bố" (v3)
+// Chiến lược: LUÔN ƯU TIÊN MẠNG (Network-Only với cache: 'no-store' cho HTML/trang)
+// Hỗ trợ tự động cập nhật mã nguồn tức thì (Skip Waiting & Auto Controller Claim)
+// để khi người dùng treo PWA nhiều ngày mà không tắt app, ứng dụng vẫn tự động nạp code mới nhất.
 
-const CACHE_NAME = 'so-suc-khoe-bo-pwa-v2';
+const CACHE_NAME = 'so-suc-khoe-bo-pwa-v3';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -17,13 +18,19 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   // Bỏ qua các request không phải GET hoặc request Server Actions / API
   if (event.request.method !== 'GET') {
     return;
   }
 
-  // Với request điều hướng trang (document), ép buộc lấy bản mới nhất từ mạng (no-store)
+  // Với request điều hướng trang (document/HTML), luôn lấy bản mới nhất từ mạng (no-store)
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' }).catch(() => caches.match(event.request))
@@ -31,7 +38,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Luôn lấy trực tiếp từ mạng để đảm bảo dữ liệu Google Sheets luôn mới nhất
+  // Luôn lấy trực tiếp từ mạng để dữ liệu và mã nguồn luôn mới nhất
   event.respondWith(
     fetch(event.request).catch(() => {
       return caches.match(event.request);
