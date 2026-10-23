@@ -269,15 +269,14 @@ export default function CareSchedulePage() {
 
   // ===== CƠ CHẾ TỰ ĐỘNG NHẢY NGÀY & TỰ ĐỘNG LÀM MỚI DỮ LIỆU & TỰ ĐỘNG CẬP NHẬT MÃ NGUỒN PWA =====
   // Khắc phục triệt để việc cài PWA trên điện thoại và không tắt app qua nhiều ngày
-  const clientBuildIdRef = useRef<string>(
-    process.env.NEXT_PUBLIC_BUILD_TIME || 'initial-build'
-  );
+  const clientBuildIdRef = useRef<string>('');
   const isUpdatingCodeRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     // Kiểm tra phiên bản mã nguồn mới nhất trên máy chủ (qua /api/version)
+    // Thiết kế an toàn 100%, có cơ chế chống reload loop (tối đa 1 lần/bản build)
     const checkForNewCodeVersion = async () => {
       if (isUpdatingCodeRef.current) return;
       try {
@@ -285,28 +284,49 @@ export default function CareSchedulePage() {
           cache: 'no-store',
           headers: { Pragma: 'no-cache', 'Cache-Control': 'no-cache' },
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.buildId) {
-            if (clientBuildIdRef.current === 'initial-build') {
-              clientBuildIdRef.current = String(data.buildId);
-              return;
-            }
-            if (String(data.buildId) !== clientBuildIdRef.current) {
-              isUpdatingCodeRef.current = true;
-              showToast('🚀 Đang tải phiên bản ứng dụng mới nhất...', 'info');
-              setTimeout(() => {
-                window.location.reload();
-              }, 900);
-            }
-          }
+        if (!res.ok) return;
+        const data = await res.json();
+        const serverBuildId = data?.buildId ? String(data.buildId).trim() : '';
+        if (!serverBuildId) return;
+
+        // Lần đầu trang mount: chỉ ghi nhận version máy chủ làm mốc cơ sở, không reload
+        if (!clientBuildIdRef.current) {
+          clientBuildIdRef.current = serverBuildId;
+          return;
         }
+
+        // Đang chạy đúng bản build mới nhất của server -> Không cần làm gì
+        if (serverBuildId === clientBuildIdRef.current) {
+          return;
+        }
+
+        // BẢO VỆ CHỐNG RELOAD LOOP:
+        // Kiểm tra sessionStorage xem đã reload cho bản build này gần đây chưa
+        const lastReloadVersion = sessionStorage.getItem('app_last_reloaded_version');
+        const lastReloadTime = Number(sessionStorage.getItem('app_last_reloaded_time') || '0');
+        const elapsedSinceReload = Date.now() - lastReloadTime;
+
+        if (lastReloadVersion === serverBuildId && elapsedSinceReload < 10 * 60 * 1000) {
+          clientBuildIdRef.current = serverBuildId;
+          return;
+        }
+
+        // Đánh dấu và reload đúng 1 lần duy nhất
+        isUpdatingCodeRef.current = true;
+        clientBuildIdRef.current = serverBuildId;
+        sessionStorage.setItem('app_last_reloaded_version', serverBuildId);
+        sessionStorage.setItem('app_last_reloaded_time', String(Date.now()));
+
+        showToast('✨ Ứng dụng đã có cập nhật mới, đang tải lại...', 'info');
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
       } catch {
-        // bỏ qua lỗi nếu mạng tạm gián đoạn
+        // Bỏ qua lỗi mạng ngầm
       }
     };
 
-    const checkDateAndRefreshOnWakeUp = (source: 'wakeup' | 'interval' | 'interaction') => {
+    const checkDateAndRefreshOnWakeUp = (source: 'wakeup' | 'interval') => {
       const currentVnDate = getVietnamDateStr();
       const dateChanged = currentVnDate !== todayStrRef.current;
 
@@ -319,7 +339,7 @@ export default function CareSchedulePage() {
         return;
       }
 
-      // Nếu người dùng mở lại màn hình PWA sau hơn 45 giây ở chế độ nền, tự động đồng bộ ngầm với Google Sheets & kiểm tra code mới
+      // Khi người dùng mở lại app PWA sau hơn 45 giây ở chế độ nền: tự động đồng bộ Google Sheets & kiểm tra code mới
       const elapsedSinceLastSync = Date.now() - lastSyncTimestampRef.current;
       if (source === 'wakeup' && elapsedSinceLastSync > 45 * 1000) {
         void loadAllData(true, true);
@@ -327,9 +347,9 @@ export default function CareSchedulePage() {
       } else if (
         source === 'interval' &&
         document.visibilityState === 'visible' &&
-        elapsedSinceLastSync > 90 * 1000
+        elapsedSinceLastSync > 180 * 1000
       ) {
-        // Khi đang mở app liên tục, tự động làm mới ngầm và kiểm tra phiên bản mới mỗi 90 giây
+        // Khi đang xem app liên tục: làm mới dữ liệu sau 3 phút
         void loadAllData(true, true);
         void checkForNewCodeVersion();
       }
@@ -346,61 +366,34 @@ export default function CareSchedulePage() {
     const handleFocus = () => checkDateAndRefreshOnWakeUp('wakeup');
     const handlePageShow = () => checkDateAndRefreshOnWakeUp('wakeup');
     const handleOnline = () => checkDateAndRefreshOnWakeUp('wakeup');
-    const handleTouchStart = () => checkDateAndRefreshOnWakeUp('interaction');
 
-    // Quản lý Service Worker tự động reload khi có bản build mới
+    // Đăng ký Service Worker cho PWA
     if ('serviceWorker' in navigator) {
-      let isRefreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!isRefreshing) {
-          isRefreshing = true;
-          window.location.reload();
-        }
-      });
-
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((reg) => {
-          reg.update().catch(() => {});
-          reg.addEventListener('updatefound', () => {
-            const newWorker = reg.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // Yêu cầu worker mới kích hoạt ngay lập tức
-                  newWorker.postMessage({ type: 'SKIP_WAITING' });
-                }
-              });
-            }
-          });
-        })
-        .catch(() => {});
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
     window.addEventListener('pageshow', handlePageShow);
     window.addEventListener('online', handleOnline);
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
 
-    // Kiểm tra định kỳ mỗi 20 giây để tự nhảy ngày và mỗi 90s kiểm tra code mới
+    // Kiểm tra định kỳ mỗi 30 giây để tự nhảy ngày nếu treo app qua nửa đêm
     const intervalId = setInterval(() => {
       checkDateAndRefreshOnWakeUp('interval');
-    }, 20 * 1000);
+    }, 30 * 1000);
 
-    // Kiểm tra version lần đầu sau 3 giây mở app
-    const initialVersionCheck = setTimeout(() => {
+    // Lấy version mốc sau 2 giây sau khi app mount xong
+    const initialVersionTimer = setTimeout(() => {
       void checkForNewCodeVersion();
-    }, 3000);
+    }, 2000);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('pageshow', handlePageShow);
       window.removeEventListener('online', handleOnline);
-      window.removeEventListener('touchstart', handleTouchStart);
       clearInterval(intervalId);
-      clearTimeout(initialVersionCheck);
+      clearTimeout(initialVersionTimer);
     };
   }, [loadAllData, showToast]);
 
@@ -779,9 +772,9 @@ export default function CareSchedulePage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-teal-600 selection:text-white">
-      {/* Toast Notification (nâng cao hơn trên mobile để không đè lên thanh điều hướng đáy) */}
+      {/* Toast Notification (nâng cao hơn trên mobile để không đè lên thanh điều hướng đáy, hiển thị êm ái không giật) */}
       {notification && (
-        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-white border border-slate-300 shadow-xl text-slate-900 text-xs sm:text-sm font-bold flex items-center gap-2 animate-bounce max-w-[92vw]">
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-white border border-slate-300 shadow-2xl text-slate-900 text-xs sm:text-sm font-bold flex items-center gap-2 max-w-[92vw] transition-all duration-300">
           {notification.type === 'warn' ? (
             <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
           ) : (

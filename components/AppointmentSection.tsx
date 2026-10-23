@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   CalendarDays,
   Stethoscope,
@@ -15,7 +15,7 @@ import {
   CalendarCheck,
 } from 'lucide-react';
 import { AppointmentInfo } from '@/lib/types';
-import { getVietnamDateStr, diffDaysBetweenDateStr, formatVietnamDateFull } from '@/lib/config';
+import { getVietnamDateStr, diffDaysBetweenDateStr } from '@/lib/config';
 
 interface AppointmentSectionProps {
   appointment: AppointmentInfo;
@@ -47,7 +47,7 @@ function formatDateVN(dateStr: string): string {
 export function AppointmentSection({
   appointment,
   onSave,
-  isAdmin = false,
+  isAdmin: _isAdmin = false,
   todayStr,
 }: AppointmentSectionProps) {
   const currentTodayStr = todayStr || getVietnamDateStr();

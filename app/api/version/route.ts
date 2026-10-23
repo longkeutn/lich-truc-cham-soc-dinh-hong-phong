@@ -5,15 +5,15 @@ export const revalidate = 0;
 
 export async function GET() {
   const buildId =
+    process.env.NEXT_PUBLIC_APP_BUILD_ID ||
     process.env.VERCEL_GIT_COMMIT_SHA ||
     process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
-    process.env.NEXT_PUBLIC_BUILD_TIME ||
     process.env.BUILD_ID ||
-    'version-2.2.0';
+    'v2.2-build';
 
   return NextResponse.json(
     {
-      buildId,
+      buildId: String(buildId).trim(),
       version: '2.2.0',
       timestamp: Date.now(),
     },
