@@ -20,10 +20,10 @@ interface GoogleSheetGuideModalProps {
 }
 
 const APPS_SCRIPT_5_SHEETS_CODE = `/**
- * GOOGLE APPS SCRIPT WEB APP — SỔ SỨC KHỎE BỐ (ĐINH HỒNG PHONG) v2.0
- * Tự động tạo và quản lý 8 Bảng Tính:
- *   Cũ: Shifts, Members, Settings, Contacts, Reminders
- *   Mới: VitalsLog, CareRoutines, DailyLogs
+ * GOOGLE APPS SCRIPT WEB APP — SỔ SỨC KHỎE BỐ (ĐINH HỒNG PHONG) v2.2
+ * Tự động tạo và quản lý 9 Bảng Tính:
+ *   5 Bảng gốc: Shifts, Members, Settings, Contacts, Reminders
+ *   4 Bảng mới: VitalsLog, CareRoutines, DailyLogs, Expenses (Sổ Thu Chi)
  * Hỗ trợ API CRUD 2 chiều thời gian thực (Zero Hardcode).
  */
 
@@ -31,7 +31,19 @@ function doGet(e) {
   try {
     const action = (e && e.parameter && e.parameter.action) || 'getAllData';
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    ensureSheetsSetup(ss);
+    if (
+      !ss.getSheetByName('Expenses') ||
+      !ss.getSheetByName('DailyLogs') ||
+      !ss.getSheetByName('CareRoutines') ||
+      !ss.getSheetByName('VitalsLog') ||
+      !ss.getSheetByName('Shifts') ||
+      !ss.getSheetByName('Members') ||
+      !ss.getSheetByName('Settings') ||
+      !ss.getSheetByName('Contacts') ||
+      !ss.getSheetByName('Reminders')
+    ) {
+      ensureSheetsSetup(ss);
+    }
 
     if (action === 'getAllData') {
       const startDate = (e.parameter && e.parameter.startDate) || '';
@@ -46,12 +58,14 @@ function doGet(e) {
         contacts: readContacts(ss),
         reminders: readReminders(ss),
         adminPin: readAdminPin(ss),
-        // === V2.0: Sổ Sức Khỏe Bố ===
+        expensePin: readExpensePin(ss),
+        // === V2.0 & V2.2: Sổ Sức Khỏe Bố & Sổ Thu Chi ===
         vitalsLog: readVitalsLog(ss),
         careRoutines: readCareRoutines(ss),
         dailyLogs: readDailyLogs(ss),
         appointment: readAppointment(ss),
         bpThresholds: readBpThresholds(ss),
+        expenses: readExpenses(ss),
       });
     }
 
@@ -197,6 +211,33 @@ function doPost(e) {
       return jsonResponse({ success: true, message: 'Đã lưu ngưỡng huyết áp' });
     }
 
+    // 11. V2.2: Quản lý Sổ Thu Chi Điều Trị (Expenses) & Mã PIN riêng (expense_pin)
+    if (action === 'verifyExpensePin') {
+      const currentExpPin = readExpensePin(ss);
+      const isValidExp = String(postData.pin || '').trim() === currentExpPin;
+      return jsonResponse({ success: true, valid: isValidExp });
+    }
+    if (action === 'changeExpensePin') {
+      const currentExpPin = readExpensePin(ss);
+      if (String(postData.oldPin || '').trim() !== currentExpPin) {
+        return jsonResponse({ success: false, message: 'Mã PIN hiện tại của Sổ Thu Chi không chính xác' });
+      }
+      const newExpPin = String(postData.newPin || '').trim();
+      if (newExpPin.length < 4) {
+        return jsonResponse({ success: false, message: 'Mã PIN mới phải có ít nhất 4 ký tự' });
+      }
+      saveExpensePin(ss, newExpPin);
+      return jsonResponse({ success: true, message: 'Đã đổi mã PIN Sổ Thu Chi thành công' });
+    }
+    if (action === 'saveExpense' && postData.expense) {
+      saveExpense(ss, postData.expense);
+      return jsonResponse({ success: true, message: 'Đã lưu khoản thu/chi' });
+    }
+    if (action === 'deleteExpense' && postData.expenseId) {
+      deleteRowById(ss, 'Expenses', postData.expenseId);
+      return jsonResponse({ success: true, message: 'Đã xoá khoản thu/chi' });
+    }
+
     return jsonResponse({ success: false, message: 'Thao tác không hợp lệ' });
   } catch (error) {
     return jsonResponse({ success: false, error: error.toString() });
@@ -206,7 +247,7 @@ function doPost(e) {
 }
 
 // ==========================================
-// TỰ ĐỘNG THIẾT LẬP 5 BẢNG TÍNH & DỮ LIỆU GỐC
+// TỰ ĐỘNG THIẾT LẬP 9 BẢNG TÍNH & DỮ LIỆU GỐC
 // ==========================================
 function ensureSheetsSetup(ss) {
   // Sheet 1: Shifts (Ca trực - 24 cột)
@@ -258,7 +299,7 @@ function ensureSheetsSetup(ss) {
     if (!sheetMembers.getRange(1, 12).getValue()) sheetMembers.getRange(1, 12).setValue('is_supporter');
   }
 
-  // Sheet 3: Settings (Thông tin bệnh nhân & cấu hình V1 + V2.0)
+  // Sheet 3: Settings (Thông tin bệnh nhân & cấu hình V1 + V2.2)
   let sheetSettings = ss.getSheetByName('Settings');
   const requiredSettings = [
     ['patient_name', 'Đinh Hồng Phong', 'Họ và tên bệnh nhân'],
@@ -269,6 +310,7 @@ function ensureSheetsSetup(ss) {
     ['emergency_phone', '0913 218 765 (BS. Hùng)', 'Số điện thoại bác sĩ điều trị chính'],
     ['current_phase', 'phase2', 'Giai đoạn hiện tại (phase1: ICU, phase2: Tại nhà)'],
     ['admin_pin', '1234', 'Mã PIN quyền Admin bảo mật'],
+    ['expense_pin', '2468', 'Mã PIN riêng bảo mật Sổ Thu Chi Điều Trị'],
     ['app_mode', 'home_care', 'Chế độ ứng dụng (home_care / icu)'],
     ['active_stage_id', 'stage-1', 'Giai đoạn phục hồi đang kích hoạt'],
     ['default_recorder', 'Mẹ', 'Tên người ghi mặc định'],
@@ -430,6 +472,22 @@ function ensureSheetsSetup(ss) {
     sheetDailyLogs.getRange(1, 1, 1, dailyLogHeaders.length)
       .setFontWeight('bold').setBackground('#D1FAE5');
     sheetDailyLogs.setFrozenRows(1);
+  }
+
+  // Sheet 9: Expenses (Sổ Theo Dõi Thu Chi Điều Trị - 13 cột)
+  let sheetExpenses = ss.getSheetByName('Expenses');
+  const expenseHeaders = [
+    'id', 'date', 'type', 'amount', 'stage', 'category',
+    'title', 'person_name', 'payment_source', 'note',
+    'receipt_image', 'created_at', 'updated_at'
+  ];
+  if (!sheetExpenses) {
+    sheetExpenses = ss.insertSheet('Expenses');
+    sheetExpenses.appendRow(expenseHeaders);
+    sheetExpenses.getRange(1, 1, 1, expenseHeaders.length)
+      .setFontWeight('bold').setBackground('#CCFBF1');
+    sheetExpenses.setFrozenRows(1);
+    sheetExpenses.getRange('D:D').setNumberFormat('#,##0');
   }
 }
 
@@ -1068,6 +1126,80 @@ function saveBpThresholdsToSettings(ss, bp) {
   }
 }
 
+function readExpensePin(ss) {
+  const sheet = ss.getSheetByName('Settings');
+  if (!sheet || sheet.getLastRow() <= 1) return '2468';
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === 'expense_pin') {
+      return String(data[i][1] || '2468');
+    }
+  }
+  return '2468';
+}
+
+function saveExpensePin(ss, pin) {
+  const sheet = ss.getSheetByName('Settings');
+  if (!sheet) return;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === 'expense_pin') {
+      sheet.getRange(i + 1, 2).setValue(String(pin));
+      return;
+    }
+  }
+  sheet.appendRow(['expense_pin', String(pin), 'Mã PIN riêng bảo mật Sổ Thu Chi Điều Trị']);
+}
+
+function readExpenses(ss) {
+  const sheet = ss.getSheetByName('Expenses');
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  const data = sheet.getDataRange().getValues();
+  return data.slice(1).filter(row => row[0]).map(row => ({
+    id: String(row[0]),
+    date: formatRowDate(row[1]),
+    type: String(row[2] || 'out'),
+    amount: Number(row[3]) || 0,
+    stage: String(row[4] || 'home_care'),
+    category: String(row[5] || 'other_expense'),
+    title: String(row[6] || ''),
+    personName: String(row[7] || ''),
+    paymentSource: String(row[8] || 'fund_or_advance'),
+    note: row[9] ? String(row[9]) : '',
+    receiptImage: row[10] ? String(row[10]) : '',
+    createdAt: String(row[11] || ''),
+    updatedAt: String(row[12] || '')
+  })).sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || ''));
+}
+
+function saveExpense(ss, e) {
+  const sheet = ss.getSheetByName('Expenses');
+  if (!sheet || !e) return;
+  const rowData = [
+    e.id,
+    "'" + (e.date || ''),
+    e.type || 'out',
+    Number(e.amount) || 0,
+    e.stage || 'home_care',
+    e.category || 'other_expense',
+    e.title || '',
+    e.personName || '',
+    e.paymentSource || 'fund_or_advance',
+    e.note || '',
+    e.receiptImage || '',
+    e.createdAt || new Date().toISOString(),
+    e.updatedAt || new Date().toISOString()
+  ];
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(e.id)) {
+      sheet.getRange(i + 1, 1, 1, 13).setValues([rowData]);
+      return;
+    }
+  }
+  sheet.appendRow(rowData);
+}
+
 function deleteRowById(ss, sheetName, id) {
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return;
@@ -1114,14 +1246,14 @@ export default function GoogleSheetGuideModal({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
-                  Cấu Trúc Google Sheet 8 Bảng Tính V2.0 (CRUD Động)
+                  Cấu Trúc Google Sheet 9 Bảng Tính V2.2 (Kèm Sổ Thu Chi)
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                   Zero Hardcode
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-medium">
-                Huyết áp (VitalsLog), Đơn thuốc & Bài tập (CareRoutines), Tích hàng ngày (DailyLogs) + 5 bảng gốc
+                Huyết áp (VitalsLog), Đơn thuốc (CareRoutines), Tích ngày (DailyLogs), Sổ Thu Chi (Expenses) + 5 bảng gốc
               </p>
             </div>
           </div>
@@ -1149,13 +1281,13 @@ export default function GoogleSheetGuideModal({
               <div className="text-xs sm:text-sm">
                 <span className="font-bold block">
                   {isSheetsConnected
-                    ? 'Đã kết nối toàn bộ 8 Bảng Tính Google Sheets V2.0 thành công!'
+                    ? 'Đã kết nối toàn bộ 9 Bảng Tính Google Sheets V2.2 thành công!'
                     : 'Đang hoạt động với Bộ lưu trữ dự phòng (In-Memory Fallback)'}
                 </span>
                 <span className="text-[11px] opacity-80">
                   {isSheetsConnected
-                    ? 'Mọi dữ liệu huyết áp, đơn thuốc, tích hoàn thành hàng ngày, lịch tái khám được lưu vào Google Sheets thời gian thực.'
-                    : 'Chỉ cần cập nhật mã Google Apps Script bên dưới là 3 bảng mới sẽ tự động khởi tạo mà không mất dữ liệu cũ!'}
+                    ? 'Mọi dữ liệu huyết áp, đơn thuốc, tích hoàn thành, lịch tái khám & Sổ Thu Chi được lưu vào Google Sheets thời gian thực.'
+                    : 'Chỉ cần cập nhật mã Google Apps Script V2.2 bên dưới là bảng Expenses (Sổ Thu Chi) sẽ tự động khởi tạo mà không mất dữ liệu cũ!'}
                 </span>
               </div>
             </div>
@@ -1184,7 +1316,7 @@ export default function GoogleSheetGuideModal({
             }`}
           >
             <Sparkles className="w-4 h-4" />
-            <span>Mã Apps Script Tự Động Tạo 8 Bảng</span>
+            <span>Mã Apps Script V2.2 (9 Bảng)</span>
           </button>
 
           <button
@@ -1197,7 +1329,7 @@ export default function GoogleSheetGuideModal({
             }`}
           >
             <Table className="w-4 h-4" />
-            <span>Cấu Trúc 8 Bảng Tính</span>
+            <span>Cấu Trúc 9 Bảng Tính</span>
           </button>
 
           <button
@@ -1219,7 +1351,7 @@ export default function GoogleSheetGuideModal({
           {activeTab === 'appscript' && (
             <div className="space-y-4">
               <div className="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-600/40 text-emerald-200 text-xs sm:text-sm leading-relaxed">
-                <strong>⚡ Tự động 100% & An toàn dữ liệu cũ:</strong> Khi cập nhật đoạn mã V2.0 này, hệ thống giữ nguyên 5 Sheet cũ (<code>Shifts</code>, <code>Members</code>, <code>Settings</code>, <code>Contacts</code>, <code>Reminders</code>) và <strong>tự động tạo thêm 3 Sheet mới</strong> (<code>VitalsLog</code>, <code>CareRoutines</code>, <code>DailyLogs</code>) kèm đơn thuốc & bài tập mẫu giai đoạn 1!
+                <strong>⚡ Tự động 100% & An toàn dữ liệu cũ:</strong> Khi cập nhật đoạn mã V2.2 này, hệ thống giữ nguyên toàn bộ dữ liệu trên các Sheet cũ và <strong>tự động tạo thêm Sheet thứ 9 <code>Expenses</code> (13 cột)</strong> cùng khóa <code>expense_pin</code> (mặc định <code>2468</code>) trong bảng <code>Settings</code>!
               </div>
 
               <div className="space-y-2">
@@ -1231,12 +1363,12 @@ export default function GoogleSheetGuideModal({
                   {copiedKey === 'appscript_full' ? (
                     <>
                       <Check className="w-5 h-5 text-slate-950 stroke-[3]" />
-                      <span>ĐÃ SAO CHÉP TOÀN BỘ MÃ NGUỒN 8 BẢNG V2.0!</span>
+                      <span>ĐÃ SAO CHÉP TOÀN BỘ MÃ NGUỒN 9 BẢNG V2.2!</span>
                     </>
                   ) : (
                     <>
                       <Copy className="w-5 h-5" />
-                      <span>BẤM VÀO ĐÂY ĐỂ SAO CHÉP MÃ APPS SCRIPT V2.0 (1 CHẠM)</span>
+                      <span>BẤM VÀO ĐÂY ĐỂ SAO CHÉP MÃ APPS SCRIPT V2.2 (1 CHẠM)</span>
                     </>
                   )}
                 </button>
@@ -1248,7 +1380,7 @@ export default function GoogleSheetGuideModal({
                 </h4>
                 <ol className="list-decimal list-inside space-y-1 text-slate-300">
                   <li>Mở trang tính Google Sheets &rarr; <strong>Tiện ích mở rộng</strong> &rarr; <strong>Apps Script</strong>.</li>
-                  <li>Xóa hết code cũ trong <code>Code.gs</code>, dán đoạn mã V2.0 vừa sao chép &rarr; Bấm <strong>Lưu (Ctrl + S)</strong>.</li>
+                  <li>Xóa hết code cũ trong <code>Code.gs</code>, dán đoạn mã V2.2 vừa sao chép &rarr; Bấm <strong>Lưu (Ctrl + S)</strong>.</li>
                   <li>Bấm nút <strong>Triển khai (Deploy)</strong> &rarr; <strong>Quản lý các bản triển khai (Manage deployments)</strong> &rarr; Bấm biểu tượng ✏️ (Chỉnh sửa) &rarr; Chọn Phiên bản: <strong>Phiên bản mới (New version)</strong> &rarr; Bấm <strong>Triển khai</strong> (nhờ vậy giữ nguyên URL cũ, không cần sửa lại trên Vercel!).</li>
                   <li>Hoặc nếu tạo mới từ đầu: Chọn <strong>Triển khai mới (New deployment)</strong> &rarr; <strong>Ứng dụng web (Web app)</strong> &rarr; Thực thi dưới dạng <strong>Tôi (Me)</strong>, Quyền truy cập <strong>Bất kỳ ai (Anyone)</strong> &rarr; Copy URL dán vào Vercel.</li>
                 </ol>
@@ -1256,7 +1388,7 @@ export default function GoogleSheetGuideModal({
 
               {/* Code Preview */}
               <div className="space-y-1.5 pt-2">
-                <span className="text-xs text-slate-400 font-bold block">Xem trước mã nguồn (Code.gs V2.0):</span>
+                <span className="text-xs text-slate-400 font-bold block">Xem trước mã nguồn (Code.gs V2.2 - 9 Bảng):</span>
                 <pre className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 text-[11px] font-mono text-emerald-300 max-h-56 overflow-y-auto leading-relaxed">
                   {APPS_SCRIPT_5_SHEETS_CODE}
                 </pre>
@@ -1267,39 +1399,48 @@ export default function GoogleSheetGuideModal({
           {activeTab === 'structure' && (
             <div className="space-y-3.5 text-xs sm:text-sm text-slate-300">
               <p className="text-slate-400">
-                Toàn bộ dữ liệu V2.0 được chuẩn hóa thành <strong>8 bảng tính</strong> trong 1 file Google Sheet duy nhất (3 bảng mới cho chăm sóc tại nhà + 5 bảng gốc):
+                Toàn bộ dữ liệu V2.2 được chuẩn hóa thành <strong>9 bảng tính</strong> trong 1 file Google Sheet duy nhất (4 bảng mới V2 + 5 bảng gốc):
               </p>
 
-              {/* 3 Bảng mới V2.0 */}
+              {/* 4 Bảng mới V2.2 */}
               <div className="p-3 rounded-2xl bg-emerald-950/20 border border-emerald-700/40 space-y-2.5">
                 <div className="text-xs font-black uppercase tracking-wider text-emerald-400">
-                  ⭐ 3 Bảng Mới V2.0 — Sổ Sức Khỏe Bố Tại Nhà
+                  ⭐ 4 Bảng Mới V2.2 — Sổ Sức Khỏe & Sổ Thu Chi Điều Trị
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                   <div className="p-3 rounded-xl bg-slate-950 border border-rose-800/60 space-y-1">
                     <div className="font-bold text-rose-400 flex items-center gap-1.5">
-                      <Table className="w-4 h-4 shrink-0" /> 6. VitalsLog (Huyết áp)
+                      <Table className="w-4 h-4 shrink-0" /> 6. VitalsLog (Huyết áp - 14 cột)
                     </div>
                     <p className="text-slate-400 text-xs">
-                      14 cột: ID, Ngày, Giờ, Buổi, Tâm thu (SYS), Tâm trương (DIA), Mạch, SpO2, Nhiệt độ, Đường huyết, Ghi chú, Mức cảnh báo, Người đo, Ngày tạo.
+                      ID, Ngày, Giờ, Buổi, Tâm thu (SYS), Tâm trương (DIA), Mạch, SpO2, Nhiệt độ, Đường huyết, Ghi chú, Mức cảnh báo, Người đo, Ngày tạo.
                     </p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-950 border border-blue-800/60 space-y-1">
                     <div className="font-bold text-blue-400 flex items-center gap-1.5">
-                      <Table className="w-4 h-4 shrink-0" /> 7. CareRoutines (Đơn thuốc & Tập)
+                      <Table className="w-4 h-4 shrink-0" /> 7. CareRoutines (Đơn thuốc & Tập - 12 cột)
                     </div>
                     <p className="text-slate-400 text-xs">
-                      14 cột: ID, Mã giai đoạn, Tên giai đoạn, Loại (meds/rehab/care), Kiểu uống, Tên thuốc/bài tập, Liều lượng, Các buổi (JSON), Hướng dẫn, Lưu ý điều kiện, Đang dùng, Thứ tự.
+                      ID, Mã giai đoạn, Tên giai đoạn, Loại (meds/rehab/care), Kiểu uống, Tên thuốc/bài tập, Liều lượng, Các buổi (JSON), Hướng dẫn, Lưu ý điều kiện, Đang dùng, Thứ tự.
                     </p>
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-950 border border-emerald-800/60 space-y-1">
                     <div className="font-bold text-emerald-400 flex items-center gap-1.5">
-                      <Table className="w-4 h-4 shrink-0" /> 8. DailyLogs (Tích hàng ngày)
+                      <Table className="w-4 h-4 shrink-0" /> 8. DailyLogs (Tích hàng ngày - 8 cột)
                     </div>
                     <p className="text-slate-400 text-xs">
-                      8 cột: ID (dl-ngày-routine-buổi), Ngày, Mã đầu việc, Buổi, Đã xong (TRUE/FALSE), Giờ hoàn thành, Người tích, Ghi chú.
+                      ID (dl-ngày-routine-buổi), Ngày, Mã đầu việc, Buổi, Đã xong (TRUE/FALSE), Giờ hoàn thành, Người tích, Ghi chú.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-950 border border-amber-700/80 space-y-1">
+                    <div className="font-bold text-amber-400 flex items-center gap-1.5">
+                      <Table className="w-4 h-4 shrink-0" /> 9. Expenses (Sổ Thu Chi Điều Trị - 13 cột)
+                    </div>
+                    <p className="text-slate-400 text-xs">
+                      13 cột: <code>id</code>, <code>date</code>, <code>type</code> (out/in), <code>amount</code>, <code>stage</code> (emergency/rehab_hospital/home_care), <code>category</code>, <code>title</code>, <code>person_name</code>, <code>payment_source</code>, <code>note</code>, <code>receipt_image</code>, <code>created_at</code>, <code>updated_at</code>.
                     </p>
                   </div>
                 </div>
@@ -1327,10 +1468,10 @@ export default function GoogleSheetGuideModal({
 
                 <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
                   <div className="font-bold text-amber-400 flex items-center gap-1.5">
-                    <Table className="w-4 h-4" /> 3. Bảng Settings (Bệnh án, Tái khám & Ngưỡng HA)
+                    <Table className="w-4 h-4" /> 3. Bảng Settings (Bệnh án, PIN Admin, PIN Thu Chi)
                   </div>
                   <p className="text-slate-400 text-xs">
-                    3 cột (key, value, description): Hồ sơ bệnh nhân, Mã PIN Admin, Lịch tái khám tiếp theo, Ghi chú bác sĩ lần khám trước và Ngưỡng cảnh báo huyết áp.
+                    3 cột (key, value, description): Hồ sơ bệnh nhân, <code>admin_pin</code> (1234), <code>expense_pin</code> (2468), Lịch tái khám và Ngưỡng huyết áp.
                   </p>
                 </div>
 
@@ -1386,7 +1527,7 @@ export default function GoogleSheetGuideModal({
         {/* Footer Modal */}
         <div className="p-4 border-t border-slate-800 bg-slate-950 flex items-center justify-between shrink-0">
           <span className="text-xs text-slate-400 hidden sm:inline">
-            Ứng dụng đọc/ghi đồng thời cả 8 bảng tính Google Sheets thời gian thực
+            Ứng dụng đọc/ghi đồng thời cả 9 bảng tính Google Sheets thời gian thực
           </span>
           <button
             type="button"

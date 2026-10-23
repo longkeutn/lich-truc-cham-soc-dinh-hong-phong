@@ -1,8 +1,8 @@
 /**
- * GOOGLE APPS SCRIPT WEB APP — SỔ SỨC KHỎE BỐ (ĐINH HỒNG PHONG) v2.0
- * Tự động tạo và quản lý 8 Bảng Tính:
- *   Cũ: Shifts, Members, Settings, Contacts, Reminders
- *   Mới: VitalsLog, CareRoutines, DailyLogs
+ * GOOGLE APPS SCRIPT WEB APP — SỔ SỨC KHỎE BỐ (ĐINH HỒNG PHONG) v2.2
+ * Tự động tạo và quản lý 9 Bảng Tính:
+ *   5 Bảng gốc: Shifts, Members, Settings, Contacts, Reminders
+ *   4 Bảng mới: VitalsLog, CareRoutines, DailyLogs, Expenses (Sổ Thu Chi)
  * Hỗ trợ API CRUD 2 chiều thời gian thực (Zero Hardcode).
  */
 
@@ -10,9 +10,8 @@ function doGet(e) {
   try {
     const action = (e && e.parameter && e.parameter.action) || 'getAllData';
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-    // Chỉ chạy khởi tạo cấu trúc bảng nếu thiếu bất kỳ bảng nào (tiết kiệm 1-2 giây mỗi lần đọc dữ liệu)
     if (
+      !ss.getSheetByName('Expenses') ||
       !ss.getSheetByName('DailyLogs') ||
       !ss.getSheetByName('CareRoutines') ||
       !ss.getSheetByName('VitalsLog') ||
@@ -28,7 +27,7 @@ function doGet(e) {
     if (action === 'getAllData') {
       const startDate = (e.parameter && e.parameter.startDate) || '';
       const endDate = (e.parameter && e.parameter.endDate) || '';
-      const phase = (e.parameter && e.parameter.phase) || '';
+      const phase = (e.parameter && e.parameter.phase) || 'phase1';
 
       return jsonResponse({
         success: true,
@@ -38,19 +37,21 @@ function doGet(e) {
         contacts: readContacts(ss),
         reminders: readReminders(ss),
         adminPin: readAdminPin(ss),
-        // === V2.0: Sổ Sức Khỏe Bố ===
+        expensePin: readExpensePin(ss),
+        // === V2.0 & V2.2: Sổ Sức Khỏe Bố & Sổ Thu Chi ===
         vitalsLog: readVitalsLog(ss),
         careRoutines: readCareRoutines(ss),
         dailyLogs: readDailyLogs(ss),
         appointment: readAppointment(ss),
         bpThresholds: readBpThresholds(ss),
+        expenses: readExpenses(ss),
       });
     }
 
     if (action === 'getShifts') {
       const startDate = (e.parameter && e.parameter.startDate) || '';
       const endDate = (e.parameter && e.parameter.endDate) || '';
-      const phase = (e.parameter && e.parameter.phase) || '';
+      const phase = (e.parameter && e.parameter.phase) || 'phase1';
       return jsonResponse({ success: true, shifts: readShifts(ss, startDate, endDate, phase) });
     }
 
@@ -189,6 +190,33 @@ function doPost(e) {
       return jsonResponse({ success: true, message: 'Đã lưu ngưỡng huyết áp' });
     }
 
+    // 11. V2.2: Quản lý Sổ Thu Chi Điều Trị (Expenses) & Mã PIN riêng (expense_pin)
+    if (action === 'verifyExpensePin') {
+      const currentExpPin = readExpensePin(ss);
+      const isValidExp = String(postData.pin || '').trim() === currentExpPin;
+      return jsonResponse({ success: true, valid: isValidExp });
+    }
+    if (action === 'changeExpensePin') {
+      const currentExpPin = readExpensePin(ss);
+      if (String(postData.oldPin || '').trim() !== currentExpPin) {
+        return jsonResponse({ success: false, message: 'Mã PIN hiện tại của Sổ Thu Chi không chính xác' });
+      }
+      const newExpPin = String(postData.newPin || '').trim();
+      if (newExpPin.length < 4) {
+        return jsonResponse({ success: false, message: 'Mã PIN mới phải có ít nhất 4 ký tự' });
+      }
+      saveExpensePin(ss, newExpPin);
+      return jsonResponse({ success: true, message: 'Đã đổi mã PIN Sổ Thu Chi thành công' });
+    }
+    if (action === 'saveExpense' && postData.expense) {
+      saveExpense(ss, postData.expense);
+      return jsonResponse({ success: true, message: 'Đã lưu khoản thu/chi' });
+    }
+    if (action === 'deleteExpense' && postData.expenseId) {
+      deleteRowById(ss, 'Expenses', postData.expenseId);
+      return jsonResponse({ success: true, message: 'Đã xoá khoản thu/chi' });
+    }
+
     return jsonResponse({ success: false, message: 'Thao tác không hợp lệ' });
   } catch (error) {
     return jsonResponse({ success: false, error: error.toString() });
@@ -198,7 +226,7 @@ function doPost(e) {
 }
 
 // ==========================================
-// TỰ ĐỘNG THIẾT LẬP 5 BẢNG TÍNH & DỮ LIỆU GỐC
+// TỰ ĐỘNG THIẾT LẬP 9 BẢNG TÍNH & DỮ LIỆU GỐC
 // ==========================================
 function ensureSheetsSetup(ss) {
   // Sheet 1: Shifts (Ca trực - 24 cột)
@@ -250,7 +278,7 @@ function ensureSheetsSetup(ss) {
     if (!sheetMembers.getRange(1, 12).getValue()) sheetMembers.getRange(1, 12).setValue('is_supporter');
   }
 
-  // Sheet 3: Settings (Thông tin bệnh nhân & cấu hình V1 + V2.0)
+  // Sheet 3: Settings (Thông tin bệnh nhân & cấu hình V1 + V2.2)
   let sheetSettings = ss.getSheetByName('Settings');
   const requiredSettings = [
     ['patient_name', 'Đinh Hồng Phong', 'Họ và tên bệnh nhân'],
@@ -261,6 +289,7 @@ function ensureSheetsSetup(ss) {
     ['emergency_phone', '0913 218 765 (BS. Hùng)', 'Số điện thoại bác sĩ điều trị chính'],
     ['current_phase', 'phase2', 'Giai đoạn hiện tại (phase1: ICU, phase2: Tại nhà)'],
     ['admin_pin', '1234', 'Mã PIN quyền Admin bảo mật'],
+    ['expense_pin', '2468', 'Mã PIN riêng bảo mật Sổ Thu Chi Điều Trị'],
     ['app_mode', 'home_care', 'Chế độ ứng dụng (home_care / icu)'],
     ['active_stage_id', 'stage-1', 'Giai đoạn phục hồi đang kích hoạt'],
     ['default_recorder', 'Mẹ', 'Tên người ghi mặc định'],
@@ -423,6 +452,22 @@ function ensureSheetsSetup(ss) {
       .setFontWeight('bold').setBackground('#D1FAE5');
     sheetDailyLogs.setFrozenRows(1);
   }
+
+  // Sheet 9: Expenses (Sổ Theo Dõi Thu Chi Điều Trị - 13 cột)
+  let sheetExpenses = ss.getSheetByName('Expenses');
+  const expenseHeaders = [
+    'id', 'date', 'type', 'amount', 'stage', 'category',
+    'title', 'person_name', 'payment_source', 'note',
+    'receipt_image', 'created_at', 'updated_at'
+  ];
+  if (!sheetExpenses) {
+    sheetExpenses = ss.insertSheet('Expenses');
+    sheetExpenses.appendRow(expenseHeaders);
+    sheetExpenses.getRange(1, 1, 1, expenseHeaders.length)
+      .setFontWeight('bold').setBackground('#CCFBF1');
+    sheetExpenses.setFrozenRows(1);
+    sheetExpenses.getRange('D:D').setNumberFormat('#,##0');
+  }
 }
 
 // ==========================================
@@ -468,7 +513,7 @@ function readShifts(ss, startDate, endDate, phase) {
       rowDate = shiftId.substring(0, 10);
     }
 
-    let rowPhase = String(row[2] || '').toLowerCase().replace(/[\\s_-]/g, '');
+    let rowPhase = String(row[2] || '').toLowerCase().replace(/[\s_-]/g, '');
     if (rowPhase.includes('2')) rowPhase = 'phase2';
     else rowPhase = 'phase1';
 
@@ -559,22 +604,16 @@ function readPatientInfo(ss) {
   const sheet = ss.getSheetByName('Settings');
   const info = {
     name: 'Đinh Hồng Phong',
-    diagnosis: '',
-    hospital: '',
-    room: '',
-    notes: '',
-    emergencyPhone: '',
-    statusBadge: 'Bệnh nhân theo dõi đặc biệt',
-    conditionTag: 'Tai biến nặng',
-    headerBadge: 'Tại nhà',
-    careMode: 'Liên tục 24/7',
-    careGoal: 'Chống loét & duy trì SpO2',
-    customFields: []
+    diagnosis: 'Tai biến mạch máu não nặng (Đột quỵ diện rộng), liệt nửa người, thở máy/sonde',
+    hospital: 'Bệnh viện Bạch Mai - Hà Nội',
+    room: 'Khoa Hồi Sức Tích Cực (ICU) • Phòng 402, Giường 12',
+    notes: 'Cần lật trở chống loét 2h/lần, kiểm tra SpO2 và hút đờm thường xuyên.',
+    emergencyPhone: '0913 218 765'
   };
   if (!sheet) return info;
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    const key = String(data[i][0]).trim();
+    const key = String(data[i][0]);
     const val = String(data[i][1] || '');
     if (key === 'patient_name') info.name = val;
     if (key === 'patient_diagnosis') info.diagnosis = val;
@@ -582,18 +621,6 @@ function readPatientInfo(ss) {
     if (key === 'patient_room') info.room = val;
     if (key === 'patient_notes') info.notes = val;
     if (key === 'emergency_phone') info.emergencyPhone = val;
-    if (key === 'patient_status_badge') info.statusBadge = val;
-    if (key === 'patient_condition_tag') info.conditionTag = val;
-    if (key === 'patient_header_badge') info.headerBadge = val;
-    if (key === 'patient_care_mode') info.careMode = val;
-    if (key === 'patient_care_goal') info.careGoal = val;
-    if (key === 'patient_custom_fields' && val) {
-      try {
-        info.customFields = JSON.parse(val);
-      } catch (e) {
-        info.customFields = [];
-      }
-    }
   }
   return info;
 }
@@ -772,33 +799,19 @@ function saveReminder(ss, reminder) {
 
 function savePatientInfo(ss, info) {
   const sheet = ss.getSheetByName('Settings');
-  if (!sheet) return;
   const data = sheet.getDataRange().getValues();
   const map = {
-    patient_name: info.name || '',
-    patient_diagnosis: info.diagnosis || '',
-    patient_hospital: info.hospital || '',
-    patient_room: info.room || '',
-    patient_notes: info.notes || '',
-    emergency_phone: info.emergencyPhone || '',
-    patient_status_badge: info.statusBadge !== undefined ? info.statusBadge : '',
-    patient_condition_tag: info.conditionTag !== undefined ? info.conditionTag : '',
-    patient_header_badge: info.headerBadge !== undefined ? info.headerBadge : '',
-    patient_care_mode: info.careMode !== undefined ? info.careMode : '',
-    patient_care_goal: info.careGoal !== undefined ? info.careGoal : '',
-    patient_custom_fields: JSON.stringify(info.customFields || [])
+    patient_name: info.name,
+    patient_diagnosis: info.diagnosis,
+    patient_hospital: info.hospital,
+    patient_room: info.room,
+    patient_notes: info.notes,
+    emergency_phone: info.emergencyPhone || ''
   };
-  for (const [key, val] of Object.entries(map)) {
-    let found = false;
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][0]).trim() === key) {
-        sheet.getRange(i + 1, 2).setValue(val);
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      sheet.appendRow([key, val, 'Thông tin bệnh nhân']);
+  for (let i = 1; i < data.length; i++) {
+    const key = String(data[i][0]);
+    if (map[key] !== undefined) {
+      sheet.getRange(i + 1, 2).setValue(map[key]);
     }
   }
 }
@@ -1090,6 +1103,80 @@ function saveBpThresholdsToSettings(ss, bp) {
     }
     if (!found) sheet.appendRow([key, val, 'Ngưỡng huyết áp']);
   }
+}
+
+function readExpensePin(ss) {
+  const sheet = ss.getSheetByName('Settings');
+  if (!sheet || sheet.getLastRow() <= 1) return '2468';
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === 'expense_pin') {
+      return String(data[i][1] || '2468');
+    }
+  }
+  return '2468';
+}
+
+function saveExpensePin(ss, pin) {
+  const sheet = ss.getSheetByName('Settings');
+  if (!sheet) return;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === 'expense_pin') {
+      sheet.getRange(i + 1, 2).setValue(String(pin));
+      return;
+    }
+  }
+  sheet.appendRow(['expense_pin', String(pin), 'Mã PIN riêng bảo mật Sổ Thu Chi Điều Trị']);
+}
+
+function readExpenses(ss) {
+  const sheet = ss.getSheetByName('Expenses');
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  const data = sheet.getDataRange().getValues();
+  return data.slice(1).filter(row => row[0]).map(row => ({
+    id: String(row[0]),
+    date: formatRowDate(row[1]),
+    type: String(row[2] || 'out'),
+    amount: Number(row[3]) || 0,
+    stage: String(row[4] || 'home_care'),
+    category: String(row[5] || 'other_expense'),
+    title: String(row[6] || ''),
+    personName: String(row[7] || ''),
+    paymentSource: String(row[8] || 'fund_or_advance'),
+    note: row[9] ? String(row[9]) : '',
+    receiptImage: row[10] ? String(row[10]) : '',
+    createdAt: String(row[11] || ''),
+    updatedAt: String(row[12] || '')
+  })).sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || ''));
+}
+
+function saveExpense(ss, e) {
+  const sheet = ss.getSheetByName('Expenses');
+  if (!sheet || !e) return;
+  const rowData = [
+    e.id,
+    "'" + (e.date || ''),
+    e.type || 'out',
+    Number(e.amount) || 0,
+    e.stage || 'home_care',
+    e.category || 'other_expense',
+    e.title || '',
+    e.personName || '',
+    e.paymentSource || 'fund_or_advance',
+    e.note || '',
+    e.receiptImage || '',
+    e.createdAt || new Date().toISOString(),
+    e.updatedAt || new Date().toISOString()
+  ];
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(e.id)) {
+      sheet.getRange(i + 1, 1, 1, 13).setValues([rowData]);
+      return;
+    }
+  }
+  sheet.appendRow(rowData);
 }
 
 function deleteRowById(ss, sheetName, id) {
