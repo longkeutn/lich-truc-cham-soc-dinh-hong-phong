@@ -659,13 +659,20 @@ export function computeAlertLevel(
 }
 
 /**
- * Chuẩn hóa mọi chuỗi ngày (YYYY-M-D, DD/MM/YYYY, ISO...) về đúng định dạng chuẩn YYYY-MM-DD
- * để so sánh và sắp xếp thời gian không bao giờ bị lệch.
+ * Chuẩn hóa mọi chuỗi ngày (YYYY-M-D, DD/MM/YYYY, ISO timestamp, Date string...)
+ * về đúng định dạng chuẩn YYYY-MM-DD theo múi giờ Việt Nam (UTC+7).
  */
 export function normalizeDateStr(raw: string | undefined | null): string {
   if (!raw) return '';
   const str = String(raw).trim();
-  // YYYY-MM-DD hoặc YYYY-M-D
+  // Nếu là chuỗi ISO có chứa giờ (VD: 2026-10-22T23:30:00.000Z) -> đổi sang đúng ngày lịch Việt Nam (UTC+7)
+  if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+      return getVietnamDateStr(parsed);
+    }
+  }
+  // YYYY-MM-DD hoặc YYYY-M-D thuần túy
   const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
   if (isoMatch) {
     const yyyy = isoMatch[1];
@@ -681,7 +688,38 @@ export function normalizeDateStr(raw: string | undefined | null): string {
     const yyyy = dmyMatch[3];
     return `${yyyy}-${mm}-${dd}`;
   }
+  // Chuỗi Date tự động từ Google Sheets (VD: "Fri Oct 23 2026 00:00:00 GMT+0700...")
+  const parsedFallback = new Date(str);
+  if (!isNaN(parsedFallback.getTime())) {
+    return getVietnamDateStr(parsedFallback);
+  }
   return str.substring(0, 10);
+}
+
+/**
+ * Xác định ngày bắt đầu áp dụng (YYYY-MM-DD) của một đầu việc (Thuốc / Bài tập / Chăm sóc)
+ * dựa trên trường createdAt hoặc timestamp nhúng trong ID (VD: routine-med-1761199200000).
+ */
+export function extractRoutineStartDateStr(
+  createdAt?: string | null,
+  routineId?: string | null
+): string {
+  if (createdAt) {
+    const norm = normalizeDateStr(createdAt);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(norm)) {
+      return norm;
+    }
+  }
+  if (routineId) {
+    const tsMatch = String(routineId).match(/-(\d{13})$/);
+    if (tsMatch) {
+      const ts = Number(tsMatch[1]);
+      if (!isNaN(ts) && ts > 1700000000000) {
+        return getVietnamDateStr(new Date(ts));
+      }
+    }
+  }
+  return '';
 }
 
 /**

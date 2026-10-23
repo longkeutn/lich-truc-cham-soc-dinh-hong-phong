@@ -54,6 +54,7 @@ import {
   compareVitalsDesc,
   normalizeDateStr,
   normalizeTimeStr,
+  extractRoutineStartDateStr,
 } from '@/lib/config';
 
 // =============================================
@@ -504,11 +505,14 @@ export function VitalsChartView({
 
     let asNeededUsedCount = 0;
 
-    // Thống kê theo từng đầu việc cụ thể
+    // Thống kê theo từng đầu việc cụ thể (kèm ngày bắt đầu áp dụng riêng của từng thuốc/bài tập)
+    const routineStartMap: Record<string, string> = {};
     const routineStatsMap: Record<
       string,
       {
         routine: CareRoutine;
+        startDate: string;
+        activeDays: number;
         expected: number;
         done: number;
         pct: number;
@@ -516,7 +520,42 @@ export function VitalsChartView({
     > = {};
 
     for (const r of activeRoutines) {
-      routineStatsMap[r.id] = { routine: r, expected: 0, done: 0, pct: 0 };
+      const rawCreated = String(r.createdAt || '').trim();
+      const isExplicitDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(rawCreated);
+      const extractedStart = extractRoutineStartDateStr(r.createdAt, r.id);
+
+      // Tìm ngày sớm nhất đầu việc này thực tế được tích hoàn thành trong DailyLogs
+      let earliestDoneLogDate = '';
+      for (const l of dailyLogs) {
+        if ((l.routineId === r.id || l.id.includes(r.id)) && l.isDone) {
+          const dNorm = normalizeDateStr(l.date);
+          if (dNorm && (!earliestDoneLogDate || dNorm < earliestDoneLogDate)) {
+            earliestDoneLogDate = dNorm;
+          }
+        }
+      }
+
+      let effectiveStart = extractedStart || earliestDoneLogDate || firstTrackedDate;
+      // Nếu createdAt là timestamp tự động nhưng thực tế đã có log tích từ ngày trước đó thì ưu tiên ngày có log
+      if (!isExplicitDateOnly && earliestDoneLogDate && earliestDoneLogDate < effectiveStart) {
+        effectiveStart = earliestDoneLogDate;
+      }
+      // Không tính lùi về trước ngày gia đình bắt đầu dùng sổ
+      if (effectiveStart < firstTrackedDate) {
+        effectiveStart = firstTrackedDate;
+      }
+
+      routineStartMap[r.id] = effectiveStart;
+      const activeDaysForRoutine = candidateDays.filter((d) => d >= effectiveStart).length;
+
+      routineStatsMap[r.id] = {
+        routine: r,
+        startDate: effectiveStart,
+        activeDays: activeDaysForRoutine,
+        expected: 0,
+        done: 0,
+        pct: 0,
+      };
     }
 
     // Thống kê tuân thủ thuốc theo 4 buổi (Sáng, Trưa, Chiều, Tối)
@@ -603,8 +642,9 @@ export function VitalsChartView({
         evening: { expected: 0, done: 0, isFutureSlot: false, status: 'none' },
       };
 
-      // 1) Thuốc định kỳ
+      // 1) Thuốc định kỳ (Chỉ tính từ ngày bắt đầu áp dụng của từng loại thuốc!)
       for (const routine of medsRoutines) {
+        const routineStartDate = routineStartMap[routine.id] || firstTrackedDate;
         const slots = Array.isArray(routine.timeSlots) ? routine.timeSlots : [];
         for (const slot of slots) {
           const slotRank = SLOT_RANK[slot] || 1;
@@ -615,6 +655,12 @@ export function VitalsChartView({
               l.isDone
           );
           const isDone = Boolean(matchingLog);
+
+          // Nếu ngày đang xét diễn ra TRƯỚC ngày bắt đầu áp dụng thuốc mới (và không có tích thực tế) -> BỎ QUA!
+          if (day < routineStartDate && !isDone) {
+            continue;
+          }
+
           const isFutureSlot = isToday && slotRank > currentRank && !isDone;
           const isExpected = !isToday || slotRank <= currentRank || isDone;
 
@@ -682,8 +728,9 @@ export function VitalsChartView({
         }
       }
 
-      // 3) Bài tập Phục hồi chức năng (PHCN)
+      // 3) Bài tập Phục hồi chức năng (PHCN) — Chỉ tính từ ngày bắt đầu áp dụng của từng bài tập!
       for (const routine of rehabRoutines) {
+        const routineStartDate = routineStartMap[routine.id] || firstTrackedDate;
         const slots: TimeSlot[] =
           Array.isArray(routine.timeSlots) && routine.timeSlots.length > 0
             ? routine.timeSlots
@@ -697,6 +744,12 @@ export function VitalsChartView({
               l.isDone
           );
           const isDone = Boolean(matchingLog);
+
+          // Nếu ngày đang xét diễn ra TRƯỚC ngày bắt đầu áp dụng bài tập mới -> BỎ QUA!
+          if (day < routineStartDate && !isDone) {
+            continue;
+          }
+
           const isExpected = !isToday || slotRank <= currentRank || isDone;
 
           if (isExpected) {
@@ -723,8 +776,9 @@ export function VitalsChartView({
         }
       }
 
-      // 4) Chăm sóc & Dinh dưỡng
+      // 4) Chăm sóc & Dinh dưỡng — Chỉ tính từ ngày bắt đầu áp dụng của từng mục chăm sóc!
       for (const routine of careOnlyRoutines) {
+        const routineStartDate = routineStartMap[routine.id] || firstTrackedDate;
         const slots: TimeSlot[] =
           Array.isArray(routine.timeSlots) && routine.timeSlots.length > 0
             ? routine.timeSlots
@@ -738,6 +792,12 @@ export function VitalsChartView({
               l.isDone
           );
           const isDone = Boolean(matchingLog);
+
+          // Nếu ngày đang xét diễn ra TRƯỚC ngày bắt đầu áp dụng mục chăm sóc mới -> BỎ QUA!
+          if (day < routineStartDate && !isDone) {
+            continue;
+          }
+
           const isExpected = !isToday || slotRank <= currentRank || isDone;
 
           if (isExpected) {
@@ -1409,10 +1469,13 @@ export function VitalsChartView({
           )}
 
           {activeCardInfo === 4 && (
-            <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-700 bg-emerald-50/60 p-2.5 rounded-xl leading-relaxed">
-              💡 <strong>Cách tính chuẩn thực tế:</strong> Chỉ tính từ ngày bắt đầu ghi sổ (
-              <strong>{fmtDateFull(complianceStats.firstTrackedDate)}</strong>) và các buổi đã tới
-              giờ hôm nay — không cộng dồn những ngày trước khi gia đình bắt đầu dùng sổ.
+            <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-700 bg-emerald-50/60 p-2.5 rounded-xl leading-relaxed space-y-1">
+              <div>
+                💡 <strong>Cách tính chuẩn theo từng loại thuốc/bài tập:</strong> Mỗi loại thuốc hay bài tập chỉ được tính mẫu số từ <strong>Ngày bắt đầu áp dụng</strong> của chính loại đó (và các buổi đã tới giờ hôm nay).
+              </div>
+              <div>
+                • Các thuốc/bài tập mới thêm gần đây sẽ <strong>không bị tính lùi</strong> về các ngày trước khi áp dụng. Bạn có thể xem hoặc chỉnh lại <em>Ngày bắt đầu áp dụng</em> của từng thuốc trong mục <strong>Quản lý Đơn thuốc & Bài tập</strong>.
+              </div>
             </div>
           )}
         </div>
@@ -2320,19 +2383,27 @@ export function VitalsChartView({
                             </span>
                           </span>
                           <span className="font-black text-emerald-700 shrink-0">
-                            {item.done}/{item.expected} cữ ({item.pct}%)
+                            {item.expected > 0
+                              ? `${item.done}/${item.expected} cữ (${item.pct}%)`
+                              : '⏳ Chưa tới giờ cữ đầu'}
                           </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 flex items-center justify-between">
+                          <span>📅 Áp dụng từ {fmtDateFull(item.startDate)}</span>
+                          <span>Tính trong {item.activeDays} ngày</span>
                         </div>
                         <div className="w-full h-1.5 bg-emerald-100 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${
-                              item.pct >= 80
-                                ? 'bg-emerald-500'
-                                : item.pct >= 50
-                                  ? 'bg-amber-500'
-                                  : 'bg-rose-500'
+                              item.expected === 0
+                                ? 'bg-slate-300'
+                                : item.pct >= 80
+                                  ? 'bg-emerald-500'
+                                  : item.pct >= 50
+                                    ? 'bg-amber-500'
+                                    : 'bg-rose-500'
                             }`}
-                            style={{ width: `${item.pct}%` }}
+                            style={{ width: `${item.expected > 0 ? item.pct : 0}%` }}
                           />
                         </div>
                       </div>
@@ -2369,13 +2440,19 @@ export function VitalsChartView({
                               </span>
                             </span>
                             <span className="font-black text-blue-700 shrink-0">
-                              {item.done}/{item.expected} lần ({item.pct}%)
+                              {item.expected > 0
+                                ? `${item.done}/${item.expected} lần (${item.pct}%)`
+                                : '⏳ Chưa tới giờ'}
                             </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 flex items-center justify-between">
+                            <span>📅 Áp dụng từ {fmtDateFull(item.startDate)}</span>
+                            <span>Tính trong {item.activeDays} ngày</span>
                           </div>
                           <div className="w-full h-1.5 bg-blue-100 rounded-full overflow-hidden">
                             <div
                               className="h-full rounded-full bg-blue-500"
-                              style={{ width: `${item.pct}%` }}
+                              style={{ width: `${item.expected > 0 ? item.pct : 0}%` }}
                             />
                           </div>
                         </div>

@@ -3,7 +3,11 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Plus, X, Save, Trash2, ChevronLeft, ToggleLeft, ToggleRight, GripVertical, Pill, Dumbbell, HandHelping, Camera, Image as ImageIcon } from 'lucide-react';
 import { CareRoutine, RehabStage, RoutineCategory, TimeSlot } from '@/lib/types';
-import { TIME_SLOT_CONFIG } from '@/lib/config';
+import {
+  TIME_SLOT_CONFIG,
+  getVietnamDateStr,
+  extractRoutineStartDateStr,
+} from '@/lib/config';
 
 /** Tự động chuyển link chia sẻ Google Drive sang link ảnh trực tiếp */
 function normalizeImageUrl(raw: string): string {
@@ -104,6 +108,7 @@ const ALL_TIME_SLOTS: TimeSlot[] = ['morning', 'noon', 'afternoon', 'evening'];
 
 // ===== Default form values =====
 function createEmptyForm(stageId: string, stageName: string): CareRoutine {
+  const todayStr = getVietnamDateStr();
   const now = new Date().toISOString();
   return {
     id: '',
@@ -120,7 +125,7 @@ function createEmptyForm(stageId: string, stageName: string): CareRoutine {
     conditionNote: '',
     isActive: true,
     sortOrder: 1,
-    createdAt: now,
+    createdAt: todayStr,
     updatedAt: now,
   };
 }
@@ -184,7 +189,9 @@ export function RoutineManagerModal({
     const validSlots = (Array.isArray(routine.timeSlots) ? routine.timeSlots : []).filter(
       (s): s is TimeSlot => Boolean(TIME_SLOT_CONFIG[s as TimeSlot])
     );
-    setFormData({ ...routine, timeSlots: validSlots });
+    const effectiveStart =
+      extractRoutineStartDateStr(routine.createdAt, routine.id) || getVietnamDateStr();
+    setFormData({ ...routine, timeSlots: validSlots, createdAt: effectiveStart });
     setEditingRoutine(routine);
     setIsAddingNew(false);
     setErrorMsg('');
@@ -651,8 +658,19 @@ export function RoutineManagerModal({
                 </div>
               )}
 
-              {/* Sort order + Active toggle */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Ngày bắt đầu áp dụng + Thứ tự hiển thị + Trạng thái */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    📅 Ngày bắt đầu áp dụng
+                  </label>
+                  <input
+                    type="date"
+                    value={extractRoutineStartDateStr(formData.createdAt, formData.id) || getVietnamDateStr()}
+                    onChange={(e) => updateFormField('createdAt', e.target.value || getVietnamDateStr())}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 min-h-[44px]"
+                  />
+                </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Thứ tự hiển thị
@@ -663,7 +681,7 @@ export function RoutineManagerModal({
                     max={99}
                     value={formData.sortOrder}
                     onChange={(e) => updateFormField('sortOrder', parseInt(e.target.value) || 1)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 min-h-[44px]"
                   />
                 </div>
                 <div>
@@ -684,6 +702,9 @@ export function RoutineManagerModal({
                   </button>
                 </div>
               </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-2">
+                💡 Hệ thống chỉ tính thống kê tuân thủ của thuốc/bài tập này từ <strong>Ngày bắt đầu áp dụng</strong> trở đi (không tính lùi về các ngày trước đó).
+              </p>
 
               {/* Save / Cancel buttons */}
               <div className="flex justify-end gap-2 pt-2">
@@ -801,8 +822,8 @@ export function RoutineManagerModal({
                                         💊 Liều: {routine.dosage}
                                       </p>
                                     )}
-                                    {/* Time slot pills */}
-                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {/* Time slot pills + Start date badge */}
+                                    <div className="flex flex-wrap items-center gap-1 mt-1.5">
                                       {(Array.isArray(routine.timeSlots) ? routine.timeSlots : [])
                                         .filter((slot): slot is TimeSlot => Boolean(TIME_SLOT_CONFIG[slot as TimeSlot]))
                                         .map(slot => (
@@ -813,6 +834,16 @@ export function RoutineManagerModal({
                                             {TIME_SLOT_CONFIG[slot]?.emoji} {TIME_SLOT_CONFIG[slot]?.label}
                                           </span>
                                         ))}
+                                      {(() => {
+                                        const startStr = extractRoutineStartDateStr(routine.createdAt, routine.id);
+                                        if (!startStr) return null;
+                                        const [y, m, d] = startStr.split('-');
+                                        return (
+                                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                            📅 Từ {d}/{m}/{y}
+                                          </span>
+                                        );
+                                      })()}
                                     </div>
                                   </div>
                                 </div>
