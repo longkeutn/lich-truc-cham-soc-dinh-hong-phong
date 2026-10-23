@@ -493,20 +493,26 @@ export default function CareSchedulePage() {
       });
   }, [vitalsLog, showToast]);
 
-  // Toggle checklist thuốc/tập — Phản hồi 0ms khi bấm tích, đảm bảo luôn ghi đúng ngày Việt Nam hiện tại
+  // Toggle checklist thuốc/tập — Phản hồi 0ms khi bấm tích, hỗ trợ cả ngày hiện tại và tích bù ngày quá khứ
   const handleToggleDailyLog = useCallback(async (log: DailyLog) => {
     const currentVnDate = getVietnamDateStr();
-    let normalizedLog = log;
-    if (currentVnDate !== todayStrRef.current) {
+    const prevToday = todayStrRef.current;
+    let normalizedLog = {
+      ...log,
+      date: normalizeDateStr(log.date) || currentVnDate,
+    };
+
+    if (currentVnDate !== prevToday) {
       todayStrRef.current = currentVnDate;
       setTodayStr(currentVnDate);
-    }
-    if (log.date !== currentVnDate) {
-      normalizedLog = {
-        ...log,
-        id: log.id.replace(`dl-${log.date}-`, `dl-${currentVnDate}-`),
-        date: currentVnDate,
-      };
+      // Nếu app để treo qua đêm và người dùng đang tích ở màn hình "Hôm nay" cũ -> tự chuyển sang ngày mới
+      if (log.date === prevToday) {
+        normalizedLog = {
+          ...log,
+          id: log.id.replace(`dl-${log.date}-`, `dl-${currentVnDate}-`),
+          date: currentVnDate,
+        };
+      }
     }
 
     setDailyLogs((prev) => {
@@ -1001,11 +1007,11 @@ export default function CareSchedulePage() {
             />
           </div>
 
-          {/* 2. Checklist thuốc + tập phục hồi hôm nay (Ưu tiên số 2 ngay sau khi đo HA) */}
+          {/* 2. Checklist thuốc + tập phục hồi hôm nay & tích bù quá khứ (Ưu tiên số 2 ngay sau khi đo HA) */}
           <div id="section-routine" className="scroll-mt-20">
             <DailyRoutineView
               routines={activeRoutines}
-              dailyLogs={todayDailyLogs}
+              dailyLogs={dailyLogs}
               todayStr={todayStr}
               onToggle={handleToggleDailyLog}
               onOpenManager={handleOpenRoutineManager}
@@ -1038,6 +1044,8 @@ export default function CareSchedulePage() {
               showToast={showToast}
               onDeleteVitals={handleDeleteVitals}
               onSaveVitals={handleSaveVitals}
+              onToggleDailyLog={handleToggleDailyLog}
+              defaultRecorder={recorderName}
             />
           </div>
         )}

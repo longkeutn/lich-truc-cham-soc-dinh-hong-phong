@@ -74,6 +74,8 @@ interface VitalsChartViewProps {
   showToast?: (msg: string, type?: 'info' | 'success' | 'warn') => void;
   onDeleteVitals: (id: string) => Promise<void>;
   onSaveVitals: (entry: VitalsLogEntry) => Promise<void>;
+  onToggleDailyLog?: (log: DailyLog) => Promise<void>;
+  defaultRecorder?: string;
 }
 
 const ALL_SLOTS: TimeSlot[] = ['morning', 'noon', 'afternoon', 'evening'];
@@ -206,6 +208,8 @@ export function VitalsChartView({
   showToast,
   onDeleteVitals,
   onSaveVitals,
+  onToggleDailyLog,
+  defaultRecorder = 'Mẹ',
 }: VitalsChartViewProps) {
   const [dateRange, setDateRange] = useState<DateRange>('7d');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -2428,17 +2432,32 @@ export function VitalsChartView({
                                       {g.slots.map((s, sIdx) => {
                                         const cfg = TIME_SLOT_CONFIG[s.timeSlot];
                                         return (
-                                          <span
+                                          <button
                                             key={sIdx}
-                                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${
+                                            type="button"
+                                            onClick={() => {
+                                              if (!onToggleDailyLog) return;
+                                              const logId = `dl-${dayRow.date}-${g.routineId}-${s.timeSlot}`;
+                                              void onToggleDailyLog({
+                                                id: logId,
+                                                date: dayRow.date,
+                                                routineId: g.routineId,
+                                                timeSlot: s.timeSlot,
+                                                isDone: !s.isDone,
+                                                doneAt: !s.isDone ? 'Tích bù' : undefined,
+                                                doneBy: !s.isDone ? defaultRecorder : undefined,
+                                              });
+                                            }}
+                                            title="Bấm để tích / bỏ tích cữ thuốc này"
+                                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition cursor-pointer ${
                                               s.isDone
-                                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                                : 'bg-amber-50 text-amber-800 border-amber-200'
+                                                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                                                : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
                                             }`}
                                           >
                                             {cfg?.emoji} {cfg?.label}:{' '}
-                                            {s.isDone ? `✓ ${s.doneAt || 'Đã uống'}` : 'Chưa tích'}
-                                          </span>
+                                            {s.isDone ? `✓ ${s.doneAt || 'Đã uống'}` : '+ Bấm tích'}
+                                          </button>
                                         );
                                       })}
                                     </div>
@@ -2482,17 +2501,32 @@ export function VitalsChartView({
                                       {g.slots.map((s, sIdx) => {
                                         const cfg = TIME_SLOT_CONFIG[s.timeSlot];
                                         return (
-                                          <span
+                                          <button
                                             key={sIdx}
-                                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${
+                                            type="button"
+                                            onClick={() => {
+                                              if (!onToggleDailyLog) return;
+                                              const logId = `dl-${dayRow.date}-${g.routineId}-${s.timeSlot}`;
+                                              void onToggleDailyLog({
+                                                id: logId,
+                                                date: dayRow.date,
+                                                routineId: g.routineId,
+                                                timeSlot: s.timeSlot,
+                                                isDone: !s.isDone,
+                                                doneAt: !s.isDone ? 'Tích bù' : undefined,
+                                                doneBy: !s.isDone ? defaultRecorder : undefined,
+                                              });
+                                            }}
+                                            title="Bấm để tích / bỏ tích mục này"
+                                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition cursor-pointer ${
                                               s.isDone
-                                                ? 'bg-blue-50 text-blue-800 border-blue-200'
-                                                : 'bg-amber-50 text-amber-800 border-amber-200'
+                                                ? 'bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-200'
+                                                : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
                                             }`}
                                           >
                                             {cfg?.emoji} {cfg?.label}:{' '}
-                                            {s.isDone ? `✓ ${s.doneAt || 'Xong'}` : 'Chưa tích'}
-                                          </span>
+                                            {s.isDone ? `✓ ${s.doneAt || 'Xong'}` : '+ Bấm tích'}
+                                          </button>
                                         );
                                       })}
                                     </div>

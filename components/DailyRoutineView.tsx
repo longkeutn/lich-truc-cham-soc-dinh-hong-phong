@@ -8,6 +8,10 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  RotateCcw,
   Settings,
   Circle,
   Zap,
@@ -21,7 +25,10 @@ import {
   detectCurrentTimeSlot,
   DEFAULT_RECORDER,
   getVietnamTimeStr,
+  getVietnamDateOffsetStr,
   formatVietnamDateFull,
+  normalizeDateStr,
+  extractRoutineStartDateStr,
 } from '@/lib/config';
 
 // ===== PROPS =====
@@ -64,6 +71,23 @@ function getCurrentHHmm(): string {
   return getVietnamTimeStr();
 }
 
+// ===== HELPER: cộng/trừ 1 ngày từ chuỗi YYYY-MM-DD =====
+function stepDateStr(dateStr: string, offsetDays: number): string {
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return dateStr;
+  const utcNoon = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + offsetDays, 12, 0, 0));
+  const y = utcNoon.getUTCFullYear();
+  const m = String(utcNoon.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(utcNoon.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function fmtShortDDMM(dateStr: string): string {
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  return `${parts[2]}/${parts[1]}`;
+}
+
 // ===== MAIN COMPONENT =====
 export default function DailyRoutineView({
   routines,
@@ -73,6 +97,12 @@ export default function DailyRoutineView({
   onOpenManager,
   defaultRecorder = DEFAULT_RECORDER,
 }: DailyRoutineViewProps) {
+  // Ngày đang xem / tích checklist (mặc định là Hôm nay, có thể chọn lùi về quá khứ để tích bù)
+  const [selectedDateStr, setSelectedDateStr] = useState<string>(todayStr);
+  const isViewingPast = selectedDateStr < todayStr;
+  const yesterdayStr = useMemo(() => stepDateStr(todayStr, -1), [todayStr]);
+  const twoDaysAgoStr = useMemo(() => stepDateStr(todayStr, -2), [todayStr]);
+
   // Khởi tạo cố định khi SSR rồi cập nhật đúng buổi theo giờ thực tế trên điện thoại trong useEffect
   const [currentSlot, setCurrentSlot] = useState<TimeSlot>('morning');
   const [mountedClient, setMountedClient] = useState(false);
@@ -88,6 +118,7 @@ export default function DailyRoutineView({
     const slot = detectCurrentTimeSlot();
     setCurrentSlot(slot);
     setMountedClient(true);
+    setSelectedDateStr(todayStr);
     setExpandedSlots({
       morning: slot === 'morning',
       noon: slot === 'noon',
@@ -95,6 +126,31 @@ export default function DailyRoutineView({
       evening: slot === 'evening',
     });
   }, [todayStr]);
+
+  // Khi chuyển sang ngày quá khứ -> tự động mở cả 4 buổi để tiện kiểm tra & tích bù
+  const handleSelectDate = useCallback(
+    (nextDate: string) => {
+      if (!nextDate || nextDate > todayStr) return;
+      setSelectedDateStr(nextDate);
+      if (nextDate < todayStr) {
+        setExpandedSlots({
+          morning: true,
+          noon: true,
+          afternoon: true,
+          evening: true,
+        });
+      } else {
+        const slot = detectCurrentTimeSlot();
+        setExpandedSlots({
+          morning: slot === 'morning',
+          noon: slot === 'noon',
+          afternoon: slot === 'afternoon',
+          evening: slot === 'evening',
+        });
+      }
+    },
+    [todayStr]
+  );
 
   // Khi mở lại PWA từ chế độ nền sau nhiều giờ, nếu đã chuyển sang buổi mới thì tự mở buổi mới cho Mẹ
   useEffect(() => {
@@ -131,24 +187,55 @@ export default function DailyRoutineView({
 
   // ===== DERIVED DATA =====
 
-  // Active scheduled routines only (exclude as_needed which go to separate section)
-  const scheduledRoutines = useMemo(
-    () => routines.filter((r) => r.isActive && r.medType !== 'as_needed'),
-    [routines]
-  );
+  // Build a quick lookup: logId → DailyLog (và chuẩn hóa tra cứu theo date + routineId + timeSlot)
+  const logMap = useMemo(() => {
+    const map = new Map<string, DailyLog>();
+    dailyLogs.forEach((log) => {
+      map.set(log.id, log);
+      const normDate = normalizeDateStr(log.date);
+      if (normDate && log.routineId && log.timeSlot) {
+        map.set(`dl-${normDate}-${log.routineId}-${log.timeSlot}`, log);
+      }
+    });
+    return map;
+  }, [dailyLogs]);
+
+  // Active scheduled routines applicable on selectedDateStr
+  const scheduledRoutines = useMemo(() => {
+    return routines.filter((r) => {
+      if (!r.isActive || r.medType === 'as_needed') return false;
+      // Nếu đang xem ngày quá khứ: kiểm tra xem thuốc/bài tập đã bắt đầu áp dụng vào ngày đó chưa
+      if (selectedDateStr < todayStr) {
+        const rawCreated = String(r.createdAt || '').trim();
+        const isExplicitDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(rawCreated);
+        const startStr = extractRoutineStartDateStr(r.createdAt, r.id);
+        // Kiểm tra xem ngày quá khứ đó có log đã tích sẵn của thuốc này không
+        const hasLogOnSelectedDay = TIME_SLOT_ORDER.some(
+          (sl) => logMap.get(`dl-${selectedDateStr}-${r.id}-${sl}`)?.isDone
+        );
+        if (hasLogOnSelectedDay) return true;
+        if (startStr && selectedDateStr < startStr) {
+          // Nếu người dùng đặt ngày bắt đầu sau ngày đang xem (hoặc thuốc mới tạo gần đây)
+          if (isExplicitDateOnly) return false;
+          // Kiểm tra xem có log nào sớm hơn startStr không
+          const hasEarlierLog = dailyLogs.some(
+            (l) =>
+              (l.routineId === r.id || l.id.includes(r.id)) &&
+              l.isDone &&
+              normalizeDateStr(l.date) <= selectedDateStr
+          );
+          if (!hasEarlierLog) return false;
+        }
+      }
+      return true;
+    });
+  }, [routines, selectedDateStr, todayStr, logMap, dailyLogs]);
 
   // "Khi cần" (as_needed) routines
   const asNeededRoutines = useMemo(
     () => routines.filter((r) => r.isActive && r.medType === 'as_needed'),
     [routines]
   );
-
-  // Build a quick lookup: logId → DailyLog
-  const logMap = useMemo(() => {
-    const map = new Map<string, DailyLog>();
-    dailyLogs.forEach((log) => map.set(log.id, log));
-    return map;
-  }, [dailyLogs]);
 
   // Group scheduled routines by time slot
   const routinesBySlot = useMemo(() => {
@@ -172,20 +259,20 @@ export default function DailyRoutineView({
     return grouped;
   }, [scheduledRoutines]);
 
-  // Count total scheduled items and done items for progress bar
+  // Count total scheduled items and done items for progress bar (on selectedDateStr)
   const { totalItems, doneItems } = useMemo(() => {
     let total = 0;
     let done = 0;
     TIME_SLOT_ORDER.forEach((slot) => {
       routinesBySlot[slot].forEach((routine) => {
         total++;
-        const logId = `dl-${todayStr}-${routine.id}-${slot}`;
+        const logId = `dl-${selectedDateStr}-${routine.id}-${slot}`;
         const log = logMap.get(logId);
         if (log?.isDone) done++;
       });
     });
     return { totalItems: total, doneItems: done };
-  }, [routinesBySlot, todayStr, logMap]);
+  }, [routinesBySlot, selectedDateStr, logMap]);
 
   // Progress percentage
   const progressPercent = totalItems > 0 ? Math.round((doneItems / totalItems) * 100) : 0;
@@ -193,7 +280,7 @@ export default function DailyRoutineView({
   // ===== TOGGLE HANDLER =====
   const handleToggle = useCallback(
     async (routine: CareRoutine, timeSlot: TimeSlot) => {
-      const logId = `dl-${todayStr}-${routine.id}-${timeSlot}`;
+      const logId = `dl-${selectedDateStr}-${routine.id}-${timeSlot}`;
 
       // Prevent double-tap
       if (loadingIds.has(logId)) return;
@@ -203,13 +290,16 @@ export default function DailyRoutineView({
       const existingLog = logMap.get(logId);
       const isCurrentlyDone = existingLog?.isDone ?? false;
 
+      const doneTimeLabel =
+        selectedDateStr < todayStr ? `Tích bù (${getCurrentHHmm()})` : getCurrentHHmm();
+
       const newLog: DailyLog = {
         id: logId,
-        date: todayStr,
+        date: selectedDateStr,
         routineId: routine.id,
         timeSlot,
         isDone: !isCurrentlyDone,
-        doneAt: !isCurrentlyDone ? getCurrentHHmm() : undefined,
+        doneAt: !isCurrentlyDone ? doneTimeLabel : undefined,
         doneBy: !isCurrentlyDone ? defaultRecorder : undefined,
       };
 
@@ -223,8 +313,37 @@ export default function DailyRoutineView({
         });
       }
     },
-    [todayStr, logMap, loadingIds, defaultRecorder, onToggle]
+    [selectedDateStr, todayStr, logMap, loadingIds, defaultRecorder, onToggle]
   );
+
+  // ===== TÍCH ĐỦ CẢ NGÀY (DÀNH CHO TÍCH BÙ QUÁ KHỨ KHI QUÊN TÍCH) =====
+  const handleMarkAllDoneForSelectedDay = useCallback(async () => {
+    const missingLogs: DailyLog[] = [];
+    const doneTimeLabel =
+      selectedDateStr < todayStr ? `Tích bù (${getCurrentHHmm()})` : getCurrentHHmm();
+
+    TIME_SLOT_ORDER.forEach((slot) => {
+      routinesBySlot[slot].forEach((routine) => {
+        const logId = `dl-${selectedDateStr}-${routine.id}-${slot}`;
+        const existing = logMap.get(logId);
+        if (!existing?.isDone) {
+          missingLogs.push({
+            id: logId,
+            date: selectedDateStr,
+            routineId: routine.id,
+            timeSlot: slot,
+            isDone: true,
+            doneAt: doneTimeLabel,
+            doneBy: defaultRecorder,
+          });
+        }
+      });
+    });
+
+    for (const item of missingLogs) {
+      await onToggle(item);
+    }
+  }, [selectedDateStr, todayStr, routinesBySlot, logMap, defaultRecorder, onToggle]);
 
   // ===== TOGGLE SECTION EXPAND =====
   const toggleSection = useCallback((slot: TimeSlot) => {
@@ -249,51 +368,165 @@ export default function DailyRoutineView({
   // ===== RENDER =====
   return (
     <div className="space-y-3.5">
-      {/* ===== HEADER: Progress + Admin button ===== */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          {/* Progress text */}
-          <div className="flex items-center justify-between gap-2 mb-1.5">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200/80 flex items-center justify-center shrink-0">
-                <ListChecks className={`w-4.5 h-4.5 ${progressTextColor}`} />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
-                    Đơn Thuốc & Bài Tập Hôm Nay
-                  </h3>
-                  {mountedClient && (
-                    <span className="px-2 py-0.5 rounded-md bg-teal-50 border border-teal-200 text-teal-800 text-xs font-bold">
-                      📅 {formatVietnamDateFull(todayStr)}
-                    </span>
-                  )}
+      {/* ===== HEADER: Progress + Chọn ngày (Hôm nay / Tích bù quá khứ) + Admin button ===== */}
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            {/* Progress text */}
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200/80 flex items-center justify-center shrink-0">
+                  <ListChecks className={`w-4.5 h-4.5 ${progressTextColor}`} />
                 </div>
-                <p className={`text-xs font-bold ${progressTextColor}`}>
-                  Đã hoàn thành {doneItems}/{totalItems} việc ({progressPercent}%)
-                </p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
+                      {isViewingPast
+                        ? `Checklist Ngày ${fmtShortDDMM(selectedDateStr)}`
+                        : 'Đơn Thuốc & Bài Tập Hôm Nay'}
+                    </h3>
+                    {mountedClient && (
+                      <span
+                        className={`px-2 py-0.5 rounded-md border text-xs font-bold ${
+                          isViewingPast
+                            ? 'bg-amber-50 border-amber-300 text-amber-900'
+                            : 'bg-teal-50 border-teal-200 text-teal-800'
+                        }`}
+                      >
+                        📅 {formatVietnamDateFull(selectedDateStr)}
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-xs font-bold ${progressTextColor}`}>
+                    Đã hoàn thành {doneItems}/{totalItems} việc ({progressPercent}%)
+                  </p>
+                </div>
               </div>
             </div>
+            {/* Progress bar */}
+            <div className="h-2.5 bg-slate-100 border border-slate-200/80 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ease-out ${progressBarColor}`}
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
           </div>
-          {/* Progress bar */}
-          <div className="h-2.5 bg-slate-100 border border-slate-200/80 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ease-out ${progressBarColor}`}
-              style={{ width: `${progressPercent}%` }}
-            />
+
+          {/* Admin button */}
+          {onOpenManager && (
+            <button
+              onClick={onOpenManager}
+              className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs sm:text-sm transition-colors min-h-[40px] cursor-pointer"
+              title="Quản lý đơn thuốc & bài tập"
+            >
+              <Settings className="w-4 h-4 text-slate-600 shrink-0" />
+              <span>Quản lý đơn thuốc</span>
+            </button>
+          )}
+        </div>
+
+        {/* Thanh chọn ngày để xem hoặc tích bù cho các ngày trước (khi quên tích) */}
+        <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-bold text-slate-500 mr-0.5">Chọn ngày:</span>
+            <button
+              type="button"
+              onClick={() => handleSelectDate(todayStr)}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                selectedDateStr === todayStr
+                  ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              Hôm nay ({fmtShortDDMM(todayStr)})
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectDate(yesterdayStr)}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                selectedDateStr === yesterdayStr
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              Hôm qua ({fmtShortDDMM(yesterdayStr)})
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectDate(twoDaysAgoStr)}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                selectedDateStr === twoDaysAgoStr
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              Hôm kia ({fmtShortDDMM(twoDaysAgoStr)})
+            </button>
+          </div>
+
+          {/* Điều hướng Lùi / Tiến 1 ngày & Chọn ngày bất kỳ trong lịch */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => handleSelectDate(stepDateStr(selectedDateStr, -1))}
+              className="p-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition cursor-pointer"
+              title="Lùi 1 ngày trước"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="relative flex items-center">
+              <Calendar className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 pointer-events-none" />
+              <input
+                type="date"
+                max={todayStr}
+                value={selectedDateStr}
+                onChange={(e) => {
+                  if (e.target.value) handleSelectDate(e.target.value);
+                }}
+                aria-label="Chọn ngày tích bù checklist"
+                className="pl-7 pr-2 py-1 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
+              />
+            </div>
+            <button
+              type="button"
+              disabled={selectedDateStr >= todayStr}
+              onClick={() => handleSelectDate(stepDateStr(selectedDateStr, 1))}
+              className="p-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 disabled:opacity-35 transition cursor-pointer"
+              title="Tiến 1 ngày sau"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        {/* Admin button */}
-        {onOpenManager && (
-          <button
-            onClick={onOpenManager}
-            className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs sm:text-sm transition-colors min-h-[40px] cursor-pointer"
-            title="Quản lý đơn thuốc & bài tập"
-          >
-            <Settings className="w-4 h-4 text-slate-600 shrink-0" />
-            <span>Quản lý đơn thuốc</span>
-          </button>
+        {/* Banner nhắc đang ở chế độ Tích bù ngày cũ + Nút 1 chạm "Tích đủ cả ngày" */}
+        {isViewingPast && (
+          <div className="rounded-xl bg-amber-50 border border-amber-300 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="text-xs text-amber-950 font-semibold leading-snug">
+              🕰️ <strong>Chế độ tích bù quá khứ ({formatVietnamDateFull(selectedDateStr)}):</strong>{' '}
+              Nếu hôm đó bố vẫn uống thuốc & tập đầy đủ nhưng quên bấm trên điện thoại, bạn có thể tích lại từng mục hoặc bấm <strong>Tích đủ cả ngày</strong>.
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {doneItems < totalItems && totalItems > 0 && (
+                <button
+                  type="button"
+                  onClick={handleMarkAllDoneForSelectedDay}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Tích đủ cả ngày ({totalItems - doneItems} mục)</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleSelectDate(todayStr)}
+                className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold transition cursor-pointer flex items-center gap-1"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Về Hôm nay</span>
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
@@ -302,11 +535,11 @@ export default function DailyRoutineView({
         const slotConfig = TIME_SLOT_CONFIG[slot];
         const slotRoutines = routinesBySlot[slot];
         const isExpanded = expandedSlots[slot];
-        const isCurrent = slot === currentSlot;
+        const isCurrent = !isViewingPast && slot === currentSlot;
 
         // Count done in this slot
         const slotDone = slotRoutines.filter((r) => {
-          const logId = `dl-${todayStr}-${r.id}-${slot}`;
+          const logId = `dl-${selectedDateStr}-${r.id}-${slot}`;
           return logMap.get(logId)?.isDone;
         }).length;
         const slotTotal = slotRoutines.length;
@@ -378,12 +611,12 @@ export default function DailyRoutineView({
               <div className="px-2.5 sm:px-3.5 pb-3 sm:pb-3.5 pt-2.5 space-y-2.5 border-t border-slate-100">
                 {slotRoutines.map((routine) => (
                   <RoutineItem
-                    key={`${routine.id}-${slot}`}
+                    key={`${routine.id}-${slot}-${selectedDateStr}`}
                     routine={routine}
                     timeSlot={slot}
-                    todayStr={todayStr}
-                    log={logMap.get(`dl-${todayStr}-${routine.id}-${slot}`)}
-                    isLoading={loadingIds.has(`dl-${todayStr}-${routine.id}-${slot}`)}
+                    todayStr={selectedDateStr}
+                    log={logMap.get(`dl-${selectedDateStr}-${routine.id}-${slot}`)}
+                    isLoading={loadingIds.has(`dl-${selectedDateStr}-${routine.id}-${slot}`)}
                     onToggle={() => handleToggle(routine, slot)}
                     onPreviewImage={() => setPreviewRoutine(routine)}
                   />
@@ -416,17 +649,17 @@ export default function DailyRoutineView({
               .map((routine) => {
                 // as_needed items don't belong to a specific slot; use a special key
                 const asNeededSlot: TimeSlot = 'morning'; // fallback slot for ID
-                const logId = `dl-${todayStr}-${routine.id}-as_needed`;
-                // Check if there's a log for today (use custom id for as_needed)
+                const logId = `dl-${selectedDateStr}-${routine.id}-as_needed`;
+                // Check if there's a log for selectedDateStr (use custom id for as_needed)
                 const log = dailyLogs.find((l) => l.id === logId);
                 const isLoading = loadingIds.has(logId);
 
                 return (
                   <RoutineItem
-                    key={routine.id}
+                    key={`${routine.id}-${selectedDateStr}`}
                     routine={routine}
                     timeSlot={asNeededSlot}
-                    todayStr={todayStr}
+                    todayStr={selectedDateStr}
                     log={log}
                     isLoading={isLoading}
                     isAsNeeded
@@ -435,13 +668,17 @@ export default function DailyRoutineView({
                       if (isLoading) return;
                       setLoadingIds((prev) => new Set(prev).add(logId));
                       const isCurrentlyDone = log?.isDone ?? false;
+                      const doneTimeLabel =
+                        selectedDateStr < todayStr
+                          ? `Tích bù (${getCurrentHHmm()})`
+                          : getCurrentHHmm();
                       const newLog: DailyLog = {
                         id: logId,
-                        date: todayStr,
+                        date: selectedDateStr,
                         routineId: routine.id,
                         timeSlot: asNeededSlot,
                         isDone: !isCurrentlyDone,
-                        doneAt: !isCurrentlyDone ? getCurrentHHmm() : undefined,
+                        doneAt: !isCurrentlyDone ? doneTimeLabel : undefined,
                         doneBy: !isCurrentlyDone ? defaultRecorder : undefined,
                       };
                       try {
