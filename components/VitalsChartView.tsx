@@ -223,8 +223,10 @@ export function VitalsChartView({
   // State chọn ngày cho thẻ "Diễn biến 4 buổi trong ngày" ('today' = ngày hôm nay, hoặc 'YYYY-MM-DD', hoặc 'avg' = TB nhiều ngày)
   const [selectedSlotDayMode, setSelectedSlotDayMode] = useState<string>('today');
 
-  // State mở rộng dòng ngày trong Bảng Nhật Ký Chéo Ngày
+  // State mở rộng dòng ngày trong Bảng Nhật Ký Chéo Ngày + giới hạn mặc định 5 ngày gọn gàng
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [dailyMatrixExpanded, setDailyMatrixExpanded] = useState<boolean>(false);
+  const [dailyMatrixFilter, setDailyMatrixFilter] = useState<'all' | 'attention'>('all');
 
   // State đóng/mở bảng phân tích chi tiết từng đầu việc Checklist
   const [showRoutineBreakdown, setShowRoutineBreakdown] = useState<boolean>(true);
@@ -598,6 +600,20 @@ export function VitalsChartView({
         category: string;
         timeSlot: TimeSlot;
       }[];
+      groupedRoutines: {
+        routineId: string;
+        routineTitle: string;
+        dosage: string;
+        category: 'meds' | 'meds_prn' | 'rehab' | 'care';
+        doneCount: number;
+        expectedCount: number;
+        slots: {
+          timeSlot: TimeSlot;
+          isDone: boolean;
+          doneAt?: string;
+          doneBy?: string;
+        }[];
+      }[];
     }[] = [];
 
     for (const day of candidateDays) {
@@ -626,6 +642,20 @@ export function VitalsChartView({
         category: string;
         timeSlot: TimeSlot;
       }[] = [];
+      const groupedRoutines: {
+        routineId: string;
+        routineTitle: string;
+        dosage: string;
+        category: 'meds' | 'meds_prn' | 'rehab' | 'care';
+        doneCount: number;
+        expectedCount: number;
+        slots: {
+          timeSlot: TimeSlot;
+          isDone: boolean;
+          doneAt?: string;
+          doneBy?: string;
+        }[];
+      }[] = [];
 
       const slotStatus: Record<
         TimeSlot,
@@ -646,6 +676,13 @@ export function VitalsChartView({
       for (const routine of medsRoutines) {
         const routineStartDate = routineStartMap[routine.id] || firstTrackedDate;
         const slots = Array.isArray(routine.timeSlots) ? routine.timeSlots : [];
+        const routineDaySlots: {
+          timeSlot: TimeSlot;
+          isDone: boolean;
+          doneAt?: string;
+          doneBy?: string;
+        }[] = [];
+
         for (const slot of slots) {
           const slotRank = SLOT_RANK[slot] || 1;
           const matchingLog = dayLogs.find(
@@ -674,6 +711,13 @@ export function VitalsChartView({
             slotCompliance[slot].expected++;
             if (routineStatsMap[routine.id]) routineStatsMap[routine.id].expected++;
 
+            routineDaySlots.push({
+              timeSlot: slot,
+              isDone,
+              doneAt: matchingLog?.doneAt,
+              doneBy: matchingLog?.doneBy,
+            });
+
             if (isDone) {
               dayDoneDoses++;
               slotStatus[slot].done++;
@@ -694,6 +738,18 @@ export function VitalsChartView({
               });
             }
           }
+        }
+
+        if (routineDaySlots.length > 0) {
+          groupedRoutines.push({
+            routineId: routine.id,
+            routineTitle: routine.title,
+            dosage: routine.dosage,
+            category: 'meds',
+            doneCount: routineDaySlots.filter((s) => s.isDone).length,
+            expectedCount: routineDaySlots.length,
+            slots: routineDaySlots,
+          });
         }
       }
 
@@ -726,6 +782,22 @@ export function VitalsChartView({
             doneBy: ul.doneBy,
           });
         }
+        if (usedLogs.length > 0) {
+          groupedRoutines.push({
+            routineId: routine.id,
+            routineTitle: `${routine.title} (Khi cần)`,
+            dosage: routine.dosage,
+            category: 'meds_prn',
+            doneCount: usedLogs.length,
+            expectedCount: usedLogs.length,
+            slots: usedLogs.map((ul) => ({
+              timeSlot: ul.timeSlot || 'morning',
+              isDone: true,
+              doneAt: ul.doneAt,
+              doneBy: ul.doneBy,
+            })),
+          });
+        }
       }
 
       // 3) Bài tập Phục hồi chức năng (PHCN) — Chỉ tính từ ngày bắt đầu áp dụng của từng bài tập!
@@ -735,6 +807,13 @@ export function VitalsChartView({
           Array.isArray(routine.timeSlots) && routine.timeSlots.length > 0
             ? routine.timeSlots
             : ['morning'];
+        const routineDaySlots: {
+          timeSlot: TimeSlot;
+          isDone: boolean;
+          doneAt?: string;
+          doneBy?: string;
+        }[] = [];
+
         for (const slot of slots) {
           const slotRank = SLOT_RANK[slot] || 1;
           const matchingLog = dayLogs.find(
@@ -755,6 +834,12 @@ export function VitalsChartView({
           if (isExpected) {
             dayExpectedRehab++;
             if (routineStatsMap[routine.id]) routineStatsMap[routine.id].expected++;
+            routineDaySlots.push({
+              timeSlot: slot,
+              isDone,
+              doneAt: matchingLog?.doneAt,
+              doneBy: matchingLog?.doneBy,
+            });
             if (isDone) {
               dayDoneRehab++;
               if (routineStatsMap[routine.id]) routineStatsMap[routine.id].done++;
@@ -774,6 +859,18 @@ export function VitalsChartView({
             }
           }
         }
+
+        if (routineDaySlots.length > 0) {
+          groupedRoutines.push({
+            routineId: routine.id,
+            routineTitle: routine.title,
+            dosage: routine.dosage,
+            category: 'rehab',
+            doneCount: routineDaySlots.filter((s) => s.isDone).length,
+            expectedCount: routineDaySlots.length,
+            slots: routineDaySlots,
+          });
+        }
       }
 
       // 4) Chăm sóc & Dinh dưỡng — Chỉ tính từ ngày bắt đầu áp dụng của từng mục chăm sóc!
@@ -783,6 +880,13 @@ export function VitalsChartView({
           Array.isArray(routine.timeSlots) && routine.timeSlots.length > 0
             ? routine.timeSlots
             : ['morning'];
+        const routineDaySlots: {
+          timeSlot: TimeSlot;
+          isDone: boolean;
+          doneAt?: string;
+          doneBy?: string;
+        }[] = [];
+
         for (const slot of slots) {
           const slotRank = SLOT_RANK[slot] || 1;
           const matchingLog = dayLogs.find(
@@ -803,6 +907,12 @@ export function VitalsChartView({
           if (isExpected) {
             dayExpectedCare++;
             if (routineStatsMap[routine.id]) routineStatsMap[routine.id].expected++;
+            routineDaySlots.push({
+              timeSlot: slot,
+              isDone,
+              doneAt: matchingLog?.doneAt,
+              doneBy: matchingLog?.doneBy,
+            });
             if (isDone) {
               dayDoneCare++;
               if (routineStatsMap[routine.id]) routineStatsMap[routine.id].done++;
@@ -821,6 +931,18 @@ export function VitalsChartView({
               });
             }
           }
+        }
+
+        if (routineDaySlots.length > 0) {
+          groupedRoutines.push({
+            routineId: routine.id,
+            routineTitle: routine.title,
+            dosage: routine.dosage,
+            category: 'care',
+            doneCount: routineDaySlots.filter((s) => s.isDone).length,
+            expectedCount: routineDaySlots.length,
+            slots: routineDaySlots,
+          });
         }
       }
 
@@ -849,6 +971,7 @@ export function VitalsChartView({
         careDone: dayDoneCare,
         completedDetails,
         missedDetails,
+        groupedRoutines,
       });
     }
 
@@ -2045,250 +2168,372 @@ export function VitalsChartView({
         )}
       </div>
 
-      {/* ===== SECTION 4: BẢNG NHẬT KÝ ĐỐI CHIẾU HÀNG NGÀY (HUYẾT ÁP ↔ CHECKLIST THUỐC & TẬP PHCN) ===== */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-teal-600" />
-            <div>
-              <h3 className="text-sm font-black text-slate-800">
-                Nhật Ký Đối Chiếu Hàng Ngày: Huyết Áp ↔ Thuốc & Tập PHCN
-              </h3>
-              <p className="text-xs text-slate-500">
-                Bấm vào từng ngày để xem chi tiết những thuốc đã uống, giờ uống & bài tập trong ngày
-                đó
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200">
-            {complianceStats.dailyMatrix.length} ngày theo dõi
-          </span>
-        </div>
+      {/* ===== SECTION 4: BẢNG NHẬT KÝ ĐỐI CHIẾU HÀNG NGÀY (GỌN GÀNG, GOM NHÓM THEO ĐẦU VIỆC, MẶC ĐỊNH 5 NGÀY) ===== */}
+      {(() => {
+        const attentionRows = complianceStats.dailyMatrix.filter((r) => {
+          const hasBpAlert = r.vitals.some((v) => v.alertLevel !== 'normal');
+          const hasMissedMeds = r.medsExpected > 0 && r.medsDone < r.medsExpected;
+          return hasBpAlert || hasMissedMeds;
+        });
 
-        <div className="divide-y divide-slate-100">
-          {complianceStats.dailyMatrix.map((dayRow) => {
-            const isExpanded = expandedDay === dayRow.date;
-            const medsPct =
-              dayRow.medsExpected > 0
-                ? Math.round((dayRow.medsDone / dayRow.medsExpected) * 100)
-                : null;
+        const baseRows =
+          dailyMatrixFilter === 'attention' ? attentionRows : complianceStats.dailyMatrix;
+        const visibleRows = dailyMatrixExpanded ? baseRows : baseRows.slice(0, 5);
+        const hiddenCount = Math.max(0, baseRows.length - 5);
 
-            return (
-              <div key={dayRow.date} className="transition-colors">
+        return (
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-teal-600 shrink-0" />
+                <div>
+                  <h3 className="text-sm font-black text-slate-800">
+                    Nhật Ký Đối Chiếu Hàng Ngày: Huyết Áp ↔ Thuốc & Tập PHCN
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Mỗi ngày gom gọn theo từng loại thuốc & bài tập (Chỉ tính những mục đã áp dụng tại ngày đó)
+                  </p>
+                </div>
+              </div>
+
+              {/* Bộ lọc nhanh Tất cả / Cần chú ý */}
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setExpandedDay(isExpanded ? null : dayRow.date)}
-                  className="w-full px-3.5 sm:px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-slate-50/80 transition text-left cursor-pointer"
+                  onClick={() => {
+                    setDailyMatrixFilter('all');
+                    setDailyMatrixExpanded(false);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                    dailyMatrixFilter === 'all'
+                      ? 'bg-teal-700 text-white border-teal-700'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
                 >
-                  {/* Cột 1: Ngày */}
-                  <div className="flex items-center gap-2.5 min-w-[145px]">
-                    <div
-                      className={`px-2.5 py-1 rounded-xl text-xs font-black border ${
-                        dayRow.isToday
-                          ? 'bg-teal-700 text-white border-teal-800'
-                          : 'bg-slate-100 text-slate-800 border-slate-200'
-                      }`}
-                    >
-                      {fmtDateShort(dayRow.date)}
-                    </div>
-                    <div>
-                      <div className="text-xs sm:text-sm font-extrabold text-slate-900">
-                        {dayRow.isToday ? 'Hôm nay' : getWeekdayVN(dayRow.date)}
-                      </div>
-                      <div className="text-[11px] text-slate-400">{fmtDateFull(dayRow.date)}</div>
-                    </div>
-                  </div>
-
-                  {/* Cột 2: Các lần đo Huyết áp & Mạch trong ngày */}
-                  <div className="flex-1 min-w-0">
-                    {dayRow.vitals.length > 0 ? (
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {dayRow.vitals.map((v) => {
-                          const c = alertColors(v.alertLevel);
-                          const cfg = TIME_SLOT_CONFIG[v.period];
-                          return (
-                            <span
-                              key={v.id}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold border ${c.bg} ${c.border} ${c.text}`}
-                            >
-                              <span>{cfg?.emoji || '🕒'}</span>
-                              <span className="font-black">
-                                {v.sys}/{v.dia}
-                              </span>
-                              {v.pulse && (
-                                <span
-                                  className={`text-[11px] ${
-                                    v.pulse < 55
-                                      ? 'text-amber-800 font-extrabold'
-                                      : 'text-slate-600 font-medium'
-                                  }`}
-                                >
-                                  (❤️{v.pulse})
-                                </span>
-                              )}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-400 italic">
-                        Chưa ghi huyết áp ngày này
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Cột 3: Tiến độ 4 buổi Thuốc + Tập PHCN */}
-                  <div className="flex items-center gap-2 flex-wrap sm:justify-end">
-                    {/* 4 chấm buổi Sáng / Trưa / Chiều / Tối */}
-                    <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-xl border border-slate-200/80">
-                      {ALL_SLOTS.map((slot) => {
-                        const cfg = TIME_SLOT_CONFIG[slot];
-                        const st = dayRow.slotStatus[slot];
-                        let pillClass = 'bg-slate-100 text-slate-400 border-slate-200';
-                        let statusIcon = '·';
-                        if (st.status === 'done') {
-                          pillClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
-                          statusIcon = '✓';
-                        } else if (st.status === 'partial') {
-                          pillClass = 'bg-amber-100 text-amber-800 border-amber-300';
-                          statusIcon = `${st.done}/${st.expected}`;
-                        } else if (st.status === 'missed') {
-                          pillClass = 'bg-rose-100 text-rose-800 border-rose-300';
-                          statusIcon = '!';
-                        } else if (st.status === 'pending') {
-                          pillClass = 'bg-slate-100 text-slate-500 border-slate-200';
-                          statusIcon = '⏳';
-                        }
-                        return (
-                          <span
-                            key={slot}
-                            title={`Buổi ${cfg.label}: ${st.done}/${st.expected} cữ thuốc`}
-                            className={`px-1.5 py-0.5 rounded-lg text-[10px] font-extrabold border ${pillClass}`}
-                          >
-                            {cfg.emoji} {statusIcon}
-                          </span>
-                        );
-                      })}
-                    </div>
-
-                    {/* Tổng cữ thuốc ngày đó */}
-                    {medsPct !== null && (
-                      <span
-                        className={`px-2 py-1 rounded-xl text-xs font-extrabold border ${
-                          medsPct === 100
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : medsPct >= 50
-                              ? 'bg-amber-50 text-amber-800 border-amber-200'
-                              : 'bg-rose-50 text-rose-700 border-rose-200'
-                        }`}
-                      >
-                        💊 {dayRow.medsDone}/{dayRow.medsExpected}
-                      </span>
-                    )}
-
-                    {/* Bài tập PHCN ngày đó */}
-                    {dayRow.rehabExpected > 0 && (
-                      <span className="px-2 py-1 rounded-xl text-xs font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
-                        🏃 {dayRow.rehabDone}/{dayRow.rehabExpected}
-                      </span>
-                    )}
-
-                    {isExpanded ? (
-                      <ChevronUp className="w-4 h-4 text-slate-400" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-slate-400" />
-                    )}
-                  </div>
+                  Tất cả ({complianceStats.dailyMatrix.length} ngày)
                 </button>
-
-                {/* Chi tiết mở rộng của ngày đó */}
-                {isExpanded && (
-                  <div className="px-4 pb-4 pt-2 bg-slate-50/70 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    {/* Cột A: Những việc đã hoàn thành trong ngày */}
-                    <div className="bg-white rounded-xl border border-emerald-200/80 p-3 space-y-2">
-                      <div className="font-extrabold text-emerald-800 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>
-                          Đã thực hiện trong ngày ({dayRow.completedDetails.length} mục)
-                        </span>
-                      </div>
-                      {dayRow.completedDetails.length === 0 ? (
-                        <p className="text-slate-400 italic">
-                          Chưa có mục nào được tích hoàn thành trong ngày này.
-                        </p>
-                      ) : (
-                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                          {dayRow.completedDetails.map((item, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-emerald-50/50 border border-emerald-100"
-                            >
-                              <div className="min-w-0">
-                                <span className="font-bold text-slate-800">
-                                  {item.category === 'rehab'
-                                    ? '🏃 '
-                                    : item.category === 'care'
-                                      ? '🥣 '
-                                      : '💊 '}
-                                  {item.routineTitle}
-                                </span>
-                                <span className="text-slate-500 ml-1.5">
-                                  ({periodLabel(item.timeSlot)})
-                                </span>
-                              </div>
-                              <span className="text-[11px] text-slate-500 shrink-0">
-                                {item.doneAt ? `${item.doneAt}` : 'Đã xong'}
-                                {item.doneBy ? ` · ${item.doneBy}` : ''}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Cột B: Những việc còn thiếu / chưa tích trong các buổi đã qua */}
-                    <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
-                      <div className="font-extrabold text-slate-700 flex items-center gap-1.5">
-                        <Clock className="w-4 h-4 text-amber-600" />
-                        <span>
-                          Chưa tích hoàn thành ({dayRow.missedDetails.length} mục)
-                        </span>
-                      </div>
-                      {dayRow.missedDetails.length === 0 ? (
-                        <p className="text-emerald-700 font-bold">
-                          🎉 Tuyệt vời! Tất cả cữ thuốc & bài tập đến hiện tại của ngày này đều đã
-                          hoàn thành đầy đủ.
-                        </p>
-                      ) : (
-                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                          {dayRow.missedDetails.map((item, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-amber-50/50 border border-amber-200/70"
-                            >
-                              <span className="font-semibold text-slate-800">
-                                {item.category === 'rehab'
-                                  ? '🏃 '
-                                  : item.category === 'care'
-                                    ? '🥣 '
-                                    : '💊 '}
-                                {item.routineTitle}
-                              </span>
-                              <span className="text-[11px] font-bold text-amber-800 shrink-0">
-                                {periodLabel(item.timeSlot)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                {attentionRows.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDailyMatrixFilter('attention');
+                      setDailyMatrixExpanded(false);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                      dailyMatrixFilter === 'attention'
+                        ? 'bg-amber-600 text-white border-amber-600'
+                        : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                    }`}
+                  >
+                    ⚠️ Cần chú ý ({attentionRows.length})
+                  </button>
                 )}
               </div>
-            );
-          })}
-        </div>
-      </div>
+            </div>
+
+            {visibleRows.length === 0 ? (
+              <div className="p-5 text-center text-xs text-slate-500">
+                🎉 Không có ngày nào bị thiếu thuốc hoặc huyết áp vượt ngưỡng trong kỳ này.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {visibleRows.map((dayRow) => {
+                  const isExpanded = expandedDay === dayRow.date;
+                  const medsPct =
+                    dayRow.medsExpected > 0
+                      ? Math.round((dayRow.medsDone / dayRow.medsExpected) * 100)
+                      : null;
+
+                  const medsGroup = dayRow.groupedRoutines.filter(
+                    (g) => g.category === 'meds' || g.category === 'meds_prn'
+                  );
+                  const rehabCareGroup = dayRow.groupedRoutines.filter(
+                    (g) => g.category === 'rehab' || g.category === 'care'
+                  );
+
+                  const compactVitals = isExpanded ? dayRow.vitals : dayRow.vitals.slice(0, 4);
+                  const extraVitalsCount = Math.max(0, dayRow.vitals.length - compactVitals.length);
+
+                  return (
+                    <div key={dayRow.date} className="transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedDay(isExpanded ? null : dayRow.date)}
+                        className="w-full px-3.5 sm:px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50/80 transition text-left cursor-pointer"
+                      >
+                        {/* Cột 1: Ngày */}
+                        <div className="flex items-center gap-2.5 min-w-[140px]">
+                          <div
+                            className={`px-2.5 py-1 rounded-xl text-xs font-black border ${
+                              dayRow.isToday
+                                ? 'bg-teal-700 text-white border-teal-800'
+                                : 'bg-slate-100 text-slate-800 border-slate-200'
+                            }`}
+                          >
+                            {fmtDateShort(dayRow.date)}
+                          </div>
+                          <div>
+                            <div className="text-xs sm:text-sm font-extrabold text-slate-900">
+                              {dayRow.isToday ? 'Hôm nay' : getWeekdayVN(dayRow.date)}
+                            </div>
+                            <div className="text-[11px] text-slate-400">
+                              {fmtDateFull(dayRow.date)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Cột 2: Các lần đo Huyết áp & Mạch trong ngày (Gọn tối đa 4 thẻ trên dòng thu gọn) */}
+                        <div className="flex-1 min-w-0">
+                          {dayRow.vitals.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {compactVitals.map((v) => {
+                                const c = alertColors(v.alertLevel);
+                                const cfg = TIME_SLOT_CONFIG[v.period];
+                                return (
+                                  <span
+                                    key={v.id}
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold border ${c.bg} ${c.border} ${c.text}`}
+                                    title={`Đo lúc ${v.time} (${cfg?.label || v.period})`}
+                                  >
+                                    <span>{cfg?.emoji || '🕒'}</span>
+                                    <span className="font-black">
+                                      {v.sys}/{v.dia}
+                                    </span>
+                                    {v.pulse && (
+                                      <span
+                                        className={`text-[11px] ${
+                                          v.pulse < 55
+                                            ? 'text-amber-800 font-extrabold'
+                                            : 'text-slate-600 font-medium'
+                                        }`}
+                                      >
+                                        (❤️{v.pulse})
+                                      </span>
+                                    )}
+                                  </span>
+                                );
+                              })}
+                              {extraVitalsCount > 0 && (
+                                <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                  +{extraVitalsCount} lần đo
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">
+                              Chưa ghi huyết áp ngày này
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Cột 3: Tiến độ 4 buổi Thuốc + Tập PHCN */}
+                        <div className="flex items-center gap-1.5 flex-wrap sm:justify-end">
+                          {/* 4 chấm buổi Sáng / Trưa / Chiều / Tối */}
+                          <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-xl border border-slate-200/80">
+                            {ALL_SLOTS.map((slot) => {
+                              const cfg = TIME_SLOT_CONFIG[slot];
+                              const st = dayRow.slotStatus[slot];
+                              let pillClass = 'bg-slate-100 text-slate-400 border-slate-200';
+                              let statusIcon = '·';
+                              if (st.status === 'done') {
+                                pillClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                                statusIcon = '✓';
+                              } else if (st.status === 'partial') {
+                                pillClass = 'bg-amber-100 text-amber-800 border-amber-300';
+                                statusIcon = `${st.done}/${st.expected}`;
+                              } else if (st.status === 'missed') {
+                                pillClass = 'bg-rose-100 text-rose-800 border-rose-300';
+                                statusIcon = '!';
+                              } else if (st.status === 'pending') {
+                                pillClass = 'bg-slate-100 text-slate-500 border-slate-200';
+                                statusIcon = '⏳';
+                              }
+                              return (
+                                <span
+                                  key={slot}
+                                  title={`Buổi ${cfg.label}: ${st.done}/${st.expected} cữ thuốc`}
+                                  className={`px-1.5 py-0.5 rounded-lg text-[10px] font-extrabold border ${pillClass}`}
+                                >
+                                  {cfg.emoji} {statusIcon}
+                                </span>
+                              );
+                            })}
+                          </div>
+
+                          {/* Tổng cữ thuốc ngày đó */}
+                          {medsPct !== null && (
+                            <span
+                              className={`px-2 py-1 rounded-xl text-xs font-extrabold border ${
+                                medsPct === 100
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : medsPct >= 50
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                              }`}
+                            >
+                              💊 {dayRow.medsDone}/{dayRow.medsExpected}
+                            </span>
+                          )}
+
+                          {/* Bài tập PHCN ngày đó */}
+                          {dayRow.rehabExpected > 0 && (
+                            <span className="px-2 py-1 rounded-xl text-xs font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
+                              🏃 {dayRow.rehabDone}/{dayRow.rehabExpected}
+                            </span>
+                          )}
+
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4 text-slate-400" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-slate-400" />
+                          )}
+                        </div>
+                      </button>
+
+                      {/* Chi tiết mở rộng của ngày đó — GOM GỌN 1 DÒNG / 1 LOẠI THUỐC HOẶC BÀI TẬP */}
+                      {isExpanded && (
+                        <div className="px-3.5 sm:px-4 pb-3.5 pt-2 bg-slate-50/70 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+                          {/* Cột A: Đơn thuốc áp dụng trong ngày (Mỗi loại thuốc 1 dòng duy nhất) */}
+                          <div className="bg-white rounded-xl border border-emerald-200/80 p-2.5 space-y-1.5">
+                            <div className="font-extrabold text-emerald-800 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <Pill className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Thuốc trong ngày ({medsGroup.length} loại)</span>
+                              </span>
+                              <span className="text-[11px] font-bold text-slate-500">
+                                Đã uống {dayRow.medsDone}/{dayRow.medsExpected} cữ
+                              </span>
+                            </div>
+
+                            {medsGroup.length === 0 ? (
+                              <p className="text-slate-400 italic">
+                                Chưa có cữ thuốc nào đến giờ trong ngày này.
+                              </p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {medsGroup.map((g) => (
+                                  <div
+                                    key={g.routineId}
+                                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200/70"
+                                  >
+                                    <div className="min-w-0">
+                                      <span className="font-bold text-slate-800">
+                                        {g.routineTitle}
+                                      </span>
+                                      {g.dosage && (
+                                        <span className="text-slate-500 ml-1">({g.dosage})</span>
+                                      )}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1 shrink-0">
+                                      {g.slots.map((s, sIdx) => {
+                                        const cfg = TIME_SLOT_CONFIG[s.timeSlot];
+                                        return (
+                                          <span
+                                            key={sIdx}
+                                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${
+                                              s.isDone
+                                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                                : 'bg-amber-50 text-amber-800 border-amber-200'
+                                            }`}
+                                          >
+                                            {cfg?.emoji} {cfg?.label}:{' '}
+                                            {s.isDone ? `✓ ${s.doneAt || 'Đã uống'}` : 'Chưa tích'}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Cột B: Bài tập PHCN & Chăm sóc trong ngày (Mỗi mục 1 dòng duy nhất) */}
+                          <div className="bg-white rounded-xl border border-blue-200/80 p-2.5 space-y-1.5">
+                            <div className="font-extrabold text-blue-800 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Tập PHCN & Chăm sóc ({rehabCareGroup.length} mục)</span>
+                              </span>
+                              <span className="text-[11px] font-bold text-slate-500">
+                                Hoàn thành {dayRow.rehabDone + dayRow.careDone}/
+                                {dayRow.rehabExpected + dayRow.careExpected} lần
+                              </span>
+                            </div>
+
+                            {rehabCareGroup.length === 0 ? (
+                              <p className="text-slate-400 italic">
+                                Chưa có bài tập/chăm sóc nào đến giờ trong ngày này.
+                              </p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {rehabCareGroup.map((g) => (
+                                  <div
+                                    key={g.routineId}
+                                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200/70"
+                                  >
+                                    <div className="min-w-0">
+                                      <span className="font-bold text-slate-800">
+                                        {g.category === 'rehab' ? '🏃 ' : '🥣 '}
+                                        {g.routineTitle}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1 shrink-0">
+                                      {g.slots.map((s, sIdx) => {
+                                        const cfg = TIME_SLOT_CONFIG[s.timeSlot];
+                                        return (
+                                          <span
+                                            key={sIdx}
+                                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${
+                                              s.isDone
+                                                ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                                : 'bg-amber-50 text-amber-800 border-amber-200'
+                                            }`}
+                                          >
+                                            {cfg?.emoji} {cfg?.label}:{' '}
+                                            {s.isDone ? `✓ ${s.doneAt || 'Xong'}` : 'Chưa tích'}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Nút Xem thêm / Thu gọn danh sách ngày để không bị kéo dài trang */}
+            {baseRows.length > 5 && (
+              <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 text-center">
+                <button
+                  type="button"
+                  onClick={() => setDailyMatrixExpanded(!dailyMatrixExpanded)}
+                  className="text-xs font-extrabold text-teal-700 hover:text-teal-800 inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  {dailyMatrixExpanded ? (
+                    <>
+                      <ChevronUp className="w-4 h-4" />
+                      <span>Thu gọn (Chỉ hiện 5 ngày gần nhất)</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4" />
+                      <span>Xem thêm {hiddenCount} ngày trước đó</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ===== SECTION 5: PHÂN TÍCH CHI TIẾT TỪNG ĐẦU VIỆC TRONG CHECKLIST (THUỐC & BÀI TẬP PHCN) ===== */}
       {complianceStats.routineStatsList.length > 0 && (
