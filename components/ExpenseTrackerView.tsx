@@ -40,6 +40,7 @@ import {
   ChevronUp,
   Share2,
   ShieldCheck,
+  Info,
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
@@ -339,6 +340,7 @@ export default function ExpenseTrackerView({
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [showBreakdown, setShowBreakdown] = useState<boolean>(true);
+  const [showFormulaGuide, setShowFormulaGuide] = useState<boolean>(true);
 
   // ===== STATE XEM ẢNH HÓA ĐƠN & XÁC NHẬN XÓA =====
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
@@ -708,6 +710,7 @@ export default function ExpenseTrackerView({
           `• Cân đối thực tế (Sau khi trừ khoản ứng): -${formatVND(Math.abs(reportData.rNetOverallBalance))} (Đang ứng vượt tổng thu)`
         );
       }
+      lines.push(`ℹ️ Cách tính: (3) Tiền Quỹ còn giữ = (1) Tổng thu vào quỹ − Chi lấy từ quỹ | (4) Cân đối thực tế = (1) Tổng thu − (2) Tổng chi (= Tiền Quỹ còn giữ − Khoản cá nhân ứng riêng).`);
       lines.push(`────────────────────`);
     }
 
@@ -1103,6 +1106,57 @@ export default function ExpenseTrackerView({
         </div>
       </div>
 
+      {/* HỘP GIẢI THÍCH NGẮN GỌN CÁCH TÍNH 4 THẺ ĐỂ CẢ GIA ĐÌNH DỄ HIỂU */}
+      <div className="bg-teal-50/60 rounded-2xl border border-teal-200/80 shadow-2xs overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowFormulaGuide(!showFormulaGuide)}
+          className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-teal-100/50 transition cursor-pointer"
+        >
+          <div className="flex items-center gap-2 text-left">
+            <Info className="w-4 h-4 text-teal-700 shrink-0" />
+            <span className="text-xs sm:text-sm font-extrabold text-teal-900">
+              Giải thích ngắn gọn cách tính 4 ô số liệu trên (để mọi người dễ đối chiếu)
+            </span>
+          </div>
+          <span className="text-xs font-bold text-teal-700 flex items-center gap-1 shrink-0 ml-2">
+            {showFormulaGuide ? 'Thu gọn' : 'Xem giải thích'}
+            {showFormulaGuide ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
+          </span>
+        </button>
+
+        {showFormulaGuide && (
+          <div className="px-4 pb-3.5 pt-2 border-t border-teal-200/60 bg-white/80 text-xs text-slate-700 space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-200/60">
+                <span className="font-extrabold text-emerald-800">1. Tổng Thu Vào Quỹ:</span>{' '}
+                Tổng tiền mọi người chuyển vào Quỹ chung, tiền BHYT hoặc hỗ trợ nhận về (không cộng gộp các khoản cá nhân tự thanh toán riêng ở ngoài).
+              </div>
+              <div className="p-2.5 rounded-xl bg-rose-50/50 border border-rose-200/60">
+                <span className="font-extrabold text-rose-800">2. Tổng Chi Điều Trị:</span>{' '}
+                Toàn bộ chi phí lo cho Bố từ đầu đến nay = <strong>Chi lấy từ Quỹ</strong> + <strong>Cá nhân tự ứng/trả riêng</strong>.
+              </div>
+              <div className="p-2.5 rounded-xl bg-teal-50/50 border border-teal-200/60">
+                <span className="font-extrabold text-teal-800">
+                  3. Tiền Quỹ Còn Giữ = Ô (1) − Chi từ Quỹ:
+                </span>{' '}
+                Số tiền mặt/tài khoản thực tế hiện còn nằm trong Quỹ (khớp với số tiền người giữ quỹ đang cầm vì chưa trừ khoản cá nhân tự ứng riêng).
+              </div>
+              <div className="p-2.5 rounded-xl bg-amber-50/50 border border-amber-200/60">
+                <span className="font-extrabold text-amber-900">
+                  4. Cân Đối Thực Tế = Ô (1) − Ô (2) <span className="font-normal">(hay = Ô 3 − Ứng riêng)</span>:
+                </span>{' '}
+                Số dư thực sự sau khi tính đủ mọi khoản chi. Nếu <strong>âm (−)</strong> nghĩa là tổng chi đã vượt tổng thu (lấy hết tiền Quỹ ở Ô 3 hoàn lại cho người ứng riêng vẫn còn thiếu đúng bằng số âm này).
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* BẢNG PHÂN BỔ THEO GIAI ĐOẠN & NGUỒN ĐÓNG GÓP (ĐÓNG/MỞ GỌN GÀNG) */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
         <button
@@ -1194,9 +1248,16 @@ export default function ExpenseTrackerView({
 
             {/* Cột 2: Tổng hợp các khoản thu & ứng trả trực tiếp */}
             <div>
-              <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-2.5">
-                Ghi nhận các khoản gửi vào quỹ & ứng trả trực tiếp
-              </h3>
+              <div className="flex flex-wrap items-center justify-between gap-1 mb-2.5">
+                <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
+                  Ghi nhận các khoản gửi vào quỹ & ứng trả trực tiếp
+                </h3>
+                {(stats.totalIn > 0 || stats.directMemberOut > 0) && (
+                  <span className="text-[11px] font-bold text-slate-500">
+                    Tổng đã bỏ ra: {formatVND(stats.totalIn + stats.directMemberOut)}
+                  </span>
+                )}
+              </div>
               {stats.contributorList.length === 0 ? (
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-500">
                   Chưa có khoản thu quỹ hoặc ứng trả trực tiếp nào.
@@ -1225,6 +1286,14 @@ export default function ExpenseTrackerView({
                       </div>
                     </div>
                   ))}
+                  {stats.directMemberOut > 0 && (
+                    <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 leading-relaxed">
+                      💡 <strong>Lưu ý:</strong> Cột này cộng cả tiền{' '}
+                      <strong>Gửi vào Quỹ ({formatVND(stats.totalIn)})</strong> và tiền{' '}
+                      <strong>Cá nhân ứng trả riêng ({formatVND(stats.directMemberOut)})</strong> ={' '}
+                      <strong>{formatVND(stats.totalIn + stats.directMemberOut)}</strong> để ghi nhận đầy đủ tổng số tiền mỗi thành viên đã thực chi cho Bố.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1899,49 +1968,54 @@ export default function ExpenseTrackerView({
               </div>
 
               {reportIncludeSummary && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
-                    <div className="text-[10px] font-bold text-emerald-800 uppercase">1. Tổng Thu Vào Quỹ</div>
-                    <div className="text-sm sm:text-base font-extrabold text-emerald-700 mt-0.5">
-                      +{formatVND(reportData.rIn)}
-                    </div>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200">
-                    <div className="text-[10px] font-bold text-rose-800 uppercase">2. Tổng Chi Điều Trị</div>
-                    <div className="text-sm sm:text-base font-extrabold text-rose-700 mt-0.5">
-                      -{formatVND(reportData.rOut)}
-                    </div>
-                    {reportData.rDirectOut > 0 && (
-                      <div className="text-[10px] text-rose-700/80 mt-0.5">
-                        Quỹ: {formatVND(reportData.rFundOut)} • Ứng riêng: {formatVND(reportData.rDirectOut)}
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                      <div className="text-[10px] font-bold text-emerald-800 uppercase">1. Tổng Thu Vào Quỹ</div>
+                      <div className="text-sm sm:text-base font-extrabold text-emerald-700 mt-0.5">
+                        +{formatVND(reportData.rIn)}
                       </div>
-                    )}
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200">
+                      <div className="text-[10px] font-bold text-rose-800 uppercase">2. Tổng Chi Điều Trị</div>
+                      <div className="text-sm sm:text-base font-extrabold text-rose-700 mt-0.5">
+                        -{formatVND(reportData.rOut)}
+                      </div>
+                      {reportData.rDirectOut > 0 && (
+                        <div className="text-[10px] text-rose-700/80 mt-0.5">
+                          Quỹ: {formatVND(reportData.rFundOut)} • Ứng riêng: {formatVND(reportData.rDirectOut)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-teal-50/70 border border-teal-200">
+                      <div className="text-[10px] font-bold text-teal-900 uppercase">3. Tiền Quỹ Còn Giữ</div>
+                      <div className="text-sm sm:text-base font-extrabold text-teal-800 mt-0.5">
+                        {reportData.rFundCashRemaining >= 0
+                          ? `+${formatVND(reportData.rFundCashRemaining)}`
+                          : `-${formatVND(Math.abs(reportData.rFundCashRemaining))}`}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">Thu − Chi từ Quỹ</div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200">
+                      <div className="text-[10px] font-bold text-slate-700 uppercase">
+                        4. Cân Đối Thực Tế
+                      </div>
+                      <div
+                        className={`text-sm sm:text-base font-extrabold mt-0.5 ${
+                          reportData.rNetOverallBalance >= 0 ? 'text-teal-700' : 'text-amber-800'
+                        }`}
+                      >
+                        {reportData.rNetOverallBalance >= 0
+                          ? `+${formatVND(reportData.rNetOverallBalance)}`
+                          : `-${formatVND(Math.abs(reportData.rNetOverallBalance))}`}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        {reportData.rNetOverallBalance >= 0 ? 'Sau khi trừ khoản ứng' : 'Đang ứng vượt tổng thu'}
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-teal-50/70 border border-teal-200">
-                    <div className="text-[10px] font-bold text-teal-900 uppercase">3. Tiền Quỹ Còn Giữ</div>
-                    <div className="text-sm sm:text-base font-extrabold text-teal-800 mt-0.5">
-                      {reportData.rFundCashRemaining >= 0
-                        ? `+${formatVND(reportData.rFundCashRemaining)}`
-                        : `-${formatVND(Math.abs(reportData.rFundCashRemaining))}`}
-                    </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">Thu − Chi từ Quỹ</div>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200">
-                    <div className="text-[10px] font-bold text-slate-700 uppercase">
-                      4. Cân Đối Thực Tế
-                    </div>
-                    <div
-                      className={`text-sm sm:text-base font-extrabold mt-0.5 ${
-                        reportData.rNetOverallBalance >= 0 ? 'text-teal-700' : 'text-amber-800'
-                      }`}
-                    >
-                      {reportData.rNetOverallBalance >= 0
-                        ? `+${formatVND(reportData.rNetOverallBalance)}`
-                        : `-${formatVND(Math.abs(reportData.rNetOverallBalance))}`}
-                    </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
-                      {reportData.rNetOverallBalance >= 0 ? 'Sau khi trừ khoản ứng' : 'Đang ứng vượt tổng thu'}
-                    </div>
+                  <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 leading-relaxed">
+                    💡 <strong>Cách tính:</strong> (3) <em>Tiền Quỹ còn giữ</em> = (1) Tổng thu vào quỹ − Chi lấy từ quỹ • (4) <em>Cân đối thực tế</em> = (1) Tổng thu − (2) Tổng chi <span className="text-slate-500">(hoặc = Tiền Quỹ còn giữ − Khoản cá nhân ứng riêng)</span>.
                   </div>
                 </div>
               )}
@@ -1973,8 +2047,13 @@ export default function ExpenseTrackerView({
 
               {reportIncludeContributors && reportData.rContribList.length > 0 && (
                 <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <div className="text-xs font-extrabold text-slate-700 uppercase">
-                    Ghi nhận các khoản thu quỹ & đóng góp
+                  <div className="flex flex-wrap items-center justify-between gap-1">
+                    <div className="text-xs font-extrabold text-slate-700 uppercase">
+                      Ghi nhận các khoản gửi vào quỹ & ứng trả trực tiếp
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-500">
+                      Tổng đã bỏ ra: {formatVND(reportData.rIn + reportData.rDirectOut)}
+                    </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
                     {reportData.rContribList.map((c) => (
@@ -1982,8 +2061,17 @@ export default function ExpenseTrackerView({
                         key={c.name}
                         className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-emerald-50/60 border border-emerald-200"
                       >
-                        <span className="font-bold text-slate-800 truncate">{c.name}</span>
-                        <span className="font-extrabold text-emerald-700 ml-2">
+                        <div className="min-w-0">
+                          <div className="font-bold text-slate-800 truncate">{c.name}</div>
+                          <div className="text-[10px] text-slate-500 truncate">
+                            {c.fundIn > 0 && c.directPaid > 0
+                              ? `Gửi quỹ: ${formatVND(c.fundIn)} • Ứng riêng: ${formatVND(c.directPaid)}`
+                              : c.directPaid > 0
+                                ? 'Ứng / thanh toán trực tiếp'
+                                : 'Chuyển vào quỹ chung'}
+                          </div>
+                        </div>
+                        <span className="font-extrabold text-emerald-700 ml-2 shrink-0">
                           {formatVND(c.total)}
                         </span>
                       </div>
