@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { verifyAdminPinAction, changeAdminPinAction } from '@/lib/actions';
+import { verifyAdminPinAction, changeAdminPinAction, verifyExpensePinAction } from '@/lib/actions';
 
 interface AdminPinModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  onExpenseSuccess?: () => void;
+  isAdmin?: boolean;
+  onLockAdmin?: () => void;
   initialMode?: 'unlock' | 'change';
 }
 
@@ -14,6 +17,9 @@ export function AdminPinModal({
   isOpen,
   onClose,
   onSuccess,
+  onExpenseSuccess,
+  isAdmin,
+  onLockAdmin,
   initialMode = 'unlock',
 }: AdminPinModalProps) {
   const [mode, setMode] = useState<'unlock' | 'change'>(initialMode);
@@ -130,17 +136,31 @@ export function AdminPinModal({
     setIsSubmitting(true);
     setErrorMsg('');
     try {
-      const res = await verifyAdminPinAction(pinToTest);
-      if (res.success) {
-        setSuccessNotice('Xác thực thành công!');
+      const [adminRes, isExpensePinValid] = await Promise.all([
+        verifyAdminPinAction(pinToTest),
+        onExpenseSuccess ? verifyExpensePinAction(pinToTest) : Promise.resolve(false),
+      ]);
+
+      if (isExpensePinValid && onExpenseSuccess) {
+        setSuccessNotice('Mở Sổ Theo Dõi Nội Bộ...');
+        setTimeout(() => {
+          onExpenseSuccess();
+          onClose();
+        }, 350);
+        return;
+      }
+
+      if (adminRes.success) {
+        setSuccessNotice('Xác thực quyền Admin thành công!');
         setTimeout(() => {
           onSuccess();
           onClose();
-        }, 400);
-      } else {
-        triggerShake(res.message || 'Mã PIN không đúng');
-        setPin('');
+        }, 350);
+        return;
       }
+
+      triggerShake(adminRes.message || 'Mã PIN không đúng');
+      setPin('');
     } catch {
       triggerShake('Lỗi kết nối máy chủ');
     } finally {
@@ -244,7 +264,7 @@ export function AdminPinModal({
               setPin('');
               setErrorMsg('');
             }}
-            className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
               mode === 'unlock'
                 ? 'bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-400 shadow-sm'
                 : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
@@ -262,7 +282,7 @@ export function AdminPinModal({
               setConfirmPin('');
               setErrorMsg('');
             }}
-            className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
               mode === 'change'
                 ? 'bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-400 shadow-sm'
                 : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
@@ -271,6 +291,25 @@ export function AdminPinModal({
             🔄 Đổi mã PIN
           </button>
         </div>
+
+        {/* Trạng thái đang bật Admin: cho phép khóa nhanh hoặc nhập PIN Sổ Nội Bộ */}
+        {isAdmin && onLockAdmin && mode === 'unlock' && (
+          <div className="px-5 pt-3 pb-1 flex items-center justify-between gap-2 bg-amber-50/70 border-b border-amber-100">
+            <span className="text-xs font-bold text-amber-800">
+              👑 Đang mở quyền Admin
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                onLockAdmin();
+                onClose();
+              }}
+              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition cursor-pointer"
+            >
+              🔒 Khóa lại Admin
+            </button>
+          </div>
+        )}
 
         {/* Content */}
         <div className="p-6 flex flex-col items-center">

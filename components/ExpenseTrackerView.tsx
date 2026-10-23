@@ -56,6 +56,7 @@ interface ExpenseTrackerViewProps {
   onSaveExpense: (entry: ExpenseEntry) => Promise<void>;
   onDeleteExpense: (id: string) => Promise<void>;
   showToast: (msg: string, type?: 'info' | 'success' | 'warn') => void;
+  onBackToHealth?: () => void;
 }
 
 export const STAGE_CONFIG: Record<
@@ -298,6 +299,7 @@ export default function ExpenseTrackerView({
   onSaveExpense,
   onDeleteExpense,
   showToast,
+  onBackToHealth,
 }: ExpenseTrackerViewProps) {
   // ===== STATE MỞ KHÓA PIN RIÊNG =====
   const [pinInput, setPinInput] = useState('');
@@ -862,10 +864,19 @@ export default function ExpenseTrackerView({
           </button>
         </form>
 
-        <div className="mt-5 pt-4 border-t border-slate-100 text-center">
+        <div className="mt-5 pt-4 border-t border-slate-100 text-center space-y-3">
           <p className="text-xs text-slate-500">
             💡 Mã PIN mặc định lần đầu là <code className="px-1.5 py-0.5 rounded bg-slate-100 font-bold text-slate-700">2468</code> (Tách biệt với mã PIN Admin). Bạn có thể đổi sang mã riêng sau khi mở sổ.
           </p>
+          {onBackToHealth && (
+            <button
+              type="button"
+              onClick={onBackToHealth}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+            >
+              <span>← Quay lại Sổ Sức Khỏe</span>
+            </button>
+          )}
         </div>
       </div>
     );
@@ -900,6 +911,17 @@ export default function ExpenseTrackerView({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {onBackToHealth && (
+              <button
+                type="button"
+                onClick={onBackToHealth}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold transition cursor-pointer"
+                title="Quay lại giao diện Sổ Sức Khỏe chính"
+              >
+                <span>← Sổ Sức Khỏe</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setReportModalOpen(true)}
@@ -924,12 +946,15 @@ export default function ExpenseTrackerView({
 
             <button
               type="button"
-              onClick={onLock}
+              onClick={() => {
+                onLock();
+                onBackToHealth?.();
+              }}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition cursor-pointer"
-              title="Khóa sổ lại ngay để ẩn số liệu"
+              title="Khóa sổ lại ngay và quay về màn hình sức khỏe"
             >
               <Lock className="w-3.5 h-3.5 text-amber-700" />
-              <span>Khóa sổ</span>
+              <span>Khóa & Đóng sổ</span>
             </button>
           </div>
         </div>

@@ -716,28 +716,20 @@ export default function CareSchedulePage() {
     }
   }, [pendingAdminAction, showToast]);
 
-  const handleToggleAdmin = useCallback(() => {
-    if (isAdmin) {
-      const wantLock = window.confirm(
-        'Bạn đang đăng nhập quyền Admin.\n\n- Nhấn [OK] để KHÓA LẠI (đăng xuất quyền Admin).\n- Nhấn [Hủy] nếu bạn muốn ĐỔI MÃ PIN MỚI.'
-      );
-      if (wantLock) {
-        setIsAdmin(false);
-        try {
-          sessionStorage.removeItem('care_admin_auth');
-        } catch {
-          // ignore
-        }
-        showToast('Đã khóa lại quyền Admin', 'info');
-      } else {
-        setAdminPinModalMode('change');
-        setAdminPinModalOpen(true);
-      }
-    } else {
-      setAdminPinModalMode('unlock');
-      setAdminPinModalOpen(true);
+  const handleLockAdmin = useCallback(() => {
+    setIsAdmin(false);
+    try {
+      sessionStorage.removeItem('care_admin_auth');
+    } catch {
+      // ignore
     }
-  }, [isAdmin, showToast]);
+    showToast('Đã khóa lại quyền Admin', 'info');
+  }, [showToast]);
+
+  const handleToggleAdmin = useCallback(() => {
+    setAdminPinModalMode('unlock');
+    setAdminPinModalOpen(true);
+  }, []);
 
   // CRUD Contacts (Bảo vệ bằng Admin PIN — Phản hồi tức thì 0ms)
   const handleSaveContact = useCallback(async (contact: EmergencyContact) => {
@@ -1036,6 +1028,7 @@ export default function CareSchedulePage() {
               onSaveExpense={handleSaveExpense}
               onDeleteExpense={handleDeleteExpense}
               showToast={showToast}
+              onBackToHealth={() => handleChangeView('today')}
             />
           </div>
         )}
@@ -1049,6 +1042,15 @@ export default function CareSchedulePage() {
           </p>
           <p className="text-[11px] text-slate-500">
             Theo dõi huyết áp, thuốc & phục hồi chức năng hàng ngày — Đồng bộ Google Sheets
+            {' • '}
+            <button
+              type="button"
+              onClick={() => handleChangeView('expenses')}
+              className="text-slate-400 hover:text-teal-700 underline decoration-slate-300 underline-offset-2 transition cursor-pointer"
+              title="Mở Sổ ghi chép nội bộ (Yêu cầu mã PIN riêng)"
+            >
+              Sổ nội bộ
+            </button>
           </p>
         </div>
       </footer>
@@ -1089,6 +1091,12 @@ export default function CareSchedulePage() {
             setPendingAdminAction(null);
           }}
           onSuccess={handleAdminPinSuccess}
+          onExpenseSuccess={() => {
+            handleUnlockExpenseSuccess();
+            handleChangeView('expenses');
+          }}
+          isAdmin={isAdmin}
+          onLockAdmin={handleLockAdmin}
           initialMode={adminPinModalMode}
         />
       )}
