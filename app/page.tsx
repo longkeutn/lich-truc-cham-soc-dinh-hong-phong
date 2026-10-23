@@ -28,6 +28,14 @@ const FamilySupportView = dynamic(() => import('@/components/FamilySupportView')
   ),
 });
 
+const ExpenseTrackerView = dynamic(() => import('@/components/ExpenseTrackerView'), {
+  loading: () => (
+    <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500 animate-pulse">
+      Đang mở Sổ Theo Dõi Thu Chi...
+    </div>
+  ),
+});
+
 const RoutineManagerModal = dynamic(() =>
   import('@/components/RoutineManagerModal').then((m) => m.RoutineManagerModal)
 );
@@ -58,6 +66,7 @@ import {
   RehabStage,
   AppointmentInfo,
   BpThresholds,
+  ExpenseEntry,
 } from '@/lib/types';
 import {
   DEFAULT_BP_THRESHOLDS,
@@ -82,6 +91,10 @@ import {
   deleteRoutineAction,
   toggleDailyLogAction,
   saveAppointmentAction,
+  verifyExpensePinAction,
+  changeExpensePinAction,
+  saveExpenseAction,
+  deleteExpenseAction,
   fetchAllAppDataV2Action,
 } from '@/lib/actions';
 
@@ -122,16 +135,18 @@ export default function CareSchedulePage() {
   const [stages, setStages] = useState<RehabStage[]>(DEFAULT_REHAB_STAGES);
   const [appointment, setAppointment] = useState<AppointmentInfo>(DEFAULT_APPOINTMENT);
   const [bpThresholds, setBpThresholds] = useState<BpThresholds>(DEFAULT_BP_THRESHOLDS);
+  const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
 
   // V2.0: Phase cố định là 'phase2' (tại nhà), không cho user chuyển nữa
   const activePhase: CarePhase = 'phase2';
 
-  // V2.0: 3 tab mới + lưu các tab đã mở để chuyển qua lại tức thì (0ms) không phải render lại từ đầu
+  // V2.2: 4 tab mới + lưu các tab đã mở để chuyển qua lại tức thì (0ms) không phải render lại từ đầu
   const [activeView, setActiveView] = useState<AppView>('today');
   const [visitedViews, setVisitedViews] = useState<Record<AppView, boolean>>({
     today: true,
     charts: false,
     family: false,
+    expenses: false,
   });
 
   const handleChangeView = useCallback((view: AppView) => {
@@ -148,6 +163,7 @@ export default function CareSchedulePage() {
 
   // Admin Security & Management Modals State
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isExpenseUnlocked, setIsExpenseUnlocked] = useState<boolean>(false);
   const [adminPinModalOpen, setAdminPinModalOpen] = useState<boolean>(false);
   const [adminPinModalMode, setAdminPinModalMode] = useState<'unlock' | 'change'>('unlock');
   const [editPatientModalOpen, setEditPatientModalOpen] = useState<boolean>(false);
@@ -166,15 +182,19 @@ export default function CareSchedulePage() {
         if (sessionStorage.getItem('care_admin_auth') === 'true') {
           setIsAdmin(true);
         }
+        if (sessionStorage.getItem('care_expense_auth') === 'true') {
+          setIsExpenseUnlocked(true);
+        }
       }
     } catch {
       // ignore
     }
 
-    // Tải ngầm trước JS của tab Biểu đồ và Gia đình sau 1.2s để bấm chuyển tab phản hồi 0ms
+    // Tải ngầm trước JS của các tab phụ sau 1.2s để bấm chuyển tab phản hồi 0ms
     const preloadTimer = setTimeout(() => {
       import('@/components/VitalsChartView').catch(() => {});
       import('@/components/FamilySupportView').catch(() => {});
+      import('@/components/ExpenseTrackerView').catch(() => {});
     }, 1200);
 
     return () => clearTimeout(preloadTimer);
@@ -238,6 +258,7 @@ export default function CareSchedulePage() {
           }
           if (appData.appointment) setAppointment(appData.appointment);
           if (appData.bpThresholds) setBpThresholds(appData.bpThresholds);
+          if (Array.isArray(appData.expenses)) setExpenses(appData.expenses);
 
           if (forceRefresh && !silent) {
             showToast('Đã đồng bộ dữ liệu mới nhất từ Google Sheets!', 'success');
@@ -547,6 +568,71 @@ export default function CareSchedulePage() {
       });
   }, [showToast]);
 
+  // ===== V2.2: SỔ THEO DÕI THU CHI ĐIỀU TRỊ (PHẢN HỒI TỨC THÌ 0ms, MÃ PIN RIÊNG) =====
+  const handleUnlockExpenseSuccess = useCallback(() => {
+    setIsExpenseUnlocked(true);
+    try {
+      sessionStorage.setItem('care_expense_auth', 'true');
+    } catch {
+      // ignore
+    }
+    showToast('🔓 Đã mở khóa Sổ Theo Dõi Thu Chi!', 'success');
+  }, [showToast]);
+
+  const handleLockExpense = useCallback(() => {
+    setIsExpenseUnlocked(false);
+    try {
+      sessionStorage.removeItem('care_expense_auth');
+    } catch {
+      // ignore
+    }
+    showToast('🔒 Đã khóa Sổ Thu Chi.', 'info');
+  }, [showToast]);
+
+  const handleSaveExpense = useCallback(async (entry: ExpenseEntry) => {
+    setExpenses((prev) => {
+      const idx = prev.findIndex((e) => e.id === entry.id);
+      let next: ExpenseEntry[];
+      if (idx >= 0) {
+        next = [...prev];
+        next[idx] = entry;
+      } else {
+        next = [entry, ...prev];
+      }
+      return next.sort((a, b) => {
+        const dCmp = (b.date || '').localeCompare(a.date || '');
+        if (dCmp !== 0) return dCmp;
+        return (b.createdAt || '').localeCompare(a.createdAt || '');
+      });
+    });
+
+    void saveExpenseAction(entry)
+      .then((res) => {
+        if (res.success && Array.isArray(res.expenses) && res.expenses.length > 0) {
+          setExpenses(res.expenses);
+        } else if (!res.success) {
+          showToast('Lỗi đồng bộ khoản thu/chi lên Google Sheets.', 'warn');
+        }
+      })
+      .catch(() => {
+        showToast('Lỗi đồng bộ khoản thu/chi lên Google Sheets.', 'warn');
+      });
+  }, [showToast]);
+
+  const handleDeleteExpense = useCallback(async (expenseId: string) => {
+    setExpenses((prev) => prev.filter((e) => e.id !== expenseId));
+
+    void deleteExpenseAction(expenseId)
+      .then((res) => {
+        if (!res.success) {
+          showToast('Lỗi xóa khoản thu/chi trên Google Sheets.', 'warn');
+        }
+      })
+      .catch(() => {
+        showToast('Lỗi xóa khoản thu/chi trên Google Sheets.', 'warn');
+      });
+  }, [showToast]);
+
   // ===== Lấy các routines đang hoạt động cho stage hiện tại =====
   const activeRoutines = useMemo(() => {
     return careRoutines.filter((r) => r.isActive && r.stageId === activeStageId);
@@ -793,6 +879,7 @@ export default function CareSchedulePage() {
         onOpenInstallApp={() => setInstallPwaModalOpen(true)}
         patientInfo={patientInfo}
         isAdmin={isAdmin}
+        isExpenseUnlocked={isExpenseUnlocked}
         onOpenAdminPin={handleToggleAdmin}
         onOpenMembers={handleOpenMembers}
         onEditPatient={handleOpenEditPatient}
@@ -930,6 +1017,25 @@ export default function CareSchedulePage() {
               todayStr={todayStr}
               onSaveShift={handleSaveShift}
               onOpenMembers={handleOpenMembers}
+            />
+          </div>
+        )}
+
+        {visitedViews.expenses && (
+          <div className={activeView === 'expenses' ? 'block' : 'hidden'}>
+            {/* ===== TAB SỔ THEO DÕI THU CHI ĐIỀU TRỊ — Đợt D (Mã PIN riêng) ===== */}
+            <ExpenseTrackerView
+              expenses={expenses}
+              members={members}
+              patientName={patientInfo.name}
+              isUnlocked={isExpenseUnlocked}
+              onUnlockSuccess={handleUnlockExpenseSuccess}
+              onLock={handleLockExpense}
+              onVerifyPin={verifyExpensePinAction}
+              onChangePin={changeExpensePinAction}
+              onSaveExpense={handleSaveExpense}
+              onDeleteExpense={handleDeleteExpense}
+              showToast={showToast}
             />
           </div>
         )}

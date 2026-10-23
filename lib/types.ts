@@ -223,6 +223,44 @@ export interface BpThresholds {
 // ===== APP MODE =====
 export type AppMode = 'home_care' | 'icu';
 
+// ===== EXPENSE TRACKER — Sổ Theo Dõi Thu Chi Điều Trị (Mã PIN riêng biệt) =====
+export type ExpenseType = 'out' | 'in';
+
+export type ExpenseStage = 'emergency' | 'rehab_hospital' | 'home_care';
+
+export type ExpenseCategory =
+  // Danh mục Khoản Chi ('out')
+  | 'hospital_fee'      // Viện phí & Thủ thuật
+  | 'medicine'          // Thuốc men & Vật tư y tế
+  | 'equipment'         // Thiết bị & Dụng cụ hỗ trợ
+  | 'nutrition_diaper'  // Dinh dưỡng & Bỉm sữa
+  | 'transport'         // Xe cộ & Vận chuyển
+  | 'care_service'      // Dịch vụ chăm sóc & Tập PHCN
+  | 'other_expense'     // Chi phí khác
+  // Danh mục Khoản Thu ('in')
+  | 'family_contrib'    // Gia đình chuyển vào quỹ
+  | 'insurance_support' // BHYT / Bảo hiểm thanh toán
+  | 'visitation_gift'   // Tiền thăm hỏi hỗ trợ
+  | 'other_income';     // Khoản thu khác
+
+export type PaymentSource = 'fund_or_advance' | 'direct_member';
+
+export interface ExpenseEntry {
+  id: string;
+  date: string;                 // YYYY-MM-DD (hỗ trợ nhập lùi ngày về đợt cấp cứu đầu tiên)
+  type: ExpenseType;            // 'out' = Chi điều trị, 'in' = Thu vào quỹ
+  amount: number;               // Số tiền (VNĐ)
+  stage: ExpenseStage;          // Giai đoạn điều trị
+  category: ExpenseCategory;    // Nhóm danh mục
+  title: string;                // Nội dung khoản thu/chi
+  personName?: string;          // Người gửi vào quỹ (khi 'in') hoặc Người thanh toán (khi 'out')
+  paymentSource?: PaymentSource;// 'fund_or_advance' (Chi từ quỹ/tạm ứng) | 'direct_member' (Thành viên trả trực tiếp)
+  note?: string;                // Ghi chú chi tiết (nơi mua, số biên lai, chi tiết thuốc...)
+  receiptImage?: string;        // Ảnh chụp biên lai / hóa đơn (Base64 nén nhẹ)
+  createdAt: string;
+  updatedAt?: string;
+}
+
 // ===== EXTENDED AllAppData cho v2.0 =====
 export interface AllAppDataV2 extends AllAppData {
   vitalsLog: VitalsLogEntry[];
@@ -232,4 +270,5 @@ export interface AllAppDataV2 extends AllAppData {
   appointment: AppointmentInfo;
   bpThresholds: BpThresholds;
   appMode: AppMode;
+  expenses: ExpenseEntry[];
 }

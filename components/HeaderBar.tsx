@@ -13,10 +13,11 @@ import {
   Home,
   Smartphone,
   Type,
+  Wallet,
 } from 'lucide-react';
 
-// V2.0: 3 tab chính
-export type AppView = 'today' | 'charts' | 'family';
+// V2.2: 4 tab chính (Tab Thu Chi bảo mật bằng mã PIN riêng biệt)
+export type AppView = 'today' | 'charts' | 'family' | 'expenses';
 
 interface HeaderBarProps {
   activeView: AppView;
@@ -26,6 +27,7 @@ interface HeaderBarProps {
   onOpenInstallApp?: () => void;
   patientInfo?: PatientInfo;
   isAdmin?: boolean;
+  isExpenseUnlocked?: boolean;
   onOpenAdminPin?: () => void;
   onOpenMembers?: () => void;
   onEditPatient?: () => void;
@@ -39,6 +41,7 @@ export default function HeaderBar({
   onOpenInstallApp,
   patientInfo,
   isAdmin,
+  isExpenseUnlocked,
   onOpenAdminPin,
   onOpenMembers,
   onEditPatient,
@@ -162,6 +165,21 @@ export default function HeaderBar({
                 <UsersIcon className="w-4 h-4" />
                 <span>Gia Đình</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => onChangeView('expenses')}
+                className={`px-3.5 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                  activeView === 'expenses'
+                    ? 'bg-teal-700 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                }`}
+                title="Sổ Theo Dõi Thu Chi Điều Trị (Mã PIN riêng)"
+              >
+                <Wallet className="w-4 h-4" />
+                <span>Thu Chi</span>
+                <span className="text-[11px]">{isExpenseUnlocked ? '🔓' : '🔒'}</span>
+              </button>
             </div>
 
             {/* Cụm Phải: Nút công cụ trung tính + Nút SOS đỏ nổi bật duy nhất */}
@@ -263,13 +281,13 @@ export default function HeaderBar({
       {/* THANH ĐIỀU HƯỚNG CỐ ĐỊNH DƯỚI ĐÁY MÀN HÌNH TRÊN MOBILE (< md) — ĐỒNG NHẤT TÔNG MÀU TEAL/SLATE */}
       <nav
         aria-label="Điều hướng chính trên điện thoại"
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] px-3 py-1.5"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] px-2.5 py-1.5"
       >
-        <div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
+        <div className="grid grid-cols-4 gap-1.5 max-w-md mx-auto">
           <button
             type="button"
             onClick={() => onChangeView('today')}
-            className={`min-h-[54px] rounded-xl px-2 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
+            className={`min-h-[54px] rounded-xl px-1.5 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
               activeView === 'today'
                 ? 'bg-teal-700 text-white border-teal-800 font-extrabold shadow-2xs'
                 : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 font-semibold'
@@ -278,13 +296,13 @@ export default function HeaderBar({
             <HeartPulse
               className={`w-5 h-5 ${activeView === 'today' ? 'text-white' : 'text-slate-500'}`}
             />
-            <span className="text-xs leading-tight">Việc Hôm Nay</span>
+            <span className="text-[11px] leading-tight truncate">Hôm Nay</span>
           </button>
 
           <button
             type="button"
             onClick={() => onChangeView('charts')}
-            className={`min-h-[54px] rounded-xl px-2 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
+            className={`min-h-[54px] rounded-xl px-1.5 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
               activeView === 'charts'
                 ? 'bg-teal-700 text-white border-teal-800 font-extrabold shadow-2xs'
                 : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 font-semibold'
@@ -293,13 +311,13 @@ export default function HeaderBar({
             <TrendingUp
               className={`w-5 h-5 ${activeView === 'charts' ? 'text-white' : 'text-slate-500'}`}
             />
-            <span className="text-xs leading-tight">Biểu Đồ HA</span>
+            <span className="text-[11px] leading-tight truncate">Biểu Đồ HA</span>
           </button>
 
           <button
             type="button"
             onClick={() => onChangeView('family')}
-            className={`min-h-[54px] rounded-xl px-2 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
+            className={`min-h-[54px] rounded-xl px-1.5 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
               activeView === 'family'
                 ? 'bg-teal-700 text-white border-teal-800 font-extrabold shadow-2xs'
                 : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 font-semibold'
@@ -308,7 +326,24 @@ export default function HeaderBar({
             <UsersIcon
               className={`w-5 h-5 ${activeView === 'family' ? 'text-white' : 'text-slate-500'}`}
             />
-            <span className="text-xs leading-tight">Gia Đình</span>
+            <span className="text-[11px] leading-tight truncate">Gia Đình</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChangeView('expenses')}
+            className={`min-h-[54px] rounded-xl px-1.5 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
+              activeView === 'expenses'
+                ? 'bg-teal-700 text-white border-teal-800 font-extrabold shadow-2xs'
+                : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 font-semibold'
+            }`}
+          >
+            <Wallet
+              className={`w-5 h-5 ${activeView === 'expenses' ? 'text-white' : 'text-slate-500'}`}
+            />
+            <span className="text-[11px] leading-tight truncate">
+              Thu Chi {isExpenseUnlocked ? '🔓' : '🔒'}
+            </span>
           </button>
         </div>
       </nav>

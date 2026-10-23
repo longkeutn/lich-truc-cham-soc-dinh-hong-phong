@@ -15,6 +15,7 @@ import {
   DailyLog,
   AppointmentInfo,
   AllAppDataV2,
+  ExpenseEntry,
 } from './types';
 import {
   fetchAppDataFromStorage,
@@ -37,6 +38,10 @@ import {
   deleteRoutineFromStorage,
   upsertDailyLogToStorage,
   saveAppointmentToStorage,
+  verifyExpensePinStorage,
+  changeExpensePinStorage,
+  saveExpenseToStorage,
+  deleteExpenseFromStorage,
   fetchAllAppDataV2,
 } from './sheets';
 
@@ -489,6 +494,53 @@ export async function saveAppointmentAction(
   }
 }
 
+// --- V2.2: Expense Tracker (Sổ Theo Dõi Thu Chi Điều Trị & Mã PIN riêng) ---
+
+export async function verifyExpensePinAction(pin: string): Promise<boolean> {
+  try {
+    return await verifyExpensePinStorage(pin);
+  } catch (error) {
+    console.error('verifyExpensePinAction error:', error);
+    return false;
+  }
+}
+
+export async function changeExpensePinAction(
+  oldPin: string,
+  newPin: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    return await changeExpensePinStorage(oldPin, newPin);
+  } catch (error) {
+    console.error('changeExpensePinAction error:', error);
+    return { success: false, message: 'Không thể đổi mã PIN Sổ Thu Chi lúc này.' };
+  }
+}
+
+export async function saveExpenseAction(
+  entry: ExpenseEntry
+): Promise<{ success: boolean; expenses: ExpenseEntry[] }> {
+  try {
+    const expenses = await saveExpenseToStorage(entry);
+    return { success: true, expenses };
+  } catch (error) {
+    console.error('saveExpenseAction error:', error);
+    return { success: false, expenses: [] };
+  }
+}
+
+export async function deleteExpenseAction(
+  expenseId: string
+): Promise<{ success: boolean; expenses: ExpenseEntry[] }> {
+  try {
+    const expenses = await deleteExpenseFromStorage(expenseId);
+    return { success: true, expenses };
+  } catch (error) {
+    console.error('deleteExpenseAction error:', error);
+    return { success: false, expenses: [] };
+  }
+}
+
 // --- V2.0: Fetch All App Data V2 (mở rộng fetchAllAppDataAction) ---
 
 export async function fetchAllAppDataV2Action(
@@ -512,6 +564,7 @@ export async function fetchAllAppDataV2Action(
       appointment: {},
       bpThresholds: { highSys: 140, highDia: 90, lowSys: 100, lowDia: 60 },
       appMode: 'home_care',
+      expenses: [],
     };
   }
 }

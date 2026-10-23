@@ -15,6 +15,7 @@ import {
   BpThresholds,
   AllAppDataV2,
   AppMode,
+  ExpenseEntry,
 } from './types';
 import {
   PHASE_CONFIGS,
@@ -23,7 +24,7 @@ import {
   DEFAULT_APPOINTMENT,
 } from './config';
 
-// Tên các trang tính trong Google Sheet (8 Sheets V2.0)
+// Tên các trang tính trong Google Sheet (9 Sheets V2.2)
 export const SHEET_NAMES = {
   SHIFTS: 'Shifts',
   MEMBERS: 'Members',
@@ -33,6 +34,7 @@ export const SHEET_NAMES = {
   VITALS_LOG: 'VitalsLog',
   CARE_ROUTINES: 'CareRoutines',
   DAILY_LOGS: 'DailyLogs',
+  EXPENSES: 'Expenses',
 };
 
 // Thứ tự các cột trong trang tính 'Shifts'
@@ -129,6 +131,7 @@ class MemoryShiftStore {
     googleSheetsConnected: false,
   };
   private adminPin: string = '1234';
+  private expensePin: string = '2468';
 
   // --- V2.0: Sổ Sức Khỏe Bố — Private fields ---
   private vitalsLog: VitalsLogEntry[] = [];
@@ -137,6 +140,7 @@ class MemoryShiftStore {
   private bpThresholds: BpThresholds = { ...DEFAULT_BP_THRESHOLDS };
   private appointment: AppointmentInfo = { ...DEFAULT_APPOINTMENT };
   private appMode: AppMode = 'home_care';
+  private expenses: ExpenseEntry[] = [];
 
   constructor() {
     // Khởi tạo rỗng 100% — chỉ hiển thị dữ liệu thực tế từ Google Sheets
@@ -551,6 +555,61 @@ class MemoryShiftStore {
     this.appMode = mode;
   }
 
+  // --- Expense PIN (Mã PIN riêng biệt cho Sổ Thu Chi) ---
+  public getExpensePin(): string {
+    return this.expensePin;
+  }
+
+  public setExpensePin(pin: string): void {
+    if (pin && pin.trim()) {
+      this.expensePin = pin.trim();
+    }
+  }
+
+  public verifyExpensePin(pin: string): boolean {
+    return this.expensePin === (pin || '').trim();
+  }
+
+  public changeExpensePin(oldPin: string, newPin: string): boolean {
+    if (this.verifyExpensePin(oldPin)) {
+      if (newPin && newPin.trim().length >= 4) {
+        this.expensePin = newPin.trim();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // --- Expenses (Sổ Theo Dõi Thu Chi Điều Trị) ---
+  public getExpenses(): ExpenseEntry[] {
+    return [...this.expenses].sort((a, b) => {
+      const dateCmp = (b.date || '').localeCompare(a.date || '');
+      if (dateCmp !== 0) return dateCmp;
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
+  }
+
+  public setExpenses(list: ExpenseEntry[]): void {
+    if (Array.isArray(list)) {
+      this.expenses = list;
+    }
+  }
+
+  public saveExpense(entry: ExpenseEntry): ExpenseEntry[] {
+    const idx = this.expenses.findIndex((e) => e.id === entry.id);
+    if (idx >= 0) {
+      this.expenses[idx] = entry;
+    } else {
+      this.expenses.unshift(entry);
+    }
+    return this.getExpenses();
+  }
+
+  public deleteExpense(id: string): ExpenseEntry[] {
+    this.expenses = this.expenses.filter((e) => e.id !== id && `exp_${e.id}` !== id && e.id !== `exp_${id}`);
+    return this.getExpenses();
+  }
+
   // --- All App Data V2 (mở rộng getAllData) ---
   public getAllDataV2(startDate: string, endDate: string, phase: CarePhase): AllAppDataV2 {
     return {
@@ -563,6 +622,7 @@ class MemoryShiftStore {
       appointment: this.getAppointment(),
       bpThresholds: this.getBpThresholds(),
       appMode: this.getAppMode(),
+      expenses: this.getExpenses(),
     };
   }
 }
@@ -747,12 +807,52 @@ export async function fetchAppDataFromStorage(
         } else if (data.settings && typeof data.settings === 'object' && (data.settings as Record<string, unknown>).adminPin) {
           memoryStore.setAdminPin(String((data.settings as Record<string, unknown>).adminPin));
         }
+        if (data.expensePin) {
+          memoryStore.setExpensePin(String(data.expensePin));
+        }
         if (Array.isArray(data.contacts)) {
           memoryStore.setContacts(data.contacts as EmergencyContact[]);
         }
+
+        // Phân tách Reminders thông thường và các bản ghi Sổ Thu Chi lưu tương thích ngược trên Sheet
+        const fallbackExpenses: ExpenseEntry[] = [];
         if (Array.isArray(data.reminders)) {
-          memoryStore.setReminders(data.reminders as PatientDailyReminder[]);
+          const cleanReminders: PatientDailyReminder[] = [];
+          for (const rawRem of data.reminders as PatientDailyReminder[]) {
+            const remId = String(rawRem.id || '').trim();
+            if (remId === 'sys_expense_pin') {
+              if (rawRem.content && String(rawRem.content).trim()) {
+                memoryStore.setExpensePin(String(rawRem.content).trim());
+              }
+            } else if (remId.startsWith('exp_')) {
+              try {
+                const parsedExp = JSON.parse(String(rawRem.content || '')) as ExpenseEntry;
+                if (parsedExp && parsedExp.id && typeof parsedExp.amount === 'number') {
+                  fallbackExpenses.push(parsedExp);
+                }
+              } catch {
+                // ignore malformed json
+              }
+            } else {
+              cleanReminders.push(rawRem);
+            }
+          }
+          memoryStore.setReminders(cleanReminders);
         }
+
+        // Nạp danh sách Thu Chi từ Sheet Expenses (nếu Code.gs mới) kết hợp bản ghi tương thích ngược
+        const expenseMap = new Map<string, ExpenseEntry>();
+        for (const fe of fallbackExpenses) {
+          expenseMap.set(fe.id, fe);
+        }
+        if (Array.isArray(data.expenses)) {
+          for (const se of data.expenses as ExpenseEntry[]) {
+            if (se && se.id) {
+              expenseMap.set(se.id, se);
+            }
+          }
+        }
+        memoryStore.setExpenses(Array.from(expenseMap.values()));
 
         // Nạp toàn bộ ca trực thực tế từ Google Sheets (cả phase1 và phase2 trong 1 lần đọc)
         memoryStore.clearShifts();
@@ -1134,6 +1234,158 @@ export async function saveAppointmentToStorage(info: AppointmentInfo): Promise<A
   }
 
   return memoryStore.getAppointment();
+}
+
+// ==========================================
+// EXPENSE MODULE — SỔ THEO DÕI THU CHI & MÃ PIN RIÊNG
+// ==========================================
+
+export async function verifyExpensePinStorage(pin: string): Promise<boolean> {
+  const cleanPin = (pin || '').trim();
+  if (!memoryStore.isSynced()) {
+    try {
+      await fetchAppDataFromStorage('2026-10-01', '2026-10-07', 'phase2', false);
+    } catch {
+      // ignore
+    }
+  }
+  if (memoryStore.verifyExpensePin(cleanPin)) {
+    return true;
+  }
+
+  const syncRes = await sendToWebappWithTimeout(
+    { action: 'verifyExpensePin', pin: cleanPin },
+    8000
+  );
+  if (syncRes.success && typeof syncRes.data?.valid === 'boolean') {
+    if (syncRes.data.valid) {
+      memoryStore.setExpensePin(cleanPin);
+    }
+    return syncRes.data.valid;
+  }
+
+  return memoryStore.verifyExpensePin(cleanPin);
+}
+
+export async function changeExpensePinStorage(
+  oldPin: string,
+  newPin: string
+): Promise<{ success: boolean; message?: string }> {
+  const cleanOld = (oldPin || '').trim();
+  const cleanNew = (newPin || '').trim();
+
+  if (!cleanNew || cleanNew.length < 4) {
+    return { success: false, message: 'Mã PIN mới phải có ít nhất 4 ký tự' };
+  }
+
+  if (!memoryStore.isSynced()) {
+    try {
+      await fetchAppDataFromStorage('2026-10-01', '2026-10-07', 'phase2', false);
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!memoryStore.verifyExpensePin(cleanOld)) {
+    return { success: false, message: 'Mã PIN hiện tại của Sổ Thu Chi không chính xác' };
+  }
+
+  memoryStore.setExpensePin(cleanNew);
+  serverCacheManager.invalidateAll();
+
+  // 1. Thử lưu qua action chuẩn trên Code.gs mới
+  const syncRes = await sendToWebappWithTimeout(
+    {
+      action: 'changeExpensePin',
+      oldPin: cleanOld,
+      newPin: cleanNew,
+    },
+    12000
+  );
+
+  // 2. Nếu Code.gs trên Apps Script chưa cập nhật action mới, tự động lưu bền vững qua bảng Reminders
+  if (!syncRes.success) {
+    await sendToWebappWithTimeout(
+      {
+        action: 'saveReminder',
+        reminder: {
+          id: 'sys_expense_pin',
+          category: 'general',
+          title: 'Cấu hình PIN Sổ Thu Chi',
+          content: cleanNew,
+          author: 'System',
+          time: '',
+          isUrgent: false,
+        },
+      },
+      15000
+    );
+  }
+
+  return { success: true };
+}
+
+export async function saveExpenseToStorage(entry: ExpenseEntry): Promise<ExpenseEntry[]> {
+  const normalized: ExpenseEntry = {
+    ...entry,
+    id: entry.id || `exp-${Date.now()}`,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const updatedList = memoryStore.saveExpense(normalized);
+  serverCacheManager.invalidateAll();
+
+  // 1. Thử lưu vào Sheet Expenses (Code.gs mới)
+  const syncRes = await sendToWebappWithTimeout(
+    { action: 'saveExpense', expense: normalized },
+    15000
+  );
+
+  // 2. Fallback tự động lưu lên Google Sheets nếu Code.gs chưa được redeploy bản mới
+  if (!syncRes.success) {
+    const fallbackId = normalized.id.startsWith('exp_') ? normalized.id : `exp_${normalized.id}`;
+    await sendToWebappWithTimeout(
+      {
+        action: 'saveReminder',
+        reminder: {
+          id: fallbackId,
+          category: 'general',
+          title: `[${normalized.date}] ${normalized.type === 'in' ? 'THU' : 'CHI'}: ${normalized.title}`,
+          content: JSON.stringify(normalized),
+          author: normalized.personName || 'Quỹ gia đình',
+          time: normalized.date,
+          isUrgent: false,
+        },
+      },
+      15000
+    );
+  }
+
+  return updatedList;
+}
+
+export async function deleteExpenseFromStorage(expenseId: string): Promise<ExpenseEntry[]> {
+  const updatedList = memoryStore.deleteExpense(expenseId);
+  serverCacheManager.invalidateAll();
+
+  const syncRes = await sendToWebappWithTimeout(
+    { action: 'deleteExpense', expenseId },
+    15000
+  );
+
+  // Xoá cả bản ghi fallback nếu có
+  const fallbackId = expenseId.startsWith('exp_') ? expenseId : `exp_${expenseId}`;
+  if (!syncRes.success) {
+    await sendToWebappWithTimeout(
+      { action: 'deleteReminder', reminderId: fallbackId },
+      15000
+    );
+  } else {
+    // Đảm bảo xoá sạch nếu trước đó lưu ở fallback
+    void sendToWebappWithTimeout({ action: 'deleteReminder', reminderId: fallbackId }, 10000);
+  }
+
+  return updatedList;
 }
 
 // --- Fetch All App Data V2 (mở rộng fetchAppDataFromStorage) ---
