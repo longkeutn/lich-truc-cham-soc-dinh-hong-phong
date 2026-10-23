@@ -993,6 +993,8 @@ export default function CareSchedulePage() {
               careRoutines={careRoutines}
               isAdmin={isAdmin}
               members={members}
+              patientName={patientInfo.name}
+              showToast={showToast}
               onDeleteVitals={handleDeleteVitals}
               onSaveVitals={handleSaveVitals}
             />
