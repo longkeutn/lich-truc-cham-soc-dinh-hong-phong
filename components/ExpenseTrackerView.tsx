@@ -340,7 +340,7 @@ export default function ExpenseTrackerView({
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [showBreakdown, setShowBreakdown] = useState<boolean>(true);
-  const [showFormulaGuide, setShowFormulaGuide] = useState<boolean>(true);
+  const [activeCardInfo, setActiveCardInfo] = useState<number | null>(null);
 
   // ===== STATE XEM ẢNH HÓA ĐƠN & XÁC NHẬN XÓA =====
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
@@ -995,15 +995,30 @@ export default function ExpenseTrackerView({
         </div>
       </div>
 
-      {/* 4 THẺ CÂN ĐỐI TÀI CHÍNH MINH BẠCH (CỘNG TRỪ KHỚP NHAU TUYỆT ĐỐI) */}
+      {/* 4 THẺ CÂN ĐỐI TÀI CHÍNH MINH BẠCH (BẤM ICON (i) ĐỂ XEM GIẢI THÍCH NHẸ NHÀNG TỪNG THẺ) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Ô 1: Tổng Thu Vào Quỹ */}
-        <div className="bg-white rounded-2xl border border-emerald-200 p-4 shadow-2xs">
+        <div className="bg-white rounded-2xl border border-emerald-200 p-4 shadow-2xs transition">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              1. Tổng Thu Vào Quỹ
-            </span>
-            <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider truncate">
+                1. Tổng Thu Vào Quỹ
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveCardInfo(activeCardInfo === 1 ? null : 1)}
+                className={`p-1 rounded-full transition cursor-pointer shrink-0 ${
+                  activeCardInfo === 1
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-50'
+                }`}
+                title="Bấm để xem giải thích cách tính"
+                aria-label="Xem giải thích cách tính Ô 1"
+              >
+                <Info className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 shrink-0 ml-1">
               <ArrowDownCircle className="w-4 h-4" />
             </span>
           </div>
@@ -1013,15 +1028,36 @@ export default function ExpenseTrackerView({
           <p className="text-xs text-slate-500 mt-1">
             Gia đình gửi quỹ, BHYT & hỗ trợ ({stats.inCount} khoản)
           </p>
+
+          {activeCardInfo === 1 && (
+            <div className="mt-2.5 pt-2 border-t border-emerald-100 text-[11px] text-emerald-950 bg-emerald-50/70 p-2.5 rounded-xl leading-relaxed">
+              💡 <strong>Cách tính:</strong> Tổng tiền mặt/chuyển khoản các thành viên đã gửi vào Quỹ chung + tiền BHYT, hỗ trợ nhận về (không tính các khoản cá nhân tự thanh toán riêng ở ngoài).
+            </div>
+          )}
         </div>
 
         {/* Ô 2: Tổng Đã Chi Điều Trị */}
-        <div className="bg-white rounded-2xl border border-rose-200 p-4 shadow-2xs">
+        <div className="bg-white rounded-2xl border border-rose-200 p-4 shadow-2xs transition">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              2. Tổng Chi Điều Trị
-            </span>
-            <span className="p-1.5 rounded-lg bg-rose-50 text-rose-700">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider truncate">
+                2. Tổng Chi Điều Trị
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveCardInfo(activeCardInfo === 2 ? null : 2)}
+                className={`p-1 rounded-full transition cursor-pointer shrink-0 ${
+                  activeCardInfo === 2
+                    ? 'bg-rose-100 text-rose-800'
+                    : 'text-slate-400 hover:text-rose-700 hover:bg-rose-50'
+                }`}
+                title="Bấm để xem giải thích cách tính"
+                aria-label="Xem giải thích cách tính Ô 2"
+              >
+                <Info className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <span className="p-1.5 rounded-lg bg-rose-50 text-rose-700 shrink-0 ml-1">
               <ArrowUpCircle className="w-4 h-4" />
             </span>
           </div>
@@ -1033,20 +1069,41 @@ export default function ExpenseTrackerView({
               ? `Từ quỹ: ${formatVND(stats.fundOut)} • Ứng/trả riêng: ${formatVND(stats.directMemberOut)}`
               : `Viện phí, thuốc men, thiết bị (${stats.outCount} khoản)`}
           </p>
+
+          {activeCardInfo === 2 && (
+            <div className="mt-2.5 pt-2 border-t border-rose-100 text-[11px] text-rose-950 bg-rose-50/70 p-2.5 rounded-xl leading-relaxed">
+              💡 <strong>Cách tính:</strong> Toàn bộ chi phí lo cho Bố từ đầu đến nay = <strong>Chi lấy từ Quỹ</strong> ({formatVND(stats.fundOut)}) + <strong>Cá nhân tự ứng/trả riêng</strong> ({formatVND(stats.directMemberOut)}).
+            </div>
+          )}
         </div>
 
         {/* Ô 3: Tiền Quỹ Còn Giữ (Tổng Thu - Chi từ Quỹ) */}
         <div
-          className={`bg-white rounded-2xl border p-4 shadow-2xs ${
+          className={`bg-white rounded-2xl border p-4 shadow-2xs transition ${
             stats.fundCashRemaining >= 0 ? 'border-teal-200' : 'border-amber-300 bg-amber-50/30'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-              3. Tiền Quỹ Còn Giữ
-            </span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider truncate">
+                3. Tiền Quỹ Còn Giữ
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveCardInfo(activeCardInfo === 3 ? null : 3)}
+                className={`p-1 rounded-full transition cursor-pointer shrink-0 ${
+                  activeCardInfo === 3
+                    ? 'bg-teal-100 text-teal-800'
+                    : 'text-slate-400 hover:text-teal-700 hover:bg-teal-50'
+                }`}
+                title="Bấm để xem giải thích cách tính"
+                aria-label="Xem giải thích cách tính Ô 3"
+              >
+                <Info className="w-3.5 h-3.5" />
+              </button>
+            </div>
             <span
-              className={`p-1.5 rounded-lg ${
+              className={`p-1.5 rounded-lg shrink-0 ml-1 ${
                 stats.fundCashRemaining >= 0
                   ? 'bg-teal-50 text-teal-700'
                   : 'bg-amber-100 text-amber-800'
@@ -1067,20 +1124,41 @@ export default function ExpenseTrackerView({
           <p className="text-xs text-slate-600 mt-1">
             Thu vào quỹ ({formatVND(stats.totalIn)}) − Chi từ quỹ ({formatVND(stats.fundOut)})
           </p>
+
+          {activeCardInfo === 3 && (
+            <div className="mt-2.5 pt-2 border-t border-teal-100 text-[11px] text-teal-950 bg-teal-50/70 p-2.5 rounded-xl leading-relaxed">
+              💡 <strong>Cách tính:</strong> Ô 1 (Thu vào quỹ) − Chi lấy từ Quỹ. Là số tiền mặt/tài khoản thực tế hiện còn nằm trong Quỹ để người giữ quỹ đối chiếu kiểm đếm (chưa trừ khoản cá nhân tự ứng riêng).
+            </div>
+          )}
         </div>
 
         {/* Ô 4: Cân Đối Thực Tế (Sau khi trừ cả khoản ứng trả riêng = Tổng Thu - Tổng Chi) */}
         <div
-          className={`bg-white rounded-2xl border p-4 shadow-2xs ${
+          className={`bg-white rounded-2xl border p-4 shadow-2xs transition ${
             stats.netOverallBalance >= 0 ? 'border-teal-200' : 'border-amber-300 bg-amber-50/40'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              4. Cân Đối Thực Tế
-            </span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider truncate">
+                4. Cân Đối Thực Tế
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveCardInfo(activeCardInfo === 4 ? null : 4)}
+                className={`p-1 rounded-full transition cursor-pointer shrink-0 ${
+                  activeCardInfo === 4
+                    ? 'bg-amber-100 text-amber-900'
+                    : 'text-slate-400 hover:text-amber-800 hover:bg-amber-50'
+                }`}
+                title="Bấm để xem giải thích cách tính"
+                aria-label="Xem giải thích cách tính Ô 4"
+              >
+                <Info className="w-3.5 h-3.5" />
+              </button>
+            </div>
             <span
-              className={`p-1.5 rounded-lg ${
+              className={`p-1.5 rounded-lg shrink-0 ml-1 ${
                 stats.netOverallBalance >= 0
                   ? 'bg-teal-50 text-teal-700'
                   : 'bg-amber-100 text-amber-800'
@@ -1103,58 +1181,13 @@ export default function ExpenseTrackerView({
               ? 'Số dư thực tế sau khi trừ mọi khoản chi & ứng'
               : `Đang ứng vượt tổng thu (Quỹ còn ${formatVND(stats.fundCashRemaining)} − Ứng riêng ${formatVND(stats.directMemberOut)})`}
           </p>
-        </div>
-      </div>
 
-      {/* HỘP GIẢI THÍCH NGẮN GỌN CÁCH TÍNH 4 THẺ ĐỂ CẢ GIA ĐÌNH DỄ HIỂU */}
-      <div className="bg-teal-50/60 rounded-2xl border border-teal-200/80 shadow-2xs overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowFormulaGuide(!showFormulaGuide)}
-          className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-teal-100/50 transition cursor-pointer"
-        >
-          <div className="flex items-center gap-2 text-left">
-            <Info className="w-4 h-4 text-teal-700 shrink-0" />
-            <span className="text-xs sm:text-sm font-extrabold text-teal-900">
-              Giải thích ngắn gọn cách tính 4 ô số liệu trên (để mọi người dễ đối chiếu)
-            </span>
-          </div>
-          <span className="text-xs font-bold text-teal-700 flex items-center gap-1 shrink-0 ml-2">
-            {showFormulaGuide ? 'Thu gọn' : 'Xem giải thích'}
-            {showFormulaGuide ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
-          </span>
-        </button>
-
-        {showFormulaGuide && (
-          <div className="px-4 pb-3.5 pt-2 border-t border-teal-200/60 bg-white/80 text-xs text-slate-700 space-y-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <div className="p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-200/60">
-                <span className="font-extrabold text-emerald-800">1. Tổng Thu Vào Quỹ:</span>{' '}
-                Tổng tiền mọi người chuyển vào Quỹ chung, tiền BHYT hoặc hỗ trợ nhận về (không cộng gộp các khoản cá nhân tự thanh toán riêng ở ngoài).
-              </div>
-              <div className="p-2.5 rounded-xl bg-rose-50/50 border border-rose-200/60">
-                <span className="font-extrabold text-rose-800">2. Tổng Chi Điều Trị:</span>{' '}
-                Toàn bộ chi phí lo cho Bố từ đầu đến nay = <strong>Chi lấy từ Quỹ</strong> + <strong>Cá nhân tự ứng/trả riêng</strong>.
-              </div>
-              <div className="p-2.5 rounded-xl bg-teal-50/50 border border-teal-200/60">
-                <span className="font-extrabold text-teal-800">
-                  3. Tiền Quỹ Còn Giữ = Ô (1) − Chi từ Quỹ:
-                </span>{' '}
-                Số tiền mặt/tài khoản thực tế hiện còn nằm trong Quỹ (khớp với số tiền người giữ quỹ đang cầm vì chưa trừ khoản cá nhân tự ứng riêng).
-              </div>
-              <div className="p-2.5 rounded-xl bg-amber-50/50 border border-amber-200/60">
-                <span className="font-extrabold text-amber-900">
-                  4. Cân Đối Thực Tế = Ô (1) − Ô (2) <span className="font-normal">(hay = Ô 3 − Ứng riêng)</span>:
-                </span>{' '}
-                Số dư thực sự sau khi tính đủ mọi khoản chi. Nếu <strong>âm (−)</strong> nghĩa là tổng chi đã vượt tổng thu (lấy hết tiền Quỹ ở Ô 3 hoàn lại cho người ứng riêng vẫn còn thiếu đúng bằng số âm này).
-              </div>
+          {activeCardInfo === 4 && (
+            <div className="mt-2.5 pt-2 border-t border-amber-200 text-[11px] text-amber-950 bg-amber-50/70 p-2.5 rounded-xl leading-relaxed">
+              💡 <strong>Cách tính:</strong> Ô 1 − Ô 2 (hay = Tiền Quỹ còn giữ − Khoản cá nhân ứng riêng). {stats.netOverallBalance >= 0 ? 'Số dư thực sự sau khi bù trừ hết mọi khoản.' : `Đang âm (−) nghĩa là tổng chi vượt tổng thu: nếu lấy hết ${formatVND(stats.fundCashRemaining)} còn trong Quỹ trả lại cho người ứng thì vẫn còn thiếu ${formatVND(Math.abs(stats.netOverallBalance))}.`}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* BẢNG PHÂN BỔ THEO GIAI ĐOẠN & NGUỒN ĐÓNG GÓP (ĐÓNG/MỞ GỌN GÀNG) */}
