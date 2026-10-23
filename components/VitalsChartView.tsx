@@ -216,6 +216,9 @@ export function VitalsChartView({
   // State chế độ hiển thị biểu đồ ('chart' | 'timeline')
   const [chartViewMode, setChartViewMode] = useState<'chart' | 'timeline'>('chart');
 
+  // State gom điểm biểu đồ theo Ngày ('daily_avg' = TB cả ngày 1 điểm/ngày, hoặc lọc riêng 1 buổi qua các ngày)
+  const [chartGranularity, setChartGranularity] = useState<'daily_avg' | VitalsPeriod>('daily_avg');
+
   // State chọn ngày cho thẻ "Diễn biến 4 buổi trong ngày" ('today' = ngày hôm nay, hoặc 'YYYY-MM-DD', hoặc 'avg' = TB nhiều ngày)
   const [selectedSlotDayMode, setSelectedSlotDayMode] = useState<string>('today');
 
@@ -830,34 +833,83 @@ export function VitalsChartView({
     };
   }, [dailyLogs, careRoutines, normalizedVitals, dateRange]);
 
-  // ===== Dữ liệu cho biểu đồ Recharts (Kèm thông tin thuốc của buổi đo đó) =====
+  // ===== Dữ liệu cho biểu đồ Recharts (Gom theo NGÀY: Mỗi ngày chỉ 1 điểm gọn gàng, không bị rối khi đo 4 lần/ngày) =====
   const chartData = useMemo(() => {
-    return filteredLog.map((v) => {
-      const dayMatrix = complianceStats.dailyMatrix.find((d) => d.date === v.date);
-      const slotInfo = dayMatrix?.slotStatus[v.period];
-      const medsStatusLabel =
-        slotInfo && slotInfo.expected > 0
-          ? slotInfo.done === slotInfo.expected
-            ? `✅ Đã uống đủ (${slotInfo.done}/${slotInfo.expected} cữ)`
-            : `⚠️ Đã uống ${slotInfo.done}/${slotInfo.expected} cữ`
+    const sourceList =
+      chartGranularity === 'daily_avg'
+        ? filteredLog
+        : filteredLog.filter((v) => v.period === chartGranularity);
+
+    // Gom nhóm theo ngày YYYY-MM-DD (đã được sort tăng dần theo thời gian)
+    const dayMap = new Map<string, VitalsLogEntry[]>();
+    for (const v of sourceList) {
+      if (!v.date) continue;
+      const arr = dayMap.get(v.date) || [];
+      arr.push(v);
+      dayMap.set(v.date, arr);
+    }
+
+    const dailyPoints: {
+      date: string;
+      label: string;
+      fullDate: string;
+      weekday: string;
+      sys: number;
+      dia: number;
+      minSys: number;
+      maxSys: number;
+      minDia: number;
+      maxDia: number;
+      pulse: number | null;
+      pp: number;
+      readingsCount: number;
+      readings: VitalsLogEntry[];
+      medsSummary?: string;
+    }[] = [];
+
+    for (const [dateStr, items] of dayMap.entries()) {
+      const sortedItems = [...items].sort(compareVitalsAsc);
+      const count = sortedItems.length;
+      const avgSys = Math.round(sortedItems.reduce((s, x) => s + x.sys, 0) / count);
+      const avgDia = Math.round(sortedItems.reduce((s, x) => s + x.dia, 0) / count);
+      const minSys = Math.min(...sortedItems.map((x) => x.sys));
+      const maxSys = Math.max(...sortedItems.map((x) => x.sys));
+      const minDia = Math.min(...sortedItems.map((x) => x.dia));
+      const maxDia = Math.max(...sortedItems.map((x) => x.dia));
+
+      const pulseItems = sortedItems.filter((x) => x.pulse && x.pulse > 0);
+      const avgPulse =
+        pulseItems.length > 0
+          ? Math.round(pulseItems.reduce((s, x) => s + (x.pulse || 0), 0) / pulseItems.length)
+          : null;
+
+      const dayMatrix = complianceStats.dailyMatrix.find((d) => d.date === dateStr);
+      const medsSummary =
+        dayMatrix && dayMatrix.medsExpected > 0
+          ? `${dayMatrix.medsDone}/${dayMatrix.medsExpected} cữ thuốc`
           : undefined;
 
-      return {
-        id: v.id,
-        label: `${fmtDateShort(v.date)} ${v.time}`,
-        fullDate: fmtDateFull(v.date),
-        time: v.time,
-        periodText: periodLabel(v.period),
-        sys: v.sys,
-        dia: v.dia,
-        pulse: v.pulse ?? null,
-        pp: v.sys - v.dia,
-        recordedBy: v.recordedBy,
-        note: v.note,
-        medsStatusLabel,
-      };
-    });
-  }, [filteredLog, complianceStats.dailyMatrix]);
+      dailyPoints.push({
+        date: dateStr,
+        label: fmtDateShort(dateStr),
+        fullDate: fmtDateFull(dateStr),
+        weekday: getWeekdayVN(dateStr),
+        sys: avgSys,
+        dia: avgDia,
+        minSys,
+        maxSys,
+        minDia,
+        maxDia,
+        pulse: avgPulse,
+        pp: avgSys - avgDia,
+        readingsCount: count,
+        readings: sortedItems,
+        medsSummary,
+      });
+    }
+
+    return dailyPoints;
+  }, [filteredLog, chartGranularity, complianceStats.dailyMatrix]);
 
   // ===== TẠO NỘI DUNG TÓM TẮT CHO BÁC SĨ / GIA ĐÌNH (COPY ZALO 1 CHẠM) =====
   const buildDoctorSummaryText = (): string => {
@@ -1401,17 +1453,19 @@ export function VitalsChartView({
         </button>
       </div>
 
-      {/* ===== SECTION 3: BIỂU ĐỒ XU HƯỚNG ĐA TẦNG & PHÂN TÍCH THEO 4 BUỔI TRONG NGÀY ===== */}
+      {/* ===== SECTION 3: BIỂU ĐỒ XU HƯỚNG THEO NGÀY (MỖI NGÀY 1 ĐIỂM GỌN GÀNG) & PHÂN TÍCH 4 BUỔI ===== */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-teal-600" />
-            <h3 className="text-sm font-black text-slate-800">
-              Biểu Đồ Xu Hướng Huyết Áp & Nhịp Tim
-            </h3>
-            <span className="text-xs font-bold text-slate-400">
-              ({filteredLog.length} lần đo)
-            </span>
+            <div>
+              <h3 className="text-sm font-black text-slate-800 inline">
+                Biểu Đồ Xu Hướng Theo Ngày
+              </h3>
+              <span className="text-xs font-bold text-slate-400 ml-2">
+                ({chartData.length} ngày · {filteredLog.length} lần đo)
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
@@ -1424,7 +1478,7 @@ export function VitalsChartView({
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              📈 Biểu đồ
+              📈 Biểu đồ ngày
             </button>
             <button
               type="button"
@@ -1435,148 +1489,218 @@ export function VitalsChartView({
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              🕒 Thẻ thời gian
+              🕒 Từng lần đo
             </button>
           </div>
         </div>
 
         {chartViewMode === 'chart' ? (
           <div className="p-3 sm:p-4 space-y-4">
-            <ResponsiveContainer width="100%" height={270}>
-              <LineChart data={chartData} margin={{ top: 10, right: 16, left: -12, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                {/* Vùng nền xanh an toàn cho Tâm thu (lowSys -> highSys) */}
-                <ReferenceArea
-                  y1={bpThresholds.lowSys}
-                  y2={bpThresholds.highSys}
-                  fill="#10b981"
-                  fillOpacity={0.05}
-                />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }}
-                  interval="preserveStartEnd"
-                  tickLine={false}
-                  axisLine={{ stroke: '#e2e8f0' }}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: '#64748b' }}
-                  domain={[
-                    (dataMin: number) => Math.min(40, Math.floor((dataMin - 10) / 10) * 10),
-                    (dataMax: number) =>
-                      Math.max(bpThresholds.highSys + 10, Math.ceil((dataMax + 10) / 10) * 10),
-                  ]}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (!active || !payload || payload.length === 0) return null;
-                    const data = payload[0]?.payload;
-                    if (!data) return null;
-                    return (
-                      <div className="bg-white/95 backdrop-blur-xs border border-slate-200 rounded-2xl p-3 shadow-lg text-xs space-y-1.5 min-w-[210px]">
-                        <div className="font-extrabold text-slate-900 flex items-center justify-between gap-2 border-b border-slate-100 pb-1">
-                          <span>
-                            {data.fullDate} · {data.time}
-                          </span>
-                          <span className="text-slate-500">{data.periodText}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-600 font-semibold">Huyết áp (SYS/DIA):</span>
-                          <span className="font-black text-sm text-rose-600">
-                            {data.sys}/{data.dia} mmHg
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-600 font-semibold">Hiệu áp (SYS−DIA):</span>
-                          <span className="font-bold text-slate-800">{data.pp} mmHg</span>
-                        </div>
-                        {data.pulse && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-600 font-semibold">Nhịp tim (Mạch):</span>
-                            <span
-                              className={`font-extrabold ${
-                                data.pulse < 55 ? 'text-amber-700' : 'text-violet-700'
-                              }`}
-                            >
-                              ❤️ {data.pulse} bpm {data.pulse < 55 ? '(Chậm)' : ''}
+            {/* Bộ lọc chế độ gom điểm biểu đồ: TB cả ngày (Mặc định) hoặc xem riêng xu hướng từng buổi qua các ngày */}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-xs text-slate-500">
+                Mỗi ngày được gom thành <strong>1 điểm trung bình</strong> giúp biểu đồ luôn thoáng,
+                chạm vào từng ngày để xem tất cả các lần đo trong ngày đó:
+              </span>
+              <div className="flex items-center gap-1 flex-wrap">
+                {(
+                  [
+                    { id: 'daily_avg', label: '📅 TB Cả ngày' },
+                    { id: 'morning', label: '🌅 Sáng' },
+                    { id: 'noon', label: '☀️ Trưa' },
+                    { id: 'afternoon', label: '🌤️ Chiều' },
+                    { id: 'evening', label: '🌙 Tối' },
+                  ] as { id: 'daily_avg' | VitalsPeriod; label: string }[]
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setChartGranularity(tab.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                      chartGranularity === tab.id
+                        ? 'bg-slate-900 text-white border-slate-900'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {chartData.length === 0 ? (
+              <div className="py-10 text-center text-xs text-slate-400 italic">
+                Chưa có bản ghi nào cho buổi đang chọn trong khoảng thời gian này.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={270}>
+                <LineChart data={chartData} margin={{ top: 10, right: 20, left: -12, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  {/* Vùng nền xanh an toàn cho Tâm thu (lowSys -> highSys) */}
+                  <ReferenceArea
+                    y1={bpThresholds.lowSys}
+                    y2={bpThresholds.highSys}
+                    fill="#10b981"
+                    fillOpacity={0.05}
+                  />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 12, fill: '#334155', fontWeight: 700 }}
+                    interval="preserveStartEnd"
+                    tickLine={false}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                    padding={{ left: 20, right: 20 }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    domain={[
+                      (dataMin: number) => Math.min(40, Math.floor((dataMin - 10) / 10) * 10),
+                      (dataMax: number) =>
+                        Math.max(bpThresholds.highSys + 10, Math.ceil((dataMax + 10) / 10) * 10),
+                    ]}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload || payload.length === 0) return null;
+                      const data = payload[0]?.payload;
+                      if (!data) return null;
+                      return (
+                        <div className="bg-white/95 backdrop-blur-xs border border-slate-200 rounded-2xl p-3 shadow-xl text-xs space-y-1.5 min-w-[240px]">
+                          <div className="font-extrabold text-slate-900 flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
+                            <span>
+                              📅 {data.weekday}, {data.fullDate}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-teal-50 text-teal-800 text-[10px] font-bold">
+                              {data.readingsCount} lần đo
                             </span>
                           </div>
-                        )}
-                        {data.medsStatusLabel && (
-                          <div className="pt-1 border-t border-slate-100 text-[11px] font-bold text-teal-800">
-                            💊 Thuốc buổi này: {data.medsStatusLabel}
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-600 font-semibold">
+                              {data.readingsCount > 1 ? 'Huyết áp TB ngày:' : 'Huyết áp:'}
+                            </span>
+                            <span className="font-black text-sm text-rose-600">
+                              {data.sys}/{data.dia} mmHg
+                            </span>
                           </div>
-                        )}
-                        {data.note && (
-                          <div className="text-[11px] text-slate-600 italic">📝 {data.note}</div>
-                        )}
-                        <div className="text-[10px] text-slate-400 text-right">
-                          Người đo: {data.recordedBy}
+
+                          {data.readingsCount > 1 && (
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-slate-500">Dao động trong ngày:</span>
+                              <span className="font-bold text-slate-700">
+                                {data.minSys}–{data.maxSys} / {data.minDia}–{data.maxDia} mmHg
+                              </span>
+                            </div>
+                          )}
+
+                          {data.pulse && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-600 font-semibold">
+                                {data.readingsCount > 1 ? 'Nhịp tim TB:' : 'Nhịp tim:'}
+                              </span>
+                              <span
+                                className={`font-extrabold ${
+                                  data.pulse < 55 ? 'text-amber-700' : 'text-violet-700'
+                                }`}
+                              >
+                                ❤️ {data.pulse} bpm {data.pulse < 55 ? '(Chậm)' : ''}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Liệt kê tất cả các lần đo trong ngày đó theo đúng thứ tự Sáng -> Tối */}
+                          {Array.isArray(data.readings) && data.readings.length > 0 && (
+                            <div className="pt-1.5 border-t border-slate-100 space-y-1">
+                              <div className="text-[10px] font-extrabold text-slate-500 uppercase">
+                                Chi tiết các lần đo ngày {data.label}:
+                              </div>
+                              {data.readings.map((r: VitalsLogEntry) => (
+                                <div
+                                  key={r.id}
+                                  className="flex items-center justify-between gap-2 text-[11px] bg-slate-50 px-2 py-1 rounded-lg"
+                                >
+                                  <span className="text-slate-600">
+                                    {periodLabel(r.period)} ({r.time})
+                                  </span>
+                                  <span className="font-extrabold text-slate-900">
+                                    {r.sys}/{r.dia}
+                                    {r.pulse ? ` · ❤️${r.pulse}` : ''}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {data.medsSummary && (
+                            <div className="pt-1 border-t border-slate-100 text-[11px] font-bold text-teal-800">
+                              💊 Thuốc trong ngày: Đã uống {data.medsSummary}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    );
-                  }}
-                />
-                {/* Đường ngưỡng cảnh báo */}
-                <ReferenceLine
-                  y={bpThresholds.highSys}
-                  stroke="#ef4444"
-                  strokeDasharray="6 3"
-                  strokeWidth={1.5}
-                  label={{
-                    value: `Ngưỡng SYS ${bpThresholds.highSys}`,
-                    position: 'insideTopRight',
-                    fontSize: 10,
-                    fill: '#ef4444',
-                  }}
-                />
-                <ReferenceLine
-                  y={bpThresholds.highDia}
-                  stroke="#f59e0b"
-                  strokeDasharray="6 3"
-                  strokeWidth={1.5}
-                  label={{
-                    value: `Ngưỡng DIA ${bpThresholds.highDia}`,
-                    position: 'insideTopRight',
-                    fontSize: 10,
-                    fill: '#f59e0b',
-                  }}
-                />
-                {/* Đường SYS */}
-                <Line
-                  type="monotone"
-                  dataKey="sys"
-                  stroke="#ef4444"
-                  strokeWidth={3}
-                  dot={{ r: 4, fill: '#ef4444', strokeWidth: 2, stroke: '#fff' }}
-                  activeDot={{ r: 6, stroke: '#ef4444', strokeWidth: 2, fill: '#fff' }}
-                  name="sys"
-                />
-                {/* Đường DIA */}
-                <Line
-                  type="monotone"
-                  dataKey="dia"
-                  stroke="#3b82f6"
-                  strokeWidth={3}
-                  dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
-                  activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2, fill: '#fff' }}
-                  name="dia"
-                />
-                {/* Đường Mạch */}
-                <Line
-                  type="monotone"
-                  dataKey="pulse"
-                  stroke="#8b5cf6"
-                  strokeWidth={2}
-                  strokeDasharray="4 2"
-                  dot={{ r: 3.5, fill: '#8b5cf6', strokeWidth: 1.5, stroke: '#fff' }}
-                  connectNulls
-                  name="pulse"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+                      );
+                    }}
+                  />
+                  {/* Đường ngưỡng cảnh báo */}
+                  <ReferenceLine
+                    y={bpThresholds.highSys}
+                    stroke="#ef4444"
+                    strokeDasharray="6 3"
+                    strokeWidth={1.5}
+                    label={{
+                      value: `Ngưỡng SYS ${bpThresholds.highSys}`,
+                      position: 'insideTopRight',
+                      fontSize: 10,
+                      fill: '#ef4444',
+                    }}
+                  />
+                  <ReferenceLine
+                    y={bpThresholds.highDia}
+                    stroke="#f59e0b"
+                    strokeDasharray="6 3"
+                    strokeWidth={1.5}
+                    label={{
+                      value: `Ngưỡng DIA ${bpThresholds.highDia}`,
+                      position: 'insideTopRight',
+                      fontSize: 10,
+                      fill: '#f59e0b',
+                    }}
+                  />
+                  {/* Đường SYS */}
+                  <Line
+                    type="monotone"
+                    dataKey="sys"
+                    stroke="#ef4444"
+                    strokeWidth={3}
+                    dot={{ r: 5, fill: '#ef4444', strokeWidth: 2, stroke: '#fff' }}
+                    activeDot={{ r: 7, stroke: '#ef4444', strokeWidth: 2, fill: '#fff' }}
+                    name="sys"
+                  />
+                  {/* Đường DIA */}
+                  <Line
+                    type="monotone"
+                    dataKey="dia"
+                    stroke="#3b82f6"
+                    strokeWidth={3}
+                    dot={{ r: 5, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
+                    activeDot={{ r: 7, stroke: '#3b82f6', strokeWidth: 2, fill: '#fff' }}
+                    name="dia"
+                  />
+                  {/* Đường Mạch */}
+                  <Line
+                    type="monotone"
+                    dataKey="pulse"
+                    stroke="#8b5cf6"
+                    strokeWidth={2}
+                    strokeDasharray="4 2"
+                    dot={{ r: 4, fill: '#8b5cf6', strokeWidth: 1.5, stroke: '#fff' }}
+                    connectNulls
+                    name="pulse"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
 
             {/* Legend */}
             <div className="flex items-center justify-center gap-4 text-xs flex-wrap">
