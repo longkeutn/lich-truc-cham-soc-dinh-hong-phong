@@ -658,3 +658,117 @@ export function computeAlertLevel(
   return 'normal';
 }
 
+/**
+ * Chuẩn hóa mọi chuỗi ngày (YYYY-M-D, DD/MM/YYYY, ISO...) về đúng định dạng chuẩn YYYY-MM-DD
+ * để so sánh và sắp xếp thời gian không bao giờ bị lệch.
+ */
+export function normalizeDateStr(raw: string | undefined | null): string {
+  if (!raw) return '';
+  const str = String(raw).trim();
+  // YYYY-MM-DD hoặc YYYY-M-D
+  const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (isoMatch) {
+    const yyyy = isoMatch[1];
+    const mm = isoMatch[2].padStart(2, '0');
+    const dd = isoMatch[3].padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  // DD/MM/YYYY hoặc DD-MM-YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmyMatch) {
+    const dd = dmyMatch[1].padStart(2, '0');
+    const mm = dmyMatch[2].padStart(2, '0');
+    const yyyy = dmyMatch[3];
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return str.substring(0, 10);
+}
+
+/**
+ * Chuẩn hóa mọi chuỗi giờ ('6:05', '06:05', '6h05'...) về chuẩn HH:mm (24h, luôn có 2 chữ số giờ).
+ * Khắc phục triệt để lỗi so sánh chuỗi '6:05' > '11:14'.
+ */
+export function normalizeTimeStr(raw: string | undefined | null): string {
+  if (!raw) return '';
+  const str = String(raw).trim();
+  const match = str.match(/(\d{1,2})[:hH](\d{1,2})/);
+  if (match) {
+    let hh = parseInt(match[1], 10);
+    const mm = parseInt(match[2], 10);
+    const lower = str.toLowerCase();
+    if ((lower.includes('pm') || lower.includes('ch')) && hh < 12) {
+      hh += 12;
+    } else if ((lower.includes('am') || lower.includes('sa')) && hh === 12) {
+      hh = 0;
+    }
+    hh = Math.max(0, Math.min(23, hh));
+    const cleanM = Math.max(0, Math.min(59, mm));
+    return `${String(hh).padStart(2, '0')}:${String(cleanM).padStart(2, '0')}`;
+  }
+  return str;
+}
+
+const PERIOD_SORT_RANK: Record<string, number> = {
+  morning: 1,
+  noon: 2,
+  afternoon: 3,
+  evening: 4,
+};
+
+const PERIOD_DEFAULT_MINUTES: Record<string, number> = {
+  morning: 8 * 60,
+  noon: 12 * 60,
+  afternoon: 15 * 60,
+  evening: 20 * 60,
+};
+
+/**
+ * Đổi chuỗi giờ HH:mm ra tổng số phút trong ngày (0 -> 1439) để sắp xếp theo giá trị số học tuyệt đối.
+ */
+export function timeStrToMinutes(rawTime: string | undefined | null, fallbackPeriod?: string): number {
+  const norm = normalizeTimeStr(rawTime);
+  const match = norm.match(/^(\d{2}):(\d{2})$/);
+  if (match) {
+    return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+  }
+  if (fallbackPeriod && PERIOD_DEFAULT_MINUTES[fallbackPeriod] !== undefined) {
+    return PERIOD_DEFAULT_MINUTES[fallbackPeriod];
+  }
+  return 0;
+}
+
+/**
+ * So sánh 2 bản ghi sinh hiệu theo đúng trình tự thời gian TĂNG DẦN (Cũ trước -> Mới sau).
+ * Dùng cho Biểu đồ xu hướng (trái qua phải).
+ */
+export function compareVitalsAsc(
+  a: { date: string; time: string; period?: string; createdAt?: string },
+  b: { date: string; time: string; period?: string; createdAt?: string }
+): number {
+  const dA = normalizeDateStr(a.date);
+  const dB = normalizeDateStr(b.date);
+  if (dA !== dB) return dA.localeCompare(dB);
+
+  const mA = timeStrToMinutes(a.time, a.period);
+  const mB = timeStrToMinutes(b.time, b.period);
+  if (mA !== mB) return mA - mB;
+
+  const pA = PERIOD_SORT_RANK[a.period || ''] || 0;
+  const pB = PERIOD_SORT_RANK[b.period || ''] || 0;
+  if (pA !== pB) return pA - pB;
+
+  return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+}
+
+/**
+ * So sánh 2 bản ghi sinh hiệu theo đúng trình tự thời gian GIẢM DẦN (Mới nhất lên đầu).
+ * Dùng cho thẻ HA gần nhất và bảng lịch sử.
+ */
+export function compareVitalsDesc(
+  a: { date: string; time: string; period?: string; createdAt?: string },
+  b: { date: string; time: string; period?: string; createdAt?: string }
+): number {
+  return compareVitalsAsc(b, a);
+}
+
+

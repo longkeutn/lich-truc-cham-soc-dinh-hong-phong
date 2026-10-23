@@ -76,6 +76,9 @@ import {
   getVietnamDateStr,
   getVietnamDateOffsetStr,
   formatVietnamDateFull,
+  compareVitalsDesc,
+  normalizeDateStr,
+  normalizeTimeStr,
 } from '@/lib/config';
 import {
   saveShiftAction,
@@ -248,7 +251,16 @@ export default function CareSchedulePage() {
           if (appData.settings) setSettings(appData.settings);
 
           // V2 data
-          if (Array.isArray(appData.vitalsLog)) setVitalsLog(appData.vitalsLog);
+          if (Array.isArray(appData.vitalsLog)) {
+            const cleanedVitals = appData.vitalsLog
+              .map((v) => ({
+                ...v,
+                date: normalizeDateStr(v.date),
+                time: normalizeTimeStr(v.time),
+              }))
+              .sort(compareVitalsDesc);
+            setVitalsLog(cleanedVitals);
+          }
           if (Array.isArray(appData.careRoutines)) setCareRoutines(appData.careRoutines);
           if (Array.isArray(appData.dailyLogs)) setDailyLogs(appData.dailyLogs);
           if (Array.isArray(appData.stages) && appData.stages.length > 0) {
@@ -422,28 +434,35 @@ export default function CareSchedulePage() {
 
   // Lưu huyết áp — Cập nhật giao diện ngay lập tức, đồng bộ Google Sheets ở chế độ nền
   const handleSaveVitals = useCallback(async (entry: VitalsLogEntry) => {
+    const cleanEntry: VitalsLogEntry = {
+      ...entry,
+      date: normalizeDateStr(entry.date),
+      time: normalizeTimeStr(entry.time),
+    };
     setVitalsLog((prev) => {
-      const exists = prev.findIndex((v) => v.id === entry.id);
+      const exists = prev.findIndex((v) => v.id === cleanEntry.id);
       let next: VitalsLogEntry[];
       if (exists >= 0) {
         next = [...prev];
-        next[exists] = entry;
+        next[exists] = cleanEntry;
       } else {
-        next = [entry, ...prev];
+        next = [cleanEntry, ...prev];
       }
-      return next.sort((a, b) => {
-        const cmp = b.date.localeCompare(a.date);
-        return cmp !== 0 ? cmp : b.time.localeCompare(a.time);
-      });
+      return next.sort(compareVitalsDesc);
     });
     showToast('💓 Đã lưu chỉ số huyết áp!', 'success');
 
     // Đồng bộ ngầm không chặn giao diện
-    void saveVitalsAction(entry)
+    void saveVitalsAction(cleanEntry)
       .then((res) => {
         if (res.success && res.entry) {
+          const savedClean: VitalsLogEntry = {
+            ...res.entry,
+            date: normalizeDateStr(res.entry.date),
+            time: normalizeTimeStr(res.entry.time),
+          };
           setVitalsLog((prev) =>
-            prev.map((v) => (v.id === entry.id ? res.entry! : v))
+            prev.map((v) => (v.id === cleanEntry.id ? savedClean : v)).sort(compareVitalsDesc)
           );
         } else if (!res.success) {
           showToast('Cảnh báo: Chưa đồng bộ được huyết áp lên Sheet.', 'warn');
@@ -643,11 +662,11 @@ export default function CareSchedulePage() {
     return dailyLogs.filter((l) => l.date === todayStr);
   }, [dailyLogs, todayStr]);
 
-  // ===== Vitals gần nhất =====
+  // ===== Vitals gần nhất (Luôn sắp xếp chuẩn theo thời gian thực tế) =====
   const lastVitalsEntry = useMemo(() => {
     if (vitalsLog.length === 0) return null;
-    // vitalsLog đã sorted DESC by date+time từ backend
-    return vitalsLog[0] || null;
+    const sorted = [...vitalsLog].sort(compareVitalsDesc);
+    return sorted[0] || null;
   }, [vitalsLog]);
 
   // ===== Tên người ghi mặc định lấy từ danh sách thành viên trên Sheet (Mẹ Phương) =====

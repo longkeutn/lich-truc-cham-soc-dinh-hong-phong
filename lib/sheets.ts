@@ -22,6 +22,9 @@ import {
   buildDefaultShiftRecord,
   DEFAULT_BP_THRESHOLDS,
   DEFAULT_APPOINTMENT,
+  compareVitalsDesc,
+  normalizeDateStr,
+  normalizeTimeStr,
 } from './config';
 
 // Tên các trang tính trong Google Sheet (9 Sheets V2.2)
@@ -400,22 +403,27 @@ class MemoryShiftStore {
   // =============================================
 
   // --- VitalsLog (Nhật ký Huyết áp & Sinh hiệu) ---
+  private sanitizeVitalsEntry(v: VitalsLogEntry): VitalsLogEntry {
+    return {
+      ...v,
+      date: normalizeDateStr(v.date),
+      time: normalizeTimeStr(v.time),
+    };
+  }
+
   public getVitalsLog(): VitalsLogEntry[] {
-    return [...this.vitalsLog].sort((a, b) => {
-      const dateCompare = b.date.localeCompare(a.date);
-      if (dateCompare !== 0) return dateCompare;
-      return b.time.localeCompare(a.time);
-    });
+    return [...this.vitalsLog].sort(compareVitalsDesc);
   }
 
   public saveVitalsEntry(entry: VitalsLogEntry): VitalsLogEntry {
-    const idx = this.vitalsLog.findIndex((v) => v.id === entry.id);
+    const clean = this.sanitizeVitalsEntry(entry);
+    const idx = this.vitalsLog.findIndex((v) => v.id === clean.id);
     if (idx >= 0) {
-      this.vitalsLog[idx] = entry;
+      this.vitalsLog[idx] = clean;
     } else {
-      this.vitalsLog.push(entry);
+      this.vitalsLog.push(clean);
     }
-    return entry;
+    return clean;
   }
 
   public deleteVitalsEntry(id: string): void {
@@ -424,7 +432,7 @@ class MemoryShiftStore {
 
   public setVitalsLog(list: VitalsLogEntry[]): void {
     if (list && Array.isArray(list)) {
-      this.vitalsLog = list;
+      this.vitalsLog = list.map((v) => this.sanitizeVitalsEntry(v));
     }
   }
 
@@ -505,26 +513,36 @@ class MemoryShiftStore {
   }
 
   // --- DailyLogs (Tích hoàn thành hàng ngày) ---
+  private sanitizeDailyLog(dl: DailyLog): DailyLog {
+    return {
+      ...dl,
+      date: normalizeDateStr(dl.date),
+      doneAt: dl.doneAt ? normalizeTimeStr(dl.doneAt) : dl.doneAt,
+    };
+  }
+
   public getDailyLogs(date?: string): DailyLog[] {
     if (date) {
-      return this.dailyLogs.filter((dl) => dl.date === date);
+      const target = normalizeDateStr(date);
+      return this.dailyLogs.filter((dl) => normalizeDateStr(dl.date) === target);
     }
     return this.dailyLogs;
   }
 
   public upsertDailyLog(log: DailyLog): DailyLog {
-    const idx = this.dailyLogs.findIndex((dl) => dl.id === log.id);
+    const clean = this.sanitizeDailyLog(log);
+    const idx = this.dailyLogs.findIndex((dl) => dl.id === clean.id);
     if (idx >= 0) {
-      this.dailyLogs[idx] = log;
+      this.dailyLogs[idx] = clean;
     } else {
-      this.dailyLogs.push(log);
+      this.dailyLogs.push(clean);
     }
-    return log;
+    return clean;
   }
 
   public setDailyLogs(list: DailyLog[]): void {
     if (list && Array.isArray(list)) {
-      this.dailyLogs = list;
+      this.dailyLogs = list.map((dl) => this.sanitizeDailyLog(dl));
     }
   }
 

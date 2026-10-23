@@ -50,6 +50,10 @@ import {
   getVietnamDateOffsetStr,
   getVietnamDateStr,
   detectCurrentTimeSlot,
+  compareVitalsAsc,
+  compareVitalsDesc,
+  normalizeDateStr,
+  normalizeTimeStr,
 } from '@/lib/config';
 
 // =============================================
@@ -212,6 +216,9 @@ export function VitalsChartView({
   // State chế độ hiển thị biểu đồ ('chart' | 'timeline')
   const [chartViewMode, setChartViewMode] = useState<'chart' | 'timeline'>('chart');
 
+  // State chọn ngày cho thẻ "Diễn biến 4 buổi trong ngày" ('today' = ngày hôm nay, hoặc 'YYYY-MM-DD', hoặc 'avg' = TB nhiều ngày)
+  const [selectedSlotDayMode, setSelectedSlotDayMode] = useState<string>('today');
+
   // State mở rộng dòng ngày trong Bảng Nhật Ký Chéo Ngày
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
@@ -234,27 +241,30 @@ export function VitalsChartView({
   const [editNote, setEditNote] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  // ===== Lọc dữ liệu huyết áp theo khoảng thời gian =====
+  // ===== Chuẩn hóa định dạng ngày YYYY-MM-DD & giờ HH:mm (24h) cho toàn bộ bản ghi =====
+  const normalizedVitals = useMemo(() => {
+    return vitalsLog.map((v) => ({
+      ...v,
+      date: normalizeDateStr(v.date),
+      time: normalizeTimeStr(v.time),
+    }));
+  }, [vitalsLog]);
+
+  // ===== Lọc dữ liệu huyết áp theo khoảng thời gian (Sắp xếp tăng dần Cũ -> Mới chuẩn xác) =====
   const filteredLog = useMemo(() => {
-    const sorted = [...vitalsLog].sort((a, b) => {
-      const cmp = a.date.localeCompare(b.date);
-      return cmp !== 0 ? cmp : a.time.localeCompare(b.time);
-    });
+    const sorted = [...normalizedVitals].sort(compareVitalsAsc);
 
     if (dateRange === 'all') return sorted;
 
     const days = dateRange === '7d' ? 7 : dateRange === '14d' ? 14 : 30;
     const cutoff = daysAgo(days - 1);
     return sorted.filter((v) => v.date >= cutoff);
-  }, [vitalsLog, dateRange]);
+  }, [normalizedVitals, dateRange]);
 
   // ===== PHÂN TÍCH SINH HIỆU CHUYÊN SÂU (HA, MIN-MAX, MẠCH, HIỆU ÁP, MAP, THEO BUỔI) =====
   const summaryStats = useMemo(() => {
-    // Sắp xếp giảm dần theo ngày giờ để lấy bản ghi mới nhất
-    const desc = [...vitalsLog].sort((a, b) => {
-      const cmp = b.date.localeCompare(a.date);
-      return cmp !== 0 ? cmp : b.time.localeCompare(a.time);
-    });
+    // Sắp xếp giảm dần theo ngày giờ chuẩn xác tuyệt đối để lấy bản ghi mới nhất
+    const desc = [...normalizedVitals].sort(compareVitalsDesc);
 
     const latest = desc[0] ?? null;
     const previous = desc[1] ?? null;
@@ -357,7 +367,7 @@ export function VitalsChartView({
       else if (deltaSys < -6) trend = 'down';
     }
 
-    // Phân tích theo 4 buổi trong ngày (Sáng / Trưa / Chiều / Tối)
+    // Phân tích trung bình theo 4 buổi qua nhiều ngày (kèm ngày đo gần nhất của buổi đó)
     const byPeriod: Record<
       VitalsPeriod,
       {
@@ -366,16 +376,18 @@ export function VitalsChartView({
         avgDia: number | null;
         avgPulse: number | null;
         maxSys: number | null;
+        latestDate: string | null;
+        latestTime: string | null;
       }
     > = {
-      morning: { count: 0, avgSys: null, avgDia: null, avgPulse: null, maxSys: null },
-      noon: { count: 0, avgSys: null, avgDia: null, avgPulse: null, maxSys: null },
-      afternoon: { count: 0, avgSys: null, avgDia: null, avgPulse: null, maxSys: null },
-      evening: { count: 0, avgSys: null, avgDia: null, avgPulse: null, maxSys: null },
+      morning: { count: 0, avgSys: null, avgDia: null, avgPulse: null, maxSys: null, latestDate: null, latestTime: null },
+      noon: { count: 0, avgSys: null, avgDia: null, avgPulse: null, maxSys: null, latestDate: null, latestTime: null },
+      afternoon: { count: 0, avgSys: null, avgDia: null, avgPulse: null, maxSys: null, latestDate: null, latestTime: null },
+      evening: { count: 0, avgSys: null, avgDia: null, avgPulse: null, maxSys: null, latestDate: null, latestTime: null },
     };
 
     for (const slot of ALL_SLOTS) {
-      const slotItems = periodEntries.filter((v) => v.period === slot);
+      const slotItems = periodEntries.filter((v) => v.period === slot).sort(compareVitalsDesc);
       if (slotItems.length > 0) {
         const sSys = Math.round(slotItems.reduce((acc, x) => acc + x.sys, 0) / slotItems.length);
         const sDia = Math.round(slotItems.reduce((acc, x) => acc + x.dia, 0) / slotItems.length);
@@ -391,9 +403,19 @@ export function VitalsChartView({
           avgDia: sDia,
           avgPulse: sPulse,
           maxSys: sMaxSys,
+          latestDate: slotItems[0].date,
+          latestTime: slotItems[0].time,
         };
       }
     }
+
+    // Danh sách các ngày có đo trong kỳ (sắp xếp mới nhất lên đầu, luôn có ngày hôm nay ở đầu)
+    const todayStr = getVietnamDateStr();
+    const daySet = new Set<string>([todayStr]);
+    for (const v of periodEntries) {
+      if (v.date) daySet.add(v.date);
+    }
+    const availableSlotDays = Array.from(daySet).sort((a, b) => b.localeCompare(a));
 
     return {
       latest,
@@ -419,10 +441,11 @@ export function VitalsChartView({
       inRangePct,
       trend,
       byPeriod,
-      totalReadings: vitalsLog.length,
+      availableSlotDays,
+      totalReadings: normalizedVitals.length,
       periodReadingsCount: periodEntries.length,
     };
-  }, [vitalsLog, filteredLog]);
+  }, [normalizedVitals, filteredLog]);
 
   // ===== THỐNG KÊ TUÂN THỦ & ĐỐI CHIẾU CHÉO HÀNG NGÀY (SỬA TRIỆT ĐỂ LỖI 19% ẢO) =====
   const complianceStats = useMemo(() => {
@@ -443,9 +466,10 @@ export function VitalsChartView({
     // 1. Tìm ngày đầu tiên gia đình bắt đầu ghi sổ (tránh cộng mẫu số các ngày chưa dùng app!)
     const allDatesWithData: string[] = [];
     for (const l of dailyLogs) {
-      if (l.isDone && l.date) allDatesWithData.push(l.date);
+      const dNorm = normalizeDateStr(l.date);
+      if (l.isDone && dNorm) allDatesWithData.push(dNorm);
     }
-    for (const v of vitalsLog) {
+    for (const v of normalizedVitals) {
       if (v.date) allDatesWithData.push(v.date);
     }
     allDatesWithData.sort();
@@ -536,10 +560,10 @@ export function VitalsChartView({
 
     for (const day of candidateDays) {
       const isToday = day === todayStr;
-      const dayLogs = dailyLogs.filter((l) => l.date === day);
-      const dayVitals = vitalsLog
+      const dayLogs = dailyLogs.filter((l) => normalizeDateStr(l.date) === day);
+      const dayVitals = normalizedVitals
         .filter((v) => v.date === day)
-        .sort((a, b) => a.time.localeCompare(b.time));
+        .sort(compareVitalsAsc);
 
       let dayExpectedDoses = 0;
       let dayDoneDoses = 0;
@@ -804,7 +828,7 @@ export function VitalsChartView({
       routineStatsList,
       dailyMatrix,
     };
-  }, [dailyLogs, careRoutines, vitalsLog, dateRange]);
+  }, [dailyLogs, careRoutines, normalizedVitals, dateRange]);
 
   // ===== Dữ liệu cho biểu đồ Recharts (Kèm thông tin thuốc của buổi đo đó) =====
   const chartData = useMemo(() => {
@@ -1567,59 +1591,199 @@ export function VitalsChartView({
               </span>
             </div>
 
-            {/* PHÂN TÍCH HUYẾT ÁP & MẠCH THEO 4 BUỔI TRONG NGÀY (SÁNG / TRƯA / CHIỀU / TỐI) */}
+            {/* PHÂN TÍCH HUYẾT ÁP & MẠCH THEO 4 BUỔI TRONG NGÀY (TÁCH RÕ THEO TỪNG NGÀY HOẶC TB NHIỀU NGÀY) */}
             <div className="pt-3 border-t border-slate-100">
-              <div className="text-xs font-extrabold text-slate-600 uppercase tracking-wider mb-2.5 flex items-center justify-between">
-                <span>🕒 Phân Tích Sinh Hiệu Theo Khung Giờ Trong Ngày</span>
-                <span className="text-[11px] font-normal text-slate-400">
-                  Giúp phát hiện hiện tượng vọt áp buổi sáng hoặc tối
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {ALL_SLOTS.map((slot) => {
-                  const cfg = TIME_SLOT_CONFIG[slot];
-                  const st = summaryStats.byPeriod[slot];
-                  return (
-                    <div
-                      key={slot}
-                      className={`rounded-xl border p-2.5 ${
-                        st.count > 0
-                          ? 'bg-slate-50/80 border-slate-200'
-                          : 'bg-slate-50/30 border-slate-100 opacity-60'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-extrabold text-slate-700">
-                          {cfg.emoji} {cfg.label}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400">
-                          {st.count} lần đo
-                        </span>
+              {(() => {
+                const todayStr = getVietnamDateStr();
+                const currentSlot = detectCurrentTimeSlot();
+                const currentRank = SLOT_RANK[currentSlot] || 1;
+                const isAvgMode = selectedSlotDayMode === 'avg';
+                const targetDay =
+                  selectedSlotDayMode === 'today' || !selectedSlotDayMode
+                    ? todayStr
+                    : selectedSlotDayMode;
+
+                return (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+                      <div>
+                        <div className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">
+                          🕒 Diễn Biến Sinh Hiệu 4 Buổi Trong Ngày:{' '}
+                          <span className="text-teal-700">
+                            {isAvgMode
+                              ? `Trung bình các ngày đang lọc`
+                              : targetDay === todayStr
+                                ? `Hôm nay (${fmtDateShort(todayStr)})`
+                                : `${getWeekdayVN(targetDay)}, ${fmtDateFull(targetDay)}`}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400">
+                          {isAvgMode
+                            ? 'Tính trung bình cộng từng buổi qua các ngày có đo (ghi kèm ngày đo gần nhất)'
+                            : `Chỉ hiển thị đúng các lần đo trong ngày ${fmtDateFull(targetDay)} theo trình tự Sáng → Trưa → Chiều → Tối`}
+                        </p>
                       </div>
-                      {st.count > 0 ? (
-                        <div className="mt-1">
-                          <div className="text-base font-black text-slate-900">
-                            {st.avgSys}/{st.avgDia}
-                            <span className="text-[10px] font-normal text-slate-500 ml-1">
-                              mmHg
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-slate-600 mt-0.5 flex items-center justify-between">
-                            <span>
-                              {st.avgPulse ? `❤️ TB ${st.avgPulse} bpm` : 'Chưa ghi mạch'}
-                            </span>
-                            <span className="text-slate-400">Cao nhất: {st.maxSys}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-xs text-slate-400 mt-1.5 italic">
-                          Chưa có lần đo buổi {cfg.label.toLowerCase()}
-                        </div>
-                      )}
+
+                      {/* Thanh chọn xem theo Ngày hôm nay / Các ngày trước / TB nhiều ngày */}
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {summaryStats.availableSlotDays.slice(0, 4).map((dStr) => {
+                          const isSelected =
+                            !isAvgMode &&
+                            (selectedSlotDayMode === dStr ||
+                              (selectedSlotDayMode === 'today' && dStr === todayStr));
+                          return (
+                            <button
+                              key={dStr}
+                              type="button"
+                              onClick={() =>
+                                setSelectedSlotDayMode(dStr === todayStr ? 'today' : dStr)
+                              }
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                                isSelected
+                                  ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                              }`}
+                            >
+                              {dStr === todayStr ? `Hôm nay (${fmtDateShort(dStr)})` : fmtDateShort(dStr)}
+                            </button>
+                          );
+                        })}
+                        {summaryStats.availableSlotDays.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSlotDayMode('avg')}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                              isAvgMode
+                                ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            📊 TB nhiều ngày
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      {ALL_SLOTS.map((slot) => {
+                        const cfg = TIME_SLOT_CONFIG[slot];
+                        const slotRank = SLOT_RANK[slot] || 1;
+
+                        if (isAvgMode) {
+                          const st = summaryStats.byPeriod[slot];
+                          return (
+                            <div
+                              key={slot}
+                              className={`rounded-xl border p-2.5 ${
+                                st.count > 0
+                                  ? 'bg-slate-50/80 border-slate-200'
+                                  : 'bg-slate-50/30 border-slate-100 opacity-60'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-extrabold text-slate-700">
+                                  {cfg.emoji} {cfg.label}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400">
+                                  TB {st.count} lần
+                                </span>
+                              </div>
+                              {st.count > 0 ? (
+                                <div className="mt-1">
+                                  <div className="text-base font-black text-slate-900">
+                                    {st.avgSys}/{st.avgDia}
+                                    <span className="text-[10px] font-normal text-slate-500 ml-1">
+                                      mmHg
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] text-slate-600 mt-0.5 flex items-center justify-between">
+                                    <span>
+                                      {st.avgPulse ? `❤️ TB ${st.avgPulse} bpm` : 'Chưa ghi mạch'}
+                                    </span>
+                                  </div>
+                                  {st.latestDate && (
+                                    <div className="text-[10px] text-slate-400 mt-0.5">
+                                      Đo gần nhất: {fmtDateShort(st.latestDate)} · {st.latestTime}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-slate-400 mt-1.5 italic">
+                                  Chưa có lần đo buổi {cfg.label.toLowerCase()}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // Chế độ xem đúng 1 ngày cụ thể (Mặc định: Hôm nay)
+                        const daySlotItems = normalizedVitals
+                          .filter((v) => v.date === targetDay && v.period === slot)
+                          .sort(compareVitalsDesc);
+                        const latestInSlot = daySlotItems[0] || null;
+                        const isFutureToday =
+                          targetDay === todayStr && slotRank > currentRank && !latestInSlot;
+
+                        return (
+                          <div
+                            key={slot}
+                            className={`rounded-xl border p-2.5 ${
+                              latestInSlot
+                                ? alertColors(latestInSlot.alertLevel).bg +
+                                  ' ' +
+                                  alertColors(latestInSlot.alertLevel).border
+                                : 'bg-slate-50/40 border-slate-200/70'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-extrabold text-slate-700">
+                                {cfg.emoji} {cfg.label}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-500">
+                                {latestInSlot
+                                  ? `${fmtDateShort(latestInSlot.date)} · ${latestInSlot.time}`
+                                  : fmtDateShort(targetDay)}
+                              </span>
+                            </div>
+                            {latestInSlot ? (
+                              <div className="mt-1">
+                                <div
+                                  className={`text-base font-black ${
+                                    alertColors(latestInSlot.alertLevel).text
+                                  }`}
+                                >
+                                  {latestInSlot.sys}/{latestInSlot.dia}
+                                  <span className="text-[10px] font-normal text-slate-500 ml-1">
+                                    mmHg
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-600 mt-0.5 flex items-center justify-between">
+                                  <span>
+                                    {latestInSlot.pulse
+                                      ? `❤️ ${latestInSlot.pulse} bpm`
+                                      : 'Chưa ghi mạch'}
+                                  </span>
+                                  {daySlotItems.length > 1 && (
+                                    <span className="text-[10px] font-bold text-teal-700">
+                                      ({daySlotItems.length} lần đo)
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-xs text-slate-400 mt-1.5 italic">
+                                {isFutureToday
+                                  ? `⏳ Chưa tới buổi ${cfg.label.toLowerCase()} (${fmtDateShort(todayStr)})`
+                                  : `Chưa đo buổi ${cfg.label.toLowerCase()} ngày ${fmtDateShort(targetDay)}`}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         ) : (
