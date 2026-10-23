@@ -199,25 +199,31 @@ export default function HeaderBar({
                 </button>
               )}
 
-              {/* Quyền Admin / Mã PIN */}
+              {/* Quyền Phân Quyền (Sửa danh mục 1234 / Admin thực sự 2468) */}
               {onOpenAdminPin && (
                 <button
                   type="button"
                   onClick={onOpenAdminPin}
                   id="btn-admin-pin-toggle"
                   className={`inline-flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold border transition min-h-[38px] min-w-[38px] sm:min-h-[40px] cursor-pointer shrink-0 ${
-                    isAdmin
+                    isExpenseUnlocked
+                      ? 'bg-teal-100 hover:bg-teal-200 text-teal-900 border-teal-300 shadow-2xs'
+                      : isAdmin
                       ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300'
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
                   }`}
                   title={
-                    isAdmin
-                      ? 'Đang bật quyền Admin (Bấm để đổi PIN hoặc khoá lại)'
-                      : 'Mở khoá quyền Admin để chỉnh sửa thông tin quan trọng'
+                    isExpenseUnlocked
+                      ? 'Đang bật quyền Admin thực sự (Toàn quyền: Sổ nội bộ + Code.gs + Danh mục)'
+                      : isAdmin
+                      ? 'Đang bật quyền Sửa danh mục (Thuốc, bài tập, thành viên)'
+                      : 'Mở khoá quyền Sửa danh mục hoặc quyền Admin quản trị'
                   }
                 >
-                  <span>{isAdmin ? '👑' : '🔒'}</span>
-                  <span className="hidden sm:inline">Admin</span>
+                  <span>{isExpenseUnlocked ? '👑' : isAdmin ? '✏️' : '🔒'}</span>
+                  <span className="hidden sm:inline">
+                    {isExpenseUnlocked ? 'Admin' : isAdmin ? 'Danh mục' : 'Admin'}
+                  </span>
                 </button>
               )}
 
@@ -235,17 +241,19 @@ export default function HeaderBar({
                 </button>
               )}
 
-              {/* Nút Google Sheets */}
-              <button
-                type="button"
-                onClick={onOpenGuide}
-                id="btn-open-sheets-guide"
-                className="hidden sm:inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition min-h-[40px] cursor-pointer shrink-0"
-                title="Cấu hình Google Sheets & Vercel"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-teal-700 shrink-0" />
-                <span className="hidden lg:inline">Sheet</span>
-              </button>
+              {/* Nút Google Sheets & Code.gs — CHỈ HIỂN THỊ KHI ĐÃ MỞ QUYỀN ADMIN THỰC SỰ (PIN 2468) */}
+              {isExpenseUnlocked && (
+                <button
+                  type="button"
+                  onClick={onOpenGuide}
+                  id="btn-open-sheets-guide"
+                  className="inline-flex items-center justify-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold border border-teal-200 transition min-h-[38px] sm:min-h-[40px] cursor-pointer shrink-0"
+                  title="Cấu hình Google Sheets & Mã nguồn Code.gs (Chỉ dành cho Admin)"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-teal-700 shrink-0" />
+                  <span className="hidden lg:inline">Sheet</span>
+                </button>
+              )}
 
               {/* Nút SOS nổi bật rõ ràng (Duy nhất màu đỏ khẩn cấp trên thanh Header) */}
               <button

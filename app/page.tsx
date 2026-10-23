@@ -187,6 +187,7 @@ export default function CareSchedulePage() {
         }
         if (sessionStorage.getItem('care_expense_auth') === 'true') {
           setIsExpenseUnlocked(true);
+          setIsAdmin(true);
         }
       }
     } catch {
@@ -587,25 +588,33 @@ export default function CareSchedulePage() {
       });
   }, [showToast]);
 
-  // ===== V2.2: SỔ THEO DÕI THU CHI ĐIỀU TRỊ (PHẢN HỒI TỨC THÌ 0ms, MÃ PIN RIÊNG) =====
+  // ===== V2.2: QUYỀN ADMIN THỰC SỰ (PIN 2468) — MỞ TOÀN QUYỀN + SỔ THU CHI + CODE.GS =====
   const handleUnlockExpenseSuccess = useCallback(() => {
     setIsExpenseUnlocked(true);
+    setIsAdmin(true);
     try {
       sessionStorage.setItem('care_expense_auth', 'true');
+      sessionStorage.setItem('care_admin_auth', 'true');
     } catch {
       // ignore
     }
-    showToast('🔓 Đã mở khóa Sổ Theo Dõi Thu Chi!', 'success');
-  }, [showToast]);
+    showToast('👑 Đã mở quyền Quản trị viên (Toàn quyền hệ thống & Sổ nội bộ)!', 'success');
+    if (pendingAdminAction) {
+      const action = pendingAdminAction;
+      setPendingAdminAction(null);
+      setTimeout(() => action(), 50);
+    }
+  }, [pendingAdminAction, showToast]);
 
   const handleLockExpense = useCallback(() => {
     setIsExpenseUnlocked(false);
+    setGuideModalOpen(false);
     try {
       sessionStorage.removeItem('care_expense_auth');
     } catch {
       // ignore
     }
-    showToast('🔒 Đã khóa Sổ Thu Chi.', 'info');
+    showToast('🔒 Đã khóa quyền Quản trị cao cấp & Sổ Thu Chi.', 'info');
   }, [showToast]);
 
   const handleSaveExpense = useCallback(async (entry: ExpenseEntry) => {
@@ -709,16 +718,26 @@ export default function CareSchedulePage() {
     });
   }, [showToast]);
 
-  // --- Admin Security Helpers ---
+  // --- Admin Security Helpers (2 cấp: isAdmin = Sửa danh mục [1234], isExpenseUnlocked = Admin thực sự [2468]) ---
   const requireAdmin = useCallback((action: () => void) => {
-    if (isAdmin) {
+    if (isAdmin || isExpenseUnlocked) {
       action();
     } else {
       setPendingAdminAction(() => action);
       setAdminPinModalMode('unlock');
       setAdminPinModalOpen(true);
     }
-  }, [isAdmin]);
+  }, [isAdmin, isExpenseUnlocked]);
+
+  const handleOpenGuide = useCallback(() => {
+    if (isExpenseUnlocked) {
+      setGuideModalOpen(true);
+    } else {
+      setPendingAdminAction(() => () => setGuideModalOpen(true));
+      setAdminPinModalMode('unlock');
+      setAdminPinModalOpen(true);
+    }
+  }, [isExpenseUnlocked]);
 
   const handleAdminPinSuccess = useCallback(() => {
     setIsAdmin(true);
@@ -727,7 +746,7 @@ export default function CareSchedulePage() {
     } catch {
       // ignore
     }
-    showToast('Xác thực quyền Quản trị viên (Admin) thành công!', 'success');
+    showToast('✏️ Đã mở quyền Chỉnh sửa danh mục!', 'success');
     if (pendingAdminAction) {
       const action = pendingAdminAction;
       setPendingAdminAction(null);
@@ -737,12 +756,15 @@ export default function CareSchedulePage() {
 
   const handleLockAdmin = useCallback(() => {
     setIsAdmin(false);
+    setIsExpenseUnlocked(false);
+    setGuideModalOpen(false);
     try {
       sessionStorage.removeItem('care_admin_auth');
+      sessionStorage.removeItem('care_expense_auth');
     } catch {
       // ignore
     }
-    showToast('Đã khóa lại quyền Admin', 'info');
+    showToast('🔒 Đã khóa lại toàn bộ quyền chỉnh sửa & quản trị', 'info');
   }, [showToast]);
 
   const handleToggleAdmin = useCallback(() => {
@@ -885,7 +907,7 @@ export default function CareSchedulePage() {
       <HeaderBar
         activeView={activeView}
         onChangeView={handleChangeView}
-        onOpenGuide={() => setGuideModalOpen(true)}
+        onOpenGuide={handleOpenGuide}
         onOpenEmergencyContacts={() => setEmergencyModalOpen(true)}
         onOpenInstallApp={() => setInstallPwaModalOpen(true)}
         patientInfo={patientInfo}
@@ -1085,7 +1107,7 @@ export default function CareSchedulePage() {
         />
       )}
 
-      {guideModalOpen && (
+      {guideModalOpen && isExpenseUnlocked && (
         <GoogleSheetGuideModal
           isOpen={guideModalOpen}
           onClose={() => setGuideModalOpen(false)}
@@ -1112,12 +1134,12 @@ export default function CareSchedulePage() {
             setPendingAdminAction(null);
           }}
           onSuccess={handleAdminPinSuccess}
-          onExpenseSuccess={() => {
-            handleUnlockExpenseSuccess();
-            handleChangeView('expenses');
-          }}
+          onExpenseSuccess={handleUnlockExpenseSuccess}
           isAdmin={isAdmin}
+          isSuperAdmin={isExpenseUnlocked}
           onLockAdmin={handleLockAdmin}
+          onOpenExpenses={() => handleChangeView('expenses')}
+          onOpenGuide={() => setGuideModalOpen(true)}
           initialMode={adminPinModalMode}
         />
       )}

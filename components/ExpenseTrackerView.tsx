@@ -538,7 +538,7 @@ export default function ExpenseTrackerView({
         setPinInput('');
         onUnlockSuccess();
       } else {
-        setPinError('Mã PIN chưa đúng. (Mặc định ban đầu là 2468)');
+        setPinError('Mã PIN Quản trị viên chưa đúng, vui lòng kiểm tra lại.');
       }
     } catch {
       setPinError('Không thể xác thực lúc này, vui lòng thử lại.');
@@ -880,7 +880,7 @@ export default function ExpenseTrackerView({
 
         <div className="mt-5 pt-4 border-t border-slate-100 text-center space-y-3">
           <p className="text-xs text-slate-500">
-            💡 Mã PIN mặc định lần đầu là <code className="px-1.5 py-0.5 rounded bg-slate-100 font-bold text-slate-700">2468</code> (Tách biệt với mã PIN Admin). Bạn có thể đổi sang mã riêng sau khi mở sổ.
+            🔒 Khu vực dành riêng cho <strong>Quản trị viên (Admin)</strong>. Mở khóa tại đây cũng sẽ cấp toàn quyền quản trị hệ thống & xem cấu hình <code className="px-1.5 py-0.5 rounded bg-slate-100 font-bold text-slate-700">Code.gs</code>.
           </p>
           {onBackToHealth && (
             <button
