@@ -16,7 +16,13 @@ import {
   ZoomIn,
 } from 'lucide-react';
 import { CareRoutine, DailyLog, TimeSlot, RoutineCategory } from '@/lib/types';
-import { TIME_SLOT_CONFIG, detectCurrentTimeSlot, DEFAULT_RECORDER } from '@/lib/config';
+import {
+  TIME_SLOT_CONFIG,
+  detectCurrentTimeSlot,
+  DEFAULT_RECORDER,
+  getVietnamTimeStr,
+  formatVietnamDateFull,
+} from '@/lib/config';
 
 // ===== PROPS =====
 interface DailyRoutineViewProps {
@@ -53,10 +59,9 @@ const CATEGORY_ICON: Record<RoutineCategory, { icon: React.ComponentType<{ class
 // ===== TIME SLOTS ORDER =====
 const TIME_SLOT_ORDER: TimeSlot[] = ['morning', 'noon', 'afternoon', 'evening'];
 
-// ===== HELPER: format current time as HH:mm =====
+// ===== HELPER: format current time as HH:mm (theo múi giờ Việt Nam UTC+7) =====
 function getCurrentHHmm(): string {
-  const now = new Date();
-  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  return getVietnamTimeStr();
 }
 
 // ===== MAIN COMPONENT =====
@@ -70,6 +75,7 @@ export default function DailyRoutineView({
 }: DailyRoutineViewProps) {
   // Khởi tạo cố định khi SSR rồi cập nhật đúng buổi theo giờ thực tế trên điện thoại trong useEffect
   const [currentSlot, setCurrentSlot] = useState<TimeSlot>('morning');
+  const [mountedClient, setMountedClient] = useState(false);
   const [expandedSlots, setExpandedSlots] = useState<Record<TimeSlot, boolean>>({
     morning: true,
     noon: false,
@@ -77,15 +83,44 @@ export default function DailyRoutineView({
     evening: false,
   });
 
+  // Đồng bộ ca hiện tại khi mới mở hoặc khi bước sang ngày mới (todayStr thay đổi)
   useEffect(() => {
     const slot = detectCurrentTimeSlot();
     setCurrentSlot(slot);
+    setMountedClient(true);
     setExpandedSlots({
       morning: slot === 'morning',
       noon: slot === 'noon',
       afternoon: slot === 'afternoon',
       evening: slot === 'evening',
     });
+  }, [todayStr]);
+
+  // Khi mở lại PWA từ chế độ nền sau nhiều giờ, nếu đã chuyển sang buổi mới thì tự mở buổi mới cho Mẹ
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncSlotOnWakeUp = () => {
+      if (document.visibilityState === 'visible') {
+        const nextSlot = detectCurrentTimeSlot();
+        setCurrentSlot((prevSlot) => {
+          if (prevSlot !== nextSlot) {
+            setExpandedSlots((prevExpanded) => ({
+              ...prevExpanded,
+              [nextSlot]: true,
+            }));
+          }
+          return nextSlot;
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', syncSlotOnWakeUp);
+    window.addEventListener('focus', syncSlotOnWakeUp);
+    window.addEventListener('pageshow', syncSlotOnWakeUp);
+    return () => {
+      document.removeEventListener('visibilitychange', syncSlotOnWakeUp);
+      window.removeEventListener('focus', syncSlotOnWakeUp);
+      window.removeEventListener('pageshow', syncSlotOnWakeUp);
+    };
   }, []);
 
   // Loading state per item to prevent double-tap
@@ -224,9 +259,16 @@ export default function DailyRoutineView({
                 <ListChecks className={`w-4.5 h-4.5 ${progressTextColor}`} />
               </div>
               <div className="min-w-0">
-                <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
-                  Đơn Thuốc & Bài Tập Hôm Nay
-                </h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
+                    Đơn Thuốc & Bài Tập Hôm Nay
+                  </h3>
+                  {mountedClient && (
+                    <span className="px-2 py-0.5 rounded-md bg-teal-50 border border-teal-200 text-teal-800 text-xs font-bold">
+                      📅 {formatVietnamDateFull(todayStr)}
+                    </span>
+                  )}
+                </div>
                 <p className={`text-xs font-bold ${progressTextColor}`}>
                   Đã hoàn thành {doneItems}/{totalItems} việc ({progressPercent}%)
                 </p>

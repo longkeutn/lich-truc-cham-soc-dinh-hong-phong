@@ -494,9 +494,150 @@ export const DEFAULT_CARE_ROUTINES: CareRoutine[] = [
   },
 ];
 
-/** Tự động nhận diện buổi hiện tại theo giờ */
-export function detectCurrentTimeSlot(): TimeSlot {
-  const hour = new Date().getHours();
+// =============================================
+// HỆ THỐNG XỬ LÝ NGÀY & MÚI GIỜ VIỆT NAM (UTC+7)
+// Đảm bảo chính xác 100% trên cả Server (UTC) và PWA Điện Thoại
+// =============================================
+
+export const VIETNAM_TIMEZONE = 'Asia/Ho_Chi_Minh';
+
+const WEEKDAY_VN_LABELS = [
+  'Chủ Nhật',
+  'Thứ Hai',
+  'Thứ Ba',
+  'Thứ Tư',
+  'Thứ Năm',
+  'Thứ Sáu',
+  'Thứ Bảy',
+];
+
+/**
+ * Tách các thành phần ngày/giờ theo đúng múi giờ Việt Nam (UTC+7),
+ * bất kể thiết bị hay server đang đặt ở múi giờ nào.
+ */
+export function getVietnamDateParts(date: Date = new Date()): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  weekday: number; // 0 (Chủ Nhật) -> 6 (Thứ Bảy)
+} {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: VIETNAM_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(date);
+    const map: Record<string, string> = {};
+    for (const p of parts) {
+      if (p.type !== 'literal') {
+        map[p.type] = p.value;
+      }
+    }
+    const year = parseInt(map.year, 10);
+    const month = parseInt(map.month, 10);
+    const day = parseInt(map.day, 10);
+    let hour = parseInt(map.hour, 10);
+    if (hour === 24) hour = 0;
+    const minute = parseInt(map.minute, 10);
+    const second = parseInt(map.second, 10);
+
+    // Tính thứ trong tuần theo đúng ngày lịch Việt Nam
+    const utcNoon = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+    const weekday = utcNoon.getUTCDay();
+
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      return { year, month, day, hour, minute, second, weekday };
+    }
+  } catch {
+    // Fallback cộng cứng UTC+7 nếu môi trường thiếu Intl timeZone
+  }
+
+  const vnTime = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+  return {
+    year: vnTime.getUTCFullYear(),
+    month: vnTime.getUTCMonth() + 1,
+    day: vnTime.getUTCDate(),
+    hour: vnTime.getUTCHours(),
+    minute: vnTime.getUTCMinutes(),
+    second: vnTime.getUTCSeconds(),
+    weekday: vnTime.getUTCDay(),
+  };
+}
+
+/**
+ * Lấy chuỗi ngày hiện tại chuẩn YYYY-MM-DD theo đúng múi giờ Việt Nam (UTC+7).
+ * Khắc phục triệt để lỗi .toISOString().slice(0, 10) bị lùi về ngày hôm trước khi đo trước 7h sáng!
+ */
+export function getVietnamDateStr(date: Date = new Date()): string {
+  const { year, month, day } = getVietnamDateParts(date);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/**
+ * Lấy chuỗi giờ hiện tại chuẩn HH:mm (24h) theo đúng múi giờ Việt Nam (UTC+7).
+ */
+export function getVietnamTimeStr(date: Date = new Date()): string {
+  const { hour, minute } = getVietnamDateParts(date);
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+/**
+ * Lấy giờ hiện tại (0 - 23) theo đúng múi giờ Việt Nam (UTC+7).
+ */
+export function getVietnamHour(date: Date = new Date()): number {
+  return getVietnamDateParts(date).hour;
+}
+
+/**
+ * Cộng/trừ số ngày dựa trên ngày Việt Nam hiện tại và trả về YYYY-MM-DD.
+ */
+export function getVietnamDateOffsetStr(daysOffset: number, baseDate: Date = new Date()): string {
+  const { year, month, day } = getVietnamDateParts(baseDate);
+  const utcNoon = new Date(Date.UTC(year, month - 1, day + daysOffset, 12, 0, 0));
+  const y = utcNoon.getUTCFullYear();
+  const m = String(utcNoon.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(utcNoon.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Tính số ngày chênh lệch (dateA - dateB) dựa trên chuỗi YYYY-MM-DD.
+ * Ví dụ: diffDaysBetweenDateStr('2026-10-23', '2026-10-22') === 1.
+ */
+export function diffDaysBetweenDateStr(dateStrA: string, dateStrB: string): number {
+  const [yA, mA, dA] = dateStrA.split('-').map(Number);
+  const [yB, mB, dB] = dateStrB.split('-').map(Number);
+  if (!yA || !mA || !dA || !yB || !mB || !dB) return 0;
+  const utcA = Date.UTC(yA, mA - 1, dA, 12, 0, 0);
+  const utcB = Date.UTC(yB, mB - 1, dB, 12, 0, 0);
+  return Math.round((utcA - utcB) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Hiển thị ngày tiếng Việt thân thiện cho người lớn tuổi: "Thứ Sáu, 23/10/2026"
+ */
+export function formatVietnamDateFull(dateStr: string): string {
+  const parts = (dateStr || '').split('-');
+  if (parts.length !== 3) return dateStr;
+  const [y, m, d] = parts.map(Number);
+  if (!y || !m || !d) return dateStr;
+  const utcNoon = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  const weekdayLabel = WEEKDAY_VN_LABELS[utcNoon.getUTCDay()] || '';
+  return `${weekdayLabel}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+}
+
+/** Tự động nhận diện buổi hiện tại theo giờ Việt Nam (UTC+7) */
+export function detectCurrentTimeSlot(date: Date = new Date()): TimeSlot {
+  const hour = getVietnamHour(date);
   if (hour >= 6 && hour < 11) return 'morning';
   if (hour >= 11 && hour < 14) return 'noon';
   if (hour >= 14 && hour < 18) return 'afternoon';

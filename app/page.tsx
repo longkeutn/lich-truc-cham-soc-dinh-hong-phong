@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import HeaderBar, { AppView } from '@/components/HeaderBar';
 import PatientBanner from '@/components/PatientBanner';
@@ -64,6 +64,9 @@ import {
   DEFAULT_APPOINTMENT,
   DEFAULT_REHAB_STAGES,
   DEFAULT_RECORDER,
+  getVietnamDateStr,
+  getVietnamDateOffsetStr,
+  formatVietnamDateFull,
 } from '@/lib/config';
 import {
   saveShiftAction,
@@ -184,33 +187,38 @@ export default function CareSchedulePage() {
     }, 3000);
   }, []);
 
-  // ===== Ngày hiện tại =====
-  const todayStr = useMemo(() => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  }, []);
+  // ===== Ngày hiện tại theo đúng Múi Giờ Việt Nam (UTC+7) — Tự động nhảy ngày khi treo PWA qua đêm =====
+  const [todayStr, setTodayStr] = useState<string>(() => getVietnamDateStr());
+  const todayStrRef = useRef<string>(todayStr);
+  useEffect(() => {
+    todayStrRef.current = todayStr;
+  }, [todayStr]);
 
-  // V2.0: Tải toàn bộ dữ liệu V2 từ Google Sheets
+  const isFetchingRef = useRef<boolean>(false);
+  const lastSyncTimestampRef = useRef<number>(0);
+
+  // V2.0: Tải toàn bộ dữ liệu V2 từ Google Sheets (hỗ trợ chế độ silent khi tự động đồng bộ nền trên PWA)
   const loadAllData = useCallback(
-    async (forceRefresh = false) => {
-      setIsLoading(true);
-      if (forceRefresh) {
+    async (forceRefresh = false, silent = false) => {
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+
+      if (!silent) {
+        setIsLoading(true);
+      }
+      if (forceRefresh && !silent) {
         showToast('Đang làm mới dữ liệu từ Google Sheets...', 'info');
       }
 
       try {
-        // Lấy khoảng ngày: 30 ngày trước → 7 ngày sau (đủ cho biểu đồ HA)
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - 30);
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() + 7);
-
-        const qStart = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
-        const qEnd = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+        // Lấy khoảng ngày theo đúng múi giờ Việt Nam: 30 ngày trước → 7 ngày sau (đủ cho biểu đồ HA)
+        const qStart = getVietnamDateOffsetStr(-30);
+        const qEnd = getVietnamDateOffsetStr(7);
 
         const appData = await fetchAllAppDataV2Action(qStart, qEnd, activePhase, forceRefresh);
 
         if (appData) {
+          lastSyncTimestampRef.current = Date.now();
           // Luôn cập nhật đúng danh sách từ Google Sheets (kể cả khi bảng trên Sheet đang trống)
           if (Array.isArray(appData.shifts)) setShifts(appData.shifts);
           if (Array.isArray(appData.members)) setMembers(appData.members);
@@ -231,14 +239,17 @@ export default function CareSchedulePage() {
           if (appData.appointment) setAppointment(appData.appointment);
           if (appData.bpThresholds) setBpThresholds(appData.bpThresholds);
 
-          if (forceRefresh) {
+          if (forceRefresh && !silent) {
             showToast('Đã đồng bộ dữ liệu mới nhất từ Google Sheets!', 'success');
           }
         }
       } catch (err) {
         console.error('Lỗi khi tải dữ liệu:', err);
-        showToast('Không thể kết nối máy chủ để tải dữ liệu.', 'warn');
+        if (!silent) {
+          showToast('Không thể kết nối máy chủ để tải dữ liệu.', 'warn');
+        }
       } finally {
+        isFetchingRef.current = false;
         setIsLoading(false);
         setHasInitialLoaded(true);
       }
@@ -247,8 +258,86 @@ export default function CareSchedulePage() {
   );
 
   useEffect(() => {
-    loadAllData(false);
+    // Đảm bảo ngay khi mount trên điện thoại lấy đúng ngày giờ Việt Nam hiện tại
+    const currentVnDate = getVietnamDateStr();
+    if (currentVnDate !== todayStrRef.current) {
+      todayStrRef.current = currentVnDate;
+      setTodayStr(currentVnDate);
+    }
+    loadAllData(false, false);
   }, [loadAllData]);
+
+  // ===== CƠ CHẾ TỰ ĐỘNG NHẢY NGÀY & TỰ ĐỘNG LÀM MỚI DỮ LIỆU KHI MỞ PWA TRÊN DI ĐỘNG =====
+  // Khắc phục triệt để việc cài PWA trên điện thoại và không tắt app qua nhiều ngày
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const checkDateAndRefreshOnWakeUp = (source: 'wakeup' | 'interval' | 'interaction') => {
+      const currentVnDate = getVietnamDateStr();
+      const dateChanged = currentVnDate !== todayStrRef.current;
+
+      if (dateChanged) {
+        todayStrRef.current = currentVnDate;
+        setTodayStr(currentVnDate);
+        showToast(`🌅 Đã chuyển sang ${formatVietnamDateFull(currentVnDate)}`, 'info');
+        void loadAllData(true, true);
+        return;
+      }
+
+      // Nếu người dùng mở lại màn hình PWA sau hơn 45 giây ở chế độ nền, tự động đồng bộ ngầm với Google Sheets
+      const elapsedSinceLastSync = Date.now() - lastSyncTimestampRef.current;
+      if (source === 'wakeup' && elapsedSinceLastSync > 45 * 1000) {
+        void loadAllData(true, true);
+      } else if (
+        source === 'interval' &&
+        document.visibilityState === 'visible' &&
+        elapsedSinceLastSync > 180 * 1000
+      ) {
+        // Khi đang mở app liên tục, tự động làm mới ngầm mỗi 3 phút
+        void loadAllData(true, true);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkDateAndRefreshOnWakeUp('wakeup');
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistration().then((reg) => reg?.update()).catch(() => {});
+        }
+      }
+    };
+    const handleFocus = () => checkDateAndRefreshOnWakeUp('wakeup');
+    const handlePageShow = () => checkDateAndRefreshOnWakeUp('wakeup');
+    const handleOnline = () => checkDateAndRefreshOnWakeUp('wakeup');
+    const handleTouchStart = () => checkDateAndRefreshOnWakeUp('interaction');
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((reg) => reg.update())
+        .catch(() => {});
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+
+    // Kiểm tra định kỳ mỗi 20 giây để tự nhảy ngày ngay khi qua 00:00 nửa đêm giờ Việt Nam
+    const intervalId = setInterval(() => {
+      checkDateAndRefreshOnWakeUp('interval');
+    }, 20 * 1000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('touchstart', handleTouchStart);
+      clearInterval(intervalId);
+    };
+  }, [loadAllData, showToast]);
 
   // ===== V2.0 HANDLERS (PHẢN HỒI TỨC THÌ 0ms — ĐỒNG BỘ NGẦM LÊN SHEET) =====
 
@@ -305,23 +394,37 @@ export default function CareSchedulePage() {
       });
   }, [vitalsLog, showToast]);
 
-  // Toggle checklist thuốc/tập — Phản hồi 0ms khi bấm tích
+  // Toggle checklist thuốc/tập — Phản hồi 0ms khi bấm tích, đảm bảo luôn ghi đúng ngày Việt Nam hiện tại
   const handleToggleDailyLog = useCallback(async (log: DailyLog) => {
+    const currentVnDate = getVietnamDateStr();
+    let normalizedLog = log;
+    if (currentVnDate !== todayStrRef.current) {
+      todayStrRef.current = currentVnDate;
+      setTodayStr(currentVnDate);
+    }
+    if (log.date !== currentVnDate) {
+      normalizedLog = {
+        ...log,
+        id: log.id.replace(`dl-${log.date}-`, `dl-${currentVnDate}-`),
+        date: currentVnDate,
+      };
+    }
+
     setDailyLogs((prev) => {
-      const exists = prev.findIndex((l) => l.id === log.id);
+      const exists = prev.findIndex((l) => l.id === normalizedLog.id);
       if (exists >= 0) {
         const updated = [...prev];
-        updated[exists] = log;
+        updated[exists] = normalizedLog;
         return updated;
       }
-      return [...prev, log];
+      return [...prev, normalizedLog];
     });
 
-    void toggleDailyLogAction(log)
+    void toggleDailyLogAction(normalizedLog)
       .then((res) => {
         if (res.success && res.log) {
           setDailyLogs((prev) =>
-            prev.map((l) => (l.id === log.id ? res.log! : l))
+            prev.map((l) => (l.id === normalizedLog.id ? res.log! : l))
           );
         }
       })
@@ -716,6 +819,7 @@ export default function CareSchedulePage() {
               bpThresholds={bpThresholds}
               defaultRecorder={recorderName}
               members={members}
+              todayStr={todayStr}
             />
           </div>
 
@@ -737,6 +841,7 @@ export default function CareSchedulePage() {
               appointment={appointment}
               onSave={handleSaveAppointment}
               isAdmin={isAdmin}
+              todayStr={todayStr}
             />
           </div>
         </div>
@@ -764,6 +869,7 @@ export default function CareSchedulePage() {
               shifts={shifts}
               members={members}
               isAdmin={isAdmin}
+              todayStr={todayStr}
               onSaveShift={handleSaveShift}
               onOpenMembers={handleOpenMembers}
             />

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ShiftRecord, FamilyMember, ShiftType } from '@/lib/types';
+import { getVietnamDateStr } from '@/lib/config';
 import ShiftHistoryView from '@/components/ShiftHistoryView';
 import {
   Users,
@@ -26,6 +27,7 @@ interface FamilySupportViewProps {
   members: FamilyMember[];
   currentMember?: FamilyMember | null;
   isAdmin?: boolean;
+  todayStr?: string;
   onSaveShift: (shift: ShiftRecord) => Promise<void>;
   onOpenMembers?: () => void;
 }
@@ -116,16 +118,19 @@ export default function FamilySupportView({
   shifts,
   members,
   currentMember,
+  todayStr: todayStrProp,
   onSaveShift,
   onOpenMembers,
 }: FamilySupportViewProps) {
   const [subTab, setSubTab] = useState<'schedule' | 'history'>('schedule');
   const [weekOffset, setWeekOffset] = useState<number>(0);
 
+  const todayStr = todayStrProp || getVietnamDateStr();
+
   // Modal / Form đăng ký qua phụ Mẹ
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
   const [editingShiftId, setEditingShiftId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(() => toDateStr(new Date()));
+  const [selectedDate, setSelectedDate] = useState<string>(() => todayStrProp || getVietnamDateStr());
   const [selectedMemberName, setSelectedMemberName] = useState<string>(
     () => currentMember?.name || members[0]?.name || ''
   );
@@ -136,13 +141,19 @@ export default function FamilySupportView({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const todayStr = useMemo(() => toDateStr(new Date()), []);
+  // Tự động đồng bộ ngày mặc định khi bước sang ngày mới (nếu form đang đóng)
+  useEffect(() => {
+    if (!isFormOpen && !editingShiftId) {
+      setSelectedDate(todayStr);
+    }
+  }, [todayStr, isFormOpen, editingShiftId]);
 
-  // Danh sách 7 ngày trong tuần đang chọn (Thứ 2 -> Chủ Nhật)
+  // Danh sách 7 ngày trong tuần đang chọn (Thứ 2 -> Chủ Nhật) dựa theo ngày Việt Nam
   const weekDays = useMemo(() => {
-    const now = new Date();
-    now.setDate(now.getDate() + weekOffset * 7);
-    const monday = getMondayOfWeek(now);
+    const [y, m, d] = todayStr.split('-').map(Number);
+    const base = new Date(y, (m || 1) - 1, d || 1, 12, 0, 0);
+    base.setDate(base.getDate() + weekOffset * 7);
+    const monday = getMondayOfWeek(base);
     const days: { dateStr: string; dayName: string; shortDate: string; isToday: boolean; isPast: boolean }[] = [];
 
     for (let i = 0; i < 7; i++) {
@@ -354,9 +365,10 @@ export default function FamilySupportView({
     }
   };
 
-  // Ngày mai & Cuối tuần này cho nút chọn nhanh trong form
+  // Ngày mai & Cuối tuần này cho nút chọn nhanh trong form (theo đúng ngày Việt Nam hiện tại)
   const quickDates = useMemo(() => {
-    const today = new Date();
+    const [y, m, d] = todayStr.split('-').map(Number);
+    const today = new Date(y, (m || 1) - 1, d || 1, 12, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
 
@@ -372,7 +384,7 @@ export default function FamilySupportView({
       { label: 'Thứ Bảy tuần này', dateStr: toDateStr(saturday) },
       { label: 'Chủ Nhật tuần này', dateStr: toDateStr(sunday) },
     ];
-  }, []);
+  }, [todayStr]);
 
   return (
     <div className="space-y-4">

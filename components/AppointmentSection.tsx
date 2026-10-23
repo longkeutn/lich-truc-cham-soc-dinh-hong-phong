@@ -3,25 +3,23 @@
 import React, { useState, useMemo } from 'react';
 import { CalendarDays, Stethoscope, Edit3, Save, X, Clock, User } from 'lucide-react';
 import { AppointmentInfo } from '@/lib/types';
+import { getVietnamDateStr, diffDaysBetweenDateStr } from '@/lib/config';
 
 interface AppointmentSectionProps {
   appointment: AppointmentInfo;
   onSave: (info: AppointmentInfo) => Promise<void>;
   isAdmin?: boolean;
+  todayStr?: string;
 }
 
 /**
- * Tính số ngày còn lại đến ngày tái khám.
+ * Tính số ngày còn lại đến ngày tái khám theo đúng múi giờ Việt Nam (UTC+7).
  * Trả về số ngày (dương = còn lại, âm = đã qua).
  */
-function daysUntil(dateStr: string): number | null {
-  if (!dateStr) return null;
-  const target = new Date(dateStr + 'T00:00:00');
-  if (isNaN(target.getTime())) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  return diff;
+function daysUntil(dateStr: string, currentTodayStr?: string): number | null {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+  const todayStr = currentTodayStr || getVietnamDateStr();
+  return diffDaysBetweenDateStr(dateStr, todayStr);
 }
 
 /**
@@ -38,6 +36,7 @@ export function AppointmentSection({
   appointment,
   onSave,
   isAdmin = false,
+  todayStr,
 }: AppointmentSectionProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -52,7 +51,7 @@ export function AppointmentSection({
   const hasNextAppointment = !!appointment.nextDate;
   const hasLastVisit = !!appointment.lastDate;
   const isEmpty = !hasNextAppointment && !hasLastVisit;
-  const daysLeft = hasNextAppointment ? daysUntil(appointment.nextDate!) : null;
+  const daysLeft = hasNextAppointment ? daysUntil(appointment.nextDate!, todayStr) : null;
 
   const startEdit = () => {
     setForm({ ...appointment });

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { PATIENT_INFO } from '@/lib/config';
+import { PATIENT_INFO, getVietnamTimeStr } from '@/lib/config';
 import {
   FamilyMember,
   PatientDailyReminder,
@@ -314,8 +314,7 @@ export default function PatientBanner({
       return;
     }
 
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const timeStr = getVietnamTimeStr();
 
     if (editingReminderId) {
       const updatedReminder: PatientDailyReminder = {

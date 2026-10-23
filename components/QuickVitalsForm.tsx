@@ -25,6 +25,10 @@ import {
   DEFAULT_RECORDER,
   detectCurrentTimeSlot,
   computeAlertLevel,
+  getVietnamDateStr,
+  getVietnamTimeStr,
+  diffDaysBetweenDateStr,
+  formatVietnamDateFull,
 } from '@/lib/config';
 import { parseVoiceVitals, ParsedVoiceVitals } from '@/lib/voiceVitalsParser';
 
@@ -35,6 +39,7 @@ interface QuickVitalsFormProps {
   bpThresholds?: BpThresholds;
   defaultRecorder?: string;
   members?: FamilyMember[];
+  todayStr?: string;
 }
 
 // Khai báo kiểu cho Web Speech API gốc của trình duyệt (Không dùng API AI ngoài)
@@ -81,24 +86,25 @@ function computeTrend(current: number, previous: number): 'up' | 'down' | 'stabl
   return 'stable';
 }
 
-/** Chuyển giờ đo gần nhất thành text tương đối cho UI */
-function formatLastEntryTime(entry: VitalsLogEntry): string {
+/** Chuyển giờ đo gần nhất thành text tương đối cho UI (theo đúng múi giờ Việt Nam UTC+7) */
+function formatLastEntryTime(entry: VitalsLogEntry, currentTodayStr?: string): string {
   const slotCfg = TIME_SLOT_CONFIG[entry.period];
   const slotLabel = slotCfg?.label || entry.period;
 
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayStr = currentTodayStr || getVietnamDateStr();
 
   if (entry.date === todayStr) {
     return `${entry.time} ${slotLabel.toLowerCase()} nay`;
   }
 
-  const entryDate = new Date(entry.date + 'T00:00:00');
-  const diffMs = today.getTime() - entryDate.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffDays = diffDaysBetweenDateStr(todayStr, entry.date);
 
   if (diffDays === 1) return `${entry.time} hôm qua`;
-  if (diffDays <= 7) return `${diffDays} ngày trước`;
+  if (diffDays > 1 && diffDays <= 7) return `${diffDays} ngày trước`;
+  const parts = (entry.date || '').split('-');
+  if (parts.length === 3) {
+    return `${entry.time} ngày ${parts[2]}/${parts[1]}`;
+  }
   return entry.date;
 }
 
@@ -283,6 +289,7 @@ export default function QuickVitalsForm({
   bpThresholds,
   defaultRecorder,
   members,
+  todayStr: todayStrProp,
 }: QuickVitalsFormProps) {
   const thresholds = bpThresholds || DEFAULT_BP_THRESHOLDS;
   const familyList = members || [];
@@ -306,15 +313,45 @@ export default function QuickVitalsForm({
   const [period, setPeriod] = useState<VitalsPeriod>('morning');
   const [mountedClient, setMountedClient] = useState(false);
 
+  // --- UI state ---
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<VitalsLogEntry | null>(null);
+
   useEffect(() => {
     setPeriod(detectCurrentTimeSlot());
     setMountedClient(true);
   }, []);
 
-  // --- UI state ---
-  const [isSaving, setIsSaving] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [editingEntry, setEditingEntry] = useState<VitalsLogEntry | null>(null);
+  // Tự động cập nhật buổi đo (Sáng/Trưa/Chiều/Tối) khi mở lại PWA từ chế độ nền hoặc khi bước sang ngày mới
+  // (Chỉ cập nhật khi người dùng đang không gõ dở số huyết áp và không đang sửa bản ghi cũ)
+  const isFormIdleRef = useRef<boolean>(true);
+  useEffect(() => {
+    isFormIdleRef.current = !sys.trim() && !dia.trim() && !editingEntry;
+  }, [sys, dia, editingEntry]);
+
+  useEffect(() => {
+    if (isFormIdleRef.current) {
+      setPeriod(detectCurrentTimeSlot());
+    }
+  }, [todayStrProp]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncSlotOnWakeUp = () => {
+      if (document.visibilityState === 'visible' && isFormIdleRef.current) {
+        setPeriod(detectCurrentTimeSlot());
+      }
+    };
+    document.addEventListener('visibilitychange', syncSlotOnWakeUp);
+    window.addEventListener('focus', syncSlotOnWakeUp);
+    window.addEventListener('pageshow', syncSlotOnWakeUp);
+    return () => {
+      document.removeEventListener('visibilitychange', syncSlotOnWakeUp);
+      window.removeEventListener('focus', syncSlotOnWakeUp);
+      window.removeEventListener('pageshow', syncSlotOnWakeUp);
+    };
+  }, []);
 
   // --- Voice Recognition state (Web Speech API + Local Vietnamese Parser) ---
   const [isListening, setIsListening] = useState(false);
@@ -460,12 +497,14 @@ export default function QuickVitalsForm({
       setIsSaving(true);
       try {
         const now = new Date();
+        // QUAN TRỌNG: Luôn lấy ngày/giờ theo đúng Múi Giờ Việt Nam (UTC+7) tại thời điểm bấm Lưu,
+        // tuyệt đối không dùng .toISOString().slice(0, 10) (UTC) hay biến ngày cũ khi treo PWA qua đêm!
+        const vnDateNow = getVietnamDateStr(now);
+        const vnTimeNow = getVietnamTimeStr(now);
         const entry: VitalsLogEntry = {
           id: editingEntry ? editingEntry.id : `vl-${Date.now()}`,
-          date: editingEntry ? editingEntry.date : now.toISOString().slice(0, 10),
-          time: editingEntry
-            ? editingEntry.time
-            : `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+          date: editingEntry ? editingEntry.date : vnDateNow,
+          time: editingEntry ? editingEntry.time : vnTimeNow,
           period: finalPeriod,
           sys: finalSys,
           dia: finalDia,
@@ -741,9 +780,16 @@ export default function QuickVitalsForm({
             <HeartPulse className="w-5 h-5 text-white" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight leading-snug">
-              Đo & Ghi Huyết Áp
-            </h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight leading-snug">
+                Đo & Ghi Huyết Áp
+              </h3>
+              {mountedClient && (
+                <span className="px-2 py-0.5 rounded-md bg-teal-50 border border-teal-200 text-teal-800 text-xs font-bold">
+                  📅 {formatVietnamDateFull(todayStrProp || getVietnamDateStr())}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-500 font-medium truncate">
               Nhập 3 số từ màn hình máy đo hoặc đọc bằng giọng nói
             </p>
@@ -785,7 +831,7 @@ export default function QuickVitalsForm({
         >
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <span className="text-xs font-semibold text-slate-500">
-              Lần đo trước ({formatLastEntryTime(lastEntry)}):
+              Lần đo trước ({formatLastEntryTime(lastEntry, todayStrProp)}):
             </span>
             <span className="text-base sm:text-lg font-extrabold text-slate-900">
               {lastEntry.sys}/{lastEntry.dia}

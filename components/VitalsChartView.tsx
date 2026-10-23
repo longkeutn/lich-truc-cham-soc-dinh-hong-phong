@@ -35,7 +35,7 @@ import type {
   AlertLevel,
   FamilyMember,
 } from '@/lib/types';
-import { TIME_SLOT_CONFIG, computeAlertLevel } from '@/lib/config';
+import { TIME_SLOT_CONFIG, computeAlertLevel, getVietnamDateOffsetStr } from '@/lib/config';
 
 // =============================================
 // TYPES & HELPERS
@@ -74,11 +74,9 @@ function fmtDateFull(dateStr: string): string {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
-/** Tính n ngày trước */
+/** Tính n ngày trước theo đúng múi giờ Việt Nam (UTC+7) */
 function daysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return getVietnamDateOffsetStr(-n);
 }
 
 /** Màu nền/border cho alert level */
