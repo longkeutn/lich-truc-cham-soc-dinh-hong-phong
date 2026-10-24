@@ -207,37 +207,65 @@ export function playNotificationSound(type: 'gentle' | 'urgent' | 'success' = 'g
   }
 }
 
+let currentTtsAudio: HTMLAudioElement | null = null;
+let currentSpeechTimer: ReturnType<typeof setTimeout> | null = null;
+
 /**
- * Đọc giọng nói Tiếng Việt (Web Speech API) rõ ràng cho người lớn tuổi
+ * Chuẩn hóa các ký hiệu y khoa và đơn vị đo sang chữ Tiếng Việt tự nhiên
+ * để giọng đọc phát âm chuẩn xác, dễ nghe cho người lớn tuổi.
  */
-export function speakVietnameseReminder(
-  text: string,
-  onEnd?: () => void
-): boolean {
+function normalizeTextForVietnameseSpeech(raw: string): string {
+  return raw
+    .replace(/(\d{2,3})\s*\/\s*(\d{2,3})\s*mmHg/gi, '$1 trên $2')
+    .replace(/mmHg/gi, '')
+    .replace(/(\d+)\s*l\/p/gi, '$1 lần một phút')
+    .replace(/(\d+)\s*mg\b/gi, '$1 mi li gam')
+    .replace(/\bHA\b/g, 'huyết áp')
+    .replace(/\bPHCN\b/g, 'phục hồi chức năng')
+    .replace(/\bBS\b/g, 'bác sĩ')
+    .replace(/[•🚨💓💊📅⏰✅✨]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Fallback đọc bằng Web Speech API của trình duyệt (khi mất mạng / offline)
+ */
+function fallbackBrowserSpeechSynthesis(text: string, onEnd?: () => void): boolean {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     onEnd?.();
     return false;
   }
   try {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'vi-VN';
-    utterance.rate = 0.92; // Đọc chậm rãi, rõ chữ cho người lớn tuổi
-    utterance.pitch = 1.0;
-
-    // Ưu tiên chọn voice Tiếng Việt nếu thiết bị có sẵn
-    const voices = window.speechSynthesis.getVoices();
-    const vnVoice = voices.find(
-      (v) => v.lang.toLowerCase().includes('vi') || v.name.toLowerCase().includes('viet')
-    );
-    if (vnVoice) {
-      utterance.voice = vnVoice;
+    if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+      window.speechSynthesis.cancel();
     }
+    currentSpeechTimer = setTimeout(() => {
+      try {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'vi-VN';
+        utterance.rate = 0.92;
+        utterance.pitch = 1.0;
 
-    utterance.onend = () => onEnd?.();
-    utterance.onerror = () => onEnd?.();
+        const voices = window.speechSynthesis.getVoices();
+        const vnVoice = voices.find(
+          (v) => v.lang.toLowerCase().includes('vi') || v.name.toLowerCase().includes('viet')
+        );
+        if (vnVoice) {
+          utterance.voice = vnVoice;
+        }
 
-    window.speechSynthesis.speak(utterance);
+        // Giữ tham chiếu toàn cục tránh bị Garbage Collector của Chrome huỷ sự kiện onend giữa chừng
+        (window as unknown as { __careUtterance?: SpeechSynthesisUtterance }).__careUtterance = utterance;
+
+        utterance.onend = () => onEnd?.();
+        utterance.onerror = () => onEnd?.();
+        window.speechSynthesis.resume();
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        onEnd?.();
+      }
+    }, 60);
     return true;
   } catch {
     onEnd?.();
@@ -245,10 +273,85 @@ export function speakVietnameseReminder(
   }
 }
 
-export function stopSpeakingVietnamese(): void {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+/**
+ * Đọc giọng nói Tiếng Việt rõ ràng cho người lớn tuổi:
+ * - Ưu tiên 1: Phát âm thanh MP3 Giọng Đọc Tiếng Việt chuẩn từ `/api/tts` (hoạt động trên 100% máy tính, Android, iPhone kể cả khi máy chưa cài gói giọng đọc tiếng Việt trong hệ điều hành).
+ * - Ưu tiên 2 (Fallback khi mất mạng): Dùng Web Speech API (`speechSynthesis`) của thiết bị.
+ */
+export function speakVietnameseReminder(
+  text: string,
+  onEnd?: () => void
+): boolean {
+  if (typeof window === 'undefined') {
+    onEnd?.();
+    return false;
+  }
+
+  stopSpeakingVietnamese();
+
+  const normalizedText = normalizeTextForVietnameseSpeech(text);
+  if (!normalizedText) {
+    onEnd?.();
+    return false;
+  }
+
   try {
-    window.speechSynthesis.cancel();
+    const audioUrl = `/api/tts?text=${encodeURIComponent(normalizedText)}`;
+    const audio = new Audio(audioUrl);
+    audio.preload = 'auto';
+    currentTtsAudio = audio;
+
+    let hasEnded = false;
+    const finishOnce = () => {
+      if (hasEnded) return;
+      hasEnded = true;
+      if (currentTtsAudio === audio) {
+        currentTtsAudio = null;
+      }
+      onEnd?.();
+    };
+
+    audio.onended = finishOnce;
+    audio.onerror = () => {
+      if (hasEnded) return;
+      if (currentTtsAudio === audio) {
+        currentTtsAudio = null;
+      }
+      // Nếu lỗi tải MP3 (ví dụ mất mạng) -> chuyển sang đọc bằng bộ đọc nội bộ của trình duyệt
+      fallbackBrowserSpeechSynthesis(normalizedText, finishOnce);
+    };
+
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {
+        if (hasEnded) return;
+        if (currentTtsAudio === audio) {
+          currentTtsAudio = null;
+        }
+        fallbackBrowserSpeechSynthesis(normalizedText, finishOnce);
+      });
+    }
+    return true;
+  } catch {
+    return fallbackBrowserSpeechSynthesis(normalizedText, onEnd);
+  }
+}
+
+export function stopSpeakingVietnamese(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (currentSpeechTimer) {
+      clearTimeout(currentSpeechTimer);
+      currentSpeechTimer = null;
+    }
+    if (currentTtsAudio) {
+      currentTtsAudio.pause();
+      currentTtsAudio.src = '';
+      currentTtsAudio = null;
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
   } catch {
     // ignore
   }

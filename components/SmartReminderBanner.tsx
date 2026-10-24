@@ -303,12 +303,13 @@ export default function SmartReminderBanner({
     }
     const text = buildVoiceReminderText();
     setIsSpeaking(true);
+    showToast?.('🔊 Đang phát giọng đọc nhắc việc Tiếng Việt...', 'info');
     const ok = speakVietnameseReminder(text, () => {
       setIsSpeaking(false);
     });
     if (!ok) {
       setIsSpeaking(false);
-      showToast?.('Trình duyệt trên thiết bị này không hỗ trợ đọc giọng nói.', 'warn');
+      showToast?.('Không thể phát giọng đọc trên thiết bị này.', 'warn');
     }
   }, [isSpeaking, buildVoiceReminderText, showToast]);
 
