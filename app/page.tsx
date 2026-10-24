@@ -508,9 +508,14 @@ export default function CareSchedulePage() {
     const handlePageShow = () => checkDateAndRefreshOnWakeUp('wakeup');
     const handleOnline = () => checkDateAndRefreshOnWakeUp('wakeup');
 
-    // Đăng ký Service Worker cho PWA
+    // Đăng ký Service Worker cho PWA (ép trình duyệt không cache file /sw.js trên iOS Safari)
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      navigator.serviceWorker
+        .register('/sw.js', { updateViaCache: 'none' })
+        .then((reg) => {
+          reg.update().catch(() => {});
+        })
+        .catch(() => {});
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
