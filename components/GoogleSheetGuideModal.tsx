@@ -30,6 +30,22 @@ const APPS_SCRIPT_5_SHEETS_CODE = `/**
 function doGet(e) {
   try {
     const action = (e && e.parameter && e.parameter.action) || 'getAllData';
+    const startDate = (e && e.parameter && e.parameter.startDate) || '';
+    const endDate = (e && e.parameter && e.parameter.endDate) || '';
+    const phase = (e && e.parameter && e.parameter.phase) || '';
+
+    // 1. Tối ưu tốc độ phản hồi (50ms): Đọc từ ScriptCache nếu chưa có thay đổi mới
+    if (action === 'getAllData' && !startDate && !endDate && !phase) {
+      try {
+        const cachedJson = CacheService.getScriptCache().get('CARE_ALL_DATA_V2');
+        if (cachedJson) {
+          return ContentService.createTextOutput(cachedJson).setMimeType(ContentService.MimeType.JSON);
+        }
+      } catch (cacheErr) {
+        // Bỏ qua nếu vượt giới hạn kích thước CacheService (100KB)
+      }
+    }
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     if (
       !ss.getSheetByName('Expenses') ||
@@ -46,11 +62,7 @@ function doGet(e) {
     }
 
     if (action === 'getAllData') {
-      const startDate = (e && e.parameter && e.parameter.startDate) || '';
-      const endDate = (e && e.parameter && e.parameter.endDate) || '';
-      const phase = (e && e.parameter && e.parameter.phase) || '';
-
-      return jsonResponse({
+      const payload = {
         success: true,
         shifts: readShifts(ss, startDate, endDate, phase),
         members: readMembers(ss),
@@ -66,7 +78,20 @@ function doGet(e) {
         appointment: readAppointment(ss),
         bpThresholds: readBpThresholds(ss),
         expenses: readExpenses(ss),
-      });
+      };
+
+      if (!startDate && !endDate && !phase) {
+        try {
+          const jsonStr = JSON.stringify(payload);
+          if (jsonStr.length < 95000) {
+            CacheService.getScriptCache().put('CARE_ALL_DATA_V2', jsonStr, 60);
+          }
+        } catch (cacheErr) {
+          // ignore
+        }
+      }
+
+      return jsonResponse(payload);
     }
 
     if (action === 'getShifts') {
@@ -242,6 +267,7 @@ function doPost(e) {
   } catch (error) {
     return jsonResponse({ success: false, error: error.toString() });
   } finally {
+    try { CacheService.getScriptCache().remove('CARE_ALL_DATA_V2'); } catch (cacheErr) {}
     lock.releaseLock();
   }
 }

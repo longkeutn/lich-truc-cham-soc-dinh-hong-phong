@@ -651,39 +651,24 @@ declare global {
   var __serverCacheManager: ServerCacheManager | undefined;
 }
 
-interface CacheEntry {
-  data: AllAppData;
-  timestamp: number;
-}
-
-// Bộ quản lý Cache In-Memory trên máy chủ (TTL = 45 giây, tự xoá tức thì khi có thao tác ghi)
+// Bộ quản lý Cache In-Memory trên máy chủ theo cơ chế Stale-While-Revalidate (Phản hồi 0ms khi mở trang)
 class ServerCacheManager {
-  private cache: Map<string, CacheEntry> = new Map();
-  private readonly TTL_MS = 45 * 1000; // 45s TTL
+  private lastSyncedAt: number = 0;
+  private readonly FRESH_TTL_MS = 90 * 1000; // 90s coi là hoàn toàn mới
 
-  private getCacheKey(startDate: string, endDate: string, phase: CarePhase): string {
-    return `${startDate}_${endDate}_${phase}`;
+  public isFresh(): boolean {
+    if (this.lastSyncedAt <= 0) return false;
+    return Date.now() - this.lastSyncedAt < this.FRESH_TTL_MS;
   }
 
-  public get(startDate: string, endDate: string, phase: CarePhase): AllAppData | null {
-    const key = this.getCacheKey(startDate, endDate, phase);
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-    const now = Date.now();
-    if (now - entry.timestamp > this.TTL_MS) {
-      this.cache.delete(key);
-      return null;
-    }
-    return entry.data;
-  }
-
-  public set(startDate: string, endDate: string, phase: CarePhase, data: AllAppData): void {
-    const key = this.getCacheKey(startDate, endDate, phase);
-    this.cache.set(key, { data, timestamp: Date.now() });
+  public markSyncedNow(): void {
+    this.lastSyncedAt = Date.now();
   }
 
   public invalidateAll(): void {
-    this.cache.clear();
+    // Giữ nguyên dữ liệu đã cập nhật tức thì trong memoryStore, chỉ đánh dấu hết hạn mềm
+    // để lần đọc thông thường vẫn trả ngay 0ms từ RAM đồng thời làm mới ngầm
+    this.lastSyncedAt = Date.now();
   }
 }
 
@@ -782,7 +767,126 @@ async function fetchJsonFromWebappGet(urlStr: string, timeoutMs: number = 20000)
 }
 
 // ==========================================
-// TẢI TOÀN BỘ DỮ LIỆU ĐỘNG TỪ GOOGLE SHEETS
+// ĐỒNG BỘ DỮ LIỆU TỪ GOOGLE APPS SCRIPT VÀO MEMORY STORE
+// ==========================================
+async function syncMemoryStoreFromWebapp(): Promise<boolean> {
+  const webappUrl = getWebappUrl();
+  if (!webappUrl) return false;
+
+  try {
+    if (!inflightGetAllDataPromise) {
+      const url = new URL(webappUrl);
+      url.searchParams.set('action', 'getAllData');
+      inflightGetAllDataPromise = fetchJsonFromWebappGet(url.toString(), 18000).finally(() => {
+        inflightGetAllDataPromise = null;
+      });
+    }
+
+    const data = await inflightGetAllDataPromise;
+
+    if (data && data.success) {
+      if (Array.isArray(data.members)) {
+        memoryStore.setMembers(data.members as FamilyMember[]);
+      }
+      if (
+        data.patientInfo &&
+        typeof data.patientInfo === 'object' &&
+        (data.patientInfo as PatientInfo).name
+      ) {
+        memoryStore.setPatientInfo(unpackPatientInfoFromSheet(data.patientInfo as PatientInfo));
+      }
+      if (data.adminPin) {
+        memoryStore.setAdminPin(String(data.adminPin));
+      } else if (
+        data.settings &&
+        typeof data.settings === 'object' &&
+        (data.settings as Record<string, unknown>).adminPin
+      ) {
+        memoryStore.setAdminPin(String((data.settings as Record<string, unknown>).adminPin));
+      }
+      if (data.expensePin) {
+        memoryStore.setExpensePin(String(data.expensePin));
+      }
+      if (Array.isArray(data.contacts)) {
+        memoryStore.setContacts(data.contacts as EmergencyContact[]);
+      }
+
+      // Phân tách Reminders thông thường và các bản ghi Sổ Thu Chi lưu tương thích ngược trên Sheet
+      const fallbackExpenses: ExpenseEntry[] = [];
+      if (Array.isArray(data.reminders)) {
+        const cleanReminders: PatientDailyReminder[] = [];
+        for (const rawRem of data.reminders as PatientDailyReminder[]) {
+          const remId = String(rawRem.id || '').trim();
+          if (remId === 'sys_expense_pin') {
+            if (rawRem.content && String(rawRem.content).trim()) {
+              memoryStore.setExpensePin(String(rawRem.content).trim());
+            }
+          } else if (remId.startsWith('exp_')) {
+            try {
+              const parsedExp = JSON.parse(String(rawRem.content || '')) as ExpenseEntry;
+              if (parsedExp && parsedExp.id && typeof parsedExp.amount === 'number') {
+                fallbackExpenses.push(parsedExp);
+              }
+            } catch {
+              // ignore malformed json
+            }
+          } else {
+            cleanReminders.push(rawRem);
+          }
+        }
+        memoryStore.setReminders(cleanReminders);
+      }
+
+      // Nạp danh sách Thu Chi từ Sheet Expenses (nếu Code.gs mới) kết hợp bản ghi tương thích ngược
+      const expenseMap = new Map<string, ExpenseEntry>();
+      for (const fe of fallbackExpenses) {
+        expenseMap.set(fe.id, fe);
+      }
+      if (Array.isArray(data.expenses)) {
+        for (const se of data.expenses as ExpenseEntry[]) {
+          if (se && se.id) {
+            expenseMap.set(se.id, se);
+          }
+        }
+      }
+      memoryStore.setExpenses(Array.from(expenseMap.values()));
+
+      // Nạp toàn bộ ca trực thực tế từ Google Sheets (cả phase1 và phase2 trong 1 lần đọc)
+      memoryStore.clearShifts();
+      if (Array.isArray(data.shifts)) {
+        (data.shifts as ShiftRecord[]).forEach((s: ShiftRecord) => memoryStore.saveShift(s));
+      }
+
+      // V2.0: Nạp dữ liệu mới từ Google Sheets (kể cả khi mảng rỗng)
+      if (Array.isArray(data.vitalsLog)) {
+        memoryStore.setVitalsLog(data.vitalsLog as VitalsLogEntry[]);
+      }
+      if (Array.isArray(data.careRoutines)) {
+        memoryStore.setCareRoutines(data.careRoutines as CareRoutine[]);
+      }
+      if (Array.isArray(data.dailyLogs)) {
+        memoryStore.setDailyLogs(data.dailyLogs as DailyLog[]);
+      }
+      if (data.appointment && typeof data.appointment === 'object') {
+        memoryStore.setAppointment(data.appointment as AppointmentInfo);
+      }
+      if (data.bpThresholds && typeof data.bpThresholds === 'object') {
+        memoryStore.setBpThresholds(data.bpThresholds as BpThresholds);
+      }
+
+      memoryStore.markSynced(true);
+      serverCacheManager.markSyncedNow();
+      return true;
+    }
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.warn('Lỗi kết nối Apps Script Web App getAllData:', error.message);
+  }
+  return false;
+}
+
+// ==========================================
+// TẢI TOÀN BỘ DỮ LIỆU ĐỘNG TỪ GOOGLE SHEETS (STALE-WHILE-REVALIDATE: 0MS KHI ĐÃ CÓ DỮ LIỆU)
 // ==========================================
 export async function fetchAppDataFromStorage(
   startDate: string,
@@ -790,136 +894,17 @@ export async function fetchAppDataFromStorage(
   phase: CarePhase,
   forceRefresh: boolean = false
 ): Promise<AllAppData> {
-  // 1. Kiểm tra cache nếu không yêu cầu làm mới bắt buộc và đã đồng bộ với Sheet
+  // 1. Nếu máy chủ đã đồng bộ dữ liệu trước đó và không ép làm mới cứng -> Trả ngay lập tức trong 0ms!
   if (!forceRefresh && memoryStore.isSynced()) {
-    const cached = serverCacheManager.get(startDate, endDate, phase);
-    if (cached) {
-      return cached;
+    if (!serverCacheManager.isFresh()) {
+      // Nếu dữ liệu đã quá 90 giây -> kích hoạt làm mới ngầm từ Google Sheets mà không bắt người dùng chờ
+      void syncMemoryStoreFromWebapp();
     }
+    return memoryStore.getAllData(startDate, endDate, phase);
   }
 
-  const webappUrl = getWebappUrl();
-
-  // 2. Truy vấn dữ liệu trực tiếp từ Google Apps Script Web App (1 request duy nhất)
-  if (webappUrl) {
-    try {
-      if (!inflightGetAllDataPromise) {
-        const url = new URL(webappUrl);
-        url.searchParams.set('action', 'getAllData');
-        inflightGetAllDataPromise = fetchJsonFromWebappGet(url.toString(), 20000).finally(() => {
-          inflightGetAllDataPromise = null;
-        });
-      }
-
-      const data = await inflightGetAllDataPromise;
-
-      if (data && data.success) {
-        if (Array.isArray(data.members)) {
-          memoryStore.setMembers(data.members as FamilyMember[]);
-        }
-        if (data.patientInfo && typeof data.patientInfo === 'object' && (data.patientInfo as PatientInfo).name) {
-          memoryStore.setPatientInfo(unpackPatientInfoFromSheet(data.patientInfo as PatientInfo));
-        }
-        if (data.adminPin) {
-          memoryStore.setAdminPin(String(data.adminPin));
-        } else if (data.settings && typeof data.settings === 'object' && (data.settings as Record<string, unknown>).adminPin) {
-          memoryStore.setAdminPin(String((data.settings as Record<string, unknown>).adminPin));
-        }
-        if (data.expensePin) {
-          memoryStore.setExpensePin(String(data.expensePin));
-        }
-        if (Array.isArray(data.contacts)) {
-          memoryStore.setContacts(data.contacts as EmergencyContact[]);
-        }
-
-        // Phân tách Reminders thông thường và các bản ghi Sổ Thu Chi lưu tương thích ngược trên Sheet
-        const fallbackExpenses: ExpenseEntry[] = [];
-        if (Array.isArray(data.reminders)) {
-          const cleanReminders: PatientDailyReminder[] = [];
-          for (const rawRem of data.reminders as PatientDailyReminder[]) {
-            const remId = String(rawRem.id || '').trim();
-            if (remId === 'sys_expense_pin') {
-              if (rawRem.content && String(rawRem.content).trim()) {
-                memoryStore.setExpensePin(String(rawRem.content).trim());
-              }
-            } else if (remId.startsWith('exp_')) {
-              try {
-                const parsedExp = JSON.parse(String(rawRem.content || '')) as ExpenseEntry;
-                if (parsedExp && parsedExp.id && typeof parsedExp.amount === 'number') {
-                  fallbackExpenses.push(parsedExp);
-                }
-              } catch {
-                // ignore malformed json
-              }
-            } else {
-              cleanReminders.push(rawRem);
-            }
-          }
-          memoryStore.setReminders(cleanReminders);
-        }
-
-        // Nạp danh sách Thu Chi từ Sheet Expenses (nếu Code.gs mới) kết hợp bản ghi tương thích ngược
-        const expenseMap = new Map<string, ExpenseEntry>();
-        for (const fe of fallbackExpenses) {
-          expenseMap.set(fe.id, fe);
-        }
-        if (Array.isArray(data.expenses)) {
-          for (const se of data.expenses as ExpenseEntry[]) {
-            if (se && se.id) {
-              expenseMap.set(se.id, se);
-            }
-          }
-        }
-        memoryStore.setExpenses(Array.from(expenseMap.values()));
-
-        // Nạp toàn bộ ca trực thực tế từ Google Sheets (cả phase1 và phase2 trong 1 lần đọc)
-        memoryStore.clearShifts();
-        if (Array.isArray(data.shifts)) {
-          (data.shifts as ShiftRecord[]).forEach((s: ShiftRecord) => memoryStore.saveShift(s));
-        }
-
-        // V2.0: Nạp dữ liệu mới từ Google Sheets (kể cả khi mảng rỗng)
-        if (Array.isArray(data.vitalsLog)) {
-          memoryStore.setVitalsLog(data.vitalsLog as VitalsLogEntry[]);
-        }
-        if (Array.isArray(data.careRoutines)) {
-          memoryStore.setCareRoutines(data.careRoutines as CareRoutine[]);
-        }
-        if (Array.isArray(data.dailyLogs)) {
-          memoryStore.setDailyLogs(data.dailyLogs as DailyLog[]);
-        }
-        if (data.appointment && typeof data.appointment === 'object') {
-          memoryStore.setAppointment(data.appointment as AppointmentInfo);
-        }
-        if (data.bpThresholds && typeof data.bpThresholds === 'object') {
-          memoryStore.setBpThresholds(data.bpThresholds as BpThresholds);
-        }
-
-        memoryStore.markSynced(true);
-
-        const freshData: AllAppData = {
-          shifts: memoryStore.getShifts(startDate, endDate, phase),
-          members: memoryStore.getMembers(),
-          patientInfo: memoryStore.getPatientInfo(),
-          contacts: memoryStore.getContacts(),
-          reminders: memoryStore.getReminders(),
-          settings: {
-            ...memoryStore.getSettings(),
-            googleSheetsConnected: true,
-          },
-        };
-
-        // CHỈ lưu vào Server Cache khi đã kết nối và đọc thành công!
-        serverCacheManager.set(startDate, endDate, phase, freshData);
-        return freshData;
-      }
-    } catch (err: unknown) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      console.warn('Lỗi kết nối Apps Script Web App getAllData:', error.message);
-    }
-  }
-
-  // 3. Dự phòng: Memory Store (KHÔNG cache dữ liệu thất bại để lần đọc kế tiếp thử kết nối lại ngay)
+  // 2. Chỉ đợi trực tiếp Google Sheets khi máy chủ mới khởi động lần đầu hoặc người dùng bấm "Làm mới" (forceRefresh = true)
+  await syncMemoryStoreFromWebapp();
   return memoryStore.getAllData(startDate, endDate, phase);
 }
 

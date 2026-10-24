@@ -318,8 +318,95 @@ export default function CareSchedulePage() {
       todayStrRef.current = currentVnDate;
       setTodayStr(currentVnDate);
     }
-    loadAllData(false, false);
+
+    // 1. STALE-WHILE-REVALIDATE: Đọc ngay bản chụp dữ liệu gần nhất từ máy (0ms) để giao diện hiện tức thì
+    let restoredFromSnapshot = false;
+    try {
+      const rawSnap = localStorage.getItem('care_app_snapshot_v2');
+      if (rawSnap) {
+        const snap = JSON.parse(rawSnap);
+        if (snap && typeof snap === 'object') {
+          if (Array.isArray(snap.shifts)) setShifts(snap.shifts);
+          if (Array.isArray(snap.members)) setMembers(snap.members);
+          if (snap.patientInfo && snap.patientInfo.name) setPatientInfo(snap.patientInfo);
+          if (Array.isArray(snap.contacts)) setContacts(snap.contacts);
+          if (Array.isArray(snap.reminders)) setReminders(snap.reminders);
+          if (snap.settings) setSettings(snap.settings);
+          if (Array.isArray(snap.vitalsLog)) setVitalsLog(snap.vitalsLog);
+          if (Array.isArray(snap.careRoutines)) setCareRoutines(snap.careRoutines);
+          if (Array.isArray(snap.dailyLogs)) setDailyLogs(snap.dailyLogs);
+          if (Array.isArray(snap.stages) && snap.stages.length > 0) setStages(snap.stages);
+          if (snap.appointment) setAppointment(snap.appointment);
+          if (snap.bpThresholds) setBpThresholds(snap.bpThresholds);
+          if (Array.isArray(snap.expenses)) setExpenses(snap.expenses);
+          setHasInitialLoaded(true);
+          setIsLoading(false);
+          restoredFromSnapshot = true;
+        }
+      }
+    } catch {
+      // ignore snapshot parse errors
+    }
+
+    // 2. Nếu đã hiển thị tức thì từ bản chụp -> đồng bộ ngầm (silent = true) để lấy dữ liệu mới nhất từ Google Sheets
+    void loadAllData(false, restoredFromSnapshot);
   }, [loadAllData]);
+
+  // Lưu tự động bản chụp dữ liệu mới nhất vào localStorage (debounce 350ms, chống vượt Quota)
+  useEffect(() => {
+    if (!hasInitialLoaded || typeof window === 'undefined') return;
+    const timer = setTimeout(() => {
+      const snapshotPayload = {
+        savedAt: Date.now(),
+        shifts,
+        members,
+        patientInfo,
+        contacts,
+        reminders,
+        settings,
+        vitalsLog,
+        careRoutines,
+        dailyLogs,
+        stages,
+        appointment,
+        bpThresholds,
+        expenses,
+      };
+      try {
+        localStorage.setItem('care_app_snapshot_v2', JSON.stringify(snapshotPayload));
+      } catch {
+        // Nếu ảnh thuốc Base64 quá nặng làm đầy localStorage -> lưu bản rút gọn ảnh lớn
+        try {
+          const compactPayload = {
+            ...snapshotPayload,
+            careRoutines: careRoutines.map((r) => ({
+              ...r,
+              imageUrl: r.imageUrl && r.imageUrl.length > 20000 ? '' : r.imageUrl,
+            })),
+          };
+          localStorage.setItem('care_app_snapshot_v2', JSON.stringify(compactPayload));
+        } catch {
+          // ignore
+        }
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [
+    hasInitialLoaded,
+    shifts,
+    members,
+    patientInfo,
+    contacts,
+    reminders,
+    settings,
+    vitalsLog,
+    careRoutines,
+    dailyLogs,
+    stages,
+    appointment,
+    bpThresholds,
+    expenses,
+  ]);
 
   // ===== CƠ CHẾ TỰ ĐỘNG NHẢY NGÀY & TỰ ĐỘNG LÀM MỚI DỮ LIỆU & TỰ ĐỘNG CẬP NHẬT MÃ NGUỒN PWA =====
   // Khắc phục triệt để việc cài PWA trên điện thoại và không tắt app qua nhiều ngày
