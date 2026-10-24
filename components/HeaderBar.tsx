@@ -14,6 +14,7 @@ import {
   Smartphone,
   Type,
   Wallet,
+  Bell,
 } from 'lucide-react';
 
 // V2.2: 4 tab chính (Tab Thu Chi bảo mật bằng mã PIN riêng biệt)
@@ -25,6 +26,7 @@ interface HeaderBarProps {
   onOpenGuide: () => void;
   onOpenEmergencyContacts: () => void;
   onOpenInstallApp?: () => void;
+  onOpenNotificationSettings?: () => void;
   patientInfo?: PatientInfo;
   isAdmin?: boolean;
   isExpenseUnlocked?: boolean;
@@ -39,6 +41,7 @@ export default function HeaderBar({
   onOpenGuide,
   onOpenEmergencyContacts,
   onOpenInstallApp,
+  onOpenNotificationSettings,
   patientInfo,
   isAdmin,
   isExpenseUnlocked,
@@ -224,6 +227,20 @@ export default function HeaderBar({
                   <span className="hidden sm:inline">
                     {isExpenseUnlocked ? 'Admin' : isAdmin ? 'Danh mục' : 'Admin'}
                   </span>
+                </button>
+              )}
+
+              {/* Nút Cài Đặt Thông Báo Đẩy & Giờ Nhắc Việc */}
+              {onOpenNotificationSettings && (
+                <button
+                  type="button"
+                  onClick={onOpenNotificationSettings}
+                  id="btn-open-notification-settings"
+                  className="inline-flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold transition min-h-[38px] min-w-[38px] sm:min-h-[40px] cursor-pointer shrink-0"
+                  title="Cài đặt Thông báo đẩy trên điện thoại & Hẹn giờ nhắc uống thuốc/đo HA"
+                >
+                  <Bell className="w-4 h-4 text-teal-700 shrink-0" />
+                  <span className="hidden lg:inline">Thông báo</span>
                 </button>
               )}
 

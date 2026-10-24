@@ -7,6 +7,13 @@ import PatientBanner from '@/components/PatientBanner';
 import QuickVitalsForm from '@/components/QuickVitalsForm';
 import DailyRoutineView from '@/components/DailyRoutineView';
 import { AppointmentSection } from '@/components/AppointmentSection';
+import SmartReminderBanner from '@/components/SmartReminderBanner';
+import {
+  NotificationPreferences,
+  DEFAULT_NOTIFICATION_PREFS,
+  loadNotificationPrefs,
+  saveNotificationPrefs,
+} from '@/lib/notifications';
 
 // Lazy-load các Tab phụ & Modal nặng để trang chính tải tức thì trên điện thoại
 const VitalsChartView = dynamic(
@@ -51,6 +58,9 @@ const MembersManagementModal = dynamic(() =>
   import('@/components/MembersManagementModal').then((m) => m.MembersManagementModal)
 );
 const PwaInstallModal = dynamic(() => import('@/components/PwaInstallModal'));
+const NotificationSettingsModal = dynamic(
+  () => import('@/components/NotificationSettingsModal')
+);
 
 import {
   CarePhase,
@@ -162,6 +172,10 @@ export default function CareSchedulePage() {
   const [guideModalOpen, setGuideModalOpen] = useState<boolean>(false);
   const [emergencyModalOpen, setEmergencyModalOpen] = useState<boolean>(false);
   const [installPwaModalOpen, setInstallPwaModalOpen] = useState<boolean>(false);
+  const [notifSettingsModalOpen, setNotifSettingsModalOpen] = useState<boolean>(false);
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(
+    DEFAULT_NOTIFICATION_PREFS
+  );
   const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'warn' } | null>(null);
 
   // Admin Security & Management Modals State
@@ -182,6 +196,7 @@ export default function CareSchedulePage() {
     try {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('care_app_member_id');
+        setNotificationPrefs(loadNotificationPrefs());
         if (sessionStorage.getItem('care_admin_auth') === 'true') {
           setIsAdmin(true);
         }
@@ -209,6 +224,11 @@ export default function CareSchedulePage() {
     setTimeout(() => {
       setNotification(null);
     }, 3000);
+  }, []);
+
+  const handleSaveNotificationPrefs = useCallback((nextPrefs: NotificationPreferences) => {
+    setNotificationPrefs(nextPrefs);
+    saveNotificationPrefs(nextPrefs);
   }, []);
 
   // ===== Ngày hiện tại theo đúng Múi Giờ Việt Nam (UTC+7) — Tự động nhảy ngày khi treo PWA qua đêm =====
@@ -916,6 +936,7 @@ export default function CareSchedulePage() {
         onOpenGuide={handleOpenGuide}
         onOpenEmergencyContacts={() => setEmergencyModalOpen(true)}
         onOpenInstallApp={() => setInstallPwaModalOpen(true)}
+        onOpenNotificationSettings={() => setNotifSettingsModalOpen(true)}
         patientInfo={patientInfo}
         isAdmin={isAdmin}
         isExpenseUnlocked={isExpenseUnlocked}
@@ -951,6 +972,22 @@ export default function CareSchedulePage() {
 
         {/* ===== NỘI DUNG THEO TAB (Giữ DOM sau khi mở để chuyển tab phản hồi 0ms) ===== */}
         <div className={activeView === 'today' ? 'space-y-3.5' : 'hidden'}>
+          {/* Hộp Nhắc Việc Thông Minh theo Khung Giờ & Phát Âm Báo / Giọng Nói Tiếng Việt + Thông Báo Đẩy PWA */}
+          <SmartReminderBanner
+            vitalsLog={vitalsLog}
+            bpThresholds={bpThresholds}
+            activeRoutines={activeRoutines}
+            dailyLogs={dailyLogs}
+            appointment={appointment}
+            todayStr={todayStr}
+            defaultRecorder={recorderName}
+            prefs={notificationPrefs}
+            hasInitialLoaded={hasInitialLoaded}
+            onToggleDailyLog={handleToggleDailyLog}
+            onOpenSettings={() => setNotifSettingsModalOpen(true)}
+            showToast={showToast}
+          />
+
           {/* Thanh điều hướng nhanh 3 khu vực thao tác trong ngày */}
           <div className="grid grid-cols-3 gap-2">
             <a
@@ -1112,6 +1149,17 @@ export default function CareSchedulePage() {
         <PwaInstallModal
           isOpen={installPwaModalOpen}
           onClose={() => setInstallPwaModalOpen(false)}
+        />
+      )}
+
+      {notifSettingsModalOpen && (
+        <NotificationSettingsModal
+          isOpen={notifSettingsModalOpen}
+          onClose={() => setNotifSettingsModalOpen(false)}
+          prefs={notificationPrefs}
+          onSavePrefs={handleSaveNotificationPrefs}
+          onOpenInstallPwa={() => setInstallPwaModalOpen(true)}
+          showToast={showToast}
         />
       )}
 
