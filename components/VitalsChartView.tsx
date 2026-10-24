@@ -56,6 +56,7 @@ import {
   normalizeTimeStr,
   extractRoutineStartDateStr,
 } from '@/lib/config';
+import ClinicalVitalsReportSection from './ClinicalVitalsReportSection';
 
 // =============================================
 // TYPES & HELPERS
@@ -1108,22 +1109,38 @@ export function VitalsChartView({
           : dateRange === '30d'
             ? '30 ngày qua'
             : 'Toàn bộ lịch sử';
+    const todayStr = getVietnamDateStr();
     const lines: string[] = [];
-    lines.push(`🩺 BÁO CÁO THEO DÕI SỨC KHỎE TẠI NHÀ — BỆNH NHÂN: ${patientName.toUpperCase()}`);
-    lines.push(`📅 Kỳ tổng hợp: ${rangeLabel} (Cập nhật ngày ${fmtDateFull(getVietnamDateStr())})`);
+    lines.push(`🩺 BÁO CÁO ĐÁNH GIÁ SỨC KHỎE & HUYẾT ĐỘNG TẠI NHÀ — BỆNH NHÂN: ${patientName.toUpperCase()}`);
+    lines.push(`📅 Kỳ tổng hợp: ${rangeLabel} (Cập nhật ngày ${fmtDateFull(todayStr)})`);
     lines.push(`────────────────────`);
 
-    lines.push(`1️⃣ CHỈ SỐ HUYẾT ÁP (${summaryStats.periodReadingsCount} lần đo):`);
+    // Tính nhanh Độ lệch chuẩn SD Tâm thu & Chênh lệch Sáng - Tối cho báo cáo Bác sĩ
+    const periodEntries = filteredLog.length > 0 ? filteredLog : normalizedVitals;
+    let sdSysVal: number | null = null;
+    if (periodEntries.length >= 2 && summaryStats.avgSys !== null) {
+      const mean = summaryStats.avgSys;
+      const variance =
+        periodEntries.reduce((s, e) => s + Math.pow(e.sys - mean, 2), 0) /
+        (periodEntries.length - 1);
+      sdSysVal = Math.round(Math.sqrt(variance) * 10) / 10;
+    }
+
+    lines.push(`1️⃣ CHỈ SỐ HUYẾT ÁP & HUYẾT ĐỘNG HỌC (${summaryStats.periodReadingsCount} lần đo):`);
     if (summaryStats.avgSys !== null) {
-      lines.push(`• Trung bình: ${summaryStats.avgSys}/${summaryStats.avgDia} mmHg`);
+      lines.push(
+        `• Trung bình kỳ: ${summaryStats.avgSys}/${summaryStats.avgDia} mmHg${
+          sdSysVal !== null ? ` (Độ lệch chuẩn biến thiên SD = ±${sdSysVal} mmHg)` : ''
+        }`
+      );
       lines.push(
         `• Biên độ dao động: Tâm thu ${summaryStats.minSys}–${summaryStats.maxSys} mmHg | Tâm trương ${summaryStats.minDia}–${summaryStats.maxDia} mmHg`
       );
       lines.push(
-        `• Hiệu áp TB (SYS−DIA): ${summaryStats.avgPP} mmHg | HA trung bình (MAP): ${summaryStats.avgMAP} mmHg`
+        `• Áp lực tưới máu não TB (MAP): ${summaryStats.avgMAP} mmHg (chuẩn 75–95) | Hiệu áp (PP = SYS−DIA): ${summaryStats.avgPP} mmHg (chuẩn 40–55)`
       );
       lines.push(
-        `• Tỷ lệ trong ngưỡng an toàn: ${summaryStats.inRangePct}% (${summaryStats.normalCount}/${summaryStats.periodReadingsCount} lần đo)`
+        `• Tỷ lệ đạt đích điều trị (TIR): ${summaryStats.inRangePct}% (${summaryStats.normalCount}/${summaryStats.periodReadingsCount} lần đo trong ngưỡng)`
       );
     }
     if (summaryStats.latest) {
@@ -1134,31 +1151,75 @@ export function VitalsChartView({
       );
     }
 
+    // So sánh nhanh đa mốc (Hôm nay / 3 ngày / 7 ngày / 30 ngày)
+    const milestonesQuick = [
+      { label: 'Hôm nay', cutoff: todayStr },
+      { label: '3 ngày gần nhất', cutoff: getVietnamDateOffsetStr(-2) },
+      { label: '7 ngày qua', cutoff: getVietnamDateOffsetStr(-6) },
+      { label: '30 ngày qua', cutoff: getVietnamDateOffsetStr(-29) },
+    ];
+    lines.push(`• Đối chiếu đa mốc thời gian:`);
+    for (const mq of milestonesQuick) {
+      const mItems = normalizedVitals.filter((v) => v.date >= mq.cutoff);
+      if (mItems.length > 0) {
+        const mSys = Math.round(mItems.reduce((s, x) => s + x.sys, 0) / mItems.length);
+        const mDia = Math.round(mItems.reduce((s, x) => s + x.dia, 0) / mItems.length);
+        const pItems = mItems.filter((x) => x.pulse && x.pulse > 0);
+        const mPulse =
+          pItems.length > 0
+            ? Math.round(pItems.reduce((s, x) => s + (x.pulse || 0), 0) / pItems.length)
+            : null;
+        lines.push(
+          `  - ${mq.label} (${mItems.length} lần): TB ${mSys}/${mDia} mmHg${
+            mPulse ? ` · Mạch TB ${mPulse} bpm` : ''
+          }`
+        );
+      }
+    }
+
     lines.push(`────────────────────`);
-    lines.push(`2️⃣ NHỊP TIM (MẠCH) & BIẾN THIÊN THEO BUỔI:`);
+    lines.push(`2️⃣ NHỊP TIM (MẠCH) & NHỊP SINH HỌC 4 KHUNG GIỜ TRONG NGÀY:`);
     if (summaryStats.avgPulse !== null) {
       lines.push(
         `• Nhịp tim TB: ${summaryStats.avgPulse} bpm (Dao động: ${summaryStats.minPulse}–${summaryStats.maxPulse} bpm)`
       );
       if (summaryStats.slowPulseCount > 0) {
         lines.push(
-          `  ⚠️ Lưu ý: Có ${summaryStats.slowPulseCount} lần đo nhịp tim dưới 55 bpm (nhịp chậm, cần báo bác sĩ xem xét).`
+          `  ⚠️ Lưu ý lâm sàng: Có ${summaryStats.slowPulseCount} lần đo nhịp tim dưới 55 bpm (nhịp chậm, cần báo bác sĩ xem xét thuốc).`
         );
       }
       if (summaryStats.fastPulseCount > 0) {
-        lines.push(`  ⚠️ Lưu ý: Có ${summaryStats.fastPulseCount} lần đo nhịp tim ≥ 100 bpm.`);
+        lines.push(`  ⚠️ Lưu ý lâm sàng: Có ${summaryStats.fastPulseCount} lần đo nhịp tim ≥ 100 bpm.`);
       }
     }
     ALL_SLOTS.forEach((slot) => {
       const p = summaryStats.byPeriod[slot];
       if (p.count > 0) {
         lines.push(
-          `• ${periodLabel(slot)} (${p.count} lần): TB ${p.avgSys}/${p.avgDia} mmHg${
+          `• ${periodLabel(slot)} (${p.count} lần): TB ${p.avgSys}/${p.avgDia} mmHg (Cao nhất ${p.maxSys})${
             p.avgPulse ? ` · Mạch TB ${p.avgPulse} bpm` : ''
           }`
         );
       }
     });
+    if (
+      summaryStats.byPeriod.morning.avgSys !== null &&
+      summaryStats.byPeriod.evening.avgSys !== null
+    ) {
+      const meDiff =
+        summaryStats.byPeriod.morning.avgSys - summaryStats.byPeriod.evening.avgSys;
+      lines.push(
+        `• Chênh lệch Sáng – Tối (Morning vs Evening): ${
+          meDiff >= 0 ? `+${meDiff}` : meDiff
+        } mmHg (${
+          Math.abs(meDiff) <= 10
+            ? 'Nhịp ngày đêm cân bằng'
+            : meDiff > 10
+            ? 'Xu hướng cao buổi Sáng'
+            : 'Xu hướng tăng về Chiều Tối'
+        })`
+      );
+    }
 
     lines.push(`────────────────────`);
     lines.push(
@@ -2171,6 +2232,14 @@ export function VitalsChartView({
           </div>
         )}
       </div>
+
+      {/* ===== SECTION 3.5: BÁO CÁO ĐÁNH GIÁ Y KHOA HUYẾT ĐỘNG & ĐA MỐC THỜI GIAN ===== */}
+      <ClinicalVitalsReportSection
+        vitalsLog={vitalsLog}
+        bpThresholds={bpThresholds}
+        patientName={patientName}
+        showToast={showToast}
+      />
 
       {/* ===== SECTION 4: BẢNG NHẬT KÝ ĐỐI CHIẾU HÀNG NGÀY (GỌN GÀNG, GOM NHÓM THEO ĐẦU VIỆC, MẶC ĐỊNH 5 NGÀY) ===== */}
       {(() => {
