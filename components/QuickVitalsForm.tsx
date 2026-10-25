@@ -25,6 +25,7 @@ import {
   DEFAULT_RECORDER,
   detectCurrentTimeSlot,
   computeAlertLevel,
+  evaluateVitalReading,
   getVietnamDateStr,
   getVietnamTimeStr,
   diffDaysBetweenDateStr,
@@ -424,14 +425,28 @@ export default function QuickVitalsForm({
     };
   }, [cleanupRecognitionInstance]);
 
-  // --- Derived values ---
+  // --- Derived values (Đồng bộ chuẩn đánh giá lâm sàng toàn hệ thống) ---
   const sysNum = parseInt(sys, 10);
   const diaNum = parseInt(dia, 10);
+  const pulseNum = pulse ? parseInt(pulse, 10) : undefined;
   const hasBothValues = !isNaN(sysNum) && !isNaN(diaNum) && sysNum > 0 && diaNum > 0;
 
-  const currentAlertLevel: AlertLevel = hasBothValues
-    ? computeAlertLevel(sysNum, diaNum, thresholds)
+  const currentEvaluation = hasBothValues
+    ? evaluateVitalReading(
+        {
+          sys: sysNum,
+          dia: diaNum,
+          pulse: pulseNum && !isNaN(pulseNum) && pulseNum > 0 ? pulseNum : undefined,
+        },
+        thresholds
+      )
+    : null;
+
+  const currentAlertLevel: AlertLevel = currentEvaluation
+    ? currentEvaluation.overallAlertLevel
     : 'normal';
+
+  const lastEntryEval = lastEntry ? evaluateVitalReading(lastEntry, thresholds) : null;
 
   const alertDisplay = ALERT_DISPLAY[currentAlertLevel];
 
@@ -492,7 +507,7 @@ export default function QuickVitalsForm({
           ? overrideValues.noteVal?.trim() || undefined
           : note.trim() || undefined;
       const finalPeriod = overrideValues?.periodVal || period;
-      const finalAlert = computeAlertLevel(finalSys, finalDia, thresholds);
+      const finalAlert = computeAlertLevel(finalSys, finalDia, thresholds, finalPulse);
 
       setIsSaving(true);
       try {
@@ -825,9 +840,9 @@ export default function QuickVitalsForm({
       </div>
 
       {/* ===== THANH ĐỐI CHIẾU LẦN ĐO GẦN NHẤT + NÚT SỬA LẠI NẾU NHẬP NHẦM ===== */}
-      {lastEntry && (
+      {lastEntry && lastEntryEval && (
         <div
-          className={`rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2 flex-wrap ${getLastEntryBorderColor(lastEntry.alertLevel)}`}
+          className={`rounded-xl border px-3 py-2.5 flex items-center justify-between gap-2 flex-wrap ${getLastEntryBorderColor(lastEntryEval.overallAlertLevel)}`}
         >
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <span className="text-xs font-semibold text-slate-500">
@@ -837,9 +852,19 @@ export default function QuickVitalsForm({
               {lastEntry.sys}/{lastEntry.dia}
               <span className="text-xs font-semibold text-slate-500 ml-0.5">mmHg</span>
             </span>
+            <span
+              className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${lastEntryEval.bp.badgeClass}`}
+            >
+              {lastEntryEval.bp.shortLabel}
+            </span>
             {lastEntry.pulse && (
-              <span className="text-xs sm:text-sm font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200/80">
+              <span
+                className={`text-xs font-bold px-2 py-0.5 rounded-md border ${lastEntryEval.pulse.badgeClass}`}
+              >
                 Mạch {lastEntry.pulse}
+                {lastEntryEval.pulse.alertLevel !== 'normal'
+                  ? ` • ${lastEntryEval.pulse.shortLabel}`
+                  : ''}
               </span>
             )}
           </div>
@@ -1275,15 +1300,22 @@ export default function QuickVitalsForm({
         </button>
       )}
 
-      {/* ===== CẢNH BÁO HUYẾT ÁP CAO/THẤP ===== */}
-      {hasBothValues && currentAlertLevel !== 'normal' && (
+      {/* ===== CẢNH BÁO / ĐÁNH GIÁ LÂM SÀNG TỨC THỜI KHI NHẬP (HUYẾT ÁP & MẠCH) ===== */}
+      {hasBothValues && currentEvaluation && currentAlertLevel !== 'normal' && (
         <div
-          className={`rounded-2xl border-2 p-4 flex items-start gap-3 animate-in fade-in duration-300 ${alertDisplay.bannerBg} ${alertDisplay.bannerBorder}`}
+          className={`rounded-2xl border-2 p-3.5 sm:p-4 flex items-start gap-3 animate-in fade-in duration-300 ${alertDisplay.bannerBg} ${alertDisplay.bannerBorder}`}
         >
           <span className="text-2xl shrink-0 leading-none mt-0.5">{alertDisplay.bannerIcon}</span>
-          <p className={`text-base sm:text-lg font-black ${alertDisplay.bannerText}`}>
-            {alertDisplay.bannerMessage}
-          </p>
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`text-sm sm:text-base font-black ${alertDisplay.bannerText}`}>
+                {currentEvaluation.statusLabel}: {currentEvaluation.reasons.join(' • ')}
+              </span>
+            </div>
+            <p className={`text-xs sm:text-sm font-semibold opacity-90 ${alertDisplay.bannerText}`}>
+              💡 {currentEvaluation.clinicalAdvice}
+            </p>
+          </div>
         </div>
       )}
     </div>

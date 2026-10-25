@@ -47,6 +47,10 @@ import type {
 import {
   TIME_SLOT_CONFIG,
   computeAlertLevel,
+  classifyClinicalBp,
+  classifyClinicalPulse,
+  evaluateVitalReading,
+  isBpInTargetRange,
   getVietnamDateOffsetStr,
   getVietnamDateStr,
   detectCurrentTimeSlot,
@@ -158,40 +162,41 @@ function alertLabel(level: AlertLevel): string {
   }
 }
 
-/** Đánh giá nhịp tim (Mạch) cho bệnh nhân sau tai biến */
+/** Đánh giá nhịp tim (Mạch) đồng bộ 100% với chuẩn lâm sàng classifyClinicalPulse */
 function evaluatePulse(pulse?: number): {
   status: 'normal' | 'slow' | 'very_slow' | 'fast' | 'none';
   label: string;
   badgeClass: string;
 } {
-  if (!pulse || pulse <= 0) {
-    return { status: 'none', label: 'Chưa ghi mạch', badgeClass: 'bg-slate-100 text-slate-500 border-slate-200' };
+  const pCls = classifyClinicalPulse(pulse);
+  if (pCls.category === 'none') {
+    return { status: 'none', label: 'Chưa ghi mạch', badgeClass: pCls.badgeClass };
   }
-  if (pulse < 50) {
+  if (pCls.category === 'very_slow') {
     return {
       status: 'very_slow',
-      label: `⚠️ Mạch chậm (${pulse} bpm)`,
-      badgeClass: 'bg-amber-100 text-amber-900 border-amber-300',
+      label: `🔴 Mạch rất chậm (${pulse} bpm)`,
+      badgeClass: pCls.badgeClass,
     };
   }
-  if (pulse < 55) {
+  if (pCls.category === 'slow') {
     return {
       status: 'slow',
-      label: `⚡ Hơi chậm (${pulse} bpm)`,
-      badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+      label: `⚠️ Mạch hơi chậm (${pulse} bpm)`,
+      badgeClass: pCls.badgeClass,
     };
   }
-  if (pulse >= 100) {
+  if (pCls.category === 'fast') {
     return {
       status: 'fast',
-      label: `⚠️ Mạch nhanh (${pulse} bpm)`,
-      badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
+      label: `⚠️ ${pCls.shortLabel} (${pulse} bpm)`,
+      badgeClass: pCls.badgeClass,
     };
   }
   return {
     status: 'normal',
-    label: `❤️ ${pulse} bpm (Ổn định)`,
-    badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    label: `❤️ ${pulse} bpm (${pCls.shortLabel})`,
+    badgeClass: pCls.badgeClass,
   };
 }
 
@@ -252,14 +257,15 @@ export function VitalsChartView({
   const [editNote, setEditNote] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  // ===== Chuẩn hóa định dạng ngày YYYY-MM-DD & giờ HH:mm (24h) cho toàn bộ bản ghi =====
+  // ===== Chuẩn hóa định dạng ngày YYYY-MM-DD, giờ HH:mm (24h) & tính lại alertLevel chuẩn lâm sàng (HA + Mạch) =====
   const normalizedVitals = useMemo(() => {
     return vitalsLog.map((v) => ({
       ...v,
       date: normalizeDateStr(v.date),
       time: normalizeTimeStr(v.time),
+      alertLevel: computeAlertLevel(v.sys, v.dia, bpThresholds, v.pulse),
     }));
-  }, [vitalsLog]);
+  }, [vitalsLog, bpThresholds]);
 
   // ===== Lọc dữ liệu huyết áp theo khoảng thời gian (Sắp xếp tăng dần Cũ -> Mới chuẩn xác) =====
   const filteredLog = useMemo(() => {
@@ -292,10 +298,12 @@ export function VitalsChartView({
     let avgPulse: number | null = null;
     let minPulse: number | null = null;
     let maxPulse: number | null = null;
-    let slowPulseCount = 0; // < 55 bpm
+    let slowPulseCount = 0; // < 60 bpm (đồng bộ chuẩn lâm sàng)
+    let verySlowPulseCount = 0; // < 50 bpm
     let fastPulseCount = 0; // >= 100 bpm
     let avgPP: number | null = null; // Hiệu áp TB (SYS - DIA)
     let avgMAP: number | null = null; // Huyết áp TB động mạch (DIA + 1/3 PP)
+    let inTargetBpCount = 0;
     let normalCount = 0;
     let warningCount = 0;
     let criticalCount = 0;
@@ -325,6 +333,10 @@ export function VitalsChartView({
         if (v.dia < minDia) minDia = v.dia;
         if (v.dia > maxDia) maxDia = v.dia;
 
+        if (isBpInTargetRange(v.sys, v.dia, bpThresholds)) {
+          inTargetBpCount++;
+        }
+
         if (v.alertLevel === 'critical') criticalCount++;
         else if (v.alertLevel === 'warning') warningCount++;
         else normalCount++;
@@ -334,7 +346,8 @@ export function VitalsChartView({
           pulseCount++;
           if (minPulse === null || v.pulse < minPulse) minPulse = v.pulse;
           if (maxPulse === null || v.pulse > maxPulse) maxPulse = v.pulse;
-          if (v.pulse < 55) slowPulseCount++;
+          if (v.pulse < 60) slowPulseCount++;
+          if (v.pulse < 50) verySlowPulseCount++;
           if (v.pulse >= 100) fastPulseCount++;
         }
       }
@@ -350,7 +363,7 @@ export function VitalsChartView({
     }
 
     const inRangePct =
-      periodEntries.length > 0 ? Math.round((normalCount / periodEntries.length) * 100) : 100;
+      periodEntries.length > 0 ? Math.round((inTargetBpCount / periodEntries.length) * 100) : 100;
 
     // Xu hướng (so sánh trung bình nửa sau với nửa đầu hoặc lần gần nhất với lần trước)
     let trend: 'up' | 'down' | 'stable' = 'stable';
@@ -443,9 +456,11 @@ export function VitalsChartView({
       minPulse,
       maxPulse,
       slowPulseCount,
+      verySlowPulseCount,
       fastPulseCount,
       avgPP,
       avgMAP,
+      inTargetBpCount,
       normalCount,
       warningCount,
       criticalCount,
@@ -456,7 +471,7 @@ export function VitalsChartView({
       totalReadings: normalizedVitals.length,
       periodReadingsCount: periodEntries.length,
     };
-  }, [normalizedVitals, filteredLog]);
+  }, [normalizedVitals, filteredLog, bpThresholds]);
 
   // ===== THỐNG KÊ TUÂN THỦ & ĐỐI CHIẾU CHÉO HÀNG NGÀY (SỬA TRIỆT ĐỂ LỖI 19% ẢO) =====
   const complianceStats = useMemo(() => {
@@ -1140,7 +1155,7 @@ export function VitalsChartView({
         `• Áp lực tưới máu não TB (MAP): ${summaryStats.avgMAP} mmHg (chuẩn 75–95) | Hiệu áp (PP = SYS−DIA): ${summaryStats.avgPP} mmHg (chuẩn 40–55)`
       );
       lines.push(
-        `• Tỷ lệ đạt đích điều trị (TIR): ${summaryStats.inRangePct}% (${summaryStats.normalCount}/${summaryStats.periodReadingsCount} lần đo trong ngưỡng)`
+        `• Tỷ lệ đạt đích điều trị (TIR): ${summaryStats.inRangePct}% (${summaryStats.inTargetBpCount}/${summaryStats.periodReadingsCount} lần đo trong ngưỡng)`
       );
     }
     if (summaryStats.latest) {
@@ -1185,7 +1200,11 @@ export function VitalsChartView({
       );
       if (summaryStats.slowPulseCount > 0) {
         lines.push(
-          `  ⚠️ Lưu ý lâm sàng: Có ${summaryStats.slowPulseCount} lần đo nhịp tim dưới 55 bpm (nhịp chậm, cần báo bác sĩ xem xét thuốc).`
+          `  ⚠️ Lưu ý lâm sàng: Có ${summaryStats.slowPulseCount} lần đo nhịp tim dưới 60 bpm${
+            summaryStats.verySlowPulseCount > 0
+              ? ` (trong đó ${summaryStats.verySlowPulseCount} lần <50 bpm)`
+              : ''
+          } — nhịp chậm, cần báo bác sĩ xem xét thuốc.`
         );
       }
       if (summaryStats.fastPulseCount > 0) {
@@ -1295,7 +1314,8 @@ export function VitalsChartView({
     if (isNaN(sysNum) || isNaN(diaNum) || sysNum <= 0 || diaNum <= 0) return;
 
     const pulseNum = editPulse.trim() ? parseInt(editPulse, 10) : undefined;
-    const newAlert = computeAlertLevel(sysNum, diaNum, bpThresholds);
+    const cleanPulse = pulseNum && !isNaN(pulseNum) && pulseNum > 0 ? pulseNum : undefined;
+    const newAlert = computeAlertLevel(sysNum, diaNum, bpThresholds, cleanPulse);
 
     const updated: VitalsLogEntry = {
       ...editingEntry,
@@ -1304,7 +1324,7 @@ export function VitalsChartView({
       period: editPeriod,
       sys: sysNum,
       dia: diaNum,
-      pulse: pulseNum && !isNaN(pulseNum) && pulseNum > 0 ? pulseNum : undefined,
+      pulse: cleanPulse,
       note: editNote.trim() || undefined,
       recordedBy: editRecorder.trim() || editingEntry.recordedBy,
       alertLevel: newAlert,
@@ -1345,6 +1365,9 @@ export function VitalsChartView({
     );
   }
 
+  const latestEval = summaryStats.latest
+    ? evaluateVitalReading(summaryStats.latest, bpThresholds)
+    : null;
   const latestPulseEval = evaluatePulse(summaryStats.latest?.pulse);
 
   return (
@@ -1354,10 +1377,10 @@ export function VitalsChartView({
         {/* Thẻ 1: HA & Mạch gần nhất */}
         <div
           className={`rounded-2xl border p-3.5 sm:p-4 shadow-2xs transition ${
-            summaryStats.latest
-              ? alertColors(summaryStats.latest.alertLevel).bg +
+            latestEval
+              ? alertColors(latestEval.overallAlertLevel).bg +
                 ' ' +
-                alertColors(summaryStats.latest.alertLevel).border
+                alertColors(latestEval.overallAlertLevel).border
               : 'bg-white border-slate-200'
           }`}
         >
@@ -1387,16 +1410,23 @@ export function VitalsChartView({
             )}
           </div>
 
-          {summaryStats.latest ? (
+          {summaryStats.latest && latestEval ? (
             <>
-              <div className="flex items-baseline justify-between gap-2 mt-1.5 flex-wrap">
-                <div
-                  className={`text-2xl font-black ${
-                    alertColors(summaryStats.latest.alertLevel).text
-                  }`}
-                >
-                  {summaryStats.latest.sys}/{summaryStats.latest.dia}
-                  <span className="text-xs font-bold ml-1 text-slate-500">mmHg</span>
+              <div className="flex items-baseline justify-between gap-1.5 mt-1.5 flex-wrap">
+                <div className="flex items-baseline gap-1.5 flex-wrap">
+                  <div
+                    className={`text-2xl font-black ${
+                      alertColors(latestEval.bp.alertLevel).text
+                    }`}
+                  >
+                    {summaryStats.latest.sys}/{summaryStats.latest.dia}
+                    <span className="text-xs font-bold ml-1 text-slate-500">mmHg</span>
+                  </div>
+                  <span
+                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold border ${latestEval.bp.badgeClass}`}
+                  >
+                    {latestEval.bp.shortLabel}
+                  </span>
                 </div>
                 {summaryStats.latest.pulse && (
                   <span
@@ -1422,15 +1452,16 @@ export function VitalsChartView({
             <div className="text-sm text-slate-400 mt-2">—</div>
           )}
 
-          {activeCardInfo === 1 && summaryStats.latest && (
-            <div className="mt-2.5 pt-2 border-t border-black/10 text-[11px] text-slate-800 bg-white/85 p-2.5 rounded-xl leading-relaxed">
-              💡 <strong>Chi tiết lần đo này:</strong> Hiệu áp (SYS−DIA) ={' '}
-              <strong>{summaryStats.latest.sys - summaryStats.latest.dia} mmHg</strong> (tốt nhất
-              40–60 mmHg). Ngưỡng mục tiêu của Bố đang cài là dưới{' '}
-              <strong>
-                {bpThresholds.highSys}/{bpThresholds.highDia} mmHg
-              </strong>
-              .
+          {activeCardInfo === 1 && summaryStats.latest && latestEval && (
+            <div className="mt-2.5 pt-2 border-t border-black/10 text-[11px] text-slate-800 bg-white/85 p-2.5 rounded-xl leading-relaxed space-y-1">
+              <div>
+                💡 <strong>Phân loại lâm sàng:</strong> {latestEval.bp.label}
+                {latestEval.pulse.category !== 'none' ? ` • ${latestEval.pulse.label}` : ''}.
+              </div>
+              <div>
+                📊 <strong>Huyết động:</strong> MAP = <strong>{latestEval.map} mmHg</strong> · Hiệu áp
+                (SYS−DIA) = <strong>{latestEval.pp} mmHg</strong>. {latestEval.clinicalAdvice}
+              </div>
             </div>
           )}
         </div>
@@ -1533,11 +1564,13 @@ export function VitalsChartView({
             {summaryStats.avgPulse !== null ? (
               <div
                 className={`text-2xl font-black ${
-                  summaryStats.avgPulse < 55
-                    ? 'text-amber-800'
-                    : summaryStats.avgPulse >= 100
-                      ? 'text-rose-700'
-                      : 'text-slate-900'
+                  summaryStats.avgPulse < 50
+                    ? 'text-rose-700'
+                    : summaryStats.avgPulse < 60
+                      ? 'text-amber-800'
+                      : summaryStats.avgPulse >= 100
+                        ? 'text-rose-700'
+                        : 'text-slate-900'
                 }`}
               >
                 ❤️ {summaryStats.avgPulse}
@@ -1568,12 +1601,22 @@ export function VitalsChartView({
             {summaryStats.avgPulse !== null ? (
               <>
                 Mạch: <strong>{summaryStats.minPulse}–{summaryStats.maxPulse} bpm</strong>
-                {summaryStats.slowPulseCount > 0 && (
+                {summaryStats.verySlowPulseCount > 0 ? (
+                  <span className="text-rose-700 font-bold">
+                    {' '}
+                    · 🔴 {summaryStats.verySlowPulseCount} lần &lt;50 ({summaryStats.slowPulseCount} lần &lt;60)
+                  </span>
+                ) : summaryStats.slowPulseCount > 0 ? (
                   <span className="text-amber-800 font-bold">
                     {' '}
-                    · ⚠️ {summaryStats.slowPulseCount} lần mạch &lt;55
+                    · ⚠️ {summaryStats.slowPulseCount} lần mạch &lt;60
                   </span>
-                )}
+                ) : summaryStats.fastPulseCount > 0 ? (
+                  <span className="text-rose-700 font-bold">
+                    {' '}
+                    · ⚠️ {summaryStats.fastPulseCount} lần mạch ≥100
+                  </span>
+                ) : null}
               </>
             ) : (
               'Ghi thêm nhịp tim khi đo HA để theo dõi'
@@ -1583,9 +1626,9 @@ export function VitalsChartView({
           {activeCardInfo === 3 && (
             <div className="mt-2.5 pt-2 border-t border-amber-200/70 text-[11px] text-slate-800 bg-white/90 p-2.5 rounded-xl leading-relaxed space-y-1">
               <div>
-                💡 <strong>Nhịp tim (Mạch):</strong> Bình thường từ <strong>60–100 bpm</strong>. Nếu
-                Mạch thường xuyên <strong>dưới 55 bpm</strong> (nhịp chậm), gia đình nên báo bác sĩ
-                khi tái khám để kiểm tra liều thuốc huyết áp/tim mạch.
+                💡 <strong>Nhịp tim (Mạch):</strong> Bình thường từ <strong>60–99 bpm</strong> (tối ưu
+                60–79 bpm). Nếu Mạch <strong>dưới 60 bpm</strong> (nhịp chậm, đặc biệt &lt;50 bpm),
+                gia đình nên báo bác sĩ khi tái khám để kiểm tra liều thuốc huyết áp/tim mạch.
               </div>
               <div>
                 💡 <strong>Hiệu áp (SYS − DIA = {summaryStats.avgPP ?? '—'} mmHg):</strong> Tốt nhất
@@ -1853,10 +1896,21 @@ export function VitalsChartView({
                               </span>
                               <span
                                 className={`font-extrabold ${
-                                  data.pulse < 55 ? 'text-amber-700' : 'text-violet-700'
+                                  data.pulse < 50 || data.pulse >= 100
+                                    ? 'text-rose-700'
+                                    : data.pulse < 60
+                                    ? 'text-amber-700'
+                                    : 'text-violet-700'
                                 }`}
                               >
-                                ❤️ {data.pulse} bpm {data.pulse < 55 ? '(Chậm)' : ''}
+                                ❤️ {data.pulse} bpm{' '}
+                                {data.pulse < 50
+                                  ? '(Rất chậm)'
+                                  : data.pulse < 60
+                                  ? '(Hơi chậm)'
+                                  : data.pulse >= 100
+                                  ? '(Nhanh)'
+                                  : ''}
                               </span>
                             </div>
                           )}
@@ -1867,20 +1921,26 @@ export function VitalsChartView({
                               <div className="text-[10px] font-extrabold text-slate-500 uppercase">
                                 Chi tiết các lần đo ngày {data.label}:
                               </div>
-                              {data.readings.map((r: VitalsLogEntry) => (
-                                <div
-                                  key={r.id}
-                                  className="flex items-center justify-between gap-2 text-[11px] bg-slate-50 px-2 py-1 rounded-lg"
-                                >
-                                  <span className="text-slate-600">
-                                    {periodLabel(r.period)} ({r.time})
-                                  </span>
-                                  <span className="font-extrabold text-slate-900">
-                                    {r.sys}/{r.dia}
-                                    {r.pulse ? ` · ❤️${r.pulse}` : ''}
-                                  </span>
-                                </div>
-                              ))}
+                              {data.readings.map((r: VitalsLogEntry) => {
+                                const rEval = evaluateVitalReading(r, bpThresholds);
+                                return (
+                                  <div
+                                    key={r.id}
+                                    className="flex items-center justify-between gap-2 text-[11px] bg-slate-50 px-2 py-1 rounded-lg"
+                                  >
+                                    <span className="text-slate-600">
+                                      {periodLabel(r.period)} ({r.time})
+                                    </span>
+                                    <span className="font-extrabold text-slate-900">
+                                      {r.sys}/{r.dia}
+                                      {r.pulse ? ` · ❤️${r.pulse}` : ''}{' '}
+                                      <span className="text-[10px] font-bold text-slate-500">
+                                        ({rEval.badgeText})
+                                      </span>
+                                    </span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
 
@@ -2360,13 +2420,14 @@ export function VitalsChartView({
                           {dayRow.vitals.length > 0 ? (
                             <div className="flex flex-wrap items-center gap-1.5">
                               {compactVitals.map((v) => {
-                                const c = alertColors(v.alertLevel);
+                                const evalV = evaluateVitalReading(v, bpThresholds);
+                                const c = alertColors(evalV.overallAlertLevel);
                                 const cfg = TIME_SLOT_CONFIG[v.period];
                                 return (
                                   <span
                                     key={v.id}
                                     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold border ${c.bg} ${c.border} ${c.text}`}
-                                    title={`Đo lúc ${v.time} (${cfg?.label || v.period})`}
+                                    title={`Đo lúc ${v.time} (${cfg?.label || v.period}): ${evalV.badgeText}`}
                                   >
                                     <span>{cfg?.emoji || '🕒'}</span>
                                     <span className="font-black">
@@ -2375,7 +2436,9 @@ export function VitalsChartView({
                                     {v.pulse && (
                                       <span
                                         className={`text-[11px] ${
-                                          v.pulse < 55
+                                          v.pulse < 50 || v.pulse >= 100
+                                            ? 'text-rose-700 font-extrabold'
+                                            : v.pulse < 60
                                             ? 'text-amber-800 font-extrabold'
                                             : 'text-slate-600 font-medium'
                                         }`}
@@ -2842,7 +2905,9 @@ export function VitalsChartView({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {historyEntries.map((v) => {
-                  const colors = alertColors(v.alertLevel);
+                  const evalItem = evaluateVitalReading(v, bpThresholds);
+                  const bpColors = alertColors(evalItem.bp.alertLevel);
+                  const overallColors = alertColors(evalItem.overallAlertLevel);
                   const pEval = evaluatePulse(v.pulse);
                   return (
                     <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
@@ -2861,11 +2926,11 @@ export function VitalsChartView({
                         )}
                       </td>
                       <td className="px-2 sm:px-3 py-3 text-center whitespace-nowrap">
-                        <span className={`font-black text-base sm:text-lg ${colors.text}`}>
+                        <span className={`font-black text-base sm:text-lg ${bpColors.text}`}>
                           {v.sys}/{v.dia}
                         </span>
                         <div className="text-[11px] text-slate-400">
-                          PP: {v.sys - v.dia} mmHg
+                          PP: {evalItem.pp} · MAP: {evalItem.map}
                         </div>
                         {v.pulse && (
                           <div className="sm:hidden text-xs text-slate-600 font-bold mt-0.5">
@@ -2886,9 +2951,10 @@ export function VitalsChartView({
                       </td>
                       <td className="px-2 sm:px-3 py-3 text-center">
                         <span
-                          className={`inline-flex whitespace-nowrap px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-bold border ${colors.badge}`}
+                          className={`inline-flex whitespace-nowrap px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-bold border ${overallColors.badge}`}
+                          title={evalItem.reasons.join(' • ') || evalItem.bp.label}
                         >
-                          {alertLabel(v.alertLevel)}
+                          {evalItem.badgeText}
                         </span>
                       </td>
                       <td className="px-3 py-3 text-slate-600 text-xs hidden sm:table-cell max-w-[180px] truncate">
@@ -2984,8 +3050,12 @@ export function VitalsChartView({
                   <div>
                     <strong>Điểm cần hỏi Bác sĩ khi tái khám:</strong> Trong kỳ có{' '}
                     <strong>{summaryStats.slowPulseCount} lần</strong> nhịp tim của Bố dưới{' '}
-                    <strong>55 bpm</strong> (thấp nhất {summaryStats.minPulse} bpm), cần hỏi bác sĩ
-                    xem có cần điều chỉnh thuốc tim mạch/huyết áp hay không.
+                    <strong>60 bpm</strong>
+                    {summaryStats.verySlowPulseCount > 0
+                      ? ` (trong đó ${summaryStats.verySlowPulseCount} lần <50 bpm)`
+                      : ''}{' '}
+                    — thấp nhất {summaryStats.minPulse} bpm, cần hỏi bác sĩ xem có cần điều chỉnh
+                    thuốc tim mạch/huyết áp hay không.
                   </div>
                 </div>
               )}
@@ -3096,21 +3166,43 @@ export function VitalsChartView({
                 </div>
               </div>
 
-              {/* Xem trước trạng thái cảnh báo sau khi sửa */}
+              {/* Xem trước trạng thái cảnh báo sau khi sửa (Đồng bộ cả Huyết áp & Nhịp tim) */}
               {(() => {
                 const sNum = parseInt(editSys, 10);
                 const dNum = parseInt(editDia, 10);
+                const pNum = editPulse.trim() ? parseInt(editPulse, 10) : undefined;
                 if (!isNaN(sNum) && !isNaN(dNum) && sNum > 0 && dNum > 0) {
-                  const previewLevel = computeAlertLevel(sNum, dNum, bpThresholds);
-                  const previewColors = alertColors(previewLevel);
+                  const previewEval = evaluateVitalReading(
+                    {
+                      sys: sNum,
+                      dia: dNum,
+                      pulse: pNum && !isNaN(pNum) && pNum > 0 ? pNum : undefined,
+                    },
+                    bpThresholds
+                  );
+                  const previewColors = alertColors(previewEval.overallAlertLevel);
                   return (
-                    <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                    <div className="flex items-center justify-between gap-2 flex-wrap px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs">
                       <span className="font-bold text-slate-600">Đánh giá chỉ số mới:</span>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full font-bold border ${previewColors.badge}`}
-                      >
-                        {alertLabel(previewLevel)}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${previewEval.bp.badgeClass}`}
+                        >
+                          {previewEval.bp.shortLabel}
+                        </span>
+                        {previewEval.pulse.category !== 'none' && (
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${previewEval.pulse.badgeClass}`}
+                          >
+                            {previewEval.pulse.shortLabel}
+                          </span>
+                        )}
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full font-bold border ${previewColors.badge}`}
+                        >
+                          {previewEval.badgeText}
+                        </span>
+                      </div>
                     </div>
                   );
                 }

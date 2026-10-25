@@ -33,7 +33,8 @@ import {
   detectCurrentTimeSlot,
   getVietnamTimeStr,
   getVietnamHour,
-  computeAlertLevel,
+  evaluateVitalReading,
+  compareVitalsDesc,
   normalizeDateStr,
   extractRoutineStartDateStr,
   diffDaysBetweenDateStr,
@@ -158,9 +159,11 @@ export default function SmartReminderBanner({
     });
   }, [activeRoutines, todayStr]);
 
-  // ===== 2. SINH HIỆU HÔM NAY & CẢNH BÁO BẤT THƯỜNG =====
+  // ===== 2. SINH HIỆU HÔM NAY & CẢNH BÁO BẤT THƯỜNG (ĐỒNG BỘ CHUẨN LÂM SÀNG) =====
   const todayVitals = useMemo(() => {
-    return vitalsLog.filter((v) => normalizeDateStr(v.date) === todayStr);
+    return vitalsLog
+      .filter((v) => normalizeDateStr(v.date) === todayStr)
+      .sort(compareVitalsDesc);
   }, [vitalsLog, todayStr]);
 
   const currentSlotVitals = useMemo(() => {
@@ -171,28 +174,14 @@ export default function SmartReminderBanner({
 
   const latestVitalAlert = useMemo(() => {
     if (!latestTodayVital) return null;
-    const bpLevel = computeAlertLevel(latestTodayVital.sys, latestTodayVital.dia, bpThresholds);
-    const pulseVal = latestTodayVital.pulse ?? 0;
-    const pulseLow = pulseVal > 0 && pulseVal < 55;
-    const pulseHigh = pulseVal > 100;
-    if (bpLevel === 'normal' && !pulseLow && !pulseHigh) return null;
-
-    const reasons: string[] = [];
-    if (bpLevel === 'critical') {
-      reasons.push(`Huyết áp ở ngưỡng NGUY HIỂM (${latestTodayVital.sys}/${latestTodayVital.dia} mmHg)`);
-    } else if (bpLevel === 'warning') {
-      reasons.push(`Huyết áp vượt ngưỡng cần lưu ý (${latestTodayVital.sys}/${latestTodayVital.dia} mmHg)`);
-    }
-    if (pulseLow) {
-      reasons.push(`Nhịp tim chậm (${pulseVal} lần/phút)`);
-    } else if (pulseHigh) {
-      reasons.push(`Nhịp tim nhanh (${pulseVal} lần/phút)`);
-    }
+    const evaluation = evaluateVitalReading(latestTodayVital, bpThresholds);
+    if (evaluation.overallAlertLevel === 'normal') return null;
 
     return {
-      isCritical: bpLevel === 'critical' || (pulseVal > 0 && pulseVal < 50),
+      isCritical: evaluation.overallAlertLevel === 'critical',
       entry: latestTodayVital,
-      summary: reasons.join(' • '),
+      evaluation,
+      summary: evaluation.reasons.join(' • '),
     };
   }, [latestTodayVital, bpThresholds]);
 
@@ -667,15 +656,31 @@ export default function SmartReminderBanner({
                   : 'bg-amber-100/80 border-amber-300 text-amber-950'
               }`}
             >
-              <div className="text-xs space-y-0.5">
-                <p className="font-black">
-                  🚨 Kết quả đo lúc {latestVitalAlert.entry.time}: {latestVitalAlert.entry.sys}/
-                  {latestVitalAlert.entry.dia} mmHg — Mạch {latestVitalAlert.entry.pulse} l/p
+              <div className="text-xs space-y-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-black">
+                    🚨 Đo lúc {latestVitalAlert.entry.time}: {latestVitalAlert.entry.sys}/
+                    {latestVitalAlert.entry.dia} mmHg
+                    {latestVitalAlert.entry.pulse ? ` — Mạch ${latestVitalAlert.entry.pulse} l/p` : ''}
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${latestVitalAlert.evaluation.bp.badgeClass}`}
+                  >
+                    {latestVitalAlert.evaluation.bp.shortLabel}
+                  </span>
+                  {latestVitalAlert.evaluation.pulse.category !== 'none' && (
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${latestVitalAlert.evaluation.pulse.badgeClass}`}
+                    >
+                      {latestVitalAlert.evaluation.pulse.shortLabel}
+                    </span>
+                  )}
+                </div>
+                <p className="font-semibold opacity-95">
+                  {latestVitalAlert.summary}
                 </p>
-                <p className="font-medium opacity-90">
-                  {latestVitalAlert.isCritical
-                    ? 'Chỉ số ở ngưỡng nguy hiểm! Hãy để Bố nằm nghỉ, kiểm tra điều kiện thuốc hạ áp và liên hệ Bác sĩ nếu cần.'
-                    : 'Chỉ số vượt ngưỡng bình thường. Nên cho Bố nghỉ ngơi 15–30 phút rồi đo kiểm tra lại.'}
+                <p className="font-medium opacity-85 text-[11px]">
+                  💡 {latestVitalAlert.evaluation.clinicalAdvice}
                 </p>
               </div>
               <a

@@ -28,6 +28,9 @@ import {
   compareVitalsDesc,
   normalizeDateStr,
   normalizeTimeStr,
+  classifyClinicalBp,
+  classifyClinicalPulse,
+  isBpInTargetRange,
 } from '@/lib/config';
 import { speakVietnameseReminder, stopSpeakingVietnamese } from '@/lib/notifications';
 
@@ -93,73 +96,7 @@ function calcARV(valuesAsc: number[]): number | null {
   return Math.round((sumDiff / (valuesAsc.length - 1)) * 10) / 10;
 }
 
-/** Phân loại mức Huyết áp đo tại nhà (HBPM) theo khuyến cáo VNHA / ESC / AHA cho bệnh nhân sau đột quỵ */
-export function classifyClinicalBp(
-  sys: number,
-  dia: number,
-  thresholds: BpThresholds
-): {
-  code: 'low' | 'optimal' | 'normal_high' | 'stage1' | 'stage2';
-  label: string;
-  shortLabel: string;
-  badgeClass: string;
-  barColor: string;
-  clinicalNote: string;
-} {
-  if (sys <= thresholds.lowSys || dia <= thresholds.lowDia) {
-    return {
-      code: 'low',
-      label: 'Huyết áp thấp (Nguy cơ giảm tưới máu não)',
-      shortLabel: 'Hạ áp / Thấp',
-      badgeClass: 'bg-sky-100 text-sky-900 border-sky-300',
-      barColor: 'bg-sky-500',
-      clinicalNote:
-        'Huyết áp thấp ở bệnh nhân sau đột quỵ có thể làm giảm lưu lượng máu nuôi vùng não đang phục hồi.',
-    };
-  }
-  if (sys >= 160 || dia >= 100) {
-    return {
-      code: 'stage2',
-      label: 'Tăng HA Độ 2 / Nguy cơ cao (≥160/100)',
-      shortLabel: 'Tăng Độ 2 (≥160/100)',
-      badgeClass: 'bg-rose-100 text-rose-900 border-rose-300',
-      barColor: 'bg-rose-600',
-      clinicalNote:
-        'Vượt ngưỡng nguy hiểm, làm tăng áp lực thành mạch não. Cần nghỉ ngơi, kiểm tra thuốc và theo dõi sát.',
-    };
-  }
-  if (sys >= thresholds.highSys || dia >= thresholds.highDia) {
-    return {
-      code: 'stage1',
-      label: `Tăng HA Độ 1 (${thresholds.highSys}–159 / ${thresholds.highDia}–99)`,
-      shortLabel: `Vượt ngưỡng (≥${thresholds.highSys}/${thresholds.highDia})`,
-      badgeClass: 'bg-amber-100 text-amber-900 border-amber-300',
-      barColor: 'bg-amber-500',
-      clinicalNote:
-        'Cao hơn ngưỡng mục tiêu tại nhà. Cần đối chiếu giờ uống thuốc hạ áp và mức độ vận động/căng thẳng.',
-    };
-  }
-  if (sys >= 130 || dia >= 80) {
-    return {
-      code: 'normal_high',
-      label: 'Bình thường – Cao (130–139 / 80–89)',
-      shortLabel: 'Bình thường-Cao',
-      badgeClass: 'bg-teal-50 text-teal-800 border-teal-300',
-      barColor: 'bg-teal-500',
-      clinicalNote:
-        'Nằm trong giới hạn an toàn cho phép nhưng tiệm cận ngưỡng trên, cần duy trì đều thuốc và chế độ ăn giảm mặn.',
-    };
-  }
-  return {
-    code: 'optimal',
-    label: 'Tối ưu sau đột quỵ (110–129 / 65–79)',
-    shortLabel: 'Tối ưu (<130/80)',
-    badgeClass: 'bg-emerald-100 text-emerald-900 border-emerald-300',
-    barColor: 'bg-emerald-500',
-    clinicalNote:
-      'Vùng huyết áp tối ưu giúp bảo vệ thành mạch não và giảm tối đa nguy cơ tái phát đột quỵ (theo ESC/VNHA).',
-  };
-}
+export { classifyClinicalBp, classifyClinicalPulse };
 
 /** Tính toán bộ chỉ số huyết động cho một tập bản ghi */
 function computeMetricsForEntries(
@@ -250,15 +187,14 @@ function computeMetricsForEntries(
   let highBpCount = 0;
   let lowBpCount = 0;
   for (const e of sortedAsc) {
-    const isHigh = e.sys >= thresholds.highSys || e.dia >= thresholds.highDia;
-    const isLow = e.sys <= thresholds.lowSys || e.dia <= thresholds.lowDia;
-    if (isHigh) highBpCount++;
-    else if (isLow) lowBpCount++;
-    else inTargetCount++;
+    const bpCls = classifyClinicalBp(e.sys, e.dia, thresholds);
+    if (bpCls.category === 'stage1' || bpCls.category === 'stage2') highBpCount++;
+    else if (bpCls.category === 'low') lowBpCount++;
+    else if (isBpInTargetRange(e.sys, e.dia, thresholds)) inTargetCount++;
   }
   const tirPct = Math.round((inTargetCount / count) * 100);
 
-  const slowPulseCount = pulseList.filter((p) => p < 55).length;
+  const slowPulseCount = pulseList.filter((p) => p < 60).length;
   const verySlowPulseCount = pulseList.filter((p) => p < 50).length;
   const fastPulseCount = pulseList.filter((p) => p >= 100).length;
 
@@ -577,7 +513,7 @@ export default function ClinicalVitalsReportSection({
       const highBpCount = items.filter(
         (x) => x.sys >= bpThresholds.highSys || x.dia >= bpThresholds.highDia
       ).length;
-      const slowPulseCount = pItems.filter((x) => (x.pulse as number) < 55).length;
+      const slowPulseCount = pItems.filter((x) => (x.pulse as number) < 60).length;
 
       slotDetails[sl] = {
         ...slotDetails[sl],
@@ -687,15 +623,12 @@ export default function ClinicalVitalsReportSection({
 
     for (const e of activeEntries) {
       const cls = classifyClinicalBp(e.sys, e.dia, bpThresholds);
-      bpZones[cls.code]++;
+      bpZones[cls.category]++;
 
-      if (e.pulse && e.pulse > 0) {
+      const pCls = classifyClinicalPulse(e.pulse);
+      if (pCls.category !== 'none') {
         totalPulseCount++;
-        if (e.pulse < 50) hrZones.very_slow++;
-        else if (e.pulse < 60) hrZones.slow++;
-        else if (e.pulse < 80) hrZones.optimal++;
-        else if (e.pulse < 100) hrZones.normal_high++;
-        else hrZones.fast++;
+        hrZones[pCls.category]++;
       }
     }
 
@@ -727,9 +660,9 @@ export default function ClinicalVitalsReportSection({
     );
     findings.push({
       level:
-        bpClass.code === 'optimal' || bpClass.code === 'normal_high'
+        bpClass.category === 'optimal' || bpClass.category === 'normal_high'
           ? 'good'
-          : bpClass.code === 'stage2' || bpClass.code === 'low'
+          : bpClass.category === 'stage2' || bpClass.category === 'low'
           ? 'alert'
           : 'caution',
       title: `Huyết áp trung bình (${activeMilestone.label}): ${activeMilestone.avgSys}/${activeMilestone.avgDia} mmHg — ${bpClass.shortLabel}`,
@@ -793,7 +726,11 @@ export default function ClinicalVitalsReportSection({
       if (activeMilestone.slowPulseCount > 0) {
         findings.push({
           level: activeMilestone.verySlowPulseCount > 0 ? 'alert' : 'caution',
-          title: `Cảnh báo Nhịp tim chậm: Có ${activeMilestone.slowPulseCount} lần mạch dưới 55 bpm (Thấp nhất ${activeMilestone.minPulse} bpm)`,
+          title: `Cảnh báo Nhịp tim chậm: Có ${activeMilestone.slowPulseCount} lần mạch dưới 60 bpm${
+            activeMilestone.verySlowPulseCount > 0
+              ? ` (trong đó ${activeMilestone.verySlowPulseCount} lần <50 bpm)`
+              : ''
+          } — Thấp nhất ${activeMilestone.minPulse} bpm`,
           detail: `Nhịp tim trung bình là ${activeMilestone.avgPulse} bpm${
             circadianAnalysis.lowestPulseSlot
               ? `, thường thấp nhất vào buổi ${circadianAnalysis.lowestPulseSlot.label} (TB ${circadianAnalysis.lowestPulseSlot.avgPulse} bpm)`
@@ -947,7 +884,7 @@ export default function ClinicalVitalsReportSection({
                 </div>
                 <div className="p-2.5 rounded-xl bg-white border border-teal-100">
                   <strong>4. Nhịp tim nghỉ &amp; Gánh nặng cơ tim (RPP):</strong> Nhịp tim nghỉ tối
-                  ưu là <strong>60–79 bpm</strong>. Nếu <strong>&lt;55 bpm</strong> là nhịp chậm (cần
+                  ưu là <strong>60–79 bpm</strong> (bình thường 60–99 bpm). Nếu <strong>&lt;60 bpm</strong> là nhịp chậm (đặc biệt &lt;50 bpm cần
                   lưu ý tác dụng phụ thuốc chẹn beta/hạ áp). <strong>RPP = SYS × Mạch</strong> dưới{' '}
                   <strong>10.000</strong> cho thấy cơ tim không bị quá tải.
                 </div>
@@ -1114,7 +1051,9 @@ export default function ClinicalVitalsReportSection({
                               <div className="flex items-center gap-1">
                                 <span
                                   className={`font-black text-sm ${
-                                    m.avgPulse < 55
+                                    m.avgPulse < 50
+                                      ? 'text-rose-700'
+                                      : m.avgPulse < 60
                                       ? 'text-amber-800'
                                       : m.avgPulse >= 100
                                       ? 'text-rose-700'
@@ -1127,9 +1066,13 @@ export default function ClinicalVitalsReportSection({
                                   ({m.minPulse}–{m.maxPulse})
                                 </span>
                               </div>
-                              {m.slowPulseCount > 0 ? (
+                              {m.verySlowPulseCount > 0 ? (
+                                <span className="text-[10px] font-bold text-rose-700 block">
+                                  🔴 {m.verySlowPulseCount} lần &lt;50 ({m.slowPulseCount} lần &lt;60)
+                                </span>
+                              ) : m.slowPulseCount > 0 ? (
                                 <span className="text-[10px] font-bold text-amber-800 block">
-                                  ⚠️ {m.slowPulseCount} lần mạch &lt;55
+                                  ⚠️ {m.slowPulseCount} lần mạch &lt;60
                                 </span>
                               ) : m.fastPulseCount > 0 ? (
                                 <span className="text-[10px] font-bold text-rose-700 block">
@@ -1519,7 +1462,11 @@ export default function ClinicalVitalsReportSection({
                           {st.avgPulse && (
                             <span
                               className={`text-xs font-extrabold ${
-                                st.avgPulse < 55 ? 'text-amber-800' : 'text-violet-700'
+                                st.avgPulse < 50 || st.avgPulse >= 100
+                                  ? 'text-rose-700'
+                                  : st.avgPulse < 60
+                                  ? 'text-amber-800'
+                                  : 'text-violet-700'
                               }`}
                             >
                               ❤️ {st.avgPulse} bpm

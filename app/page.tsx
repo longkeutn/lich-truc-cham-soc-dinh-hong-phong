@@ -89,6 +89,8 @@ import {
   compareVitalsDesc,
   normalizeDateStr,
   normalizeTimeStr,
+  computeAlertLevel,
+  evaluateVitalReading,
 } from '@/lib/config';
 import {
   saveShiftAction,
@@ -272,12 +274,14 @@ export default function CareSchedulePage() {
           if (appData.settings) setSettings(appData.settings);
 
           // V2 data
+          const resolvedThresholds = appData.bpThresholds || DEFAULT_BP_THRESHOLDS;
           if (Array.isArray(appData.vitalsLog)) {
             const cleanedVitals = appData.vitalsLog
               .map((v) => ({
                 ...v,
                 date: normalizeDateStr(v.date),
                 time: normalizeTimeStr(v.time),
+                alertLevel: computeAlertLevel(v.sys, v.dia, resolvedThresholds, v.pulse),
               }))
               .sort(compareVitalsDesc);
             setVitalsLog(cleanedVitals);
@@ -332,7 +336,17 @@ export default function CareSchedulePage() {
           if (Array.isArray(snap.contacts)) setContacts(snap.contacts);
           if (Array.isArray(snap.reminders)) setReminders(snap.reminders);
           if (snap.settings) setSettings(snap.settings);
-          if (Array.isArray(snap.vitalsLog)) setVitalsLog(snap.vitalsLog);
+          const snapThresholds = snap.bpThresholds || DEFAULT_BP_THRESHOLDS;
+          if (Array.isArray(snap.vitalsLog)) {
+            setVitalsLog(
+              snap.vitalsLog.map((v: VitalsLogEntry) => ({
+                ...v,
+                date: normalizeDateStr(v.date),
+                time: normalizeTimeStr(v.time),
+                alertLevel: computeAlertLevel(v.sys, v.dia, snapThresholds, v.pulse),
+              }))
+            );
+          }
           if (Array.isArray(snap.careRoutines)) setCareRoutines(snap.careRoutines);
           if (Array.isArray(snap.dailyLogs)) setDailyLogs(snap.dailyLogs);
           if (Array.isArray(snap.stages) && snap.stages.length > 0) setStages(snap.stages);
@@ -796,6 +810,11 @@ export default function CareSchedulePage() {
     return sorted[0] || null;
   }, [vitalsLog]);
 
+  const lastVitalsEval = useMemo(() => {
+    if (!lastVitalsEntry) return null;
+    return evaluateVitalReading(lastVitalsEntry, bpThresholds);
+  }, [lastVitalsEntry, bpThresholds]);
+
   // ===== Tên người ghi mặc định lấy từ danh sách thành viên trên Sheet (Mẹ Phương) =====
   const recorderName = useMemo(() => {
     if (members.length === 0) return DEFAULT_RECORDER;
@@ -1084,12 +1103,25 @@ export default function CareSchedulePage() {
           <div className="grid grid-cols-3 gap-2">
             <a
               href="#section-vitals"
-              className="rounded-xl border border-slate-200/90 bg-white hover:bg-teal-50/50 hover:border-teal-300 px-2.5 py-2 flex items-center justify-between gap-1.5 shadow-2xs transition"
+              className={`rounded-xl border px-2.5 py-2 flex items-center justify-between gap-1.5 shadow-2xs transition ${
+                lastVitalsEval?.overallAlertLevel === 'critical'
+                  ? 'border-rose-300 bg-rose-50/70 hover:bg-rose-100/70'
+                  : lastVitalsEval?.overallAlertLevel === 'warning'
+                  ? 'border-amber-300 bg-amber-50/70 hover:bg-amber-100/70'
+                  : 'border-slate-200/90 bg-white hover:bg-teal-50/50 hover:border-teal-300'
+              }`}
             >
               <div className="min-w-0">
-                <span className="text-[11px] font-bold text-slate-500 block truncate">1. Huyết áp</span>
+                <span className="text-[11px] font-bold text-slate-500 block truncate">
+                  1. Huyết áp
+                  {lastVitalsEval ? ` (${lastVitalsEval.badgeText})` : ''}
+                </span>
                 <span className="text-xs sm:text-sm font-extrabold text-slate-900 block truncate">
-                  {lastVitalsEntry ? `${lastVitalsEntry.sys}/${lastVitalsEntry.dia} mmHg` : 'Đo ngay'}
+                  {lastVitalsEntry
+                    ? `${lastVitalsEntry.sys}/${lastVitalsEntry.dia}${
+                        lastVitalsEntry.pulse ? ` • ♥${lastVitalsEntry.pulse}` : ' mmHg'
+                      }`
+                    : 'Đo ngay'}
                 </span>
               </div>
               <span className="text-base shrink-0">💓</span>

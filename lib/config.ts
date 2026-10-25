@@ -644,18 +644,432 @@ export function detectCurrentTimeSlot(date: Date = new Date()): TimeSlot {
   return 'evening';
 }
 
-/** Tính alert level cho huyết áp dựa trên ngưỡng */
-export function computeAlertLevel(
+export type VitalAlertLevel = 'normal' | 'warning' | 'critical';
+
+export type ClinicalBpCategory = 'low' | 'optimal' | 'normal_high' | 'stage1' | 'stage2';
+export type ClinicalPulseCategory = 'none' | 'very_slow' | 'slow' | 'optimal' | 'normal_high' | 'fast';
+
+export interface ClinicalBpResult {
+  category: ClinicalBpCategory;
+  alertLevel: VitalAlertLevel;
+  label: string;
+  shortLabel: string;
+  badgeClass: string;
+  dotColor: string;
+  barColor: string;
+  clinicalNote: string;
+}
+
+export interface ClinicalPulseResult {
+  category: ClinicalPulseCategory;
+  alertLevel: VitalAlertLevel;
+  label: string;
+  shortLabel: string;
+  badgeClass: string;
+  dotColor: string;
+  barColor: string;
+  clinicalNote: string;
+}
+
+export interface VitalAlertColorScheme {
+  bg: string;
+  border: string;
+  text: string;
+  badge: string;
+  dot: string;
+}
+
+export interface VitalReadingEvaluation {
+  overallAlertLevel: VitalAlertLevel;
+  bp: ClinicalBpResult;
+  pulse: ClinicalPulseResult;
+  pp: number;
+  ppStatus: 'narrow' | 'normal' | 'wide';
+  ppLabel: string;
+  ppBadgeClass: string;
+  map: number;
+  mapStatus: 'low' | 'normal' | 'high';
+  mapLabel: string;
+  mapBadgeClass: string;
+  rpp: number | null;
+  isBpInTarget: boolean;
+  reasons: string[];
+  badgeText: string;
+  statusLabel: string;
+  clinicalAdvice: string;
+  colors: VitalAlertColorScheme;
+}
+
+/**
+ * Bảng màu thống nhất cho 3 mức cảnh báo sinh hiệu (normal / warning / critical)
+ * dùng chung trên toàn bộ ứng dụng.
+ */
+export function getVitalAlertColors(level: VitalAlertLevel): VitalAlertColorScheme {
+  if (level === 'critical') {
+    return {
+      bg: 'bg-rose-50',
+      border: 'border-rose-300',
+      text: 'text-rose-700',
+      badge: 'bg-rose-600 text-white',
+      dot: '#e11d48',
+    };
+  }
+  if (level === 'warning') {
+    return {
+      bg: 'bg-amber-50',
+      border: 'border-amber-300',
+      text: 'text-amber-700',
+      badge: 'bg-amber-500 text-white',
+      dot: '#f59e0b',
+    };
+  }
+  return {
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+    text: 'text-emerald-700',
+    badge: 'bg-emerald-600 text-white',
+    dot: '#10b981',
+  };
+}
+
+/**
+ * Nhãn trạng thái chuẩn theo mức cảnh báo.
+ */
+export function getVitalAlertLabel(level: VitalAlertLevel): string {
+  if (level === 'critical') return '🔴 Nguy hiểm';
+  if (level === 'warning') return '🟡 Cảnh báo';
+  return '🟢 Bình thường';
+}
+
+/**
+ * Phân tầng Huyết áp chuẩn lâm sàng (VNHA / ESC / AHA HBPM cho bệnh nhân phục hồi sau đột quỵ).
+ * Nguồn chân lý duy nhất (Single Source of Truth) cho toàn bộ hệ thống.
+ */
+export function classifyClinicalBp(
   sys: number,
   dia: number,
   thresholds: BpThresholds = DEFAULT_BP_THRESHOLDS
-): 'normal' | 'warning' | 'critical' {
-  // Critical: quá cao hoặc quá thấp nguy hiểm
-  if (sys >= 180 || sys <= 90 || dia >= 120 || dia <= 50) return 'critical';
-  // Warning: vượt ngưỡng cấu hình
-  if (sys >= thresholds.highSys || sys <= thresholds.lowSys ||
-      dia >= thresholds.highDia || dia <= thresholds.lowDia) return 'warning';
-  return 'normal';
+): ClinicalBpResult {
+  // 1. Huyết áp thấp (Hạ áp — Nguy cơ giảm tưới máu não)
+  if (sys <= thresholds.lowSys || dia <= thresholds.lowDia) {
+    const isCriticalLow = sys <= 90 || dia <= 50;
+    return {
+      category: 'low',
+      alertLevel: isCriticalLow ? 'critical' : 'warning',
+      label: isCriticalLow
+        ? `Hạ áp mức nguy hiểm (${sys}/${dia} mmHg)`
+        : `Huyết áp thấp / Hạ áp (≤${thresholds.lowSys}/${thresholds.lowDia})`,
+      shortLabel: isCriticalLow ? 'Hạ áp nguy hiểm' : 'Huyết áp thấp',
+      badgeClass: isCriticalLow
+        ? 'bg-rose-100 text-rose-800 border-rose-300'
+        : 'bg-amber-100 text-amber-800 border-amber-300',
+      dotColor: isCriticalLow ? '#e11d48' : '#3b82f6',
+      barColor: 'bg-blue-500',
+      clinicalNote:
+        'Nguy cơ giảm tưới máu não gây hoa mắt, choáng váng, té ngã. Cho người bệnh nằm nghỉ, kê thấp đầu và kiểm tra lại thuốc hạ áp.',
+    };
+  }
+
+  // 2. Tăng Huyết áp Độ 2 trở lên (≥160/100 mmHg — Nguy cơ cao tái phát đột quỵ)
+  if (sys >= 160 || dia >= 100) {
+    const isCrisis = sys >= 180 || dia >= 110;
+    return {
+      category: 'stage2',
+      alertLevel: 'critical',
+      label: isCrisis
+        ? `Tăng HA Khẩn cấp (≥180/110)`
+        : `Tăng HA Độ 2 — Nguy cơ cao (≥160/100)`,
+      shortLabel: isCrisis ? 'Tăng HA Khẩn cấp' : 'Tăng HA Độ 2',
+      badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
+      dotColor: '#e11d48',
+      barColor: 'bg-rose-500',
+      clinicalNote: isCrisis
+        ? 'Huyết áp tăng rất cao! Cho bệnh nhân nghỉ tuyệt đối, kiểm tra ngay triệu chứng thần kinh (méo miệng, yếu tay chân, đau đầu dữ dội) và liên hệ bác sĩ.'
+        : 'Vượt ngưỡng an toàn sau đột quỵ (≥160/100 mmHg). Cần nghỉ ngơi 15–30 phút, kiểm tra việc uống thuốc hạ áp và đo lại.',
+    };
+  }
+
+  // 3. Tăng Huyết áp Độ 1 (Vượt ngưỡng mục tiêu cấu hình, thường 140–159 / 90–99 mmHg)
+  if (sys >= thresholds.highSys || dia >= thresholds.highDia) {
+    return {
+      category: 'stage1',
+      alertLevel: 'warning',
+      label: `Tăng HA Độ 1 (${thresholds.highSys}–159 / ${thresholds.highDia}–99)`,
+      shortLabel: 'Tăng HA Độ 1',
+      badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
+      dotColor: '#f59e0b',
+      barColor: 'bg-amber-500',
+      clinicalNote:
+        'Huyết áp vượt ngưỡng mục tiêu. Nên cho bệnh nhân ngồi/nằm nghỉ ngơi yên tĩnh 15 phút rồi đo kiểm tra lại.',
+    };
+  }
+
+  // 4. Huyết áp Tối ưu sau đột quỵ (<130/80 mmHg và trên ngưỡng hạ áp)
+  if (sys < 130 && dia < 80) {
+    return {
+      category: 'optimal',
+      alertLevel: 'normal',
+      label: 'Tối ưu sau đột quỵ (<130/80)',
+      shortLabel: 'HA Tối ưu',
+      badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      dotColor: '#10b981',
+      barColor: 'bg-emerald-500',
+      clinicalNote: 'Huyết áp kiểm soát tối ưu theo khuyến cáo dự phòng đột quỵ thứ phát.',
+    };
+  }
+
+  // 5. Bình thường – Cao / Trong đích an toàn (130–139 / 80–89 mmHg)
+  return {
+    category: 'normal_high',
+    alertLevel: 'normal',
+    label: `Bình thường – Trong đích (130–${thresholds.highSys - 1}/80–${thresholds.highDia - 1})`,
+    shortLabel: 'Trong đích',
+    badgeClass: 'bg-teal-100 text-teal-800 border-teal-200',
+    dotColor: '#14b8a6',
+    barColor: 'bg-teal-500',
+    clinicalNote: 'Huyết áp nằm trong ngưỡng an toàn mục tiêu.',
+  };
+}
+
+/**
+ * Phân tầng Nhịp tim (Mạch) chuẩn lâm sàng lúc nghỉ (VNHA / AHA / ESC):
+ * - < 50 bpm: Mạch rất chậm (Nguy hiểm / Critical)
+ * - 50–59 bpm: Mạch hơi chậm (Cảnh báo / Warning)
+ * - 60–79 bpm: Nhịp tim tối ưu (Normal)
+ * - 80–99 bpm: Nhịp tim bình thường (Normal)
+ * - ≥ 100 bpm: Mạch nhanh (Warning từ 100–119 bpm, Critical nếu ≥ 120 bpm)
+ */
+export function classifyClinicalPulse(pulse?: number | null): ClinicalPulseResult {
+  const p = typeof pulse === 'number' && !isNaN(pulse) ? pulse : 0;
+  if (p <= 0) {
+    return {
+      category: 'none',
+      alertLevel: 'normal',
+      label: 'Chưa ghi mạch',
+      shortLabel: '—',
+      badgeClass: 'bg-slate-100 text-slate-500 border-slate-200',
+      dotColor: '#94a3b8',
+      barColor: 'bg-slate-300',
+      clinicalNote: 'Chưa có dữ liệu nhịp tim ở lần đo này.',
+    };
+  }
+
+  if (p < 50) {
+    return {
+      category: 'very_slow',
+      alertLevel: 'critical',
+      label: 'Mạch rất chậm (<50 bpm)',
+      shortLabel: 'Mạch rất chậm',
+      badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
+      dotColor: '#e11d48',
+      barColor: 'bg-rose-500',
+      clinicalNote:
+        'Nhịp tim rất chậm (<50 lần/phút). Cần hỏi bác sĩ về liều thuốc làm chậm nhịp (như chẹn beta) và theo dõi sát triệu chứng chóng mặt, mệt mỏi.',
+    };
+  }
+
+  if (p < 60) {
+    return {
+      category: 'slow',
+      alertLevel: 'warning',
+      label: 'Mạch hơi chậm (50–59 bpm)',
+      shortLabel: 'Mạch chậm',
+      badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
+      dotColor: '#f59e0b',
+      barColor: 'bg-amber-400',
+      clinicalNote:
+        'Nhịp tim hơi chậm (<60 lần/phút). Lưu ý khi thay đổi tư thế (từ nằm sang ngồi/đứng) để tránh choáng váng.',
+    };
+  }
+
+  if (p >= 100) {
+    const isCriticalFast = p >= 120;
+    return {
+      category: 'fast',
+      alertLevel: isCriticalFast ? 'critical' : 'warning',
+      label: isCriticalFast ? 'Mạch rất nhanh (≥120 bpm)' : 'Mạch nhanh (≥100 bpm)',
+      shortLabel: isCriticalFast ? 'Mạch rất nhanh' : 'Mạch nhanh',
+      badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
+      dotColor: '#e11d48',
+      barColor: 'bg-rose-500',
+      clinicalNote:
+        'Nhịp tim nhanh lúc nghỉ (≥100 lần/phút). Kiểm tra xem người bệnh có vừa vận động, căng thẳng, đau, sốt hoặc thiếu nước không.',
+    };
+  }
+
+  if (p < 80) {
+    return {
+      category: 'optimal',
+      alertLevel: 'normal',
+      label: 'Nhịp tối ưu (60–79 bpm)',
+      shortLabel: 'Nhịp tối ưu',
+      badgeClass: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+      dotColor: '#10b981',
+      barColor: 'bg-emerald-500',
+      clinicalNote: 'Nhịp tim lúc nghỉ tối ưu, tải cơ tim nhẹ nhàng.',
+    };
+  }
+
+  return {
+    category: 'normal_high',
+    alertLevel: 'normal',
+    label: 'Nhịp bình thường (80–99 bpm)',
+    shortLabel: 'Bình thường',
+    badgeClass: 'bg-teal-100 text-teal-800 border-teal-200',
+    dotColor: '#14b8a6',
+    barColor: 'bg-teal-500',
+    clinicalNote: 'Nhịp tim nằm trong giới hạn sinh lý bình thường (60–99 bpm).',
+  };
+}
+
+/**
+ * Kiểm tra xem Huyết áp có nằm trong đích an toàn mục tiêu hay không.
+ * Dùng thống nhất cho chỉ số TIR% (Time In Range) trên cả Thẻ tóm tắt và Báo cáo lâm sàng.
+ */
+export function isBpInTargetRange(
+  sys: number,
+  dia: number,
+  thresholds: BpThresholds = DEFAULT_BP_THRESHOLDS
+): boolean {
+  return classifyClinicalBp(sys, dia, thresholds).alertLevel === 'normal';
+}
+
+const ALERT_SEVERITY_RANK: Record<VitalAlertLevel, number> = {
+  normal: 0,
+  warning: 1,
+  critical: 2,
+};
+
+/**
+ * Tính mức cảnh báo tổng hợp (normal | warning | critical) từ Huyết áp và Nhịp tim.
+ * Đồng bộ hoàn toàn với phân tầng lâm sàng classifyClinicalBp & classifyClinicalPulse.
+ */
+export function computeAlertLevel(
+  sys: number,
+  dia: number,
+  thresholds: BpThresholds = DEFAULT_BP_THRESHOLDS,
+  pulse?: number | null
+): VitalAlertLevel {
+  const bpLevel = classifyClinicalBp(sys, dia, thresholds).alertLevel;
+  const pulseLevel = classifyClinicalPulse(pulse).alertLevel;
+  return ALERT_SEVERITY_RANK[bpLevel] >= ALERT_SEVERITY_RANK[pulseLevel] ? bpLevel : pulseLevel;
+}
+
+/**
+ * Đánh giá toàn diện 1 lần đo sinh hiệu (Huyết áp + Nhịp tim + Hiệu áp PP + Áp lực tưới máu MAP + RPP).
+ * Sử dụng thống nhất ở mọi màn hình:
+ * - Banner cảnh báo thông minh (SmartReminderBanner)
+ * - Form nhập nhanh & So sánh lần đo trước (QuickVitalsForm)
+ * - Thẻ sinh hiệu gần nhất, Nhật ký đối chiếu, Bảng lịch sử & Modal sửa (VitalsChartView)
+ * - Báo cáo phân tích huyết động chuyên sâu (ClinicalVitalsReportSection)
+ */
+export function evaluateVitalReading(
+  input: { sys: number; dia: number; pulse?: number | null },
+  thresholds: BpThresholds = DEFAULT_BP_THRESHOLDS
+): VitalReadingEvaluation {
+  const sys = Number(input.sys) || 0;
+  const dia = Number(input.dia) || 0;
+  const pulseVal = typeof input.pulse === 'number' && !isNaN(input.pulse) ? input.pulse : 0;
+
+  const bp = classifyClinicalBp(sys, dia, thresholds);
+  const pulse = classifyClinicalPulse(pulseVal);
+  const overallAlertLevel =
+    ALERT_SEVERITY_RANK[bp.alertLevel] >= ALERT_SEVERITY_RANK[pulse.alertLevel]
+      ? bp.alertLevel
+      : pulse.alertLevel;
+
+  // Hiệu áp (Pulse Pressure = SYS - DIA)
+  const pp = sys - dia;
+  let ppStatus: 'narrow' | 'normal' | 'wide' = 'normal';
+  let ppLabel = 'Hiệu áp chuẩn (35–59 mmHg)';
+  let ppBadgeClass = 'bg-slate-100 text-slate-600 border-slate-200';
+  if (pp >= 60) {
+    ppStatus = 'wide';
+    ppLabel = 'Hiệu áp rộng (≥60 mmHg)';
+    ppBadgeClass = 'bg-amber-50 text-amber-800 border-amber-200';
+  } else if (pp < 35) {
+    ppStatus = 'narrow';
+    ppLabel = 'Hiệu áp hẹp (<35 mmHg)';
+    ppBadgeClass = 'bg-amber-50 text-amber-800 border-amber-200';
+  }
+
+  // Áp lực động mạch trung bình (MAP = DIA + PP/3)
+  const map = Math.round(dia + pp / 3);
+  let mapStatus: 'low' | 'normal' | 'high' = 'normal';
+  let mapLabel = 'Tưới máu não chuẩn (70–105)';
+  let mapBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  if (map < 70) {
+    mapStatus = 'low';
+    mapLabel = 'Áp lực tưới máu thấp (<70)';
+    mapBadgeClass = 'bg-amber-50 text-amber-800 border-amber-200';
+  } else if (map > 105) {
+    mapStatus = 'high';
+    mapLabel = 'Áp lực tưới máu cao (>105)';
+    mapBadgeClass = 'bg-rose-50 text-rose-700 border-rose-200';
+  }
+
+  // Rate Pressure Product (RPP = SYS * Pulse)
+  const rpp = pulseVal > 0 ? sys * pulseVal : null;
+
+  // Tổng hợp lý do cảnh báo cụ thể
+  const reasons: string[] = [];
+  if (bp.category === 'stage2') {
+    reasons.push(`${bp.shortLabel} (${sys}/${dia} mmHg)`);
+  } else if (bp.category === 'stage1') {
+    reasons.push(`Huyết áp cao ${sys}/${dia} mmHg (vượt ngưỡng ${thresholds.highSys}/${thresholds.highDia})`);
+  } else if (bp.category === 'low') {
+    reasons.push(`Huyết áp thấp ${sys}/${dia} mmHg (dưới ngưỡng ${thresholds.lowSys}/${thresholds.lowDia})`);
+  }
+
+  if (pulse.category === 'very_slow') {
+    reasons.push(`Mạch rất chậm (${pulseVal} lần/phút)`);
+  } else if (pulse.category === 'slow') {
+    reasons.push(`Mạch hơi chậm (${pulseVal} lần/phút)`);
+  } else if (pulse.category === 'fast') {
+    reasons.push(`${pulse.shortLabel} (${pulseVal} lần/phút)`);
+  }
+
+  // Nhãn tóm tắt trên Badge
+  const statusIcon = overallAlertLevel === 'critical' ? '🔴' : overallAlertLevel === 'warning' ? '🟡' : '🟢';
+  let badgeText = `${statusIcon} Ổn định`;
+  if (bp.alertLevel !== 'normal' && pulse.alertLevel !== 'normal') {
+    badgeText = `${statusIcon} ${bp.shortLabel} • ${pulse.shortLabel}`;
+  } else if (bp.alertLevel !== 'normal') {
+    badgeText = `${statusIcon} ${bp.shortLabel}`;
+  } else if (pulse.alertLevel !== 'normal') {
+    badgeText = `${statusIcon} ${pulse.shortLabel}`;
+  } else {
+    badgeText = `🟢 ${bp.shortLabel}`;
+  }
+
+  // Lời khuyên lâm sàng tổng hợp
+  let clinicalAdvice = bp.clinicalNote;
+  if (bp.alertLevel === 'normal' && pulse.alertLevel !== 'normal') {
+    clinicalAdvice = pulse.clinicalNote;
+  } else if (bp.alertLevel !== 'normal' && pulse.alertLevel !== 'normal') {
+    clinicalAdvice = `${bp.clinicalNote} Đồng thời: ${pulse.clinicalNote}`;
+  }
+
+  return {
+    overallAlertLevel,
+    bp,
+    pulse,
+    pp,
+    ppStatus,
+    ppLabel,
+    ppBadgeClass,
+    map,
+    mapStatus,
+    mapLabel,
+    mapBadgeClass,
+    rpp,
+    isBpInTarget: bp.alertLevel === 'normal',
+    reasons,
+    badgeText,
+    statusLabel: getVitalAlertLabel(overallAlertLevel),
+    clinicalAdvice,
+    colors: getVitalAlertColors(overallAlertLevel),
+  };
 }
 
 /**

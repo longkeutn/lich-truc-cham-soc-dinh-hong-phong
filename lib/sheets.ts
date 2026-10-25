@@ -25,6 +25,7 @@ import {
   compareVitalsDesc,
   normalizeDateStr,
   normalizeTimeStr,
+  computeAlertLevel,
 } from './config';
 
 // Tên các trang tính trong Google Sheet (9 Sheets V2.2)
@@ -408,6 +409,7 @@ class MemoryShiftStore {
       ...v,
       date: normalizeDateStr(v.date),
       time: normalizeTimeStr(v.time),
+      alertLevel: computeAlertLevel(v.sys, v.dia, this.bpThresholds, v.pulse),
     };
   }
 
