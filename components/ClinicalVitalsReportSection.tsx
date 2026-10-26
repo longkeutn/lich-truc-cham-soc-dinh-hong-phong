@@ -741,7 +741,7 @@ export default function ClinicalVitalsReportSection({
                     📖 Cẩm Nang Hiểu Đúng Chỉ Số Huyết Áp &amp; Các Triệu Chứng Đáng Lo Của Bố
                   </h4>
                   <p className="text-[11px] text-teal-800 font-medium">
-                    Biên soạn riêng theo bệnh cảnh chăm sóc phục hồi sau tai biến mạch máu não tại nhà
+                    Biên soạn theo bệnh cảnh của Bố: sau mổ xuất huyết não, đang tập phục hồi tại nhà, bán manh trái, chờ ghép sọ
                   </p>
                 </div>
                 <button
@@ -837,67 +837,111 @@ export default function ClinicalVitalsReportSection({
                 </div>
               </div>
 
-              {/* PHẦN B: CÁC TRIỆU CHỨNG ĐÁNG LO TRONG QUÁ TRÌNH CHĂM SÓC TẠI NHÀ */}
+              {/* PHẦN B: CÁC TRIỆU CHỨNG ĐÁNG LO — ĐIỀU CHỈNH THEO BỆNH CẢNH CỦA BỐ (SAU MỔ XUẤT HUYẾT NÃO, ĐI LẠI ĐƯỢC, BÁN MANH TRÁI, CHỜ GHÉP SỌ) */}
               <div className="space-y-2.5 pt-2 border-t border-teal-200">
                 <div className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
                   <span className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[11px]">PHẦN 2</span>
                   <span>Các triệu chứng đáng lo cần theo dõi sát khi chăm sóc Bố tại nhà</span>
                 </div>
+                <p className="text-[11px] text-slate-600">
+                  Dành riêng cho Bố: đã mổ xuất huyết não, hiện <strong>đi lại được, không liệt</strong>, đang tập phục hồi chức năng tại nhà,
+                  có <strong>bán manh bên trái</strong> và <strong>đang chờ mổ ghép sọ sau khoảng 6–8 tuần</strong>.
+                </p>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
-                  {/* Cột 1: Mức Đỏ - Cấp cứu / Gọi bác sĩ ngay */}
+                  {/* Cột 1: Mức Đỏ */}
                   <div className="p-3 rounded-2xl bg-rose-50 border-2 border-rose-300 space-y-2 text-rose-950">
                     <div className="font-black text-xs sm:text-sm text-rose-800 flex items-center gap-1.5">
                       <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                      <span>🚨 MỨC ĐỎ — Nguy Hiểm Khẩn Cấp (Gọi Bác sĩ / Cấp cứu 115 ngay)</span>
+                      <span>🚨 MỨC ĐỎ — Gọi 115 / Đưa đi viện ngay</span>
                     </div>
                     <p className="text-[11px] font-bold text-rose-700">
-                      Tuyệt đối KHÔNG tự ý cho uống dồn thêm thuốc hạ áp, không cạo gió hay chích lễ đầu ngón tay:
+                      Không chờ, không tự cho uống thêm thuốc hạ áp, không cạo gió hay chích lễ. Mang theo đơn thuốc, giấy ra viện và phim chụp gần nhất:
                     </p>
                     <ul className="space-y-1.5 text-slate-800 list-disc pl-4">
                       <li>
-                        <strong>Dấu hiệu nghi ngờ tai biến tái phát (Quy tắc F.A.S.T):</strong>
-                        <br />• <strong>Mặt:</strong> Miệng méo lệch rõ hơn bình thường, nhân trung lệch, uống nước bị trào nhiều ra một bên mép.
-                        <br />• <strong>Tay chân:</strong> Bên tay/chân đang tập phục hồi bỗng <strong>yếu rũ hẳn đi</strong>, không nâng được như hôm trước hoặc tê bì đột ngột.
-                        <br />• <strong>Lời nói &amp; Ý thức:</strong> Nói đớ lưỡi nặng hơn hẳn, ú ớ, gọi hỏi phản ứng chậm, lơ mơ hoặc ngủ gà gọi khó dậy.
+                        <strong>Đau đầu dữ dội, đột ngột (như “sét đánh”), kèm buồn nôn / nôn vọt:</strong> có thể là chảy máu tái phát hoặc áp lực trong sọ tăng.
                       </li>
                       <li>
-                        <strong>Cơn tăng huyết áp kịch phát (≥180/110 mmHg) kèm triệu chứng:</strong> Đau đầu dữ dội, buồn nôn/nôn ói, nhìn mờ, tức ngực hoặc vã mồ hôi.
+                        <strong>Yếu hoặc tê MỚI xuất hiện</strong> ở tay/chân/nửa mặt (Bố hiện đi lại được nên bất kỳ dấu hiệu yếu mới, đi loạng choạng, khuỵu chân, méo miệng, nói đớ hơn hẳn đều là báo động).
                       </li>
                       <li>
-                        <strong>Khó thở hoặc Sặc nghẹn đường thở:</strong> Ho sặc sụa khi ăn uống/bơm súp, thở khò khè nhiều đờm đặc, môi hoặc đầu ngón tay tím tái (nguy cơ viêm phổi hít).
+                        <strong>Lơ mơ, ngủ gà gọi khó dậy, lú lẫn đột ngột, hoặc co giật / ngất:</strong> không nhét gì vào miệng, để Bố nằm nghiêng an toàn và gọi cấp cứu.
+                      </li>
+                      <li>
+                        <strong>Mắt: mất thị lực đột ngột, nhìn đôi mới xuất hiện, hoặc vùng không nhìn thấy bên trái rộng ra rõ rệt trong vài giờ – vài ngày.</strong>
+                      </li>
+                      <li>
+                        <strong>Vết mổ / vùng xương sọ chưa được ghép (nếu có):</strong> vùng da sọ <strong>phồng căng lên nhanh</strong>, đập mạnh, hoặc <strong>lõm sâu hẳn xuống</strong>; vết mổ chảy dịch trong, dịch máu hoặc mủ; sưng nóng đỏ kèm sốt cao ≥38.5°C, cứng gáy, sợ ánh sáng.
+                      </li>
+                      <li>
+                        <strong>Cơn tăng huyết áp kịch phát (≥180/110 mmHg)</strong> kèm đau đầu, nhìn mờ, tức ngực, khó thở.
+                      </li>
+                      <li>
+                        <strong>Sặc nghẹn, khó thở, tím môi</strong> hoặc ngã đập đầu kèm choáng, nôn, chảy máu / dịch từ tai, mũi.
                       </li>
                     </ul>
                   </div>
 
-                  {/* Cột 2: Mức Vàng - Theo dõi sát & Báo bác sĩ */}
+                  {/* Cột 2: Mức Vàng */}
                   <div className="p-3 rounded-2xl bg-amber-50/90 border-2 border-amber-300 space-y-2 text-amber-950">
                     <div className="font-black text-xs sm:text-sm text-amber-900 flex items-center gap-1.5">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span>⚠️ MỨC VÀNG — Dấu Hiệu Cần Cảnh Giác &amp; Ghi Sổ Báo Bác Sĩ</span>
+                      <span>⚠️ MỨC VÀNG — Ghi sổ &amp; Báo bác sĩ trong ngày</span>
                     </div>
                     <p className="text-[11px] font-bold text-amber-800">
-                      Khi thấy các biểu hiện này, hãy cho Bố nằm nghỉ, đo lại huyết áp sau 15 phút và ghi vào Sổ:
+                      Cho Bố nghỉ ngơi, đo lại huyết áp sau 15 phút, ghi vào Sổ. Nếu không đỡ hoặc nặng thêm, chuyển lên Mức Đỏ:
                     </p>
                     <ul className="space-y-1.5 text-slate-800 list-disc pl-4">
                       <li>
-                        <strong>Hoa mắt, choáng váng khi đổi tư thế (từ nằm sang ngồi/đứng):</strong> Thường do <strong>tụt huyết áp tư thế</strong> hoặc thuốc hạ áp đang tác dụng mạnh. Buổi sáng thức dậy cần cho Bố cử động tay chân trên giường 3–5 phút rồi mới đỡ ngồi dậy từ từ.
+                        <strong>Đau đầu âm ỉ tăng dần, buồn ngủ nhiều hơn thường ngày, buồn nôn nhẹ, hay quên / thay đổi tính nết, đi đứng chậm chạp hơn:</strong> có thể là dấu hiệu sớm của áp lực nội sọ hoặc ứ dịch não sau mổ → báo bác sĩ phẫu thuật sớm, đừng chờ đến lịch hẹn.
                       </li>
                       <li>
-                        <strong>Đau đầu âm ỉ, nặng mỏi vùng gáy, nóng bừng mặt hoặc ù tai:</strong> Báo hiệu huyết áp đang nhích lên cao hoặc Bố mất ngủ, căng thẳng.
+                        <strong>Bán manh trái: hay va vào đồ vật/người bên trái, đi lạc hướng, ăn sót nửa đĩa bên trái, đọc sót chữ đầu dòng:</strong> đây là biểu hiện bình thường của bệnh. Chỉ cần báo bác sĩ nếu <strong>nặng lên so với trước</strong> hoặc xuất hiện thêm chớp sáng / nhìn mờ.
                       </li>
                       <li>
-                        <strong>Sốt nhẹ (≥37.8°C), ho đờm vàng đục, hoặc tiểu buốt / nước tiểu đục nặng mùi:</strong> Dấu hiệu sớm của viêm phổi ứ đọng hoặc nhiễm trùng đường tiểu ở người bệnh ít vận động.
+                        <strong>Chóng mặt, hoa mắt khi đổi tư thế, huyết áp dao động (chênh ≥15 mmHg giữa sáng và tối):</strong> cho Bố ngồi 3–5 phút trước khi đứng, uống nước đủ, uống thuốc đúng giờ.
                       </li>
                       <li>
-                        <strong>Vùng da tỳ đè (cùng cụt, mông, gót chân, mắt cá, bả vai) đỏ ửng không nhạt màu khi ấn vào:</strong> Dấu hiệu sớm của <strong>loét tỳ đè</strong> → Cần lật nghiêng người 2 giờ/lần và kê gối mềm ngay.
+                        <strong>Sốt nhẹ (≥37.8°C), ho đờm đục, tiểu buốt hoặc nước tiểu đục; vết mổ đỏ, ngứa hay rỉ nhẹ:</strong> báo bác sĩ sớm, vì nhiễm trùng trước ngày ghép sọ có thể làm lùi lịch mổ.
                       </li>
                       <li>
-                        <strong>Tay/chân bên yếu bị sưng nề, căng tức hoặc táo bón trên 3 ngày:</strong> Cần kê cao nhẹ tay/chân bị sưng, không kéo giật khớp vai bên yếu và báo Bác sĩ khi tái khám.
+                        <strong>Ngã nhẹ hoặc va đầu dù Bố vẫn tỉnh:</strong> vẫn nên cho bác sĩ biết trong ngày; nếu va vào vùng xương sọ chưa được ghép thì nên đi khám kiểm tra.
+                      </li>
+                      <li>
+                        <strong>Táo bón trên 3 ngày hoặc phải rặn mạnh, ho nhiều:</strong> rặn mạnh làm tăng áp lực trong đầu và huyết áp, cần xử trí sớm.
+                      </li>
+                      <li>
+                        <strong>Mất ngủ kéo dài, buồn bã, cáu gắt hoặc ngại tập:</strong> hay gặp sau tai biến, cần được gia đình động viên và báo bác sĩ khi tái khám.
                       </li>
                     </ul>
                   </div>
                 </div>
+
+                {/* Hộp: Giữ an toàn hằng ngày & chuẩn bị trước mổ ghép sọ */}
+                <div className="p-3 rounded-2xl bg-sky-50 border-2 border-sky-200 text-sky-950 space-y-1.5">
+                  <div className="font-black text-xs sm:text-sm text-sky-900">
+                    🛡️ Giữ an toàn hằng ngày &amp; chuẩn bị trước ngày mổ ghép sọ
+                  </div>
+                  <ul className="list-disc pl-4 space-y-1 text-slate-800">
+                    <li>
+                      <strong>Khi đi lại:</strong> có người đi cùng, đi bên trái của Bố (bên bán manh), dọn lối đi gọn gàng, tránh bậc thang, sàn ướt, chăn thảm vướng chân; để đồ dùng cần thiết ở bên phải để Bố dễ nhìn thấy.
+                    </li>
+                    <li>
+                      <strong>Bảo vệ đầu:</strong> không để Bố ngã hay va đập, không nằm đè lên bên khuyết xương sọ, không tự ý ấn / xoa bóp vùng đó. Hỏi bác sĩ xem có cần đội mũ bảo vệ khi đi lại không.
+                    </li>
+                    <li>
+                      <strong>Khi tập phục hồi chức năng:</strong> tập nhẹ nhàng, tránh gắng sức, rặn mạnh, cúi gập đầu thấp lâu hoặc bài tập có nguy cơ ngã. Dừng ngay nếu đau đầu, chóng mặt hoặc buồn nôn.
+                    </li>
+                    <li>
+                      <strong>Chuẩn bị mổ ghép sọ:</strong> giữ vết mổ và da đầu sạch khô, chữa dứt điểm viêm răng, họng, tiểu buốt nếu có; uống thuốc đúng đơn và không tự ý ngưng hay đổi thuốc (nhất là thuốc chống đông, chống kết tập tiểu cầu, thuốc chống co giật, thuốc huyết áp); ghi sẵn câu hỏi cho bác sĩ.
+                    </li>
+                  </ul>
+                </div>
+
+                <p className="text-[11px] text-slate-500 italic">
+                  Lưu ý: nội dung mang tính tham khảo để gia đình nhận biết sớm, không thay thế chỉ định của bác sĩ điều trị. Khi phân vân, hãy gọi bác sĩ phẫu thuật của Bố hoặc đưa Bố đến viện.
+                </p>
               </div>
             </div>
           )}
