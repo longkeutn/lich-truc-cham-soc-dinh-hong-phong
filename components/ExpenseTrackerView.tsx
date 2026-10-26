@@ -336,11 +336,16 @@ export default function ExpenseTrackerView({
   const [filterType, setFilterType] = useState<'all' | ExpenseType>('all');
   const [filterStage, setFilterStage] = useState<'all' | ExpenseStage>('all');
   const [filterCategory, setFilterCategory] = useState<'all' | ExpenseCategory>('all');
+  const [filterSource, setFilterSource] = useState<
+    'all' | 'fund_direct' | 'advance_all' | 'advance_pending' | 'advance_reimbursed'
+  >('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
+  const [showAdvanceTracker, setShowAdvanceTracker] = useState<boolean>(true);
   const [showBreakdown, setShowBreakdown] = useState<boolean>(true);
   const [activeCardInfo, setActiveCardInfo] = useState<number | null>(null);
+  const [togglingReimburseId, setTogglingReimburseId] = useState<string | null>(null);
 
   // ===== STATE XEM ẢNH HÓA ĐƠN & XÁC NHẬN XÓA =====
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
@@ -358,12 +363,13 @@ export default function ExpenseTrackerView({
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const reportCardRef = useRef<HTMLDivElement | null>(null);
 
-  // ===== TÍNH TOÁN TỔNG HỢP 4 Ô MINH BẠCH, RÕ RÀNG =====
+  // ===== TÍNH TOÁN TỔNG HỢP 4 Ô & SỔ THEO DÕI TIỀN ỨNG MINH BẠCH =====
   const stats = useMemo(() => {
-    let totalIn = 0;         // Ô 1: Tổng tiền nhận vào quỹ
-    let totalOut = 0;        // Ô 2: Tổng toàn bộ chi phí điều trị
-    let fundOut = 0;         // Chi lấy từ tiền Quỹ đang giữ
-    let directMemberOut = 0; // Tiền cá nhân ứng / trả trực tiếp (chưa rút từ Quỹ)
+    let totalIn = 0;               // Ô 1: Tổng tiền nhận vào quỹ
+    let totalOut = 0;              // Ô 2: Tổng toàn bộ chi phí điều trị
+    let directFundOut = 0;         // Chi lấy thẳng từ Quỹ ngay từ lúc thanh toán
+    let advancePendingOut = 0;     // Cá nhân ứng trước — Chưa rút Quỹ hoàn lại
+    let advanceReimbursedOut = 0;  // Cá nhân ứng trước — Đã rút Quỹ hoàn lại (vẫn lưu lịch sử ứng)
     let inCount = 0;
     let outCount = 0;
 
@@ -374,7 +380,28 @@ export default function ExpenseTrackerView({
     };
 
     const byCategory: Partial<Record<ExpenseCategory, number>> = {};
-    const byContributor: Record<string, { fundIn: number; directPaid: number; total: number }> = {};
+    const byContributor: Record<
+      string,
+      {
+        fundIn: number;
+        directPaid: number;
+        reimbursedAdvance: number;
+        totalAdvanceHistory: number;
+        total: number;
+      }
+    > = {};
+
+    const advanceItems: ExpenseEntry[] = [];
+    const byAdvancer: Record<
+      string,
+      {
+        totalAdvanced: number;
+        reimbursed: number;
+        pending: number;
+        count: number;
+        pendingCount: number;
+      }
+    > = {};
 
     for (const item of expenses) {
       const amt = Number(item.amount) || 0;
@@ -383,7 +410,13 @@ export default function ExpenseTrackerView({
         inCount++;
         const contributor = (item.personName || 'Quỹ gia đình / Khác').trim();
         if (!byContributor[contributor]) {
-          byContributor[contributor] = { fundIn: 0, directPaid: 0, total: 0 };
+          byContributor[contributor] = {
+            fundIn: 0,
+            directPaid: 0,
+            reimbursedAdvance: 0,
+            totalAdvanceHistory: 0,
+            total: 0,
+          };
         }
         byContributor[contributor].fundIn += amt;
         byContributor[contributor].total += amt;
@@ -397,33 +430,98 @@ export default function ExpenseTrackerView({
         byCategory[cat] = (byCategory[cat] || 0) + amt;
 
         if (item.paymentSource === 'direct_member') {
-          directMemberOut += amt;
+          advancePendingOut += amt;
+          advanceItems.push(item);
           const payer = (item.personName || 'Người quản lý / Thành viên').trim();
           if (!byContributor[payer]) {
-            byContributor[payer] = { fundIn: 0, directPaid: 0, total: 0 };
+            byContributor[payer] = {
+              fundIn: 0,
+              directPaid: 0,
+              reimbursedAdvance: 0,
+              totalAdvanceHistory: 0,
+              total: 0,
+            };
           }
           byContributor[payer].directPaid += amt;
+          byContributor[payer].totalAdvanceHistory += amt;
           byContributor[payer].total += amt;
+
+          if (!byAdvancer[payer]) {
+            byAdvancer[payer] = {
+              totalAdvanced: 0,
+              reimbursed: 0,
+              pending: 0,
+              count: 0,
+              pendingCount: 0,
+            };
+          }
+          byAdvancer[payer].totalAdvanced += amt;
+          byAdvancer[payer].pending += amt;
+          byAdvancer[payer].count += 1;
+          byAdvancer[payer].pendingCount += 1;
+        } else if (item.paymentSource === 'advance_reimbursed') {
+          advanceReimbursedOut += amt;
+          advanceItems.push(item);
+          const payer = (item.personName || 'Người quản lý / Thành viên').trim();
+          if (!byContributor[payer]) {
+            byContributor[payer] = {
+              fundIn: 0,
+              directPaid: 0,
+              reimbursedAdvance: 0,
+              totalAdvanceHistory: 0,
+              total: 0,
+            };
+          }
+          byContributor[payer].reimbursedAdvance += amt;
+          byContributor[payer].totalAdvanceHistory += amt;
+
+          if (!byAdvancer[payer]) {
+            byAdvancer[payer] = {
+              totalAdvanced: 0,
+              reimbursed: 0,
+              pending: 0,
+              count: 0,
+              pendingCount: 0,
+            };
+          }
+          byAdvancer[payer].totalAdvanced += amt;
+          byAdvancer[payer].reimbursed += amt;
+          byAdvancer[payer].count += 1;
         } else {
-          fundOut += amt;
+          directFundOut += amt;
         }
       }
     }
 
-    // Ô 3: Tiền Quỹ còn giữ (chưa trừ khoản ứng trả riêng) = Tổng Thu - Chi từ Quỹ
+    // Tổng tiền đã xuất khỏi Quỹ = Chi thẳng từ Quỹ + Khoản ứng đã rút Quỹ hoàn lại
+    const fundOut = directFundOut + advanceReimbursedOut;
+    // Tổng tiền cá nhân đang ứng chưa lấy lại từ Quỹ
+    const directMemberOut = advancePendingOut;
+    // Tổng lịch sử tất cả các khoản cá nhân đã từng ứng ra (kể cả đã hoàn & chưa hoàn)
+    const totalAdvanceHistory = advancePendingOut + advanceReimbursedOut;
+
+    // Ô 3: Tiền mặt Quỹ còn giữ (Tổng Thu - Đã xuất khỏi Quỹ)
     const fundCashRemaining = totalIn - fundOut;
-    // Ô 4: Cân đối thực tế (sau khi trừ cả khoản ứng trả riêng) = Tổng Thu - Tổng Chi (= fundCashRemaining - directMemberOut)
+    // Ô 4: Cân đối thực tế (Sau khi trừ cả khoản đang ứng chưa rút = Tổng Thu - Tổng Chi)
     const netOverallBalance = totalIn - totalOut;
 
     const contributorList = Object.entries(byContributor)
       .map(([name, val]) => ({ name, ...val }))
-      .sort((a, b) => b.total - a.total);
+      .sort((a, b) => b.total + b.reimbursedAdvance - (a.total + a.reimbursedAdvance));
+
+    const advancerList = Object.entries(byAdvancer)
+      .map(([name, val]) => ({ name, ...val }))
+      .sort((a, b) => b.totalAdvanced - a.totalAdvanced);
 
     return {
       totalIn,
       totalOut,
+      directFundOut,
       fundOut,
       directMemberOut,
+      advancePendingOut,
+      advanceReimbursedOut,
+      totalAdvanceHistory,
       fundCashRemaining,
       netOverallBalance,
       inCount,
@@ -431,6 +529,8 @@ export default function ExpenseTrackerView({
       byStage,
       byCategory,
       contributorList,
+      advanceItems,
+      advancerList,
     };
   }, [expenses]);
 
@@ -440,6 +540,20 @@ export default function ExpenseTrackerView({
       if (filterType !== 'all' && item.type !== filterType) return false;
       if (filterStage !== 'all' && item.stage !== filterStage) return false;
       if (filterCategory !== 'all' && item.category !== filterCategory) return false;
+      if (filterSource !== 'all') {
+        if (item.type !== 'out') return false;
+        const src = item.paymentSource || 'fund_or_advance';
+        if (filterSource === 'fund_direct' && src !== 'fund_or_advance') return false;
+        if (
+          filterSource === 'advance_all' &&
+          src !== 'direct_member' &&
+          src !== 'advance_reimbursed'
+        ) {
+          return false;
+        }
+        if (filterSource === 'advance_pending' && src !== 'direct_member') return false;
+        if (filterSource === 'advance_reimbursed' && src !== 'advance_reimbursed') return false;
+      }
       if (dateFrom && item.date < dateFrom) return false;
       if (dateTo && item.date > dateTo) return false;
       if (searchQuery.trim()) {
@@ -452,7 +566,7 @@ export default function ExpenseTrackerView({
       }
       return true;
     });
-  }, [expenses, filterType, filterStage, filterCategory, dateFrom, dateTo, searchQuery]);
+  }, [expenses, filterType, filterStage, filterCategory, filterSource, dateFrom, dateTo, searchQuery]);
 
   const filteredTotals = useMemo(() => {
     let fIn = 0;
@@ -475,20 +589,26 @@ export default function ExpenseTrackerView({
     let rOut = 0;
     let rFundOut = 0;
     let rDirectOut = 0;
+    let rReimbursedOut = 0;
     const rStage: Record<ExpenseStage, number> = {
       emergency: 0,
       rehab_hospital: 0,
       home_care: 0,
     };
     const rCat: Partial<Record<ExpenseCategory, number>> = {};
-    const rContrib: Record<string, { fundIn: number; directPaid: number; total: number }> = {};
+    const rContrib: Record<
+      string,
+      { fundIn: number; directPaid: number; reimbursedAdvance: number; total: number }
+    > = {};
 
     for (const item of list) {
       const amt = Number(item.amount) || 0;
       if (item.type === 'in') {
         rIn += amt;
         const p = (item.personName || 'Quỹ gia đình').trim();
-        if (!rContrib[p]) rContrib[p] = { fundIn: 0, directPaid: 0, total: 0 };
+        if (!rContrib[p]) {
+          rContrib[p] = { fundIn: 0, directPaid: 0, reimbursedAdvance: 0, total: 0 };
+        }
         rContrib[p].fundIn += amt;
         rContrib[p].total += amt;
       } else {
@@ -498,9 +618,19 @@ export default function ExpenseTrackerView({
         if (item.paymentSource === 'direct_member') {
           rDirectOut += amt;
           const p = (item.personName || 'Người quản lý / Thành viên').trim();
-          if (!rContrib[p]) rContrib[p] = { fundIn: 0, directPaid: 0, total: 0 };
+          if (!rContrib[p]) {
+            rContrib[p] = { fundIn: 0, directPaid: 0, reimbursedAdvance: 0, total: 0 };
+          }
           rContrib[p].directPaid += amt;
           rContrib[p].total += amt;
+        } else if (item.paymentSource === 'advance_reimbursed') {
+          rReimbursedOut += amt;
+          rFundOut += amt;
+          const p = (item.personName || 'Người quản lý / Thành viên').trim();
+          if (!rContrib[p]) {
+            rContrib[p] = { fundIn: 0, directPaid: 0, reimbursedAdvance: 0, total: 0 };
+          }
+          rContrib[p].reimbursedAdvance += amt;
         } else {
           rFundOut += amt;
         }
@@ -513,13 +643,15 @@ export default function ExpenseTrackerView({
       rOut,
       rFundOut,
       rDirectOut,
+      rReimbursedOut,
+      rTotalAdvanceHistory: rDirectOut + rReimbursedOut,
       rFundCashRemaining: rIn - rFundOut,
       rNetOverallBalance: rIn - rOut,
       rStage,
       rCat,
       rContribList: Object.entries(rContrib)
         .map(([name, val]) => ({ name, ...val }))
-        .sort((a, b) => b.total - a.total),
+        .sort((a, b) => b.total + b.reimbursedAdvance - (a.total + a.reimbursedAdvance)),
     };
   }, [expenses, reportStageFilter]);
 
@@ -678,6 +810,30 @@ export default function ExpenseTrackerView({
     }
   };
 
+  // ===== CHUYỂN TRẠNG THÁI HOÀN ỨNG 1 CHẠM (GIỮ NGUYÊN LỊCH SỬ ĐÃ ỨNG) =====
+  const handleToggleAdvanceReimbursed = async (item: ExpenseEntry) => {
+    if (item.type !== 'out') return;
+    const nextSource: PaymentSource =
+      item.paymentSource === 'direct_member' ? 'advance_reimbursed' : 'direct_member';
+    setTogglingReimburseId(item.id);
+    try {
+      const updated: ExpenseEntry = {
+        ...item,
+        paymentSource: nextSource,
+        updatedAt: new Date().toISOString(),
+      };
+      await onSaveExpense(updated);
+      showToast(
+        nextSource === 'advance_reimbursed'
+          ? `Đã đánh dấu "${item.title}" là Đã rút Quỹ hoàn lại! (Vẫn lưu trong lịch sử ứng)`
+          : `Đã chuyển "${item.title}" về trạng thái Chưa rút Quỹ hoàn lại.`,
+        'success'
+      );
+    } finally {
+      setTogglingReimburseId(null);
+    }
+  };
+
   // ===== HANDLERS XUẤT BÁO CÁO ZALO / PNG / PDF =====
   const buildZaloReportText = (): string => {
     const todayVN = formatDateVN(getVietnamDateStr());
@@ -693,24 +849,25 @@ export default function ExpenseTrackerView({
       lines.push(`1️⃣ TỔNG HỢP CÂN ĐỐI 4 CHỈ SỐ:`);
       lines.push(`• Tổng thu vào quỹ: +${formatVND(reportData.rIn)}`);
       lines.push(`• Tổng chi điều trị: -${formatVND(reportData.rOut)}`);
-      if (reportData.rDirectOut > 0) {
-        lines.push(`  (Trong đó lấy từ Quỹ: ${formatVND(reportData.rFundOut)} | Ứng/trả riêng trực tiếp: ${formatVND(reportData.rDirectOut)})`);
+      if (reportData.rTotalAdvanceHistory > 0) {
+        lines.push(
+          `  (Tổng lịch sử ứng trước: ${formatVND(reportData.rTotalAdvanceHistory)} → Đã rút Quỹ hoàn lại: ${formatVND(reportData.rReimbursedOut)} | Còn đang ứng chưa rút: ${formatVND(reportData.rDirectOut)})`
+        );
       }
       lines.push(
-        `• Tiền Quỹ còn giữ (Thu − Chi từ Quỹ): ${
+        `• Tiền Quỹ còn giữ (Thu − Đã xuất khỏi Quỹ): ${
           reportData.rFundCashRemaining >= 0
             ? `+${formatVND(reportData.rFundCashRemaining)}`
             : `-${formatVND(Math.abs(reportData.rFundCashRemaining))}`
         }`
       );
       if (reportData.rNetOverallBalance >= 0) {
-        lines.push(`• Cân đối thực tế (Sau khi trừ khoản ứng): +${formatVND(reportData.rNetOverallBalance)}`);
+        lines.push(`• Cân đối thực tế (Sau khi trừ mọi khoản chi & ứng): +${formatVND(reportData.rNetOverallBalance)}`);
       } else {
         lines.push(
-          `• Cân đối thực tế (Sau khi trừ khoản ứng): -${formatVND(Math.abs(reportData.rNetOverallBalance))} (Đang ứng vượt tổng thu)`
+          `• Cân đối thực tế (Tổng Thu − Tổng Chi): -${formatVND(Math.abs(reportData.rNetOverallBalance))} (Đang chi vượt thu)`
         );
       }
-      lines.push(`ℹ️ Cách tính: (3) Tiền Quỹ còn giữ = (1) Tổng thu vào quỹ − Chi lấy từ quỹ | (4) Cân đối thực tế = (1) Tổng thu − (2) Tổng chi (= Tiền Quỹ còn giữ − Khoản cá nhân ứng riêng).`);
       lines.push(`────────────────────`);
     }
 
@@ -733,15 +890,13 @@ export default function ExpenseTrackerView({
     }
 
     if (reportIncludeContributors && reportData.rContribList.length > 0) {
-      lines.push(`3️⃣ GHI NHẬN NGUỒN THU QUỸ & KHOẢN ỨNG TRẢ TRỰC TIẾP:`);
+      lines.push(`3️⃣ GHI NHẬN ĐÓNG GÓP QUỸ & THEO DÕI TIỀN ỨNG:`);
       reportData.rContribList.forEach((c) => {
-        if (c.fundIn > 0 && c.directPaid > 0) {
-          lines.push(`• ${c.name}: ${formatVND(c.total)} (Gửi quỹ: ${formatVND(c.fundIn)} | Ứng/trả riêng: ${formatVND(c.directPaid)})`);
-        } else if (c.directPaid > 0) {
-          lines.push(`• ${c.name}: ${formatVND(c.total)} (Ứng / thanh toán trực tiếp)`);
-        } else {
-          lines.push(`• ${c.name}: ${formatVND(c.total)} (Gửi vào quỹ)`);
-        }
+        const parts: string[] = [];
+        if (c.fundIn > 0) parts.push(`Gửi quỹ: ${formatVND(c.fundIn)}`);
+        if (c.directPaid > 0) parts.push(`Đang ứng chưa rút: ${formatVND(c.directPaid)}`);
+        if (c.reimbursedAdvance > 0) parts.push(`Đã ứng & đã hoàn từ quỹ: ${formatVND(c.reimbursedAdvance)}`);
+        lines.push(`• ${c.name}: ${parts.join(' | ')}`);
       });
       lines.push(`────────────────────`);
     }
@@ -751,7 +906,13 @@ export default function ExpenseTrackerView({
       reportData.list.slice(0, 50).forEach((item) => {
         const sign = item.type === 'in' ? '[+THU]' : '[-CHI]';
         const who = item.personName ? ` (${item.personName})` : '';
-        lines.push(`• ${formatDateVN(item.date)} ${sign} ${item.title}: ${formatVND(item.amount)}${who}`);
+        const advNote =
+          item.type === 'out' && item.paymentSource === 'direct_member'
+            ? ' [Đang ứng - Chưa rút Quỹ]'
+            : item.type === 'out' && item.paymentSource === 'advance_reimbursed'
+              ? ' [Từng ứng - Đã hoàn từ Quỹ]'
+              : '';
+        lines.push(`• ${formatDateVN(item.date)} ${sign} ${item.title}: ${formatVND(item.amount)}${who}${advNote}`);
       });
       if (reportData.list.length > 50) {
         lines.push(`... và ${reportData.list.length - 50} khoản khác trong sổ.`);
@@ -1031,7 +1192,7 @@ export default function ExpenseTrackerView({
 
           {activeCardInfo === 1 && (
             <div className="mt-2.5 pt-2 border-t border-emerald-100 text-[11px] text-emerald-950 bg-emerald-50/70 p-2.5 rounded-xl leading-relaxed">
-              💡 <strong>Cách tính:</strong> Tổng tiền mặt/chuyển khoản các thành viên đã gửi vào Quỹ chung + tiền BHYT, hỗ trợ nhận về (không tính các khoản cá nhân tự thanh toán riêng ở ngoài).
+              💡 <strong>Cách tính:</strong> Tổng tiền mặt/chuyển khoản các thành viên đã gửi vào Quỹ chung + tiền BHYT, hỗ trợ nhận về.
             </div>
           )}
         </div>
@@ -1065,19 +1226,19 @@ export default function ExpenseTrackerView({
             -{formatVND(stats.totalOut)}
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            {stats.directMemberOut > 0
-              ? `Từ quỹ: ${formatVND(stats.fundOut)} • Ứng/trả riêng: ${formatVND(stats.directMemberOut)}`
+            {stats.totalAdvanceHistory > 0
+              ? `Chi thẳng quỹ: ${formatVND(stats.directFundOut)} • Qua ứng trước: ${formatVND(stats.totalAdvanceHistory)}`
               : `Viện phí, thuốc men, thiết bị (${stats.outCount} khoản)`}
           </p>
 
           {activeCardInfo === 2 && (
             <div className="mt-2.5 pt-2 border-t border-rose-100 text-[11px] text-rose-950 bg-rose-50/70 p-2.5 rounded-xl leading-relaxed">
-              💡 <strong>Cách tính:</strong> Toàn bộ chi phí lo cho Bố từ đầu đến nay = <strong>Chi lấy từ Quỹ</strong> ({formatVND(stats.fundOut)}) + <strong>Cá nhân tự ứng/trả riêng</strong> ({formatVND(stats.directMemberOut)}).
+              💡 <strong>Cách tính:</strong> Toàn bộ chi phí lo cho Bố = <strong>Chi thẳng từ Quỹ</strong> ({formatVND(stats.directFundOut)}) + <strong>Các khoản cá nhân ứng trước</strong> ({formatVND(stats.totalAdvanceHistory)}, trong đó đã hoàn từ Quỹ {formatVND(stats.advanceReimbursedOut)} &amp; chưa hoàn {formatVND(stats.advancePendingOut)}).
             </div>
           )}
         </div>
 
-        {/* Ô 3: Tiền Quỹ Còn Giữ (Tổng Thu - Chi từ Quỹ) */}
+        {/* Ô 3: Tiền Quỹ Còn Giữ (Tổng Thu - Đã xuất khỏi Quỹ) */}
         <div
           className={`bg-white rounded-2xl border p-4 shadow-2xs transition ${
             stats.fundCashRemaining >= 0 ? 'border-teal-200' : 'border-amber-300 bg-amber-50/30'
@@ -1122,12 +1283,16 @@ export default function ExpenseTrackerView({
               : `-${formatVND(Math.abs(stats.fundCashRemaining))}`}
           </div>
           <p className="text-xs text-slate-600 mt-1">
-            Thu vào quỹ ({formatVND(stats.totalIn)}) − Chi từ quỹ ({formatVND(stats.fundOut)})
+            {stats.advancePendingOut > 0
+              ? `Còn trong két Quỹ (chưa trả ${formatVND(stats.advancePendingOut)} tiền đang ứng)`
+              : stats.advanceReimbursedOut > 0
+                ? `Đã trừ cả ${formatVND(stats.advanceReimbursedOut)} hoàn ứng từ Quỹ`
+                : `Thu vào quỹ (${formatVND(stats.totalIn)}) − Đã chi từ quỹ (${formatVND(stats.fundOut)})`}
           </p>
 
           {activeCardInfo === 3 && (
             <div className="mt-2.5 pt-2 border-t border-teal-100 text-[11px] text-teal-950 bg-teal-50/70 p-2.5 rounded-xl leading-relaxed">
-              💡 <strong>Cách tính:</strong> Ô 1 (Thu vào quỹ) − Chi lấy từ Quỹ. Là số tiền mặt/tài khoản thực tế hiện còn nằm trong Quỹ để người giữ quỹ đối chiếu kiểm đếm (chưa trừ khoản cá nhân tự ứng riêng).
+              💡 <strong>Cách tính:</strong> Ô 1 ({formatVND(stats.totalIn)}) − Chi thẳng từ Quỹ ({formatVND(stats.directFundOut)}) − Khoản ứng đã rút Quỹ hoàn lại ({formatVND(stats.advanceReimbursedOut)}). Khi bạn bấm <strong>&quot;Đã rút Quỹ hoàn lại&quot;</strong> ở bảng Tiền Ứng bên dưới, số tiền Quỹ còn giữ này sẽ tự động trừ đi tương ứng.
             </div>
           )}
         </div>
@@ -1178,17 +1343,280 @@ export default function ExpenseTrackerView({
           </div>
           <p className="text-xs text-slate-600 mt-1">
             {stats.netOverallBalance >= 0
-              ? 'Số dư thực tế sau khi trừ mọi khoản chi & ứng'
-              : `Đang ứng vượt tổng thu (Quỹ còn ${formatVND(stats.fundCashRemaining)} − Ứng riêng ${formatVND(stats.directMemberOut)})`}
+              ? 'Số dư thực tế sau khi trừ mọi khoản chi & hoàn ứng'
+              : stats.advancePendingOut > 0 && stats.fundCashRemaining > 0
+                ? `Lấy hết Quỹ (${formatVND(stats.fundCashRemaining)}) trả tiền ứng (${formatVND(stats.advancePendingOut)}) vẫn thiếu ${formatVND(Math.abs(stats.netOverallBalance))}`
+                : `Tổng chi vượt tổng thu ${formatVND(Math.abs(stats.netOverallBalance))} (Cần bổ sung quỹ)`}
           </p>
 
           {activeCardInfo === 4 && (
             <div className="mt-2.5 pt-2 border-t border-amber-200 text-[11px] text-amber-950 bg-amber-50/70 p-2.5 rounded-xl leading-relaxed">
-              💡 <strong>Cách tính:</strong> Ô 1 − Ô 2 (hay = Tiền Quỹ còn giữ − Khoản cá nhân ứng riêng). {stats.netOverallBalance >= 0 ? 'Số dư thực sự sau khi bù trừ hết mọi khoản.' : `Đang âm (−) nghĩa là tổng chi vượt tổng thu: nếu lấy hết ${formatVND(stats.fundCashRemaining)} còn trong Quỹ trả lại cho người ứng thì vẫn còn thiếu ${formatVND(Math.abs(stats.netOverallBalance))}.`}
+              💡 <strong>Cách tính:</strong> Ô 1 (Tổng thu) − Ô 2 (Tổng chi) = Ô 3 (Tiền Quỹ còn giữ) − Khoản đang ứng chưa hoàn ({formatVND(stats.advancePendingOut)}).
             </div>
           )}
         </div>
       </div>
+
+      {/* ========================================================= */}
+      {/* BẢNG CHUYÊN BIỆT: SỔ THEO DÕI TIỀN ỨNG TRƯỚC & HOÀN ỨNG */}
+      {/* ========================================================= */}
+      {stats.advanceItems.length > 0 && (
+        <div className="bg-white rounded-2xl border-2 border-blue-200 shadow-2xs overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowAdvanceTracker(!showAdvanceTracker)}
+            className="w-full px-4 sm:px-5 py-3.5 flex flex-wrap items-center justify-between gap-2 bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-teal-50/50 hover:from-blue-100/80 transition cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5 text-left">
+              <span className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center text-sm font-extrabold shrink-0">
+                💳
+              </span>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm sm:text-base font-extrabold text-slate-900">
+                    Sổ Theo Dõi Tiền Cá Nhân Ứng Trước &amp; Hoàn Trả Từ Quỹ
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[11px] font-extrabold">
+                    {stats.advanceItems.length} khoản đã ứng
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600">
+                  Bấm 1 chạm để đánh dấu khoản ứng nào <strong>đã rút Quỹ hoàn lại</strong> mà vẫn giữ nguyên lịch sử đã ứng
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto">
+              {stats.advancePendingOut > 0 ? (
+                <span className="px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 border border-amber-300 text-xs font-extrabold">
+                  ⏳ Chưa hoàn: {formatVND(stats.advancePendingOut)}
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-extrabold">
+                  ✅ Đã hoàn trả đủ 100%
+                </span>
+              )}
+              {showAdvanceTracker ? (
+                <ChevronUp className="w-4 h-4 text-slate-500" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-slate-500" />
+              )}
+            </div>
+          </button>
+
+          {showAdvanceTracker && (
+            <div className="p-4 sm:p-5 space-y-4 border-t border-blue-100">
+              {/* 3 Ô TÓM TẮT LỊCH SỬ TIỀN ỨNG */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-[11px] font-bold text-slate-500 uppercase">
+                    1. Tổng Đã Ứng Ra (Lịch sử ứng)
+                  </div>
+                  <div className="text-lg sm:text-xl font-extrabold text-slate-900 mt-1">
+                    {formatVND(stats.totalAdvanceHistory)}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Tổng cộng {stats.advanceItems.length} khoản cá nhân đã bỏ tiền túi ứng trước
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-teal-50/70 border border-teal-200">
+                  <div className="text-[11px] font-bold text-teal-800 uppercase">
+                    2. Đã Rút Quỹ Hoàn Lại
+                  </div>
+                  <div className="text-lg sm:text-xl font-extrabold text-teal-700 mt-1">
+                    {formatVND(stats.advanceReimbursedOut)}
+                  </div>
+                  <div className="text-[11px] text-teal-800/80 mt-0.5">
+                    Đã trừ trực tiếp vào Ô 3 (Tiền Quỹ Còn Giữ)
+                  </div>
+                </div>
+
+                <div
+                  className={`p-3.5 rounded-xl border ${
+                    stats.advancePendingOut > 0
+                      ? 'bg-amber-50/80 border-amber-300'
+                      : 'bg-emerald-50/70 border-emerald-200'
+                  }`}
+                >
+                  <div
+                    className={`text-[11px] font-bold uppercase ${
+                      stats.advancePendingOut > 0 ? 'text-amber-900' : 'text-emerald-800'
+                    }`}
+                  >
+                    3. Còn Đang Ứng (Chưa rút Quỹ)
+                  </div>
+                  <div
+                    className={`text-lg sm:text-xl font-extrabold mt-1 ${
+                      stats.advancePendingOut > 0 ? 'text-amber-800' : 'text-emerald-700'
+                    }`}
+                  >
+                    {formatVND(stats.advancePendingOut)}
+                  </div>
+                  <div className="text-[11px] text-slate-600 mt-0.5">
+                    {stats.advancePendingOut > 0
+                      ? 'Số tiền Quỹ còn cần hoàn trả lại cho người ứng'
+                      : 'Tất cả khoản ứng đã được hoàn trả từ Quỹ'}
+                  </div>
+                </div>
+              </div>
+
+              {/* HỘP DIỄN GIẢI TỰ ĐỘNG SO SÁNH VỚI TIỀN QUỸ HIỆN CÓ */}
+              <div className="px-3.5 py-2.5 rounded-xl bg-blue-50/70 border border-blue-200/80 text-xs text-slate-700 leading-relaxed">
+                {stats.advancePendingOut === 0 ? (
+                  <span>
+                    ✅ <strong>Đã tất toán tiền ứng:</strong> Toàn bộ{' '}
+                    <strong>{formatVND(stats.totalAdvanceHistory)}</strong> tiền cá nhân ứng trước đều đã được đánh dấu{' '}
+                    <strong>Đã rút Quỹ hoàn lại</strong>. Lịch sử từng khoản ứng vẫn được lưu giữ nguyên vẹn bên dưới để đối chiếu bất cứ lúc nào.
+                  </span>
+                ) : stats.fundCashRemaining >= stats.advancePendingOut ? (
+                  <span>
+                    💡 <strong>Đối chiếu với Quỹ hiện tại:</strong> Tiền mặt trong Quỹ hiện còn{' '}
+                    <strong className="text-teal-700">+{formatVND(stats.fundCashRemaining)}</strong>,{' '}
+                    <strong>đủ để hoàn trả toàn bộ {formatVND(stats.advancePendingOut)}</strong> tiền đang ứng (sau khi hoàn trả hết, Quỹ vẫn còn dư{' '}
+                    <strong className="text-teal-700">
+                      +{formatVND(stats.fundCashRemaining - stats.advancePendingOut)}
+                    </strong>
+                    ). Khi lấy tiền Quỹ hoàn lại khoản nào, bạn bấm nút{' '}
+                    <strong>&quot;✅ Đánh dấu: Đã rút Quỹ hoàn lại&quot;</strong> ở dòng đó.
+                  </span>
+                ) : stats.fundCashRemaining > 0 ? (
+                  <span>
+                    💡 <strong>Đối chiếu với Quỹ hiện tại:</strong> Tiền đang ứng chờ hoàn trả là{' '}
+                    <strong className="text-amber-800">{formatVND(stats.advancePendingOut)}</strong>, trong khi tiền mặt Quỹ đang giữ ở Ô 3 là{' '}
+                    <strong className="text-teal-700">+{formatVND(stats.fundCashRemaining)}</strong>. Bạn có thể bấm{' '}
+                    <strong>&quot;✅ Đánh dấu: Đã rút Quỹ hoàn lại&quot;</strong> cho các khoản ứng đã lấy lại từ Quỹ trước; nếu dùng hết toàn bộ{' '}
+                    {formatVND(stats.fundCashRemaining)} trong Quỹ để trả bớt tiền ứng thì Quỹ vẫn còn thiếu{' '}
+                    <strong className="text-rose-700">
+                      {formatVND(stats.advancePendingOut - stats.fundCashRemaining)}
+                    </strong>{' '}
+                    (đúng bằng Ô 4 Cân đối thực tế).
+                  </span>
+                ) : (
+                  <span>
+                    💡 <strong>Đối chiếu với Quỹ hiện tại:</strong> Quỹ hiện không còn tiền mặt dư để hoàn ứng ngay. Khi có thêm khoản thu mới vào Quỹ và rút trả lại cho người ứng, bạn bấm{' '}
+                    <strong>&quot;✅ Đánh dấu: Đã rút Quỹ hoàn lại&quot;</strong> ở từng khoản bên dưới.
+                  </span>
+                )}
+              </div>
+
+              {/* TÓM TẮT THEO TỪNG NGƯỜI ĐÃ ỨNG */}
+              {stats.advancerList.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {stats.advancerList.map((adv) => (
+                    <div
+                      key={adv.name}
+                      className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          <span className="truncate">{adv.name}</span>
+                          <span className="text-[11px] font-semibold text-slate-500">
+                            ({adv.count} khoản)
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-600 mt-0.5">
+                          Tổng đã ứng: <strong>{formatVND(adv.totalAdvanced)}</strong> • Đã hoàn:{' '}
+                          <strong className="text-teal-700">{formatVND(adv.reimbursed)}</strong>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-[10px] font-bold uppercase text-slate-500">
+                          Còn chưa hoàn
+                        </div>
+                        <div
+                          className={`text-xs sm:text-sm font-extrabold ${
+                            adv.pending > 0 ? 'text-amber-800' : 'text-emerald-700'
+                          }`}
+                        >
+                          {adv.pending > 0 ? formatVND(adv.pending) : '0 đ (Đã hoàn đủ)'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* DANH SÁCH TỪNG KHOẢN ỨNG + NÚT 1 CHẠM ĐÁNH DẤU HOÀN ỨNG */}
+              <div className="space-y-2">
+                <div className="text-xs font-extrabold text-slate-600 uppercase tracking-wider">
+                  Chi tiết từng khoản đã ứng ({stats.advanceItems.length} khoản):
+                </div>
+                <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white overflow-hidden">
+                  {stats.advanceItems.map((item) => {
+                    const isReimbursed = item.paymentSource === 'advance_reimbursed';
+                    const isBusy = togglingReimburseId === item.id;
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-3 sm:px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition ${
+                          isReimbursed ? 'bg-teal-50/30' : 'bg-white hover:bg-slate-50/80'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-xs font-extrabold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                              {formatDateVN(item.date)}
+                            </span>
+                            <span className="text-xs font-bold text-slate-800">
+                              👤 Người ứng: {item.personName || 'Thành viên'}
+                            </span>
+                            {isReimbursed ? (
+                              <span className="px-2 py-0.5 rounded-md bg-teal-100 text-teal-900 border border-teal-300 text-[11px] font-extrabold">
+                                ✅ Đã rút Quỹ hoàn lại
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-extrabold">
+                                ⏳ Chưa rút Quỹ hoàn lại
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm font-extrabold text-slate-900 mt-1">
+                            {item.title}
+                            {item.note && (
+                              <span className="text-xs font-normal text-slate-500 ml-1.5">
+                                ({item.note})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between sm:justify-end gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0">
+                          <span
+                            className={`text-sm sm:text-base font-extrabold ${
+                              isReimbursed ? 'text-teal-700' : 'text-amber-800'
+                            }`}
+                          >
+                            {formatVND(item.amount)}
+                          </span>
+
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleToggleAdvanceReimbursed(item)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer disabled:opacity-50 ${
+                              isReimbursed
+                                ? 'bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 border border-slate-200'
+                                : 'bg-teal-700 hover:bg-teal-800 text-white shadow-2xs'
+                            }`}
+                          >
+                            {isBusy
+                              ? 'Đang lưu...'
+                              : isReimbursed
+                                ? '↩️ Chuyển lại: Chưa hoàn'
+                                : '✅ Đánh dấu: Đã rút Quỹ hoàn lại'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* BẢNG PHÂN BỔ THEO GIAI ĐOẠN & NGUỒN ĐÓNG GÓP (ĐÓNG/MỞ GỌN GÀNG) */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
@@ -1200,7 +1628,7 @@ export default function ExpenseTrackerView({
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-teal-700" />
             <span className="text-sm font-extrabold text-slate-800">
-              Tổng hợp theo Giai đoạn, Nhóm chi phí & Nguồn thu
+              Tổng hợp theo Giai đoạn, Nhóm chi phí &amp; Nguồn thu
             </span>
           </div>
           {showBreakdown ? (
@@ -1283,11 +1711,11 @@ export default function ExpenseTrackerView({
             <div>
               <div className="flex flex-wrap items-center justify-between gap-1 mb-2.5">
                 <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">
-                  Ghi nhận các khoản gửi vào quỹ & ứng trả trực tiếp
+                  Ghi nhận đóng góp Quỹ &amp; Theo dõi tiền ứng theo người
                 </h3>
                 {(stats.totalIn > 0 || stats.directMemberOut > 0) && (
                   <span className="text-[11px] font-bold text-slate-500">
-                    Tổng đã bỏ ra: {formatVND(stats.totalIn + stats.directMemberOut)}
+                    Thu quỹ + Đang ứng: {formatVND(stats.totalIn + stats.directMemberOut)}
                   </span>
                 )}
               </div>
@@ -1306,27 +1734,32 @@ export default function ExpenseTrackerView({
                         <div className="text-xs sm:text-sm font-extrabold text-slate-800 truncate">
                           {c.name}
                         </div>
-                        <div className="text-[11px] text-slate-500">
-                          {c.fundIn > 0 && c.directPaid > 0
-                            ? `Gửi vào quỹ: ${formatVND(c.fundIn)} • Ứng/trả riêng: ${formatVND(c.directPaid)}`
-                            : c.directPaid > 0
-                              ? 'Tiền cá nhân ứng / trả trực tiếp (chưa rút từ Quỹ)'
-                              : 'Chuyển vào quỹ điều trị chung'}
+                        <div className="text-[11px] text-slate-600 space-x-1">
+                          {c.fundIn > 0 && (
+                            <span>Gửi vào quỹ: {formatVND(c.fundIn)}</span>
+                          )}
+                          {c.totalAdvanceHistory > 0 && (
+                            <span>
+                              {c.fundIn > 0 ? '• ' : ''}
+                              Đã ứng tổng: {formatVND(c.totalAdvanceHistory)} (Đã hoàn:{' '}
+                              {formatVND(c.reimbursedAdvance)} • Chưa hoàn:{' '}
+                              {formatVND(c.directPaid)})
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <div className="text-sm font-extrabold text-emerald-700 shrink-0 ml-3">
-                        {formatVND(c.total)}
+                      <div className="text-right shrink-0 ml-3">
+                        <div className="text-sm font-extrabold text-emerald-700">
+                          {formatVND(c.total)}
+                        </div>
+                        {c.reimbursedAdvance > 0 && c.total === 0 && (
+                          <div className="text-[10px] font-bold text-teal-700">
+                            Đã hoàn ứng đủ
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
-                  {stats.directMemberOut > 0 && (
-                    <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 leading-relaxed">
-                      💡 <strong>Lưu ý:</strong> Cột này cộng cả tiền{' '}
-                      <strong>Gửi vào Quỹ ({formatVND(stats.totalIn)})</strong> và tiền{' '}
-                      <strong>Cá nhân ứng trả riêng ({formatVND(stats.directMemberOut)})</strong> ={' '}
-                      <strong>{formatVND(stats.totalIn + stats.directMemberOut)}</strong> để ghi nhận đầy đủ tổng số tiền mỗi thành viên đã thực chi cho Bố.
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -1354,7 +1787,7 @@ export default function ExpenseTrackerView({
         </div>
 
         {/* Thanh tìm kiếm & Lọc đa chiều */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
           {/* Ô tìm kiếm */}
           <div className="relative lg:col-span-2">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -1373,9 +1806,31 @@ export default function ExpenseTrackerView({
             onChange={(e) => setFilterType(e.target.value as 'all' | ExpenseType)}
             className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-600"
           >
-            <option value="all">Tất cả: Thu & Chi</option>
+            <option value="all">Tất cả: Thu &amp; Chi</option>
             <option value="out">➖ Chỉ xem Khoản Chi</option>
             <option value="in">➕ Chỉ xem Khoản Thu</option>
+          </select>
+
+          {/* Lọc Nguồn tiền / Trạng thái Ứng */}
+          <select
+            value={filterSource}
+            onChange={(e) =>
+              setFilterSource(
+                e.target.value as
+                  | 'all'
+                  | 'fund_direct'
+                  | 'advance_all'
+                  | 'advance_pending'
+                  | 'advance_reimbursed'
+              )
+            }
+            className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-600"
+          >
+            <option value="all">Mọi nguồn tiền</option>
+            <option value="advance_all">💳 Toàn bộ lịch sử đã ứng</option>
+            <option value="advance_pending">⏳ Đang ứng (Chưa rút Quỹ)</option>
+            <option value="advance_reimbursed">✅ Từng ứng (Đã hoàn từ Quỹ)</option>
+            <option value="fund_direct">💼 Chi thẳng từ Quỹ</option>
           </select>
 
           {/* Lọc Giai đoạn */}
@@ -1385,8 +1840,8 @@ export default function ExpenseTrackerView({
             className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-600"
           >
             <option value="all">Mọi giai đoạn</option>
-            <option value="emergency">🚑 Cấp cứu & Nằm viện</option>
-            <option value="rehab_hospital">🏥 Tái khám & Phục hồi</option>
+            <option value="emergency">🚑 Cấp cứu &amp; Nằm viện</option>
+            <option value="rehab_hospital">🏥 Tái khám &amp; Phục hồi</option>
             <option value="home_care">🏠 Chăm sóc tại nhà</option>
           </select>
 
@@ -1422,6 +1877,7 @@ export default function ExpenseTrackerView({
             className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700"
           />
           {(filterType !== 'all' ||
+            filterSource !== 'all' ||
             filterStage !== 'all' ||
             filterCategory !== 'all' ||
             searchQuery ||
@@ -1431,6 +1887,7 @@ export default function ExpenseTrackerView({
               type="button"
               onClick={() => {
                 setFilterType('all');
+                setFilterSource('all');
                 setFilterStage('all');
                 setFilterCategory('all');
                 setSearchQuery('');
@@ -1461,6 +1918,9 @@ export default function ExpenseTrackerView({
               const catInfo = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.other_expense;
               const stgInfo = STAGE_CONFIG[item.stage || 'home_care'];
               const isOut = item.type === 'out';
+              const isPendingAdvance = isOut && item.paymentSource === 'direct_member';
+              const isReimbursedAdvance = isOut && item.paymentSource === 'advance_reimbursed';
+              const isToggling = togglingReimburseId === item.id;
 
               return (
                 <div
@@ -1501,21 +1961,44 @@ export default function ExpenseTrackerView({
                         {item.title}
                       </h4>
 
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-600">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-1 text-xs text-slate-600">
                         {item.personName && (
                           <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
                             <User className="w-3.5 h-3.5 text-slate-400" />
                             {isOut
-                              ? item.paymentSource === 'direct_member'
-                                ? `Người ứng/trả riêng: ${item.personName}`
+                              ? isPendingAdvance || isReimbursedAdvance
+                                ? `Người ứng trước: ${item.personName}`
                                 : `Người thanh toán: ${item.personName}`
                               : `Người gửi / Nguồn thu: ${item.personName}`}
                           </span>
                         )}
-                        {isOut && item.paymentSource === 'direct_member' && (
-                          <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold">
-                            Ứng / trả riêng (Chưa rút từ Quỹ)
+                        {isPendingAdvance && (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-extrabold">
+                            ⏳ Đang ứng (Chưa rút từ Quỹ)
                           </span>
+                        )}
+                        {isReimbursedAdvance && (
+                          <span className="px-2 py-0.5 rounded-md bg-teal-100 text-teal-900 border border-teal-300 text-[11px] font-extrabold">
+                            ✅ Từng ứng (Đã rút Quỹ hoàn lại)
+                          </span>
+                        )}
+                        {(isPendingAdvance || isReimbursedAdvance) && (
+                          <button
+                            type="button"
+                            disabled={isToggling}
+                            onClick={() => handleToggleAdvanceReimbursed(item)}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-extrabold border transition cursor-pointer disabled:opacity-50 ${
+                              isPendingAdvance
+                                ? 'bg-teal-700 hover:bg-teal-800 text-white border-teal-700'
+                                : 'bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 border-slate-200'
+                            }`}
+                          >
+                            {isToggling
+                              ? 'Đang lưu...'
+                              : isPendingAdvance
+                                ? '✅ Bấm đánh dấu: Đã hoàn từ Quỹ'
+                                : '↩️ Chuyển lại: Chưa hoàn'}
+                          </button>
                         )}
                         {item.note && (
                           <span className="text-slate-500 italic">• {item.note}</span>
@@ -1742,9 +2225,9 @@ export default function ExpenseTrackerView({
               {formType === 'out' && (
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Nguồn tiền thanh toán
+                    Nguồn tiền thanh toán &amp; Trạng thái hoàn ứng
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     <button
                       type="button"
                       onClick={() => setFormPaymentSource('fund_or_advance')}
@@ -1754,26 +2237,47 @@ export default function ExpenseTrackerView({
                           : 'bg-slate-50 border-slate-200 text-slate-700'
                       }`}
                     >
-                      <div className="text-xs font-extrabold">💼 Lấy từ tiền Quỹ đang giữ</div>
+                      <div className="text-xs font-extrabold">💼 Lấy trực tiếp từ tiền Quỹ đang giữ</div>
                       <div className="text-[11px] text-slate-500 mt-0.5">
-                        Trừ trực tiếp vào số tiền Quỹ hiện có
+                        Trừ thẳng vào số tiền Quỹ hiện có (không qua cá nhân ứng trước)
                       </div>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setFormPaymentSource('direct_member')}
-                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
-                        formPaymentSource === 'direct_member'
-                          ? 'bg-blue-50 border-blue-500 text-blue-950'
-                          : 'bg-slate-50 border-slate-200 text-slate-700'
-                      }`}
-                    >
-                      <div className="text-xs font-extrabold">💳 Tiền cá nhân ứng / trả trực tiếp</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        Bỏ tiền túi trả riêng (chưa rút từ Quỹ)
-                      </div>
-                    </button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormPaymentSource('direct_member')}
+                        className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                          formPaymentSource === 'direct_member'
+                            ? 'bg-amber-50 border-amber-500 text-amber-950'
+                            : 'bg-slate-50 border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        <div className="text-xs font-extrabold">
+                          ⏳ Cá nhân ứng trước (Chưa rút Quỹ)
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          Bỏ tiền túi trả trước, chờ Quỹ hoàn lại sau
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFormPaymentSource('advance_reimbursed')}
+                        className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                          formPaymentSource === 'advance_reimbursed'
+                            ? 'bg-teal-50 border-teal-600 text-teal-950'
+                            : 'bg-slate-50 border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        <div className="text-xs font-extrabold">
+                          ✅ Cá nhân ứng trước (Đã hoàn từ Quỹ)
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          Vẫn lưu lịch sử ứng nhưng đã rút tiền Quỹ bù lại
+                        </div>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1783,8 +2287,9 @@ export default function ExpenseTrackerView({
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   {formType === 'in'
                     ? 'Người gửi vào quỹ / Nguồn đóng góp'
-                    : formPaymentSource === 'direct_member'
-                      ? 'Người đã bỏ tiền túi ứng / trả trực tiếp'
+                    : formPaymentSource === 'direct_member' ||
+                        formPaymentSource === 'advance_reimbursed'
+                      ? 'Người đã bỏ tiền túi ứng trước'
                       : 'Người trực tiếp đi thanh toán (Tùy chọn)'}
                 </label>
                 <input
@@ -1901,7 +2406,7 @@ export default function ExpenseTrackerView({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-lg font-extrabold text-slate-900">
-                  Tổng Hợp & Xuất Báo Cáo Thu Chi
+                  Tổng Hợp &amp; Xuất Báo Cáo Thu Chi
                 </h3>
                 <p className="text-xs text-slate-500">
                   Tùy chọn các mục muốn hiển thị trước khi gửi cho gia đình
@@ -1928,8 +2433,8 @@ export default function ExpenseTrackerView({
                   className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800"
                 >
                   <option value="all">Toàn bộ quá trình (Từ ngày đầu cấp cứu)</option>
-                  <option value="emergency">🚑 Chỉ riêng Giai đoạn Cấp cứu & Nằm viện</option>
-                  <option value="rehab_hospital">🏥 Chỉ riêng Giai đoạn Tái khám & Phục hồi</option>
+                  <option value="emergency">🚑 Chỉ riêng Giai đoạn Cấp cứu &amp; Nằm viện</option>
+                  <option value="rehab_hospital">🏥 Chỉ riêng Giai đoạn Tái khám &amp; Phục hồi</option>
                   <option value="home_care">🏠 Chỉ riêng Giai đoạn Chăm sóc tại nhà</option>
                 </select>
               </div>
@@ -1952,7 +2457,7 @@ export default function ExpenseTrackerView({
                     onChange={(e) => setReportIncludeStageAndCat(e.target.checked)}
                     className="rounded text-teal-700"
                   />
-                  <span>2. Hiện Tổng hợp theo Giai đoạn & Nhóm</span>
+                  <span>2. Hiện Tổng hợp theo Giai đoạn &amp; Nhóm</span>
                 </label>
 
                 <label className="flex items-center gap-2 font-bold text-slate-700 cursor-pointer">
@@ -1962,7 +2467,7 @@ export default function ExpenseTrackerView({
                     onChange={(e) => setReportIncludeContributors(e.target.checked)}
                     className="rounded text-teal-700"
                   />
-                  <span>3. Hiện Ghi nhận đóng góp & Nguồn thu</span>
+                  <span>3. Hiện Ghi nhận đóng góp &amp; Nguồn thu</span>
                 </label>
 
                 <label className="flex items-center gap-2 font-bold text-slate-700 cursor-pointer">
@@ -1985,7 +2490,7 @@ export default function ExpenseTrackerView({
               <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
                 <div>
                   <div className="text-[11px] font-bold text-teal-700 uppercase tracking-wider">
-                    Sổ Sức Khỏe & Theo Dõi Điều Trị
+                    Sổ Sức Khỏe &amp; Theo Dõi Điều Trị
                   </div>
                   <h4 className="text-base sm:text-lg font-extrabold text-slate-900">
                     Báo Cáo Tổng Hợp Thu Chi — Bệnh nhân: {patientName}
@@ -2014,9 +2519,9 @@ export default function ExpenseTrackerView({
                       <div className="text-sm sm:text-base font-extrabold text-rose-700 mt-0.5">
                         -{formatVND(reportData.rOut)}
                       </div>
-                      {reportData.rDirectOut > 0 && (
+                      {reportData.rTotalAdvanceHistory > 0 && (
                         <div className="text-[10px] text-rose-700/80 mt-0.5">
-                          Quỹ: {formatVND(reportData.rFundOut)} • Ứng riêng: {formatVND(reportData.rDirectOut)}
+                          Lịch sử ứng: {formatVND(reportData.rTotalAdvanceHistory)} (Chưa hoàn: {formatVND(reportData.rDirectOut)})
                         </div>
                       )}
                     </div>
@@ -2027,7 +2532,7 @@ export default function ExpenseTrackerView({
                           ? `+${formatVND(reportData.rFundCashRemaining)}`
                           : `-${formatVND(Math.abs(reportData.rFundCashRemaining))}`}
                       </div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">Thu − Chi từ Quỹ</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">Thu − Đã rút Quỹ</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200">
                       <div className="text-[10px] font-bold text-slate-700 uppercase">
@@ -2043,12 +2548,9 @@ export default function ExpenseTrackerView({
                           : `-${formatVND(Math.abs(reportData.rNetOverallBalance))}`}
                       </div>
                       <div className="text-[10px] text-slate-500 mt-0.5">
-                        {reportData.rNetOverallBalance >= 0 ? 'Sau khi trừ khoản ứng' : 'Đang ứng vượt tổng thu'}
+                        {reportData.rNetOverallBalance >= 0 ? 'Sau khi trừ khoản ứng' : 'Đang chi vượt tổng thu'}
                       </div>
                     </div>
-                  </div>
-                  <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 leading-relaxed">
-                    💡 <strong>Cách tính:</strong> (3) <em>Tiền Quỹ còn giữ</em> = (1) Tổng thu vào quỹ − Chi lấy từ quỹ • (4) <em>Cân đối thực tế</em> = (1) Tổng thu − (2) Tổng chi <span className="text-slate-500">(hoặc = Tiền Quỹ còn giữ − Khoản cá nhân ứng riêng)</span>.
                   </div>
                 </div>
               )}
@@ -2082,10 +2584,10 @@ export default function ExpenseTrackerView({
                 <div className="space-y-2 pt-2 border-t border-slate-100">
                   <div className="flex flex-wrap items-center justify-between gap-1">
                     <div className="text-xs font-extrabold text-slate-700 uppercase">
-                      Ghi nhận các khoản gửi vào quỹ & ứng trả trực tiếp
+                      Ghi nhận đóng góp Quỹ &amp; Theo dõi tiền ứng
                     </div>
                     <span className="text-[10px] font-bold text-slate-500">
-                      Tổng đã bỏ ra: {formatVND(reportData.rIn + reportData.rDirectOut)}
+                      Thu quỹ + Đang ứng: {formatVND(reportData.rIn + reportData.rDirectOut)}
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
@@ -2097,11 +2599,9 @@ export default function ExpenseTrackerView({
                         <div className="min-w-0">
                           <div className="font-bold text-slate-800 truncate">{c.name}</div>
                           <div className="text-[10px] text-slate-500 truncate">
-                            {c.fundIn > 0 && c.directPaid > 0
-                              ? `Gửi quỹ: ${formatVND(c.fundIn)} • Ứng riêng: ${formatVND(c.directPaid)}`
-                              : c.directPaid > 0
-                                ? 'Ứng / thanh toán trực tiếp'
-                                : 'Chuyển vào quỹ chung'}
+                            {c.fundIn > 0 && `Gửi quỹ: ${formatVND(c.fundIn)} `}
+                            {(c.directPaid > 0 || c.reimbursedAdvance > 0) &&
+                              `• Ứng: ${formatVND(c.directPaid + c.reimbursedAdvance)} (Chưa hoàn: ${formatVND(c.directPaid)})`}
                           </div>
                         </div>
                         <span className="font-extrabold text-emerald-700 ml-2 shrink-0">

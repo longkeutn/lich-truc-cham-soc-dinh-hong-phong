@@ -243,7 +243,7 @@ export type ExpenseCategory =
   | 'visitation_gift'   // Tiền thăm hỏi hỗ trợ
   | 'other_income';     // Khoản thu khác
 
-export type PaymentSource = 'fund_or_advance' | 'direct_member';
+export type PaymentSource = 'fund_or_advance' | 'direct_member' | 'advance_reimbursed';
 
 export interface ExpenseEntry {
   id: string;
@@ -253,8 +253,8 @@ export interface ExpenseEntry {
   stage: ExpenseStage;          // Giai đoạn điều trị
   category: ExpenseCategory;    // Nhóm danh mục
   title: string;                // Nội dung khoản thu/chi
-  personName?: string;          // Người gửi vào quỹ (khi 'in') hoặc Người thanh toán (khi 'out')
-  paymentSource?: PaymentSource;// 'fund_or_advance' (Chi từ quỹ/tạm ứng) | 'direct_member' (Thành viên trả trực tiếp)
+  personName?: string;          // Người gửi vào quỹ (khi 'in') hoặc Người thanh toán/ứng (khi 'out')
+  paymentSource?: PaymentSource;// 'fund_or_advance' (Chi thẳng từ quỹ) | 'direct_member' (Ứng trước - Chưa hoàn) | 'advance_reimbursed' (Ứng trước - Đã hoàn từ quỹ)
   note?: string;                // Ghi chú chi tiết (nơi mua, số biên lai, chi tiết thuốc...)
   receiptImage?: string;        // Ảnh chụp biên lai / hóa đơn (Base64 nén nhẹ)
   createdAt: string;
