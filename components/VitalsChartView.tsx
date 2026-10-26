@@ -2,8 +2,10 @@
 
 import React, { useMemo, useState } from 'react';
 import {
-  LineChart,
+  ComposedChart,
+  Area,
   Line,
+  ErrorBar,
   XAxis,
   YAxis,
   Tooltip,
@@ -66,7 +68,7 @@ import ClinicalVitalsReportSection from './ClinicalVitalsReportSection';
 // TYPES & HELPERS
 // =============================================
 
-type DateRange = '7d' | '14d' | '30d' | 'all';
+type DateRange = 'today' | '3d' | '7d' | '14d' | '30d' | 'all';
 
 interface VitalsChartViewProps {
   vitalsLog: VitalsLogEntry[];
@@ -273,7 +275,16 @@ export function VitalsChartView({
 
     if (dateRange === 'all') return sorted;
 
-    const days = dateRange === '7d' ? 7 : dateRange === '14d' ? 14 : 30;
+    const days =
+      dateRange === 'today'
+        ? 1
+        : dateRange === '3d'
+          ? 3
+          : dateRange === '7d'
+            ? 7
+            : dateRange === '14d'
+              ? 14
+              : 30;
     const cutoff = daysAgo(days - 1);
     return sorted.filter((v) => v.date >= cutoff);
   }, [normalizedVitals, dateRange]);
@@ -501,8 +512,19 @@ export function VitalsChartView({
     allDatesWithData.sort();
     const firstTrackedDate = allDatesWithData.length > 0 ? allDatesWithData[0] : todayStr;
 
-    // 2. Xác định danh sách ngày cần đánh giá theo bộ lọc hiện tại (7d, 14d, 30d, all)
-    const maxDays = dateRange === '7d' ? 7 : dateRange === '14d' ? 14 : dateRange === '30d' ? 30 : 30;
+    // 2. Xác định danh sách ngày cần đánh giá theo bộ lọc hiện tại (today, 3d, 7d, 14d, 30d, all)
+    const maxDays =
+      dateRange === 'today'
+        ? 1
+        : dateRange === '3d'
+          ? 3
+          : dateRange === '7d'
+            ? 7
+            : dateRange === '14d'
+              ? 14
+              : dateRange === '30d'
+                ? 30
+                : 30;
     const candidateDays: string[] = [];
     for (let i = 0; i < maxDays; i++) {
       const d = getVietnamDateOffsetStr(-i);
@@ -1063,6 +1085,12 @@ export function VitalsChartView({
       maxSys: number;
       minDia: number;
       maxDia: number;
+      sysRange: [number, number];
+      diaRange: [number, number];
+      sysError?: [number, number];
+      diaError?: [number, number];
+      sysSpan: number;
+      diaSpan: number;
       pulse: number | null;
       pp: number;
       readingsCount: number;
@@ -1103,6 +1131,12 @@ export function VitalsChartView({
         maxSys,
         minDia,
         maxDia,
+        sysRange: [minSys, maxSys],
+        diaRange: [minDia, maxDia],
+        sysError: maxSys > minSys ? [avgSys - minSys, maxSys - avgSys] : undefined,
+        diaError: maxDia > minDia ? [avgDia - minDia, maxDia - avgDia] : undefined,
+        sysSpan: maxSys - minSys,
+        diaSpan: maxDia - minDia,
         pulse: avgPulse,
         pp: avgSys - avgDia,
         readingsCount: count,
@@ -1117,13 +1151,17 @@ export function VitalsChartView({
   // ===== TẠO NỘI DUNG TÓM TẮT CHO BÁC SĨ / GIA ĐÌNH (COPY ZALO 1 CHẠM) =====
   const buildDoctorSummaryText = (): string => {
     const rangeLabel =
-      dateRange === '7d'
-        ? '7 ngày qua'
-        : dateRange === '14d'
-          ? '14 ngày qua'
-          : dateRange === '30d'
-            ? '30 ngày qua'
-            : 'Toàn bộ lịch sử';
+      dateRange === 'today'
+        ? 'Hôm nay'
+        : dateRange === '3d'
+          ? '3 ngày qua'
+          : dateRange === '7d'
+            ? '7 ngày qua'
+            : dateRange === '14d'
+              ? '14 ngày qua'
+              : dateRange === '30d'
+                ? '30 ngày qua'
+                : 'Toàn bộ lịch sử';
     const todayStr = getVietnamDateStr();
     const lines: string[] = [];
     lines.push(`🩺 BÁO CÁO THEO DÕI HUYẾT ÁP & SỨC KHỎE TẠI NHÀ — BỆNH NHÂN: ${patientName.toUpperCase()}`);
@@ -1372,24 +1410,26 @@ export function VitalsChartView({
 
   return (
     <div className="space-y-4">
-      {/* ===== SECTION 1: BỘ LỌC THỜI GIAN ĐỒNG BỘ TOÀN TRANG & NÚT TÓM TẮT GỬI BÁC SĨ ===== */}
+      {/* ===== SECTION 1: 1 BỘ LỌC THỜI GIAN DUY NHẤT ĐỒNG BỘ TOÀN TRANG & NÚT TÓM TẮT GỬI BÁC SĨ ===== */}
       <div className="flex items-center justify-between gap-2 flex-wrap bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-2xs">
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
           <span className="text-xs font-extrabold text-slate-600 px-1.5 hidden sm:inline">
             📅 Khoảng thời gian:
           </span>
           {(
             [
-              { value: '7d', label: '7 ngày qua' },
-              { value: '14d', label: '14 ngày qua' },
-              { value: '30d', label: '30 ngày qua' },
+              { value: 'today', label: 'Hôm nay' },
+              { value: '3d', label: '3 ngày' },
+              { value: '7d', label: '7 ngày' },
+              { value: '14d', label: '14 ngày' },
+              { value: '30d', label: '30 ngày' },
               { value: 'all', label: 'Tất cả' },
             ] as { value: DateRange; label: string }[]
           ).map(({ value, label }) => (
             <button
               key={value}
               onClick={() => setDateRange(value)}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 dateRange === value
                   ? 'bg-teal-700 text-white shadow-xs'
                   : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -1778,8 +1818,8 @@ export function VitalsChartView({
             {/* Bộ lọc chế độ gom điểm biểu đồ: TB cả ngày (Mặc định) hoặc xem riêng xu hướng từng buổi qua các ngày */}
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="text-xs text-slate-500">
-                Mỗi ngày được gom thành <strong>1 điểm trung bình</strong> giúp biểu đồ luôn thoáng,
-                chạm vào từng ngày để xem tất cả các lần đo trong ngày đó:
+                Đường đậm là <strong>Trung bình ngày</strong>, dải màu mờ &amp; thanh dọc{' '}
+                <strong>|---|</strong> thể hiện <strong>Biên độ Thấp nhất – Cao nhất</strong> trong ngày đó:
               </span>
               <div className="flex items-center gap-1 flex-wrap">
                 {(
@@ -1812,8 +1852,8 @@ export function VitalsChartView({
                 Chưa có bản ghi nào cho buổi đang chọn trong khoảng thời gian này.
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={270}>
-                <LineChart data={chartData} margin={{ top: 10, right: 20, left: -12, bottom: 0 }}>
+              <ResponsiveContainer width="100%" height={280}>
+                <ComposedChart data={chartData} margin={{ top: 12, right: 20, left: -12, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   {/* Vùng nền xanh an toàn cho Tâm thu (lowSys -> highSys) */}
                   <ReferenceArea
@@ -1828,7 +1868,7 @@ export function VitalsChartView({
                     interval="preserveStartEnd"
                     tickLine={false}
                     axisLine={{ stroke: '#e2e8f0' }}
-                    padding={{ left: 20, right: 20 }}
+                    padding={{ left: 24, right: 24 }}
                   />
                   <YAxis
                     tick={{ fontSize: 11, fill: '#64748b' }}
@@ -1846,7 +1886,7 @@ export function VitalsChartView({
                       const data = payload[0]?.payload;
                       if (!data) return null;
                       return (
-                        <div className="bg-white/95 backdrop-blur-xs border border-slate-200 rounded-2xl p-3 shadow-xl text-xs space-y-1.5 min-w-[240px]">
+                        <div className="bg-white/95 backdrop-blur-xs border border-slate-200 rounded-2xl p-3 shadow-xl text-xs space-y-1.5 min-w-[250px]">
                           <div className="font-extrabold text-slate-900 flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
                             <span>
                               📅 {data.weekday}, {data.fullDate}
@@ -1866,11 +1906,29 @@ export function VitalsChartView({
                           </div>
 
                           {data.readingsCount > 1 && (
-                            <div className="flex items-center justify-between text-[11px]">
-                              <span className="text-slate-500">Dao động trong ngày:</span>
-                              <span className="font-bold text-slate-700">
-                                {data.minSys}–{data.maxSys} / {data.minDia}–{data.maxDia} mmHg
-                              </span>
+                            <div className="px-2 py-1.5 rounded-xl bg-rose-50/70 border border-rose-200/80 text-[11px] space-y-0.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-slate-600 font-semibold">
+                                  ↕️ Biên độ Thấp–Cao:
+                                </span>
+                                <span className="font-extrabold text-slate-900">
+                                  {data.minSys}–{data.maxSys} / {data.minDia}–{data.maxDia} mmHg
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-slate-500">
+                                Chênh lệch trong ngày:{' '}
+                                <strong
+                                  className={
+                                    data.sysSpan >= 20
+                                      ? 'text-rose-700'
+                                      : data.sysSpan >= 12
+                                      ? 'text-amber-700'
+                                      : 'text-emerald-700'
+                                  }
+                                >
+                                  {data.sysSpan} mmHg (số trên)
+                                </strong>
+                              </div>
                             </div>
                           )}
 
@@ -1963,7 +2021,36 @@ export function VitalsChartView({
                       fill: '#f59e0b',
                     }}
                   />
-                  {/* Đường SYS */}
+
+                  {/* Dải biên độ Thấp nhất – Cao nhất trong ngày của Số trên (SYS) */}
+                  <Area
+                    type="monotone"
+                    dataKey="sysRange"
+                    fill="#ef4444"
+                    fillOpacity={0.14}
+                    stroke="#fca5a5"
+                    strokeWidth={1}
+                    strokeDasharray="3 3"
+                    connectNulls
+                    isAnimationActive={false}
+                    name="sysRange"
+                  />
+
+                  {/* Dải biên độ Thấp nhất – Cao nhất trong ngày của Số dưới (DIA) */}
+                  <Area
+                    type="monotone"
+                    dataKey="diaRange"
+                    fill="#3b82f6"
+                    fillOpacity={0.11}
+                    stroke="#93c5fd"
+                    strokeWidth={1}
+                    strokeDasharray="3 3"
+                    connectNulls
+                    isAnimationActive={false}
+                    name="diaRange"
+                  />
+
+                  {/* Đường SYS TB + Thanh biên độ Thấp–Cao (ErrorBar) cho từng ngày */}
                   <Line
                     type="monotone"
                     dataKey="sys"
@@ -1972,8 +2059,16 @@ export function VitalsChartView({
                     dot={{ r: 5, fill: '#ef4444', strokeWidth: 2, stroke: '#fff' }}
                     activeDot={{ r: 7, stroke: '#ef4444', strokeWidth: 2, fill: '#fff' }}
                     name="sys"
-                  />
-                  {/* Đường DIA */}
+                  >
+                    <ErrorBar
+                      dataKey="sysError"
+                      width={5}
+                      strokeWidth={2}
+                      stroke="#f87171"
+                    />
+                  </Line>
+
+                  {/* Đường DIA TB + Thanh biên độ Thấp–Cao (ErrorBar) cho từng ngày */}
                   <Line
                     type="monotone"
                     dataKey="dia"
@@ -1982,7 +2077,15 @@ export function VitalsChartView({
                     dot={{ r: 5, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
                     activeDot={{ r: 7, stroke: '#3b82f6', strokeWidth: 2, fill: '#fff' }}
                     name="dia"
-                  />
+                  >
+                    <ErrorBar
+                      dataKey="diaError"
+                      width={4}
+                      strokeWidth={1.75}
+                      stroke="#60a5fa"
+                    />
+                  </Line>
+
                   {/* Đường Mạch */}
                   <Line
                     type="monotone"
@@ -1994,20 +2097,25 @@ export function VitalsChartView({
                     connectNulls
                     name="pulse"
                   />
-                </LineChart>
+                </ComposedChart>
               </ResponsiveContainer>
             )}
 
             {/* Legend */}
-            <div className="flex items-center justify-center gap-4 text-xs flex-wrap">
+            <div className="flex items-center justify-center gap-3 sm:gap-4 text-xs flex-wrap bg-slate-50/80 py-2 px-3 rounded-xl border border-slate-100">
               <span className="flex items-center gap-1.5 font-bold text-slate-700">
-                <span className="w-3 h-1 bg-rose-500 inline-block rounded" /> SYS (Tâm thu)
+                <span className="w-3.5 h-1 bg-rose-500 inline-block rounded" /> Số trên TB (SYS)
               </span>
               <span className="flex items-center gap-1.5 font-bold text-slate-700">
-                <span className="w-3 h-1 bg-blue-500 inline-block rounded" /> DIA (Tâm trương)
+                <span className="w-3.5 h-2.5 bg-rose-500/20 border border-rose-300 border-dashed inline-block rounded-xs" />{' '}
+                Dải &amp; Thanh |---| : Biên độ Thấp–Cao trong ngày
               </span>
               <span className="flex items-center gap-1.5 font-bold text-slate-700">
-                <span className="w-3 h-1 bg-violet-500 inline-block rounded" /> Mạch (bpm)
+                <span className="w-3.5 h-1 bg-blue-500 inline-block rounded" /> Số dưới TB (DIA)
+              </span>
+              <span className="flex items-center gap-1.5 font-bold text-slate-700">
+                <span className="w-3.5 h-0.5 border-b-2 border-dashed border-violet-500 inline-block" />{' '}
+                Nhịp tim (bpm)
               </span>
             </div>
 
@@ -2302,6 +2410,7 @@ export function VitalsChartView({
         vitalsLog={vitalsLog}
         bpThresholds={bpThresholds}
         externalDateRange={dateRange}
+        onChangeDateRange={(r) => setDateRange(r)}
         patientName={patientName}
         showToast={showToast}
       />

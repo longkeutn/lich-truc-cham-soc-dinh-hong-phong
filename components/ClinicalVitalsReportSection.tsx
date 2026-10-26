@@ -13,7 +13,6 @@ import {
   VolumeX,
   Info,
   ShieldCheck,
-  Sparkles,
 } from 'lucide-react';
 import type { VitalsLogEntry, BpThresholds, TimeSlot } from '@/lib/types';
 import {
@@ -33,7 +32,8 @@ const ALL_SLOTS: TimeSlot[] = ['morning', 'noon', 'afternoon', 'evening'];
 interface ClinicalVitalsReportSectionProps {
   vitalsLog: VitalsLogEntry[];
   bpThresholds: BpThresholds;
-  externalDateRange?: '7d' | '14d' | '30d' | 'all';
+  externalDateRange?: 'today' | '3d' | '7d' | '14d' | '30d' | 'all';
+  onChangeDateRange?: (range: 'today' | '3d' | '7d' | '14d' | '30d' | 'all') => void;
   patientName?: string;
   showToast?: (msg: string, type?: 'info' | 'success' | 'warn') => void;
 }
@@ -256,6 +256,7 @@ export default function ClinicalVitalsReportSection({
   vitalsLog,
   bpThresholds,
   externalDateRange = '7d',
+  onChangeDateRange,
   patientName = 'Đinh Hồng Phong',
   showToast,
 }: ClinicalVitalsReportSectionProps) {
@@ -767,32 +768,6 @@ export default function ClinicalVitalsReportSection({
             </div>
           )}
 
-          {/* Thanh chọn nhanh khoảng thời gian muốn xem nhận định */}
-          <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-slate-100">
-            <span className="text-xs font-extrabold text-slate-700 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-              <span>Chọn mốc thời gian muốn xem đánh giá:</span>
-            </span>
-            <div className="flex items-center gap-1 flex-wrap">
-              {milestones
-                .filter((m) => m.count > 0)
-                .map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setSelectedMilestoneId(m.id)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
-                      activeMilestone.id === m.id
-                        ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
-                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    {m.label} ({m.count})
-                  </button>
-                ))}
-            </div>
-          </div>
-
           {/* ===== PHẦN 1 (TRỌNG TÂM): NHẬN ĐỊNH & ĐÁNH GIÁ CỤ THỂ BẰNG NGÔN NGỮ DỄ HIỂU ===== */}
           {clinicalFindings.length > 0 && (
             <div className="space-y-2.5">
@@ -1128,7 +1103,20 @@ export default function ClinicalVitalsReportSection({
                       return (
                         <tr
                           key={m.id}
-                          onClick={() => m.count > 0 && setSelectedMilestoneId(m.id)}
+                          onClick={() => {
+                            if (m.count <= 0) return;
+                            setSelectedMilestoneId(m.id);
+                            if (
+                              m.id === 'today' ||
+                              m.id === '3d' ||
+                              m.id === '7d' ||
+                              m.id === '14d' ||
+                              m.id === '30d' ||
+                              m.id === 'all'
+                            ) {
+                              onChangeDateRange?.(m.id);
+                            }
+                          }}
                           className={`transition ${
                             m.count === 0
                               ? 'opacity-50 bg-slate-50/40'
