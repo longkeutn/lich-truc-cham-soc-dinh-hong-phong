@@ -5,7 +5,6 @@ import {
   Activity,
   HeartPulse,
   AlertTriangle,
-  Clock,
   ChevronDown,
   ChevronUp,
   Stethoscope,
@@ -256,13 +255,11 @@ export default function ClinicalVitalsReportSection({
   vitalsLog,
   bpThresholds,
   externalDateRange = '7d',
-  onChangeDateRange,
   patientName = 'Đinh Hồng Phong',
   showToast,
 }: ClinicalVitalsReportSectionProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string>(externalDateRange);
-  const [showMilestoneTable, setShowMilestoneTable] = useState<boolean>(false);
   const [isSpeakingReport, setIsSpeakingReport] = useState<boolean>(false);
   const [showMedicalGuide, setShowMedicalGuide] = useState<boolean>(false);
 
@@ -1054,228 +1051,6 @@ export default function ClinicalVitalsReportSection({
                 </div>
               )}
             </div>
-          </div>
-
-          {/* ===== PHẦN 3: BẢNG SO SÁNH QUA CÁC MỐC THỜI GIAN (THU GỌN MẶC ĐỊNH ĐỂ TRANG THOÁNG, BẤM 1 CHẠM ĐỂ XEM) ===== */}
-          <div className="pt-1 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => setShowMilestoneTable((prev) => !prev)}
-              className="w-full py-2 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 flex items-center justify-between text-xs font-extrabold text-slate-700 transition cursor-pointer"
-            >
-              <span className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-teal-700" />
-                <span>
-                  Bảng đối chiếu nhanh qua các mốc: Hôm nay • Hôm qua • 3 ngày • 7 ngày • 14 ngày • 30 ngày
-                </span>
-              </span>
-              <span className="flex items-center gap-1 text-teal-700 shrink-0">
-                <span>{showMilestoneTable ? 'Thu gọn bảng' : 'Mở bảng so sánh'}</span>
-                {showMilestoneTable ? (
-                  <ChevronUp className="w-4 h-4" />
-                ) : (
-                  <ChevronDown className="w-4 h-4" />
-                )}
-              </span>
-            </button>
-
-            {showMilestoneTable && (
-              <div className="mt-2.5 overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full text-xs text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 text-[11px] font-extrabold uppercase">
-                      <th className="py-2.5 px-3">Mốc thời gian</th>
-                      <th className="py-2.5 px-2.5 text-center">Số lần đo</th>
-                      <th className="py-2.5 px-2.5">Huyết áp TB (So với kỳ trước)</th>
-                      <th className="py-2.5 px-2.5">Thấp nhất – Cao nhất</th>
-                      <th className="py-2.5 px-2.5">Nhịp tim TB</th>
-                      <th className="py-2.5 px-2.5 text-center">Tỷ lệ đạt chuẩn</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {milestones.slice(0, 6).map((m) => {
-                      const isSelected = m.id === activeMilestone.id;
-                      const bpCls =
-                        m.avgSys !== null && m.avgDia !== null
-                          ? classifyClinicalBp(m.avgSys, m.avgDia, bpThresholds)
-                          : null;
-
-                      return (
-                        <tr
-                          key={m.id}
-                          onClick={() => {
-                            if (m.count <= 0) return;
-                            setSelectedMilestoneId(m.id);
-                            if (
-                              m.id === 'today' ||
-                              m.id === '3d' ||
-                              m.id === '7d' ||
-                              m.id === '14d' ||
-                              m.id === '30d' ||
-                              m.id === 'all'
-                            ) {
-                              onChangeDateRange?.(m.id);
-                            }
-                          }}
-                          className={`transition ${
-                            m.count === 0
-                              ? 'opacity-50 bg-slate-50/40'
-                              : isSelected
-                              ? 'bg-teal-50/90 font-semibold cursor-pointer'
-                              : 'hover:bg-slate-50 cursor-pointer'
-                          }`}
-                        >
-                          <td className="py-2.5 px-3">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`w-2 h-2 rounded-full shrink-0 ${
-                                  isSelected ? 'bg-teal-600 ring-4 ring-teal-100' : 'bg-slate-300'
-                                }`}
-                              />
-                              <div>
-                                <div className="font-extrabold text-slate-900">{m.label}</div>
-                                <div className="text-[10px] text-slate-500">{m.subLabel}</div>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="py-2.5 px-2.5 text-center">
-                            {m.count > 0 ? (
-                              <span className="font-bold text-slate-800">
-                                {m.count} lần
-                                <span className="block text-[10px] text-slate-400 font-normal">
-                                  ({m.daysCount} ngày)
-                                </span>
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 italic">Chưa đo</span>
-                            )}
-                          </td>
-
-                          <td className="py-2.5 px-2.5">
-                            {m.avgSys !== null && m.avgDia !== null ? (
-                              <div>
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-sm font-black text-slate-900">
-                                    {m.avgSys}/{m.avgDia}
-                                  </span>
-                                  {bpCls && (
-                                    <span
-                                      className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${bpCls.badgeClass}`}
-                                    >
-                                      {bpCls.shortLabel}
-                                    </span>
-                                  )}
-                                </div>
-                                {m.deltaSysVsPrev !== null && m.deltaDiaVsPrev !== null && (
-                                  <div className="text-[10px] text-slate-500 mt-0.5">
-                                    So kỳ trước:{' '}
-                                    <strong
-                                      className={
-                                        Math.abs(m.deltaSysVsPrev) <= 4
-                                          ? 'text-teal-700'
-                                          : m.deltaSysVsPrev > 4
-                                          ? 'text-rose-600'
-                                          : 'text-emerald-600'
-                                      }
-                                    >
-                                      {m.deltaSysVsPrev >= 0 ? `+${m.deltaSysVsPrev}` : m.deltaSysVsPrev}/
-                                      {m.deltaDiaVsPrev >= 0 ? `+${m.deltaDiaVsPrev}` : m.deltaDiaVsPrev} mmHg
-                                    </strong>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-
-                          <td className="py-2.5 px-2.5">
-                            {m.minSys !== null ? (
-                              <div>
-                                <div className="text-slate-800 font-bold">
-                                  {m.minSys}–{m.maxSys} / {m.minDia}–{m.maxDia}
-                                </div>
-                                {m.sdSys !== null && m.count >= 2 && (
-                                  <div className="text-[10px] text-slate-500">
-                                    Độ lệch:{' '}
-                                    <strong
-                                      className={
-                                        m.sdSys >= 15
-                                          ? 'text-rose-600'
-                                          : m.sdSys >= 10
-                                          ? 'text-amber-700'
-                                          : 'text-emerald-700'
-                                      }
-                                    >
-                                      ±{m.sdSys} mmHg
-                                    </strong>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-
-                          <td className="py-2.5 px-2.5">
-                            {m.avgPulse !== null ? (
-                              <div>
-                                <div className="flex items-center gap-1">
-                                  <span className="font-black text-sm text-slate-900">
-                                    ❤️ {m.avgPulse} bpm
-                                  </span>
-                                  <span className="text-[10px] text-slate-500">
-                                    ({m.minPulse}–{m.maxPulse})
-                                  </span>
-                                </div>
-                                {m.verySlowPulseCount > 0 ? (
-                                  <span className="text-[10px] font-bold text-rose-700 block">
-                                    🔴 {m.verySlowPulseCount} lần &lt;50 bpm
-                                  </span>
-                                ) : m.slowPulseCount > 0 ? (
-                                  <span className="text-[10px] font-bold text-amber-800 block">
-                                    Lưu ý: {m.slowPulseCount} lần &lt;60 bpm
-                                  </span>
-                                ) : m.fastPulseCount > 0 ? (
-                                  <span className="text-[10px] font-bold text-rose-700 block">
-                                    ⚠️ {m.fastPulseCount} lần ≥100 bpm
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] text-emerald-700 block">
-                                    Nhịp đều
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-slate-400">Chưa ghi</span>
-                            )}
-                          </td>
-
-                          <td className="py-2.5 px-2.5 text-center">
-                            {m.tirPct !== null ? (
-                              <span
-                                className={`inline-flex px-2 py-0.5 rounded-full text-xs font-black border ${
-                                  m.tirPct >= 80
-                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                                    : m.tirPct >= 60
-                                    ? 'bg-amber-100 text-amber-900 border-amber-300'
-                                    : 'bg-rose-100 text-rose-800 border-rose-300'
-                                }`}
-                              >
-                                {m.tirPct}%
-                              </span>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         </div>
       )}

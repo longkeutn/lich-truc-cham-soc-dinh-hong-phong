@@ -525,17 +525,21 @@ export function VitalsChartView({
               : dateRange === '30d'
                 ? 30
                 : 30;
-    const candidateDays: string[] = [];
+    const daySetForMatrix = new Set<string>();
     for (let i = 0; i < maxDays; i++) {
       const d = getVietnamDateOffsetStr(-i);
       // Chỉ tính từ ngày bắt đầu sử dụng sổ trở đi!
       if (d >= firstTrackedDate) {
-        candidateDays.push(d);
+        daySetForMatrix.add(d);
       }
     }
-    if (candidateDays.length === 0) {
-      candidateDays.push(todayStr);
+    for (const v of filteredLog) {
+      if (v.date) daySetForMatrix.add(v.date);
     }
+    if (daySetForMatrix.size === 0) {
+      daySetForMatrix.add(todayStr);
+    }
+    const candidateDays = Array.from(daySetForMatrix).sort((a, b) => b.localeCompare(a));
 
     let totalExpectedDoses = 0;
     let totalDoneDoses = 0;
@@ -2415,7 +2419,7 @@ export function VitalsChartView({
         showToast={showToast}
       />
 
-      {/* ===== SECTION 4: BẢNG NHẬT KÝ ĐỐI CHIẾU HÀNG NGÀY (GỌN GÀNG, GOM NHÓM THEO ĐẦU VIỆC, MẶC ĐỊNH 5 NGÀY) ===== */}
+      {/* ===== SECTION 4 (GỘP DUY NHẤT): NHẬT KÝ THEO NGÀY — LỊCH SỬ ĐO HUYẾT ÁP & UỐNG THUỐC (THOÁNG, RÕ RÀNG, CÓ SỬA/XÓA) ===== */}
       {(() => {
         const attentionRows = complianceStats.dailyMatrix.filter((r) => {
           const hasBpOrSeverePulseAlert = r.vitals.some((v) => {
@@ -2434,15 +2438,16 @@ export function VitalsChartView({
 
         return (
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+            {/* Header Bảng Nhật Ký Duy Nhất */}
+            <div className="px-4 py-3.5 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-teal-600 shrink-0" />
+                <Calendar className="w-4 h-4 text-teal-600 shrink-0" />
                 <div>
-                  <h3 className="text-sm font-black text-slate-800">
-                    Nhật Ký Đối Chiếu Hàng Ngày: Huyết Áp ↔ Thuốc & Tập PHCN
+                  <h3 className="text-sm sm:text-base font-black text-slate-800">
+                    📋 Nhật Ký Hàng Ngày: Lịch Sử Đo Huyết Áp &amp; Uống Thuốc
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Mỗi ngày gom gọn theo từng loại thuốc & bài tập (Chỉ tính những mục đã áp dụng tại ngày đó)
+                    Gom gọn theo từng ngày ({filteredLog.length} lần đo) • Bấm &ldquo;Chi tiết thuốc&rdquo; ở ngày bất kỳ để xem các cữ thuốc ngày đó
                   </p>
                 </div>
               </div>
@@ -2455,7 +2460,7 @@ export function VitalsChartView({
                     setDailyMatrixFilter('all');
                     setDailyMatrixExpanded(false);
                   }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
                     dailyMatrixFilter === 'all'
                       ? 'bg-teal-700 text-white border-teal-700'
                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
@@ -2470,24 +2475,24 @@ export function VitalsChartView({
                       setDailyMatrixFilter('attention');
                       setDailyMatrixExpanded(false);
                     }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
                       dailyMatrixFilter === 'attention'
                         ? 'bg-amber-600 text-white border-amber-600'
                         : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
                     }`}
                   >
-                    ⚠️ Cần chú ý ({attentionRows.length})
+                    ⚠️ Cần chú ý ({attentionRows.length} ngày)
                   </button>
                 )}
               </div>
             </div>
 
             {visibleRows.length === 0 ? (
-              <div className="p-5 text-center text-xs text-slate-500">
+              <div className="p-6 text-center text-xs sm:text-sm text-slate-500">
                 🎉 Không có ngày nào bị thiếu thuốc hoặc huyết áp vượt ngưỡng trong kỳ này.
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
+              <div className="p-3 sm:p-4 space-y-3 bg-slate-50/50">
                 {visibleRows.map((dayRow) => {
                   const isExpanded = expandedDay === dayRow.date;
                   const medsPct =
@@ -2502,152 +2507,176 @@ export function VitalsChartView({
                     (g) => g.category === 'rehab' || g.category === 'care'
                   );
 
-                  const compactVitals = isExpanded ? dayRow.vitals : dayRow.vitals.slice(0, 4);
-                  const extraVitalsCount = Math.max(0, dayRow.vitals.length - compactVitals.length);
-
                   return (
-                    <div key={dayRow.date} className="transition-colors">
-                      <button
-                        type="button"
-                        onClick={() => setExpandedDay(isExpanded ? null : dayRow.date)}
-                        className="w-full px-3.5 sm:px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50/80 transition text-left cursor-pointer"
-                      >
-                        {/* Cột 1: Ngày */}
-                        <div className="flex items-center gap-2.5 min-w-[140px]">
-                          <div
+                    <div
+                      key={dayRow.date}
+                      className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden transition"
+                    >
+                      {/* 1. Thanh tiêu đề Ngày: Ngày tháng rõ ràng + Trạng thái uống thuốc bằng chữ dễ hiểu */}
+                      <div className="px-3.5 sm:px-4 py-2.5 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2.5">
+                          <span
                             className={`px-2.5 py-1 rounded-xl text-xs font-black border ${
                               dayRow.isToday
                                 ? 'bg-teal-700 text-white border-teal-800'
-                                : 'bg-slate-100 text-slate-800 border-slate-200'
+                                : 'bg-white text-slate-800 border-slate-200 shadow-2xs'
                             }`}
                           >
                             {fmtDateShort(dayRow.date)}
-                          </div>
+                          </span>
                           <div>
-                            <div className="text-xs sm:text-sm font-extrabold text-slate-900">
+                            <span className="text-sm font-black text-slate-900">
                               {dayRow.isToday ? 'Hôm nay' : getWeekdayVN(dayRow.date)}
-                            </div>
-                            <div className="text-[11px] text-slate-400">
-                              {fmtDateFull(dayRow.date)}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Cột 2: Các lần đo Huyết áp & Mạch trong ngày (Màu thẻ phản ánh đúng Huyết áp) */}
-                        <div className="flex-1 min-w-0">
-                          {dayRow.vitals.length > 0 ? (
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              {compactVitals.map((v) => {
-                                const evalV = evaluateVitalReading(v, bpThresholds);
-                                const c = alertColors(evalV.bp.alertLevel);
-                                const cfg = TIME_SLOT_CONFIG[v.period];
-                                return (
-                                  <span
-                                    key={v.id}
-                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold border ${c.bg} ${c.border} ${c.text}`}
-                                    title={`Đo lúc ${v.time} (${cfg?.label || v.period}): ${evalV.badgeText}`}
-                                  >
-                                    <span>{cfg?.emoji || '🕒'}</span>
-                                    <span className="font-black">
-                                      {v.sys}/{v.dia}
-                                    </span>
-                                    {v.pulse && (
-                                      <span
-                                        className={`text-[11px] ${
-                                          v.pulse < 50 || v.pulse >= 100
-                                            ? 'text-rose-700 font-extrabold'
-                                            : v.pulse < 60
-                                            ? 'text-amber-800 font-extrabold'
-                                            : 'text-slate-600 font-medium'
-                                        }`}
-                                      >
-                                        (❤️{v.pulse})
-                                      </span>
-                                    )}
-                                  </span>
-                                );
-                              })}
-                              {extraVitalsCount > 0 && (
-                                <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                  +{extraVitalsCount} lần đo
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400 italic">
-                              Chưa ghi huyết áp ngày này
                             </span>
-                          )}
+                            <span className="text-xs text-slate-500 ml-1.5">
+                              ({fmtDateFull(dayRow.date)})
+                            </span>
+                          </div>
                         </div>
 
-                        {/* Cột 3: Tiến độ 4 buổi Thuốc + Tập PHCN */}
-                        <div className="flex items-center gap-1.5 flex-wrap sm:justify-end">
-                          {/* 4 chấm buổi Sáng / Trưa / Chiều / Tối */}
-                          <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-xl border border-slate-200/80">
-                            {ALL_SLOTS.map((slot) => {
-                              const cfg = TIME_SLOT_CONFIG[slot];
-                              const st = dayRow.slotStatus[slot];
-                              let pillClass = 'bg-slate-100 text-slate-400 border-slate-200';
-                              let statusIcon = '·';
-                              if (st.status === 'done') {
-                                pillClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
-                                statusIcon = '✓';
-                              } else if (st.status === 'partial') {
-                                pillClass = 'bg-amber-100 text-amber-800 border-amber-300';
-                                statusIcon = `${st.done}/${st.expected}`;
-                              } else if (st.status === 'missed') {
-                                pillClass = 'bg-rose-100 text-rose-800 border-rose-300';
-                                statusIcon = '!';
-                              } else if (st.status === 'pending') {
-                                pillClass = 'bg-slate-100 text-slate-500 border-slate-200';
-                                statusIcon = '⏳';
-                              }
-                              return (
-                                <span
-                                  key={slot}
-                                  title={`Buổi ${cfg.label}: ${st.done}/${st.expected} cữ thuốc`}
-                                  className={`px-1.5 py-0.5 rounded-lg text-[10px] font-extrabold border ${pillClass}`}
-                                >
-                                  {cfg.emoji} {statusIcon}
-                                </span>
-                              );
-                            })}
-                          </div>
-
-                          {/* Tổng cữ thuốc ngày đó */}
+                        {/* Cụm bên phải: Ghi rõ bằng chữ số cữ thuốc đã uống + Nút mở xem chi tiết thuốc */}
+                        <div className="flex items-center gap-2 flex-wrap">
                           {medsPct !== null && (
                             <span
-                              className={`px-2 py-1 rounded-xl text-xs font-extrabold border ${
+                              className={`px-2.5 py-1 rounded-xl text-xs font-extrabold border ${
                                 medsPct === 100
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                   : medsPct >= 50
-                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                                    ? 'bg-amber-50 text-amber-900 border-amber-200'
+                                    : 'bg-rose-50 text-rose-800 border-rose-200'
                               }`}
                             >
-                              💊 {dayRow.medsDone}/{dayRow.medsExpected}
+                              {medsPct === 100
+                                ? `💊 Đã uống đủ ${dayRow.medsDone}/${dayRow.medsExpected} cữ thuốc`
+                                : `💊 Thuốc: Đã uống ${dayRow.medsDone}/${dayRow.medsExpected} cữ`}
                             </span>
                           )}
 
-                          {/* Bài tập PHCN ngày đó */}
                           {dayRow.rehabExpected > 0 && (
-                            <span className="px-2 py-1 rounded-xl text-xs font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
-                              🏃 {dayRow.rehabDone}/{dayRow.rehabExpected}
+                            <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200 hidden sm:inline-flex">
+                              🏃 Tập: {dayRow.rehabDone}/{dayRow.rehabExpected}
                             </span>
                           )}
 
-                          {isExpanded ? (
-                            <ChevronUp className="w-4 h-4 text-slate-400" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4 text-slate-400" />
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setExpandedDay(isExpanded ? null : dayRow.date)}
+                            className={`px-2.5 py-1 rounded-xl text-xs font-bold border flex items-center gap-1 transition cursor-pointer ${
+                              isExpanded
+                                ? 'bg-slate-800 text-white border-slate-800'
+                                : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            <span>{isExpanded ? 'Ẩn đơn thuốc' : 'Chi tiết thuốc'}</span>
+                            {isExpanded ? (
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            )}
+                          </button>
                         </div>
-                      </button>
+                      </div>
 
-                      {/* Chi tiết mở rộng của ngày đó — GOM GỌN 1 DÒNG / 1 LOẠI THUỐC HOẶC BÀI TẬP */}
+                      {/* 2. Danh sách từng lần đo Huyết áp trong ngày (Thoáng, chữ to, kèm nút Sửa / Xóa trực tiếp) */}
+                      {dayRow.vitals.length === 0 ? (
+                        <div className="px-4 py-3 text-xs text-slate-400 italic">
+                          Chưa có lần đo huyết áp nào được ghi trong ngày này.
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-slate-100">
+                          {dayRow.vitals.map((v) => {
+                            const evalItem = evaluateVitalReading(v, bpThresholds);
+                            const bpColors = alertColors(evalItem.bp.alertLevel);
+                            const overallColors = alertColors(evalItem.overallAlertLevel);
+                            const pEval = evaluatePulse(v.pulse);
+                            return (
+                              <div
+                                key={v.id}
+                                className="px-3.5 sm:px-4 py-2.5 flex items-center justify-between gap-2 sm:gap-3 flex-wrap hover:bg-slate-50/60 transition"
+                              >
+                                {/* Cột A: Buổi & Giờ đo */}
+                                <div className="min-w-[130px]">
+                                  <div className="text-xs sm:text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+                                    <span>{periodLabel(v.period)}</span>
+                                    <span className="text-slate-400 font-normal">·</span>
+                                    <span className="text-slate-600 font-bold">{v.time}</span>
+                                  </div>
+                                  {v.recordedBy && (
+                                    <div className="text-[11px] text-slate-400">
+                                      Người ghi: {v.recordedBy}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Cột B: Chỉ số Huyết áp & Nhịp tim */}
+                                <div className="flex items-center gap-2.5 flex-wrap">
+                                  <div className="flex items-baseline gap-1">
+                                    <span
+                                      className={`font-black text-base sm:text-lg ${bpColors.text}`}
+                                    >
+                                      {v.sys}/{v.dia}
+                                    </span>
+                                    <span className="text-[11px] text-slate-400 font-semibold">
+                                      mmHg
+                                    </span>
+                                  </div>
+
+                                  {v.pulse ? (
+                                    <span
+                                      className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold border ${pEval.badgeClass}`}
+                                    >
+                                      {pEval.label}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-slate-400">Chưa ghi mạch</span>
+                                  )}
+                                </div>
+
+                                {/* Cột C: Nhãn đánh giá & Ghi chú */}
+                                <div className="flex-1 min-w-[140px] flex items-center gap-2 flex-wrap sm:justify-end">
+                                  <span
+                                    className={`inline-flex whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-bold border ${overallColors.badge}`}
+                                  >
+                                    {evalItem.badgeText}
+                                  </span>
+                                  {v.note && (
+                                    <span className="text-xs text-slate-600 italic bg-slate-100 px-2 py-0.5 rounded-lg">
+                                      📝 {v.note}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Cột D: Nút Sửa / Xóa trực tiếp */}
+                                <div className="flex items-center gap-1 shrink-0 ml-auto sm:ml-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEdit(v)}
+                                    className="px-2.5 py-1.5 rounded-xl bg-teal-50/80 hover:bg-teal-100 text-teal-700 border border-teal-200/80 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                                    title="Sửa lại lần đo này"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                    <span>Sửa</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDelete(v)}
+                                    disabled={deletingId === v.id}
+                                    className="p-1.5 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-transparent hover:border-rose-200 transition disabled:opacity-50 cursor-pointer"
+                                    title="Xóa lần đo này"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* 3. Ngăn kéo Chi tiết Thuốc & Bài tập của ngày đó (Chỉ mở khi người dùng bấm "Chi tiết thuốc") */}
                       {isExpanded && (
-                        <div className="px-3.5 sm:px-4 pb-3.5 pt-2 bg-slate-50/70 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
-                          {/* Cột A: Đơn thuốc áp dụng trong ngày (Mỗi loại thuốc 1 dòng duy nhất) */}
+                        <div className="px-3.5 sm:px-4 pb-3.5 pt-2.5 bg-slate-50/90 border-t border-slate-200/80 grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+                          {/* Cột A: Đơn thuốc áp dụng trong ngày */}
                           <div className="bg-white rounded-xl border border-emerald-200/80 p-2.5 space-y-1.5">
                             <div className="font-extrabold text-emerald-800 flex items-center justify-between">
                               <span className="flex items-center gap-1.5">
@@ -2699,7 +2728,7 @@ export function VitalsChartView({
                                               });
                                             }}
                                             title="Bấm để tích / bỏ tích cữ thuốc này"
-                                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition cursor-pointer ${
+                                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold border transition cursor-pointer ${
                                               s.isDone
                                                 ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
                                                 : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
@@ -2717,12 +2746,12 @@ export function VitalsChartView({
                             )}
                           </div>
 
-                          {/* Cột B: Bài tập PHCN & Chăm sóc trong ngày (Mỗi mục 1 dòng duy nhất) */}
+                          {/* Cột B: Bài tập PHCN & Chăm sóc trong ngày */}
                           <div className="bg-white rounded-xl border border-blue-200/80 p-2.5 space-y-1.5">
                             <div className="font-extrabold text-blue-800 flex items-center justify-between">
                               <span className="flex items-center gap-1.5">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
-                                <span>Tập PHCN & Chăm sóc ({rehabCareGroup.length} mục)</span>
+                                <span>Tập PHCN &amp; Chăm sóc ({rehabCareGroup.length} mục)</span>
                               </span>
                               <span className="text-[11px] font-bold text-slate-500">
                                 Hoàn thành {dayRow.rehabDone + dayRow.careDone}/
@@ -2768,7 +2797,7 @@ export function VitalsChartView({
                                               });
                                             }}
                                             title="Bấm để tích / bỏ tích mục này"
-                                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition cursor-pointer ${
+                                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold border transition cursor-pointer ${
                                               s.isDone
                                                 ? 'bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-200'
                                                 : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
@@ -2795,11 +2824,11 @@ export function VitalsChartView({
 
             {/* Nút Xem thêm / Thu gọn danh sách ngày để không bị kéo dài trang */}
             {baseRows.length > 5 && (
-              <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 text-center">
+              <div className="px-4 py-3 bg-white border-t border-slate-100 text-center">
                 <button
                   type="button"
                   onClick={() => setDailyMatrixExpanded(!dailyMatrixExpanded)}
-                  className="text-xs font-extrabold text-teal-700 hover:text-teal-800 inline-flex items-center gap-1.5 cursor-pointer"
+                  className="text-xs sm:text-sm font-extrabold text-teal-700 hover:text-teal-800 inline-flex items-center gap-1.5 cursor-pointer"
                 >
                   {dailyMatrixExpanded ? (
                     <>
@@ -2993,138 +3022,6 @@ export function VitalsChartView({
           )}
         </div>
       )}
-
-      {/* ===== SECTION 6: BẢNG LỊCH SỬ ĐO CHI TIẾT ===== */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-teal-500" />
-          <h3 className="text-sm font-black text-slate-800">Lịch Sử Đo Chi Tiết</h3>
-          <span className="text-xs text-slate-400 ml-auto">{filteredLog.length} bản ghi</span>
-        </div>
-
-        {historyEntries.length === 0 ? (
-          <div className="p-6 text-center text-sm text-slate-400">
-            Không có dữ liệu trong khoảng thời gian này.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 text-xs text-slate-500 uppercase">
-                  <th className="text-left px-2.5 sm:px-3 py-2.5 font-bold">Ngày / Giờ</th>
-                  <th className="text-center px-2 sm:px-3 py-2.5 font-bold">Huyết áp</th>
-                  <th className="text-center px-3 py-2.5 font-bold hidden sm:table-cell">
-                    Nhịp tim (Mạch)
-                  </th>
-                  <th className="text-center px-2 sm:px-3 py-2.5 font-bold">Đánh giá</th>
-                  <th className="text-left px-3 py-2.5 font-bold hidden sm:table-cell">Ghi chú</th>
-                  <th className="text-center px-2 sm:px-3 py-2.5 font-bold">Sửa / Xóa</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {historyEntries.map((v) => {
-                  const evalItem = evaluateVitalReading(v, bpThresholds);
-                  const bpColors = alertColors(evalItem.bp.alertLevel);
-                  const overallColors = alertColors(evalItem.overallAlertLevel);
-                  const pEval = evaluatePulse(v.pulse);
-                  return (
-                    <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-2.5 sm:px-3 py-3 text-slate-700">
-                        <div className="font-bold text-slate-900">
-                          {fmtDateShort(v.date)}{' '}
-                          <span className="font-normal text-slate-500">· {v.time}</span>
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {periodLabel(v.period)} · {v.recordedBy}
-                        </div>
-                        {v.note && (
-                          <div className="sm:hidden text-xs text-slate-600 italic mt-1 break-words">
-                            📝 {v.note}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-2 sm:px-3 py-3 text-center whitespace-nowrap">
-                        <span className={`font-black text-base sm:text-lg ${bpColors.text}`}>
-                          {v.sys}/{v.dia}
-                        </span>
-                        <span className="text-[11px] text-slate-400 ml-1">mmHg</span>
-                        {v.pulse && (
-                          <div className="sm:hidden text-xs text-slate-600 font-bold mt-0.5">
-                            ❤️ {v.pulse} bpm
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-center text-slate-600 hidden sm:table-cell">
-                        {v.pulse ? (
-                          <span
-                            className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold border ${pEval.badgeClass}`}
-                          >
-                            {pEval.label}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-2 sm:px-3 py-3 text-center">
-                        <span
-                          className={`inline-flex whitespace-nowrap px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-bold border ${overallColors.badge}`}
-                          title={evalItem.reasons.join(' • ') || evalItem.bp.label}
-                        >
-                          {evalItem.badgeText}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-slate-600 text-xs hidden sm:table-cell max-w-[180px] truncate">
-                        {v.note || '—'}
-                      </td>
-                      <td className="px-1.5 sm:px-3 py-3 text-center">
-                        <div className="inline-flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(v)}
-                            className="p-2 rounded-xl bg-teal-50/70 hover:bg-teal-100 text-teal-600 hover:text-teal-800 transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
-                            title="Sửa lại chỉ số này"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(v)}
-                            disabled={deletingId === v.id}
-                            className="p-2 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-500 transition-colors disabled:opacity-50 min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
-                            title="Xóa bản ghi"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Nút mở rộng/thu gọn */}
-        {hasMoreHistory && (
-          <button
-            onClick={() => setHistoryExpanded(!historyExpanded)}
-            className="w-full px-4 py-2.5 text-sm font-bold text-teal-600 hover:bg-teal-50 transition-colors flex items-center justify-center gap-1.5 border-t border-slate-100 cursor-pointer"
-          >
-            {historyExpanded ? (
-              <>
-                <ChevronUp className="w-4 h-4" />
-                Thu gọn
-              </>
-            ) : (
-              <>
-                <ChevronDown className="w-4 h-4" />
-                Xem thêm ({filteredLog.length - 10} bản ghi)
-              </>
-            )}
-          </button>
-        )}
-      </div>
 
       {/* ===== MODAL TÓM TẮT BÁO CÁO BÁC SĨ KHI TÁI KHÁM / GỬI ZALO ===== */}
       {showDoctorReportModal && (
