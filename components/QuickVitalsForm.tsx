@@ -797,7 +797,7 @@ export default function QuickVitalsForm({
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight leading-snug">
-                Đo & Ghi Huyết Áp
+                Nhập số đo
               </h3>
               {mountedClient && (
                 <span className="px-2 py-0.5 rounded-md bg-teal-50 border border-teal-200 text-teal-800 text-xs font-bold">

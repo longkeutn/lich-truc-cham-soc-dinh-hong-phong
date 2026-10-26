@@ -8,6 +8,8 @@ import QuickVitalsForm from '@/components/QuickVitalsForm';
 import DailyRoutineView from '@/components/DailyRoutineView';
 import { AppointmentSection } from '@/components/AppointmentSection';
 import SmartReminderBanner from '@/components/SmartReminderBanner';
+import SectionBanner, { SECTION_THEME } from '@/components/SectionBanner';
+import SectionNavBar from '@/components/SectionNavBar';
 import {
   NotificationPreferences,
   DEFAULT_NOTIFICATION_PREFS,
@@ -815,6 +817,54 @@ export default function CareSchedulePage() {
     return evaluateVitalReading(lastVitalsEntry, bpThresholds);
   }, [lastVitalsEntry, bpThresholds]);
 
+  // ===== Trạng thái nhanh hiển thị trên biển hiệu & thanh điều hướng 3 phần =====
+  const vitalsTodayCount = useMemo(
+    () => vitalsLog.filter((v) => normalizeDateStr(v.date) === todayStr).length,
+    [vitalsLog, todayStr]
+  );
+
+  const routineTotalToday = useMemo(
+    () =>
+      activeRoutines
+        .filter((r) => r.medType !== 'as_needed')
+        .reduce((sum, r) => sum + (Array.isArray(r.timeSlots) ? r.timeSlots.length : 0), 0),
+    [activeRoutines]
+  );
+
+  const routineDoneToday = useMemo(() => {
+    const ids = new Set(
+      activeRoutines.filter((r) => r.medType !== 'as_needed').map((r) => r.id)
+    );
+    return Math.min(
+      routineTotalToday,
+      todayDailyLogs.filter((l) => l.isDone && ids.has(l.routineId)).length
+    );
+  }, [activeRoutines, todayDailyLogs, routineTotalToday]);
+
+  const apptStatusText = useMemo(() => {
+    const next = normalizeDateStr(appointment.nextDate);
+    if (!next) return 'Chưa có lịch hẹn';
+    const diff = Math.round(
+      (Date.parse(`${next}T12:00:00Z`) - Date.parse(`${todayStr}T12:00:00Z`)) / 86400000
+    );
+    if (isNaN(diff)) return 'Xem lịch hẹn';
+    if (diff < 0) return 'Đã quá hẹn';
+    if (diff === 0) return 'Khám hôm nay';
+    if (diff === 1) return 'Khám ngày mai';
+    return `Còn ${diff} ngày`;
+  }, [appointment.nextDate, todayStr]);
+
+  const sectionNavHints = useMemo(
+    () => ({
+      vitals: lastVitalsEntry
+        ? `${lastVitalsEntry.sys}/${lastVitalsEntry.dia}${lastVitalsEntry.pulse ? ` • ♥${lastVitalsEntry.pulse}` : ''}`
+        : 'Đo ngay',
+      routine: routineTotalToday > 0 ? `${routineDoneToday}/${routineTotalToday} xong` : 'Xem việc',
+      appointment: apptStatusText,
+    }),
+    [lastVitalsEntry, routineDoneToday, routineTotalToday, apptStatusText]
+  );
+
   // ===== Tên người ghi mặc định lấy từ danh sách thành viên trên Sheet (Mẹ Phương) =====
   const recorderName = useMemo(() => {
     if (members.length === 0) return DEFAULT_RECORDER;
@@ -1082,113 +1132,93 @@ export default function CareSchedulePage() {
         />
 
         {/* ===== NỘI DUNG THEO TAB (Giữ DOM sau khi mở để chuyển tab phản hồi 0ms) ===== */}
-        <div className={activeView === 'today' ? 'space-y-3.5' : 'hidden'}>
-          {/* Hộp Nhắc Việc Thông Minh theo Khung Giờ & Phát Âm Báo / Giọng Nói Tiếng Việt + Thông Báo Đẩy PWA */}
-          <SmartReminderBanner
-            vitalsLog={vitalsLog}
-            bpThresholds={bpThresholds}
-            activeRoutines={activeRoutines}
-            dailyLogs={dailyLogs}
-            appointment={appointment}
-            todayStr={todayStr}
-            defaultRecorder={recorderName}
-            prefs={notificationPrefs}
-            hasInitialLoaded={hasInitialLoaded}
-            onToggleDailyLog={handleToggleDailyLog}
-            onOpenSettings={() => setNotifSettingsModalOpen(true)}
-            showToast={showToast}
-          />
-
-          {/* Thanh điều hướng nhanh 3 khu vực thao tác trong ngày */}
-          <div className="grid grid-cols-3 gap-2">
-            <a
-              href="#section-vitals"
-              className={`rounded-xl border px-2.5 py-2 flex items-center justify-between gap-1.5 shadow-2xs transition ${
-                lastVitalsEval?.overallAlertLevel === 'critical'
-                  ? 'border-rose-300 bg-rose-50/70 hover:bg-rose-100/70'
-                  : lastVitalsEval?.overallAlertLevel === 'warning'
-                  ? 'border-amber-300 bg-amber-50/70 hover:bg-amber-100/70'
-                  : 'border-slate-200/90 bg-white hover:bg-teal-50/50 hover:border-teal-300'
-              }`}
-            >
-              <div className="min-w-0">
-                <span className="text-[11px] font-bold text-slate-500 block truncate">
-                  1. Huyết áp
-                  {lastVitalsEval ? ` (${lastVitalsEval.badgeText})` : ''}
-                </span>
-                <span className="text-xs sm:text-sm font-extrabold text-slate-900 block truncate">
-                  {lastVitalsEntry
-                    ? `${lastVitalsEntry.sys}/${lastVitalsEntry.dia}${
-                        lastVitalsEntry.pulse ? ` • ♥${lastVitalsEntry.pulse}` : ' mmHg'
-                      }`
-                    : 'Đo ngay'}
-                </span>
-              </div>
-              <span className="text-base shrink-0">💓</span>
-            </a>
-
-            <a
-              href="#section-routine"
-              className="rounded-xl border border-slate-200/90 bg-white hover:bg-teal-50/50 hover:border-teal-300 px-2.5 py-2 flex items-center justify-between gap-1.5 shadow-2xs transition"
-            >
-              <div className="min-w-0">
-                <span className="text-[11px] font-bold text-slate-500 block truncate">2. Thuốc & Tập</span>
-                <span className="text-xs sm:text-sm font-extrabold text-teal-800 block truncate">
-                  {todayDailyLogs.filter((l) => l.isDone).length} đã xong
-                </span>
-              </div>
-              <span className="text-base shrink-0">💊</span>
-            </a>
-
-            <a
-              href="#section-appointment"
-              className="rounded-xl border border-slate-200/90 bg-white hover:bg-teal-50/50 hover:border-teal-300 px-2.5 py-2 flex items-center justify-between gap-1.5 shadow-2xs transition"
-            >
-              <div className="min-w-0">
-                <span className="text-[11px] font-bold text-slate-500 block truncate">3. Tái khám</span>
-                <span className="text-xs sm:text-sm font-extrabold text-slate-900 block truncate">
-                  {appointment.nextDate
-                    ? appointment.nextDate.split('-').reverse().slice(0, 2).join('/')
-                    : 'Xem lịch'}
-                </span>
-              </div>
-              <span className="text-base shrink-0">📅</span>
-            </a>
-          </div>
-
-          {/* 1. Form ghi huyết áp nhanh (Ưu tiên số 1 mỗi ca) */}
-          <div id="section-vitals" className="scroll-mt-20">
-            <QuickVitalsForm
-              onSave={handleSaveVitals}
-              lastEntry={lastVitalsEntry}
+        <div className={activeView === 'today' ? 'space-y-6' : 'hidden'}>
+          {/* ===== NHÓM TỔNG QUAN: nhắc việc thông minh ===== */}
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-slate-700 text-white text-sm font-black tracking-wide">
+                📋 TỔNG QUAN
+              </span>
+              <span className="flex-1 h-0.5 bg-slate-300 rounded-full" />
+            </div>
+            {/* Hộp Nhắc Việc Thông Minh theo Khung Giờ & Phát Âm Báo / Giọng Nói Tiếng Việt + Thông Báo Đẩy PWA */}
+            <SmartReminderBanner
+              vitalsLog={vitalsLog}
               bpThresholds={bpThresholds}
-              defaultRecorder={recorderName}
-              members={members}
-              todayStr={todayStr}
-            />
-          </div>
-
-          {/* 2. Checklist thuốc + tập phục hồi hôm nay & tích bù quá khứ (Ưu tiên số 2 ngay sau khi đo HA) */}
-          <div id="section-routine" className="scroll-mt-20">
-            <DailyRoutineView
-              routines={activeRoutines}
+              activeRoutines={activeRoutines}
               dailyLogs={dailyLogs}
+              appointment={appointment}
               todayStr={todayStr}
-              onToggle={handleToggleDailyLog}
-              onOpenManager={handleOpenRoutineManager}
               defaultRecorder={recorderName}
+              prefs={notificationPrefs}
+              hasInitialLoaded={hasInitialLoaded}
+              onToggleDailyLog={handleToggleDailyLog}
+              onOpenSettings={() => setNotifSettingsModalOpen(true)}
+              showToast={showToast}
             />
           </div>
 
-          {/* 3. Lịch tái khám & lời dặn bác sĩ */}
-          <div id="section-appointment" className="scroll-mt-20">
-            <AppointmentSection
-              appointment={appointment}
-              onSave={handleSaveAppointment}
-              isAdmin={isAdmin}
-              todayStr={todayStr}
+          {/* Thanh 3 nút lớn dính trên cùng khi cuộn: luôn biết đang ở phần nào */}
+          <SectionNavBar enabled={activeView === 'today'} hints={sectionNavHints} />
+
+          {/* ===== PHẦN 1: ĐO HUYẾT ÁP (màu hồng) ===== */}
+          <div id="section-vitals" className="scroll-mt-32 space-y-2.5">
+            <SectionBanner
+              section="vitals"
+              subtitle="Đo xong, ghi 3 số vào đây"
+              status={vitalsTodayCount > 0 ? `Hôm nay đã đo ${vitalsTodayCount} lần` : 'Hôm nay chưa đo'}
             />
+            <div className={`rounded-2xl ${SECTION_THEME.vitals.cardBorder} ${SECTION_THEME.vitals.cardBg} p-1.5 sm:p-2`}>
+              <QuickVitalsForm
+                onSave={handleSaveVitals}
+                lastEntry={lastVitalsEntry}
+                bpThresholds={bpThresholds}
+                defaultRecorder={recorderName}
+                members={members}
+                todayStr={todayStr}
+              />
+            </div>
           </div>
+
+          {/* ===== PHẦN 2: UỐNG THUỐC & TẬP (màu xanh lá) ===== */}
+          <div id="section-routine" className="scroll-mt-32 space-y-2.5">
+            <SectionBanner
+              section="routine"
+              subtitle="Bấm vào từng việc để tích đã làm"
+              status={routineTotalToday > 0 ? `Xong ${routineDoneToday}/${routineTotalToday} việc` : undefined}
+            />
+            <div className={`rounded-2xl ${SECTION_THEME.routine.cardBorder} ${SECTION_THEME.routine.cardBg} p-1.5 sm:p-2`}>
+              <DailyRoutineView
+                routines={activeRoutines}
+                dailyLogs={dailyLogs}
+                todayStr={todayStr}
+                onToggle={handleToggleDailyLog}
+                onOpenManager={handleOpenRoutineManager}
+                defaultRecorder={recorderName}
+              />
+            </div>
+          </div>
+
+          {/* ===== PHẦN 3: TÁI KHÁM & LỜI DẶN BÁC SĨ (màu xanh dương) ===== */}
+          <div id="section-appointment" className="scroll-mt-32 space-y-2.5">
+            <SectionBanner
+              section="appointment"
+              subtitle="Ngày khám tiếp theo & lời dặn"
+              status={apptStatusText}
+            />
+            <div className={`rounded-2xl ${SECTION_THEME.appointment.cardBorder} ${SECTION_THEME.appointment.cardBg} p-1.5 sm:p-2`}>
+              <AppointmentSection
+                appointment={appointment}
+                onSave={handleSaveAppointment}
+                isAdmin={isAdmin}
+                todayStr={todayStr}
+              />
+            </div>
+          </div>
+
+          <p className="text-center text-sm font-bold text-slate-500 pb-2">
+            ✅ Hết trang — đã xem đủ 3 phần
+          </p>
         </div>
 
         {visitedViews.charts && (

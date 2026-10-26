@@ -383,7 +383,7 @@ export default function DailyRoutineView({
                     <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
                       {isViewingPast
                         ? `Checklist Ngày ${fmtShortDDMM(selectedDateStr)}`
-                        : 'Đơn Thuốc & Bài Tập Hôm Nay'}
+                        : 'Danh sách việc hôm nay'}
                     </h3>
                     {mountedClient && (
                       <span
@@ -397,7 +397,7 @@ export default function DailyRoutineView({
                       </span>
                     )}
                   </div>
-                  <p className={`text-xs font-bold ${progressTextColor}`}>
+                  <p className={`text-sm font-extrabold ${progressTextColor}`}>
                     Đã hoàn thành {doneItems}/{totalItems} việc ({progressPercent}%)
                   </p>
                 </div>

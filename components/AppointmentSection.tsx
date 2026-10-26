@@ -384,7 +384,7 @@ export function AppointmentSection({
             <CalendarDays size={16} className="text-teal-700" />
           </div>
           <h4 className="text-sm sm:text-base font-extrabold text-slate-900">
-            Lịch Tái Khám & Lời Dặn Bác Sĩ
+            Chi tiết lịch hẹn
           </h4>
         </div>
 
