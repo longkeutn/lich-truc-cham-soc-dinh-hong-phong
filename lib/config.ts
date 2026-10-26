@@ -750,80 +750,80 @@ export function classifyClinicalBp(
   dia: number,
   thresholds: BpThresholds = DEFAULT_BP_THRESHOLDS
 ): ClinicalBpResult {
-  // 1. Huyết áp thấp (Hạ áp — Nguy cơ giảm tưới máu não)
+  // 1. Huyết áp thấp (Hạ áp — Nguy cơ giảm máu nuôi não)
   if (sys <= thresholds.lowSys || dia <= thresholds.lowDia) {
     const isCriticalLow = sys <= 90 || dia <= 50;
     return {
       category: 'low',
       alertLevel: isCriticalLow ? 'critical' : 'warning',
       label: isCriticalLow
-        ? `Hạ áp mức nguy hiểm (${sys}/${dia} mmHg)`
-        : `Huyết áp thấp / Hạ áp (≤${thresholds.lowSys}/${thresholds.lowDia})`,
-      shortLabel: isCriticalLow ? 'Hạ áp nguy hiểm' : 'Huyết áp thấp',
+        ? `Huyết áp quá thấp (${sys}/${dia} mmHg)`
+        : `Huyết áp hơi thấp (≤${thresholds.lowSys}/${thresholds.lowDia} mmHg)`,
+      shortLabel: isCriticalLow ? 'Huyết áp quá thấp' : 'Huyết áp hơi thấp',
       badgeClass: isCriticalLow
         ? 'bg-rose-100 text-rose-800 border-rose-300'
         : 'bg-amber-100 text-amber-800 border-amber-300',
       dotColor: isCriticalLow ? '#e11d48' : '#3b82f6',
       barColor: 'bg-blue-500',
       clinicalNote:
-        'Nguy cơ giảm tưới máu não gây hoa mắt, choáng váng, té ngã. Cho người bệnh nằm nghỉ, kê thấp đầu và kiểm tra lại thuốc hạ áp.',
+        'Huyết áp đang thấp hơn mức chuẩn, dễ gây hoa mắt, chóng mặt. Nên cho Bố nằm nghỉ, kê thấp đầu, uống thêm nước ấm và kiểm tra lại thuốc huyết áp.',
     };
   }
 
-  // 2. Tăng Huyết áp Độ 2 trở lên (≥160/100 mmHg — Nguy cơ cao tái phát đột quỵ)
+  // 2. Huyết áp cao vượt mức (≥160/100 mmHg)
   if (sys >= 160 || dia >= 100) {
     const isCrisis = sys >= 180 || dia >= 110;
     return {
       category: 'stage2',
       alertLevel: 'critical',
       label: isCrisis
-        ? `Tăng HA Khẩn cấp (≥180/110)`
-        : `Tăng HA Độ 2 — Nguy cơ cao (≥160/100)`,
-      shortLabel: isCrisis ? 'Tăng HA Khẩn cấp' : 'Tăng HA Độ 2',
+        ? `Huyết áp rất cao — Nguy hiểm (≥180/110 mmHg)`
+        : `Huyết áp cao vượt mức (≥160/100 mmHg)`,
+      shortLabel: isCrisis ? 'Cao nguy hiểm' : 'Cao vượt mức',
       badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
       dotColor: '#e11d48',
       barColor: 'bg-rose-500',
       clinicalNote: isCrisis
-        ? 'Huyết áp tăng rất cao! Cho bệnh nhân nghỉ tuyệt đối, kiểm tra ngay triệu chứng thần kinh (méo miệng, yếu tay chân, đau đầu dữ dội) và liên hệ bác sĩ.'
-        : 'Vượt ngưỡng an toàn sau đột quỵ (≥160/100 mmHg). Cần nghỉ ngơi 15–30 phút, kiểm tra việc uống thuốc hạ áp và đo lại.',
+        ? 'Huyết áp tăng rất cao! Cho Bố nằm nghỉ ngơi tuyệt đối, kiểm tra ngay các dấu hiệu bất thường (đau đầu, tê yếu tay chân, nói khó) và liên hệ Bác sĩ.'
+        : 'Huyết áp vượt ngưỡng an toàn (≥160/100 mmHg). Cần cho Bố nằm nghỉ yên tĩnh 15–30 phút, kiểm tra việc uống thuốc hạ áp và đo lại.',
     };
   }
 
-  // 3. Tăng Huyết áp Độ 1 (Vượt ngưỡng mục tiêu cấu hình, thường 140–159 / 90–99 mmHg)
+  // 3. Huyết áp hơi cao (Vượt ngưỡng mục tiêu cấu hình, thường 140–159 / 90–99 mmHg)
   if (sys >= thresholds.highSys || dia >= thresholds.highDia) {
     return {
       category: 'stage1',
       alertLevel: 'warning',
-      label: `Tăng HA Độ 1 (${thresholds.highSys}–159 / ${thresholds.highDia}–99)`,
-      shortLabel: 'Tăng HA Độ 1',
+      label: `Huyết áp hơi cao (${thresholds.highSys}–159 / ${thresholds.highDia}–99 mmHg)`,
+      shortLabel: 'Huyết áp hơi cao',
       badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
       dotColor: '#f59e0b',
       barColor: 'bg-amber-500',
       clinicalNote:
-        'Huyết áp vượt ngưỡng mục tiêu. Nên cho bệnh nhân ngồi/nằm nghỉ ngơi yên tĩnh 15 phút rồi đo kiểm tra lại.',
+        'Huyết áp cao hơn mức chuẩn một chút. Nên cho Bố ngồi hoặc nằm nghỉ thư giãn 15 phút rồi đo kiểm tra lại.',
     };
   }
 
-  // 4. Huyết áp Tối ưu sau đột quỵ (<130/80 mmHg và trên ngưỡng hạ áp)
+  // 4. Huyết áp Tốt (Tối ưu <130/80 mmHg và trên ngưỡng thấp)
   if (sys < 130 && dia < 80) {
     return {
       category: 'optimal',
       alertLevel: 'normal',
-      label: 'Tối ưu sau đột quỵ (<130/80)',
-      shortLabel: 'HA Tối ưu',
+      label: 'Huyết áp tốt nhất (<130/80 mmHg)',
+      shortLabel: 'Tốt (Tối ưu)',
       badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
       dotColor: '#10b981',
       barColor: 'bg-emerald-500',
-      clinicalNote: 'Huyết áp kiểm soát tối ưu theo khuyến cáo dự phòng đột quỵ thứ phát.',
+      clinicalNote: 'Huyết áp rất đẹp và êm, rất tốt cho quá trình hồi phục của Bố.',
     };
   }
 
-  // 5. Bình thường – Cao / Trong đích an toàn (130–139 / 80–89 mmHg)
+  // 5. Đạt chuẩn an toàn (130–139 / 80–89 mmHg)
   return {
     category: 'normal_high',
     alertLevel: 'normal',
-    label: `Bình thường – Trong đích (130–${thresholds.highSys - 1}/80–${thresholds.highDia - 1})`,
-    shortLabel: 'Trong đích',
+    label: `Đạt chuẩn an toàn (130–${thresholds.highSys - 1}/80–${thresholds.highDia - 1} mmHg)`,
+    shortLabel: 'Đạt chuẩn',
     badgeClass: 'bg-teal-100 text-teal-800 border-teal-200',
     dotColor: '#14b8a6',
     barColor: 'bg-teal-500',
@@ -832,11 +832,11 @@ export function classifyClinicalBp(
 }
 
 /**
- * Phân tầng Nhịp tim (Mạch) chuẩn lâm sàng lúc nghỉ (VNHA / AHA / ESC):
+ * Phân tầng Nhịp tim (Mạch) lúc nghỉ dễ hiểu, đồng nhất toàn ứng dụng:
  * - < 50 bpm: Mạch rất chậm (Nguy hiểm / Critical)
- * - 50–59 bpm: Mạch hơi chậm (Cảnh báo / Warning)
- * - 60–79 bpm: Nhịp tim tối ưu (Normal)
- * - 80–99 bpm: Nhịp tim bình thường (Normal)
+ * - 50–59 bpm: Mạch hơi chậm (Lưu ý / Warning)
+ * - 60–79 bpm: Nhịp tốt (Normal)
+ * - 80–99 bpm: Nhịp bình thường (Normal)
  * - ≥ 100 bpm: Mạch nhanh (Warning từ 100–119 bpm, Critical nếu ≥ 120 bpm)
  */
 export function classifyClinicalPulse(pulse?: number | null): ClinicalPulseResult {
@@ -858,13 +858,13 @@ export function classifyClinicalPulse(pulse?: number | null): ClinicalPulseResul
     return {
       category: 'very_slow',
       alertLevel: 'critical',
-      label: 'Mạch rất chậm (<50 bpm)',
+      label: 'Mạch rất chậm (<50 nhịp/phút)',
       shortLabel: 'Mạch rất chậm',
       badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
       dotColor: '#e11d48',
       barColor: 'bg-rose-500',
       clinicalNote:
-        'Nhịp tim rất chậm (<50 lần/phút). Cần hỏi bác sĩ về liều thuốc làm chậm nhịp (như chẹn beta) và theo dõi sát triệu chứng chóng mặt, mệt mỏi.',
+        'Nhịp tim đập dưới 50 lần/phút là khá chậm. Gia đình nên hỏi Bác sĩ xem thuốc đang uống có làm chậm nhịp tim không và theo dõi xem Bố có mệt hay chóng mặt không.',
     };
   }
 
@@ -872,13 +872,13 @@ export function classifyClinicalPulse(pulse?: number | null): ClinicalPulseResul
     return {
       category: 'slow',
       alertLevel: 'warning',
-      label: 'Mạch hơi chậm (50–59 bpm)',
-      shortLabel: 'Mạch chậm',
+      label: 'Mạch hơi chậm (50–59 nhịp/phút)',
+      shortLabel: 'Mạch hơi chậm',
       badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
       dotColor: '#f59e0b',
       barColor: 'bg-amber-400',
       clinicalNote:
-        'Nhịp tim hơi chậm (<60 lần/phút). Lưu ý khi thay đổi tư thế (từ nằm sang ngồi/đứng) để tránh choáng váng.',
+        'Nhịp tim hơi chậm (<60 lần/phút). Khi đỡ Bố thay đổi tư thế (từ nằm sang ngồi hoặc đứng) nên làm từ từ để tránh choáng váng.',
     };
   }
 
@@ -887,13 +887,13 @@ export function classifyClinicalPulse(pulse?: number | null): ClinicalPulseResul
     return {
       category: 'fast',
       alertLevel: isCriticalFast ? 'critical' : 'warning',
-      label: isCriticalFast ? 'Mạch rất nhanh (≥120 bpm)' : 'Mạch nhanh (≥100 bpm)',
+      label: isCriticalFast ? 'Mạch rất nhanh (≥120 nhịp/phút)' : 'Mạch nhanh (≥100 nhịp/phút)',
       shortLabel: isCriticalFast ? 'Mạch rất nhanh' : 'Mạch nhanh',
       badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
       dotColor: '#e11d48',
       barColor: 'bg-rose-500',
       clinicalNote:
-        'Nhịp tim nhanh lúc nghỉ (≥100 lần/phút). Kiểm tra xem người bệnh có vừa vận động, căng thẳng, đau, sốt hoặc thiếu nước không.',
+        'Nhịp tim đập nhanh lúc nghỉ (≥100 lần/phút). Cần kiểm tra xem Bố có vừa tập vận động, bị đau mỏi, sốt hay thiếu nước không.',
     };
   }
 
@@ -901,30 +901,30 @@ export function classifyClinicalPulse(pulse?: number | null): ClinicalPulseResul
     return {
       category: 'optimal',
       alertLevel: 'normal',
-      label: 'Nhịp tối ưu (60–79 bpm)',
-      shortLabel: 'Nhịp tối ưu',
+      label: 'Nhịp tốt (60–79 nhịp/phút)',
+      shortLabel: 'Nhịp tốt',
       badgeClass: 'bg-emerald-100 text-emerald-700 border-emerald-200',
       dotColor: '#10b981',
       barColor: 'bg-emerald-500',
-      clinicalNote: 'Nhịp tim lúc nghỉ tối ưu, tải cơ tim nhẹ nhàng.',
+      clinicalNote: 'Nhịp tim lúc nghỉ đều và êm, tim làm việc nhẹ nhàng.',
     };
   }
 
   return {
     category: 'normal_high',
     alertLevel: 'normal',
-    label: 'Nhịp bình thường (80–99 bpm)',
-    shortLabel: 'Bình thường',
+    label: 'Nhịp bình thường (80–99 nhịp/phút)',
+    shortLabel: 'Nhịp bình thường',
     badgeClass: 'bg-teal-100 text-teal-800 border-teal-200',
     dotColor: '#14b8a6',
     barColor: 'bg-teal-500',
-    clinicalNote: 'Nhịp tim nằm trong giới hạn sinh lý bình thường (60–99 bpm).',
+    clinicalNote: 'Nhịp tim nằm trong giới hạn bình thường (60–99 lần/phút).',
   };
 }
 
 /**
  * Kiểm tra xem Huyết áp có nằm trong đích an toàn mục tiêu hay không.
- * Dùng thống nhất cho chỉ số TIR% (Time In Range) trên cả Thẻ tóm tắt và Báo cáo lâm sàng.
+ * Dùng thống nhất cho tỷ lệ đạt chuẩn trên cả Thẻ tóm tắt và Báo cáo chi tiết.
  */
 export function isBpInTargetRange(
   sys: number,
@@ -942,7 +942,7 @@ const ALERT_SEVERITY_RANK: Record<VitalAlertLevel, number> = {
 
 /**
  * Tính mức cảnh báo tổng hợp (normal | warning | critical) từ Huyết áp và Nhịp tim.
- * Đồng bộ hoàn toàn với phân tầng lâm sàng classifyClinicalBp & classifyClinicalPulse.
+ * Đồng bộ hoàn toàn với phân tầng classifyClinicalBp & classifyClinicalPulse.
  */
 export function computeAlertLevel(
   sys: number,
@@ -956,12 +956,12 @@ export function computeAlertLevel(
 }
 
 /**
- * Đánh giá toàn diện 1 lần đo sinh hiệu (Huyết áp + Nhịp tim + Hiệu áp PP + Áp lực tưới máu MAP + RPP).
+ * Đánh giá toàn diện 1 lần đo sinh hiệu (Huyết áp + Nhịp tim + Độ chênh 2 số + Áp lực máu nuôi não).
  * Sử dụng thống nhất ở mọi màn hình:
  * - Banner cảnh báo thông minh (SmartReminderBanner)
  * - Form nhập nhanh & So sánh lần đo trước (QuickVitalsForm)
  * - Thẻ sinh hiệu gần nhất, Nhật ký đối chiếu, Bảng lịch sử & Modal sửa (VitalsChartView)
- * - Báo cáo phân tích huyết động chuyên sâu (ClinicalVitalsReportSection)
+ * - Báo cáo phân tích chi tiết (ClinicalVitalsReportSection)
  */
 export function evaluateVitalReading(
   input: { sys: number; dia: number; pulse?: number | null },
@@ -978,47 +978,47 @@ export function evaluateVitalReading(
       ? bp.alertLevel
       : pulse.alertLevel;
 
-  // Hiệu áp (Pulse Pressure = SYS - DIA)
+  // Độ chênh 2 số (Hiệu áp = Số trên - Số dưới)
   const pp = sys - dia;
   let ppStatus: 'narrow' | 'normal' | 'wide' = 'normal';
-  let ppLabel = 'Hiệu áp chuẩn (35–59 mmHg)';
+  let ppLabel = 'Độ chênh 2 số chuẩn (35–59 mmHg)';
   let ppBadgeClass = 'bg-slate-100 text-slate-600 border-slate-200';
   if (pp >= 60) {
     ppStatus = 'wide';
-    ppLabel = 'Hiệu áp rộng (≥60 mmHg)';
+    ppLabel = 'Độ chênh 2 số hơi rộng (≥60 mmHg)';
     ppBadgeClass = 'bg-amber-50 text-amber-800 border-amber-200';
   } else if (pp < 35) {
     ppStatus = 'narrow';
-    ppLabel = 'Hiệu áp hẹp (<35 mmHg)';
+    ppLabel = 'Độ chênh 2 số hơi hẹp (<35 mmHg)';
     ppBadgeClass = 'bg-amber-50 text-amber-800 border-amber-200';
   }
 
-  // Áp lực động mạch trung bình (MAP = DIA + PP/3)
+  // Áp lực máu nuôi não trung bình (MAP = DIA + PP/3)
   const map = Math.round(dia + pp / 3);
   let mapStatus: 'low' | 'normal' | 'high' = 'normal';
-  let mapLabel = 'Tưới máu não chuẩn (70–105)';
+  let mapLabel = 'Máu nuôi não đủ (70–105)';
   let mapBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
   if (map < 70) {
     mapStatus = 'low';
-    mapLabel = 'Áp lực tưới máu thấp (<70)';
+    mapLabel = 'Áp lực máu lên não hơi thấp (<70)';
     mapBadgeClass = 'bg-amber-50 text-amber-800 border-amber-200';
   } else if (map > 105) {
     mapStatus = 'high';
-    mapLabel = 'Áp lực tưới máu cao (>105)';
+    mapLabel = 'Áp lực máu lên não cao (>105)';
     mapBadgeClass = 'bg-rose-50 text-rose-700 border-rose-200';
   }
 
-  // Rate Pressure Product (RPP = SYS * Pulse)
+  // Chỉ số sức làm việc của tim (SYS * Pulse)
   const rpp = pulseVal > 0 ? sys * pulseVal : null;
 
-  // Tổng hợp lý do cảnh báo cụ thể
+  // Tổng hợp lý do cảnh báo cụ thể bằng tiếng Việt dễ hiểu
   const reasons: string[] = [];
   if (bp.category === 'stage2') {
     reasons.push(`${bp.shortLabel} (${sys}/${dia} mmHg)`);
   } else if (bp.category === 'stage1') {
-    reasons.push(`Huyết áp cao ${sys}/${dia} mmHg (vượt ngưỡng ${thresholds.highSys}/${thresholds.highDia})`);
+    reasons.push(`Huyết áp hơi cao ${sys}/${dia} mmHg (trên mức ${thresholds.highSys}/${thresholds.highDia})`);
   } else if (bp.category === 'low') {
-    reasons.push(`Huyết áp thấp ${sys}/${dia} mmHg (dưới ngưỡng ${thresholds.lowSys}/${thresholds.lowDia})`);
+    reasons.push(`${bp.shortLabel} ${sys}/${dia} mmHg (dưới mức ${thresholds.lowSys}/${thresholds.lowDia})`);
   }
 
   if (pulse.category === 'very_slow') {
@@ -1029,23 +1029,21 @@ export function evaluateVitalReading(
     reasons.push(`${pulse.shortLabel} (${pulseVal} lần/phút)`);
   }
 
-  // Nhãn tóm tắt trên Badge
+  // Nhãn tóm tắt trên Badge (Không gộp mập mờ khiến người đọc tưởng HA tốt là HA xấu)
   const statusIcon = overallAlertLevel === 'critical' ? '🔴' : overallAlertLevel === 'warning' ? '🟡' : '🟢';
-  let badgeText = `${statusIcon} Ổn định`;
+  let badgeText = `🟢 ${bp.shortLabel}`;
   if (bp.alertLevel !== 'normal' && pulse.alertLevel !== 'normal') {
     badgeText = `${statusIcon} ${bp.shortLabel} • ${pulse.shortLabel}`;
   } else if (bp.alertLevel !== 'normal') {
     badgeText = `${statusIcon} ${bp.shortLabel}`;
   } else if (pulse.alertLevel !== 'normal') {
-    badgeText = `${statusIcon} ${pulse.shortLabel}`;
-  } else {
-    badgeText = `🟢 ${bp.shortLabel}`;
+    badgeText = `🟢 HA Đạt chuẩn • ${statusIcon} ${pulse.shortLabel}`;
   }
 
-  // Lời khuyên lâm sàng tổng hợp
+  // Lời khuyên chăm sóc tổng hợp dễ hiểu
   let clinicalAdvice = bp.clinicalNote;
   if (bp.alertLevel === 'normal' && pulse.alertLevel !== 'normal') {
-    clinicalAdvice = pulse.clinicalNote;
+    clinicalAdvice = `Huyết áp đạt chuẩn an toàn, nhưng ${pulse.clinicalNote.charAt(0).toLowerCase()}${pulse.clinicalNote.slice(1)}`;
   } else if (bp.alertLevel !== 'normal' && pulse.alertLevel !== 'normal') {
     clinicalAdvice = `${bp.clinicalNote} Đồng thời: ${pulse.clinicalNote}`;
   }

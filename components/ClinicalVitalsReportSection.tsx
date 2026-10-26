@@ -1,14 +1,10 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   HeartPulse,
-  TrendingUp,
-  TrendingDown,
-  ArrowRight,
   AlertTriangle,
-  CheckCircle2,
   Clock,
   ChevronDown,
   ChevronUp,
@@ -17,15 +13,13 @@ import {
   VolumeX,
   Info,
   ShieldCheck,
-  Zap,
+  Sparkles,
 } from 'lucide-react';
 import type { VitalsLogEntry, BpThresholds, TimeSlot } from '@/lib/types';
 import {
-  TIME_SLOT_CONFIG,
   getVietnamDateStr,
   getVietnamDateOffsetStr,
   compareVitalsAsc,
-  compareVitalsDesc,
   normalizeDateStr,
   normalizeTimeStr,
   classifyClinicalBp,
@@ -39,6 +33,7 @@ const ALL_SLOTS: TimeSlot[] = ['morning', 'noon', 'afternoon', 'evening'];
 interface ClinicalVitalsReportSectionProps {
   vitalsLog: VitalsLogEntry[];
   bpThresholds: BpThresholds;
+  externalDateRange?: '7d' | '14d' | '30d' | 'all';
   patientName?: string;
   showToast?: (msg: string, type?: 'info' | 'success' | 'warn') => void;
 }
@@ -57,17 +52,17 @@ export interface TimeframeMetrics {
   maxDia: number | null;
   sdSys: number | null;
   sdDia: number | null;
-  cvSys: number | null; // Hệ số biến thiên CV% = SD / Mean * 100
-  arvSys: number | null; // Average Real Variability giữa các lần đo liên tiếp
-  avgPP: number | null; // Hiệu áp (SYS - DIA)
-  avgMAP: number | null; // Áp lực tưới máu trung bình (DIA + PP/3)
+  cvSys: number | null;
+  arvSys: number | null;
+  avgPP: number | null; // Khoảng cách Số trên - Số dưới
+  avgMAP: number | null; // Sức đẩy máu nuôi não
   avgPulse: number | null;
   minPulse: number | null;
   maxPulse: number | null;
   sdPulse: number | null;
-  avgRPP: number | null; // Rate Pressure Product = SYS * Pulse
-  tirPct: number | null; // % đạt ngưỡng mục tiêu
-  slowPulseCount: number; // < 55 bpm
+  avgRPP: number | null; // Sức làm việc của tim
+  tirPct: number | null; // % lần đo đạt chuẩn
+  slowPulseCount: number; // < 60 bpm
   verySlowPulseCount: number; // < 50 bpm
   fastPulseCount: number; // >= 100 bpm
   highBpCount: number;
@@ -77,7 +72,7 @@ export interface TimeframeMetrics {
   deltaPulseVsPrev: number | null;
 }
 
-/** Tính độ lệch chuẩn mẫu (Sample Standard Deviation) */
+/** Tính mức độ dao động trung bình (Độ lệch chuẩn mẫu) */
 function calcStdDev(values: number[]): number | null {
   if (values.length < 2) return values.length === 1 ? 0 : null;
   const mean = values.reduce((s, v) => s + v, 0) / values.length;
@@ -86,7 +81,7 @@ function calcStdDev(values: number[]): number | null {
   return Math.round(Math.sqrt(variance) * 10) / 10;
 }
 
-/** Tính biến thiên thực tế trung bình giữa các lần đo liên tiếp (ARV - Average Real Variability) */
+/** Tính mức chênh lệch trung bình giữa 2 lần đo liên tiếp */
 function calcARV(valuesAsc: number[]): number | null {
   if (valuesAsc.length < 2) return null;
   let sumDiff = 0;
@@ -98,7 +93,7 @@ function calcARV(valuesAsc: number[]): number | null {
 
 export { classifyClinicalBp, classifyClinicalPulse };
 
-/** Tính toán bộ chỉ số huyết động cho một tập bản ghi */
+/** Tính toán bộ chỉ số cho một khoảng thời gian */
 function computeMetricsForEntries(
   id: string,
   label: string,
@@ -260,13 +255,20 @@ function computeMetricsForEntries(
 export default function ClinicalVitalsReportSection({
   vitalsLog,
   bpThresholds,
+  externalDateRange = '7d',
   patientName = 'Đinh Hồng Phong',
   showToast,
 }: ClinicalVitalsReportSectionProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
-  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string>('7d');
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string>(externalDateRange);
+  const [showMilestoneTable, setShowMilestoneTable] = useState<boolean>(false);
   const [isSpeakingReport, setIsSpeakingReport] = useState<boolean>(false);
   const [showMedicalGuide, setShowMedicalGuide] = useState<boolean>(false);
+
+  // Tự động đồng bộ mốc phân tích khi người dùng bấm chọn khoảng thời gian ở đầu trang
+  useEffect(() => {
+    setSelectedMilestoneId(externalDateRange);
+  }, [externalDateRange]);
 
   // Chuẩn hóa danh sách sinh hiệu
   const cleanedVitals = useMemo(() => {
@@ -280,7 +282,7 @@ export default function ClinicalVitalsReportSection({
       .sort(compareVitalsAsc);
   }, [vitalsLog]);
 
-  // ===== 1. TÍNH TOÁN ĐA MỐC THỜI GIAN (HÔM NAY, HÔM QUA, 3 NGÀY, 7 NGÀY, 14 NGÀY, 30 NGÀY) =====
+  // ===== 1. TÍNH TOÁN CÁC MỐC THỜI GIAN ĐỐI CHIẾU =====
   const milestones = useMemo(() => {
     const todayStr = getVietnamDateStr();
     const yesterdayStr = getVietnamDateOffsetStr(-1);
@@ -312,7 +314,7 @@ export default function ClinicalVitalsReportSection({
       computeMetricsForEntries(
         'today',
         'Hôm nay',
-        '24h hiện tại',
+        'Trong ngày hôm nay',
         todayEntries,
         yesterdayEntries,
         bpThresholds
@@ -320,15 +322,15 @@ export default function ClinicalVitalsReportSection({
       computeMetricsForEntries(
         'yesterday',
         'Hôm qua',
-        'Ngày liền trước',
+        'So với hôm kia',
         yesterdayEntries,
         twoDaysAgoEntries,
         bpThresholds
       ),
       computeMetricsForEntries(
         '3d',
-        '3 ngày gần nhất',
-        'Ngắn hạn (So với 3 ngày trước)',
+        '3 ngày qua',
+        'So với 3 ngày trước',
         last3dEntries,
         prev3dEntries,
         bpThresholds
@@ -336,7 +338,7 @@ export default function ClinicalVitalsReportSection({
       computeMetricsForEntries(
         '7d',
         '7 ngày qua',
-        'Tuần này (So với tuần trước)',
+        'So với tuần trước',
         last7dEntries,
         prev7dEntries,
         bpThresholds
@@ -352,19 +354,27 @@ export default function ClinicalVitalsReportSection({
       computeMetricsForEntries(
         '30d',
         '30 ngày qua',
-        'Nền huyết áp tháng',
+        '1 tháng gần nhất',
         last30dEntries.length > 0 ? last30dEntries : cleanedVitals,
+        [],
+        bpThresholds
+      ),
+      computeMetricsForEntries(
+        'all',
+        'Tất cả lịch sử',
+        'Toàn bộ các lần đo',
+        cleanedVitals,
         [],
         bpThresholds
       ),
     ];
   }, [cleanedVitals, bpThresholds]);
 
-  // Mốc thời gian đang chọn để phân tích chuyên sâu
+  // Mốc thời gian đang chọn để nhận định chi tiết
   const activeMilestone = useMemo(() => {
     const found = milestones.find((m) => m.id === selectedMilestoneId);
     if (found && found.count > 0) return found;
-    return milestones.find((m) => m.count > 0) || milestones[3];
+    return milestones.find((m) => m.id === '7d' && m.count > 0) || milestones.find((m) => m.count > 0) || milestones[3];
   }, [milestones, selectedMilestoneId]);
 
   // Các bản ghi thuộc mốc thời gian đang chọn
@@ -382,111 +392,23 @@ export default function ClinicalVitalsReportSection({
         return cleanedVitals.filter((v) => v.date >= getVietnamDateOffsetStr(-6));
       case '14d':
         return cleanedVitals.filter((v) => v.date >= getVietnamDateOffsetStr(-13));
-      default:
+      case '30d':
         return cleanedVitals.filter((v) => v.date >= getVietnamDateOffsetStr(-29));
+      default:
+        return cleanedVitals;
     }
   }, [cleanedVitals, activeMilestone.id]);
 
-  // ===== 2. PHÂN TÍCH NHỊP SINH HỌC 4 KHUNG GIỜ & HIỆN TƯỢNG VỌT ÁP SÁNG / TĂNG ÁP TỐI =====
+  // ===== 2. SO SÁNH SÁNG – TỐI & TÌM KHUNG GIỜ HAY CAO/THẤP =====
   const circadianAnalysis = useMemo(() => {
-    const slotDetails: Record<
+    const slotStats: Record<
       TimeSlot,
-      {
-        slot: TimeSlot;
-        label: string;
-        emoji: string;
-        timeRange: string;
-        count: number;
-        avgSys: number | null;
-        avgDia: number | null;
-        minSys: number | null;
-        maxSys: number | null;
-        avgPP: number | null;
-        avgMAP: number | null;
-        avgPulse: number | null;
-        minPulse: number | null;
-        maxPulse: number | null;
-        highBpCount: number;
-        slowPulseCount: number;
-        highBpPct: number;
-      }
+      { label: string; count: number; avgSys: number | null; avgDia: number | null; avgPulse: number | null }
     > = {
-      morning: {
-        slot: 'morning',
-        label: 'Sáng',
-        emoji: '🌅',
-        timeRange: '06:00–11:00',
-        count: 0,
-        avgSys: null,
-        avgDia: null,
-        minSys: null,
-        maxSys: null,
-        avgPP: null,
-        avgMAP: null,
-        avgPulse: null,
-        minPulse: null,
-        maxPulse: null,
-        highBpCount: 0,
-        slowPulseCount: 0,
-        highBpPct: 0,
-      },
-      noon: {
-        slot: 'noon',
-        label: 'Trưa',
-        emoji: '☀️',
-        timeRange: '11:00–14:00',
-        count: 0,
-        avgSys: null,
-        avgDia: null,
-        minSys: null,
-        maxSys: null,
-        avgPP: null,
-        avgMAP: null,
-        avgPulse: null,
-        minPulse: null,
-        maxPulse: null,
-        highBpCount: 0,
-        slowPulseCount: 0,
-        highBpPct: 0,
-      },
-      afternoon: {
-        slot: 'afternoon',
-        label: 'Chiều',
-        emoji: '🌇',
-        timeRange: '14:00–18:00',
-        count: 0,
-        avgSys: null,
-        avgDia: null,
-        minSys: null,
-        maxSys: null,
-        avgPP: null,
-        avgMAP: null,
-        avgPulse: null,
-        minPulse: null,
-        maxPulse: null,
-        highBpCount: 0,
-        slowPulseCount: 0,
-        highBpPct: 0,
-      },
-      evening: {
-        slot: 'evening',
-        label: 'Tối',
-        emoji: '🌙',
-        timeRange: '18:00–22:00',
-        count: 0,
-        avgSys: null,
-        avgDia: null,
-        minSys: null,
-        maxSys: null,
-        avgPP: null,
-        avgMAP: null,
-        avgPulse: null,
-        minPulse: null,
-        maxPulse: null,
-        highBpCount: 0,
-        slowPulseCount: 0,
-        highBpPct: 0,
-      },
+      morning: { label: 'Sáng', count: 0, avgSys: null, avgDia: null, avgPulse: null },
+      noon: { label: 'Trưa', count: 0, avgSys: null, avgDia: null, avgPulse: null },
+      afternoon: { label: 'Chiều', count: 0, avgSys: null, avgDia: null, avgPulse: null },
+      evening: { label: 'Tối', count: 0, avgSys: null, avgDia: null, avgPulse: null },
     };
 
     for (const sl of ALL_SLOTS) {
@@ -495,97 +417,60 @@ export default function ClinicalVitalsReportSection({
       const n = items.length;
       const avgSys = Math.round(items.reduce((s, x) => s + x.sys, 0) / n);
       const avgDia = Math.round(items.reduce((s, x) => s + x.dia, 0) / n);
-      const minSys = Math.min(...items.map((x) => x.sys));
-      const maxSys = Math.max(...items.map((x) => x.sys));
-      const avgPP = avgSys - avgDia;
-      const avgMAP = Math.round(avgDia + avgPP / 3);
-
       const pItems = items.filter((x) => x.pulse && x.pulse > 0);
       const avgPulse =
         pItems.length > 0
           ? Math.round(pItems.reduce((s, x) => s + (x.pulse as number), 0) / pItems.length)
           : null;
-      const minPulse =
-        pItems.length > 0 ? Math.min(...pItems.map((x) => x.pulse as number)) : null;
-      const maxPulse =
-        pItems.length > 0 ? Math.max(...pItems.map((x) => x.pulse as number)) : null;
 
-      const highBpCount = items.filter(
-        (x) => x.sys >= bpThresholds.highSys || x.dia >= bpThresholds.highDia
-      ).length;
-      const slowPulseCount = pItems.filter((x) => (x.pulse as number) < 60).length;
-
-      slotDetails[sl] = {
-        ...slotDetails[sl],
+      slotStats[sl] = {
+        ...slotStats[sl],
         count: n,
         avgSys,
         avgDia,
-        minSys,
-        maxSys,
-        avgPP,
-        avgMAP,
         avgPulse,
-        minPulse,
-        maxPulse,
-        highBpCount,
-        slowPulseCount,
-        highBpPct: Math.round((highBpCount / n) * 100),
       };
     }
 
-    // So sánh Chênh lệch Sáng - Tối (Morning vs Evening Differential)
-    const mSys = slotDetails.morning.avgSys;
-    const eSys = slotDetails.evening.avgSys;
+    const mSys = slotStats.morning.avgSys;
+    const eSys = slotStats.evening.avgSys;
     const morningEveningDiff = mSys !== null && eSys !== null ? mSys - eSys : null;
 
     let circadianPattern: {
       type: 'morning_surge' | 'evening_riser' | 'balanced' | 'unknown';
       title: string;
-      badgeClass: string;
       explanation: string;
     } = {
       type: 'unknown',
-      title: 'Chưa đủ cặp đo Sáng – Tối',
-      badgeClass: 'bg-slate-100 text-slate-600 border-slate-200',
-      explanation: 'Cần có dữ liệu đo cả buổi Sáng và buổi Tối để phân tích nhịp sinh học.',
+      title: 'Chưa đủ số đo cả buổi Sáng và Tối để so sánh',
+      explanation: 'Nên đo đều vào buổi Sáng và buổi Tối để biết thời điểm nào huyết áp hay tăng.',
     };
 
     if (morningEveningDiff !== null) {
       if (morningEveningDiff >= 12) {
         circadianPattern = {
           type: 'morning_surge',
-          title: `Xu hướng cao buổi Sáng (+${morningEveningDiff} mmHg so với Tối)`,
-          badgeClass: 'bg-amber-100 text-amber-900 border-amber-300',
-          explanation:
-            'Huyết áp buổi sáng cao hơn rõ so với buổi tối (Morning Surge). Nên đo HA ngay trước khi uống thuốc sáng và hỏi Bác sĩ xem thuốc cử tối có đủ che phủ tới sáng hôm sau không.',
+          title: `Buổi Sáng thường cao hơn buổi Tối (+${morningEveningDiff} mmHg)`,
+          explanation: `Trung bình buổi Sáng là ${mSys}/${slotStats.morning.avgDia} mmHg, cao hơn buổi Tối (${eSys}/${slotStats.evening.avgDia} mmHg). Nên đo huyết áp ngay khi thức dậy trước khi uống thuốc sáng và cho Bố ngồi dậy từ từ.`,
         };
       } else if (morningEveningDiff <= -10) {
         circadianPattern = {
           type: 'evening_riser',
-          title: `Xu hướng tăng về Chiều Tối (+${Math.abs(morningEveningDiff)} mmHg so với Sáng)`,
-          badgeClass: 'bg-amber-100 text-amber-900 border-amber-300',
-          explanation:
-            'Huyết áp buổi tối cao hơn buổi sáng (Evening Riser). Cần lưu ý thời điểm uống thuốc cử chiều/tối, hạn chế ăn mặn bữa tối và nghỉ ngơi thư giãn.',
+          title: `Buổi Tối thường cao hơn buổi Sáng (+${Math.abs(morningEveningDiff)} mmHg)`,
+          explanation: `Trung bình buổi Tối là ${eSys}/${slotStats.evening.avgDia} mmHg, cao hơn buổi Sáng (${mSys}/${slotStats.morning.avgDia} mmHg). Cần chú ý uống đúng giờ cữ thuốc chiều/tối, ăn nhạt bữa tối và nghỉ ngơi sớm.`,
         };
       } else {
         circadianPattern = {
           type: 'balanced',
-          title: `Nhịp sinh học Sáng – Tối cân bằng (Chênh ${
+          title: `Huyết áp Sáng và Tối cân bằng nhau (Chênh ${
             morningEveningDiff >= 0 ? `+${morningEveningDiff}` : morningEveningDiff
           } mmHg)`,
-          badgeClass: 'bg-emerald-100 text-emerald-900 border-emerald-300',
-          explanation:
-            'Chênh lệch huyết áp giữa buổi Sáng và buổi Tối rất nhỏ (<10–12 mmHg), cho thấy phác đồ thuốc đang kiểm soát tốt nhịp ngày đêm.',
+          explanation: `Buổi Sáng (TB ${mSys}/${slotStats.morning.avgDia} mmHg) và buổi Tối (TB ${eSys}/${slotStats.evening.avgDia} mmHg) chênh nhau rất ít, cho thấy thuốc đang giữ huyết áp ổn định suốt cả ngày.`,
         };
       }
     }
 
-    // Tìm buổi có HA trung bình cao nhất & buổi có mạch trung bình thấp nhất
-    const activeSlots = ALL_SLOTS.map((s) => slotDetails[s]).filter((s) => s.count > 0);
-    const highestBpSlot =
-      activeSlots.length > 0
-        ? [...activeSlots].sort((a, b) => (b.avgSys || 0) - (a.avgSys || 0))[0]
-        : null;
+    const activeSlots = ALL_SLOTS.map((s) => ({ slot: s, ...slotStats[s] })).filter((s) => s.count > 0);
     const lowestPulseSlot =
       activeSlots.filter((s) => s.avgPulse !== null).length > 0
         ? [...activeSlots.filter((s) => s.avgPulse !== null)].sort(
@@ -594,15 +479,14 @@ export default function ClinicalVitalsReportSection({
         : null;
 
     return {
-      slotDetails,
+      slotStats,
       morningEveningDiff,
       circadianPattern,
-      highestBpSlot,
       lowestPulseSlot,
     };
-  }, [activeEntries, bpThresholds]);
+  }, [activeEntries]);
 
-  // ===== 3. PHÂN TẦNG HUYẾT ÁP & PHÂN TẦNG NHỊP TIM TRONG KỲ ĐANG CHỌN =====
+  // ===== 3. PHÂN BỔ MỨC HUYẾT ÁP & NHỊP TIM TRONG KỲ ĐANG CHỌN =====
   const distributionStats = useMemo(() => {
     const total = activeEntries.length;
     const bpZones = {
@@ -640,7 +524,7 @@ export default function ClinicalVitalsReportSection({
     };
   }, [activeEntries, bpThresholds]);
 
-  // ===== 4. TỔNG HỢP NHẬN ĐỊNH LÂM SÀNG TỰ ĐỘNG (CLINICAL INTERPRETATION) =====
+  // ===== 4. TỔNG HỢP NHẬN ĐỊNH & ĐÁNH GIÁ DỄ HIỂU THEO KHOẢNG THỜI GIAN ĐANG CHỌN =====
   const clinicalFindings = useMemo(() => {
     const findings: Array<{
       level: 'good' | 'caution' | 'alert';
@@ -652,12 +536,23 @@ export default function ClinicalVitalsReportSection({
       return findings;
     }
 
-    // 1. Đánh giá mức Huyết áp nền (Mean BP)
+    // 1. Đánh giá mức Huyết áp chung
     const bpClass = classifyClinicalBp(
       activeMilestone.avgSys,
       activeMilestone.avgDia,
       bpThresholds
     );
+    const deltaNote =
+      activeMilestone.deltaSysVsPrev !== null && activeMilestone.deltaDiaVsPrev !== null
+        ? ` So với kỳ liền trước, huyết áp trung bình ${
+            Math.abs(activeMilestone.deltaSysVsPrev) <= 4
+              ? 'giữ nguyên ổn định'
+              : activeMilestone.deltaSysVsPrev > 4
+              ? `tăng nhẹ +${activeMilestone.deltaSysVsPrev} mmHg`
+              : `giảm ${activeMilestone.deltaSysVsPrev} mmHg`
+          }.`
+        : '';
+
     findings.push({
       level:
         bpClass.category === 'optimal' || bpClass.category === 'normal_high'
@@ -666,107 +561,93 @@ export default function ClinicalVitalsReportSection({
           ? 'alert'
           : 'caution',
       title: `Huyết áp trung bình (${activeMilestone.label}): ${activeMilestone.avgSys}/${activeMilestone.avgDia} mmHg — ${bpClass.shortLabel}`,
-      detail: `${bpClass.clinicalNote} Tỷ lệ lần đo nằm trong vùng mục tiêu đạt ${activeMilestone.tirPct}%.`,
+      detail: `${bpClass.clinicalNote} Có ${activeMilestone.tirPct}% số lần đo nằm trong vùng chuẩn an toàn.${deltaNote}`,
     });
 
-    // 2. Đánh giá Độ biến thiên Huyết áp (SD_SYS & ARV)
-    if (activeMilestone.sdSys !== null && activeMilestone.count >= 3) {
+    // 2. Đánh giá Độ ổn định (huyết áp có giữ đều hay nhảy lên xuống)
+    if (activeMilestone.sdSys !== null && activeMilestone.count >= 2) {
+      const rangeSpan = (activeMilestone.maxSys || 0) - (activeMilestone.minSys || 0);
       if (activeMilestone.sdSys < 10) {
         findings.push({
           level: 'good',
-          title: `Độ ổn định huyết áp rất tốt (Độ lệch chuẩn SD = ±${activeMilestone.sdSys} mmHg)`,
-          detail: `Dao động giữa các lần đo thấp (ARV = ${activeMilestone.arvSys ?? 0} mmHg, CV = ${
-            activeMilestone.cvSys ?? 0
-          }%). Huyết áp phẳng êm giúp giảm áp lực cơ học lên mạch máu não.`,
+          title: `Độ ổn định rất tốt: Huyết áp giữ phẳng êm (chênh lệch chỉ ±${activeMilestone.sdSys} mmHg)`,
+          detail: `Số trên thấp nhất là ${activeMilestone.minSys} và cao nhất là ${activeMilestone.maxSys} mmHg. Các lần đo ít bị nhảy vọt bất ngờ, rất tốt để bảo vệ mạch máu não.`,
         });
       } else if (activeMilestone.sdSys < 15) {
         findings.push({
           level: 'caution',
-          title: `Huyết áp có dao động mức trung bình (SD = ±${activeMilestone.sdSys} mmHg)`,
-          detail: `Chênh lệch giữa mức thấp nhất và cao nhất là ${activeMilestone.minSys}–${activeMilestone.maxSys} mmHg (biên độ ${
-            (activeMilestone.maxSys || 0) - (activeMilestone.minSys || 0)
-          } mmHg). Nên uống thuốc cố định đúng khung giờ mỗi ngày.`,
+          title: `Huyết áp có dao động nhẹ giữa các lần đo (chênh lệch ±${activeMilestone.sdSys} mmHg)`,
+          detail: `Số trên dao động từ ${activeMilestone.minSys} đến ${activeMilestone.maxSys} mmHg (cách nhau ${rangeSpan} mmHg). Gia đình nên cho Bố uống thuốc đúng một khung giờ cố định mỗi ngày và nghỉ 10 phút trước khi đo.`,
         });
       } else {
         findings.push({
           level: 'alert',
-          title: `Biến thiên huyết áp lớn (SD = ±${activeMilestone.sdSys} mmHg ≥ 15 mmHg)`,
-          detail: `Huyết áp dao động mạnh từ ${activeMilestone.minSys} đến ${activeMilestone.maxSys} mmHg. Trong y khoa đột quỵ, huyết áp lên xuống thất thường cần được báo Bác sĩ để điều chỉnh thuốc tác dụng kéo dài.`,
+          title: `Huyết áp lên xuống khá thất thường (chênh lệch ±${activeMilestone.sdSys} mmHg)`,
+          detail: `Số trên lúc thấp nhất ${activeMilestone.minSys} mmHg nhưng lúc cao nhất lên tới ${activeMilestone.maxSys} mmHg. Khi đi tái khám nên đưa bảng này cho Bác sĩ xem để chỉnh lại liều thuốc giữ huyết áp đều hơn.`,
         });
       }
     }
 
-    // 3. Đánh giá Hiệu áp (Pulse Pressure) & Áp lực tưới máu não (MAP)
-    if (activeMilestone.avgPP !== null && activeMilestone.avgMAP !== null) {
-      const ppStatus =
-        activeMilestone.avgPP > 60
-          ? 'Hiệu áp hơi rộng (≥60 mmHg, thường gặp do độ cứng thành động mạch ở người lớn tuổi)'
-          : activeMilestone.avgPP < 35
-          ? 'Hiệu áp hẹp (<35 mmHg, cần lưu ý lượng nước uống hàng ngày)'
-          : 'Hiệu áp sinh lý bình thường (40–55 mmHg)';
-      const mapStatus =
-        activeMilestone.avgMAP < 70
-          ? 'Áp lực tưới máu trung bình (MAP) hơi thấp (<70 mmHg), cần tránh để huyết áp tụt sâu'
-          : activeMilestone.avgMAP > 105
-          ? 'Áp lực tưới máu trung bình (MAP) cao (>105 mmHg)'
-          : 'Áp lực tưới máu não (MAP) đạt ngưỡng tối ưu (75–95 mmHg)';
-
-      findings.push({
-        level:
-          activeMilestone.avgPP > 65 || activeMilestone.avgMAP < 70 || activeMilestone.avgMAP > 105
-            ? 'caution'
-            : 'good',
-        title: `Huyết động học: MAP = ${activeMilestone.avgMAP} mmHg · Hiệu áp (PP) = ${activeMilestone.avgPP} mmHg`,
-        detail: `${mapStatus}. ${ppStatus}.`,
-      });
-    }
-
-    // 4. Đánh giá Nhịp tim (Mạch) & Gánh nặng cơ tim (RPP)
+    // 3. Đánh giá Nhịp tim (Mạch)
     if (activeMilestone.avgPulse !== null) {
-      if (activeMilestone.slowPulseCount > 0) {
+      if (activeMilestone.verySlowPulseCount > 0) {
         findings.push({
-          level: activeMilestone.verySlowPulseCount > 0 ? 'alert' : 'caution',
-          title: `Cảnh báo Nhịp tim chậm: Có ${activeMilestone.slowPulseCount} lần mạch dưới 60 bpm${
-            activeMilestone.verySlowPulseCount > 0
-              ? ` (trong đó ${activeMilestone.verySlowPulseCount} lần <50 bpm)`
-              : ''
-          } — Thấp nhất ${activeMilestone.minPulse} bpm`,
-          detail: `Nhịp tim trung bình là ${activeMilestone.avgPulse} bpm${
+          level: 'alert',
+          title: `Lưu ý Nhịp tim rất chậm: Có ${activeMilestone.verySlowPulseCount} lần mạch dưới 50 nhịp/phút (Thấp nhất ${activeMilestone.minPulse} bpm)`,
+          detail: `Nhịp tim trung bình là ${activeMilestone.avgPulse} nhịp/phút (tổng cộng ${activeMilestone.slowPulseCount} lần dưới 60). Cần hỏi Bác sĩ xem trong đơn thuốc có loại nào làm chậm nhịp tim không.`,
+        });
+      } else if (activeMilestone.slowPulseCount > 0) {
+        findings.push({
+          level: 'caution',
+          title: `Nhịp tim trung bình ${activeMilestone.avgPulse} nhịp/phút — Có ${activeMilestone.slowPulseCount} lần mạch hơi chậm (50–59 nhịp/phút)`,
+          detail: `Mạch thấp nhất ghi nhận là ${activeMilestone.minPulse} nhịp/phút${
             circadianAnalysis.lowestPulseSlot
-              ? `, thường thấp nhất vào buổi ${circadianAnalysis.lowestPulseSlot.label} (TB ${circadianAnalysis.lowestPulseSlot.avgPulse} bpm)`
+              ? ` (thường vào buổi ${circadianAnalysis.lowestPulseSlot.label})`
               : ''
-          }. Khi tái khám cần hỏi Bác sĩ xem có thuốc nào làm chậm nhịp tim không.`,
+          }. Nếu Bố không bị mệt hay chóng mặt thì chỉ cần đỡ Bố ngồi dậy từ từ và báo Bác sĩ biết khi tái khám định kỳ.`,
         });
       } else if (activeMilestone.fastPulseCount > 0) {
         findings.push({
           level: 'caution',
-          title: `Ghi nhận ${activeMilestone.fastPulseCount} lần nhịp tim nhanh (≥100 bpm, Cao nhất ${activeMilestone.maxPulse} bpm)`,
-          detail: `Nhịp tim trung bình ${activeMilestone.avgPulse} bpm. Khi mạch nhanh cần kiểm tra xem Bố có bị sốt, đau mỏi cơ, thiếu nước hay vừa tập vận động xong không.`,
+          title: `Nhịp tim trung bình ${activeMilestone.avgPulse} nhịp/phút — Có ${activeMilestone.fastPulseCount} lần mạch đập nhanh (≥100 nhịp/phút)`,
+          detail: `Mạch cao nhất là ${activeMilestone.maxPulse} nhịp/phút. Khi thấy mạch nhanh nên kiểm tra xem Bố có vừa tập vận động, bị đau mỏi, sốt hay uống thiếu nước không.`,
         });
       } else {
         findings.push({
           level: 'good',
-          title: `Nhịp tim (Mạch) ổn định: Trung bình ${activeMilestone.avgPulse} bpm (${activeMilestone.minPulse}–${activeMilestone.maxPulse} bpm)`,
-          detail: `Chỉ số gánh nặng cơ tim (RPP = ${
-            activeMilestone.avgRPP ? activeMilestone.avgRPP.toLocaleString('vi-VN') : '—'
-          }) nằm trong ngưỡng nghỉ ngơi an toàn (<10.000), cơ tim làm việc nhẹ nhàng.`,
+          title: `Nhịp tim (Mạch) đập đều và tốt: Trung bình ${activeMilestone.avgPulse} nhịp/phút (${activeMilestone.minPulse}–${activeMilestone.maxPulse} bpm)`,
+          detail: `Tất cả các lần đo nhịp tim đều nằm trong khoảng an toàn (60–99 nhịp/phút), tim của Bố làm việc nhẹ nhàng, không bị quá sức.`,
         });
       }
     }
 
-    // 5. Nhịp sinh học Sáng - Tối
+    // 4. Đánh giá So sánh Sáng – Tối & Khoảng cách 2 số
     if (circadianAnalysis.circadianPattern.type !== 'unknown') {
       findings.push({
         level: circadianAnalysis.circadianPattern.type === 'balanced' ? 'good' : 'caution',
-        title: `Nhịp sinh học Sáng – Tối: ${circadianAnalysis.circadianPattern.title}`,
+        title: `So sánh Sáng & Tối: ${circadianAnalysis.circadianPattern.title}`,
         detail: circadianAnalysis.circadianPattern.explanation,
+      });
+    } else if (activeMilestone.avgPP !== null && activeMilestone.avgMAP !== null) {
+      const ppText =
+        activeMilestone.avgPP >= 60
+          ? `Khoảng cách giữa số trên và số dưới trung bình hơi rộng (${activeMilestone.avgPP} mmHg, thường gặp ở người lớn tuổi có thành mạch hơi cứng).`
+          : activeMilestone.avgPP < 35
+          ? `Khoảng cách giữa số trên và số dưới hơi hẹp (${activeMilestone.avgPP} mmHg), nên chú ý cho Bố uống đủ nước ấm trong ngày.`
+          : `Khoảng cách giữa số trên và số dưới đạt mức đẹp (${activeMilestone.avgPP} mmHg, chuẩn 40–55 mmHg).`;
+      findings.push({
+        level: activeMilestone.avgPP > 65 || activeMilestone.avgMAP < 70 ? 'caution' : 'good',
+        title: `Sức đẩy máu nuôi não & Độ chênh 2 số đạt mức ${
+          activeMilestone.avgMAP >= 70 && activeMilestone.avgMAP <= 105 ? 'an toàn' : 'cần lưu ý'
+        }`,
+        detail: `${ppText} Áp lực đẩy máu lên nuôi não trung bình đạt ${activeMilestone.avgMAP} mmHg (chuẩn an toàn 75–95 mmHg).`,
       });
     }
 
     return findings;
   }, [activeMilestone, bpThresholds, circadianAnalysis]);
 
-  // Đọc báo cáo phân tích y khoa bằng giọng nói Tiếng Việt
+  // Đọc báo cáo đánh giá bằng giọng nói Tiếng Việt
   const handleSpeakClinicalReport = () => {
     if (isSpeakingReport) {
       stopSpeakingVietnamese();
@@ -776,14 +657,14 @@ export default function ClinicalVitalsReportSection({
     if (activeMilestone.count === 0) return;
 
     const sentences: string[] = [
-      `Báo cáo đánh giá y khoa huyết áp và nhịp tim của bố ${patientName} trong mốc thời gian ${activeMilestone.label} (${activeMilestone.count} lần đo):`,
+      `Đánh giá chi tiết huyết áp và nhịp tim của bố ${patientName} trong ${activeMilestone.label} (${activeMilestone.count} lần đo):`,
     ];
     for (const f of clinicalFindings) {
       sentences.push(`${f.title}. ${f.detail}`);
     }
 
     setIsSpeakingReport(true);
-    showToast?.('🔊 Đang đọc báo cáo đánh giá y khoa...', 'info');
+    showToast?.('🔊 Đang đọc bản đánh giá sức khỏe...', 'info');
     speakVietnameseReminder(sentences.join(' '), () => {
       setIsSpeakingReport(false);
     });
@@ -791,7 +672,7 @@ export default function ClinicalVitalsReportSection({
 
   return (
     <div className="rounded-2xl border border-teal-200 bg-white shadow-sm overflow-hidden">
-      {/* Header khu vực Báo cáo Đánh giá Y khoa chuyên sâu */}
+      {/* Header khu vực Đánh giá Chi tiết */}
       <div className="px-4 py-3 bg-gradient-to-r from-teal-900 via-teal-800 to-slate-900 text-white flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center shrink-0">
@@ -799,10 +680,10 @@ export default function ClinicalVitalsReportSection({
           </div>
           <div className="min-w-0">
             <h3 className="text-sm sm:text-base font-black tracking-tight truncate">
-              🩺 Báo Cáo Đánh Giá Y Khoa: Huyết Áp & Nhịp Tim Đa Mốc Thời Gian
+              🩺 Đánh Giá Chi Tiết Huyết Áp &amp; Nhịp Tim ({activeMilestone.label})
             </h3>
             <p className="text-[11px] text-teal-100/90 truncate">
-              Phân tích huyết động học (MAP, Hiệu áp PP, Độ biến thiên SD/CV, Nhịp sinh học Sáng–Tối & Phản xạ Mạch)
+              Tổng hợp tự động từ {activeMilestone.count} lần đo ({activeMilestone.daysCount} ngày) • Giải thích dễ hiểu cho gia đình
             </p>
           </div>
         </div>
@@ -816,31 +697,31 @@ export default function ClinicalVitalsReportSection({
                 ? 'bg-rose-500 text-white animate-pulse'
                 : 'bg-white/15 hover:bg-white/25 text-white border border-white/20'
             }`}
-            title="Nghe đọc báo cáo phân tích y khoa bằng giọng nói Tiếng Việt"
+            title="Nghe đọc bản đánh giá bằng giọng nói Tiếng Việt"
           >
             {isSpeakingReport ? (
               <VolumeX className="w-3.5 h-3.5" />
             ) : (
               <Volume2 className="w-3.5 h-3.5" />
             )}
-            <span>{isSpeakingReport ? 'Dừng đọc' : 'Đọc phân tích'}</span>
+            <span>{isSpeakingReport ? 'Dừng đọc' : 'Đọc đánh giá'}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setShowMedicalGuide((prev) => !prev)}
             className="px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/20 text-xs font-bold flex items-center gap-1 cursor-pointer transition"
-            title="Giải thích ý nghĩa các chỉ số y khoa"
+            title="Xem giải thích các mức chỉ số chuẩn"
           >
             <Info className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Chuẩn Y Khoa</span>
+            <span className="hidden sm:inline">Mức chuẩn</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}
             className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white cursor-pointer"
-            title={isExpanded ? 'Thu gọn báo cáo' : 'Mở rộng báo cáo'}
+            title={isExpanded ? 'Thu gọn' : 'Mở rộng'}
           >
             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
@@ -849,11 +730,11 @@ export default function ClinicalVitalsReportSection({
 
       {isExpanded && (
         <div className="p-3.5 sm:p-4 space-y-4">
-          {/* Hộp cẩm nang chuẩn y khoa (Bấm nút Chuẩn Y Khoa mới hiện để giao diện luôn gọn) */}
+          {/* Hộp giải thích mức chuẩn (Bấm nút Mức chuẩn mới hiện) */}
           {showMedicalGuide && (
             <div className="p-3.5 rounded-2xl bg-teal-50/80 border border-teal-200 text-xs text-slate-800 space-y-2 leading-relaxed">
               <div className="font-black text-teal-950 flex items-center justify-between">
-                <span>📚 Căn cứ Y khoa áp dụng cho bệnh nhân phục hồi sau Đột quỵ (VNHA / ESC / AHA):</span>
+                <span>📚 Bảng mức chuẩn dễ nhớ khi theo dõi cho Bố tại nhà:</span>
                 <button
                   type="button"
                   onClick={() => setShowMedicalGuide(false)}
@@ -864,263 +745,33 @@ export default function ClinicalVitalsReportSection({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[11px]">
                 <div className="p-2.5 rounded-xl bg-white border border-teal-100">
-                  <strong>1. Mục tiêu Huyết áp tại nhà (HBPM):</strong> Ngưỡng chuẩn tại nhà là{' '}
-                  <strong>&lt;135/85 mmHg</strong> (tối ưu sau đột quỵ giai đoạn ổn định là{' '}
-                  <strong>115–130 / 70–80 mmHg</strong>). Không nên để hạ quá thấp (&lt;105/60 mmHg)
-                  vì sẽ làm giảm lưu lượng máu tưới não.
+                  <strong>1. Mức Huyết áp an toàn:</strong> Đẹp nhất là{' '}
+                  <strong>115–130 / 70–80 mmHg</strong> (Đạt chuẩn an toàn dưới{' '}
+                  <strong>{bpThresholds.highSys}/{bpThresholds.highDia} mmHg</strong>). Không nên để hạ quá thấp (dưới{' '}
+                  {bpThresholds.lowSys}/{bpThresholds.lowDia} mmHg) vì sẽ làm Bố bị hoa mắt, thiếu máu lên não.
                 </div>
                 <div className="p-2.5 rounded-xl bg-white border border-teal-100">
-                  <strong>2. Độ biến thiên Huyết áp (SD &amp; ARV):</strong> Độ lệch chuẩn tâm thu{' '}
-                  <strong>SD &lt; 10 mmHg</strong> là rất ổn định. Nếu <strong>SD ≥ 15 mmHg</strong>{' '}
-                  (huyết áp lúc vọt cao, lúc tụt thấp) sẽ gây áp lực lớn lên thành mạch não hơn cả
-                  huyết áp cao nhẹ nhưng ổn định.
+                  <strong>2. Độ ổn định giữa các lần đo:</strong> Chênh lệch trung bình{' '}
+                  <strong>dưới ±10 mmHg</strong> là huyết áp giữ rất đều. Nếu chênh lệch{' '}
+                  <strong>từ ±15 mmHg trở lên</strong> tức là huyết áp lúc vọt cao, lúc tụt thấp thất thường.
                 </div>
                 <div className="p-2.5 rounded-xl bg-white border border-teal-100">
-                  <strong>3. Áp lực tưới máu não (MAP) &amp; Hiệu áp (PP):</strong>{' '}
-                  <strong>MAP = DIA + 1/3(SYS−DIA)</strong> phản ánh áp lực đẩy máu nuôi não (tốt
-                  nhất <strong>75–95 mmHg</strong>). <strong>Hiệu áp PP = SYS−DIA</strong> phản ánh
-                  độ đàn hồi động mạch (chuẩn <strong>40–55 mmHg</strong>, nếu ≥60 mmHg là thành mạch
-                  cứng).
+                  <strong>3. Độ chênh 2 số (Số trên trừ Số dưới):</strong> Khoảng cách giữa số trên và số dưới đẹp nhất từ{' '}
+                  <strong>40–55 mmHg</strong>. Sức đẩy máu nuôi não đạt từ <strong>75–95 mmHg</strong> là đủ máu lên não.
                 </div>
                 <div className="p-2.5 rounded-xl bg-white border border-teal-100">
-                  <strong>4. Nhịp tim nghỉ &amp; Gánh nặng cơ tim (RPP):</strong> Nhịp tim nghỉ tối
-                  ưu là <strong>60–79 bpm</strong> (bình thường 60–99 bpm). Nếu <strong>&lt;60 bpm</strong> là nhịp chậm (đặc biệt &lt;50 bpm cần
-                  lưu ý tác dụng phụ thuốc chẹn beta/hạ áp). <strong>RPP = SYS × Mạch</strong> dưới{' '}
-                  <strong>10.000</strong> cho thấy cơ tim không bị quá tải.
+                  <strong>4. Nhịp tim (Mạch) lúc nghỉ:</strong> Tốt nhất là{' '}
+                  <strong>60–79 nhịp/phút</strong> (bình thường 60–99 nhịp/phút). Nếu dưới 60 là mạch hơi chậm, dưới 50 là mạch rất chậm cần báo Bác sĩ.
                 </div>
               </div>
             </div>
           )}
 
-          {/* ===== PHẦN 1: BẢNG ĐỐI CHIẾU TRỰC DIỆN 6 MỐC THỜI GIAN (CHỌN MỐC ĐỂ XEM CHI TIẾT) ===== */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-teal-700" />
-                <span>1. Bảng So Sánh Sinh Hiệu Qua 6 Mốc Thời Gian (Bấm vào mốc để phân tích sâu)</span>
-              </div>
-              <span className="text-[11px] text-slate-500">
-                So sánh tự động với kỳ liền trước (Δ)
-              </span>
-            </div>
-
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full text-xs text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 text-[11px] font-extrabold uppercase">
-                    <th className="py-2.5 px-3">Mốc thời gian</th>
-                    <th className="py-2.5 px-2.5 text-center">Số lần đo</th>
-                    <th className="py-2.5 px-2.5">HA Trung bình (Δ kỳ trước)</th>
-                    <th className="py-2.5 px-2.5">Biên độ &amp; Độ lệch (SD)</th>
-                    <th className="py-2.5 px-2.5 text-center">MAP / Hiệu áp</th>
-                    <th className="py-2.5 px-2.5">Nhịp tim TB (Min–Max)</th>
-                    <th className="py-2.5 px-2.5 text-center">Đạt đích (TIR)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {milestones.map((m) => {
-                    const isSelected = m.id === activeMilestone.id;
-                    const bpCls =
-                      m.avgSys !== null && m.avgDia !== null
-                        ? classifyClinicalBp(m.avgSys, m.avgDia, bpThresholds)
-                        : null;
-
-                    return (
-                      <tr
-                        key={m.id}
-                        onClick={() => m.count > 0 && setSelectedMilestoneId(m.id)}
-                        className={`transition ${
-                          m.count === 0
-                            ? 'opacity-50 bg-slate-50/40'
-                            : isSelected
-                            ? 'bg-teal-50/90 font-semibold cursor-pointer'
-                            : 'hover:bg-slate-50 cursor-pointer'
-                        }`}
-                      >
-                        <td className="py-2.5 px-3">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`w-2 h-2 rounded-full shrink-0 ${
-                                isSelected ? 'bg-teal-600 ring-4 ring-teal-100' : 'bg-slate-300'
-                              }`}
-                            />
-                            <div>
-                              <div className="font-extrabold text-slate-900">{m.label}</div>
-                              <div className="text-[10px] text-slate-500">{m.subLabel}</div>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="py-2.5 px-2.5 text-center">
-                          {m.count > 0 ? (
-                            <span className="font-bold text-slate-800">
-                              {m.count} lần
-                              <span className="block text-[10px] text-slate-400 font-normal">
-                                ({m.daysCount} ngày)
-                              </span>
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 italic">Chưa có</span>
-                          )}
-                        </td>
-
-                        <td className="py-2.5 px-2.5">
-                          {m.avgSys !== null && m.avgDia !== null ? (
-                            <div>
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-sm font-black text-slate-900">
-                                  {m.avgSys}/{m.avgDia}
-                                </span>
-                                {bpCls && (
-                                  <span
-                                    className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${bpCls.badgeClass}`}
-                                  >
-                                    {bpCls.shortLabel}
-                                  </span>
-                                )}
-                              </div>
-                              {m.deltaSysVsPrev !== null && m.deltaDiaVsPrev !== null && (
-                                <div className="text-[10px] text-slate-500 mt-0.5">
-                                  So kỳ trước:{' '}
-                                  <strong
-                                    className={
-                                      Math.abs(m.deltaSysVsPrev) <= 4
-                                        ? 'text-teal-700'
-                                        : m.deltaSysVsPrev > 4
-                                        ? 'text-rose-600'
-                                        : 'text-emerald-600'
-                                    }
-                                  >
-                                    {m.deltaSysVsPrev >= 0 ? `+${m.deltaSysVsPrev}` : m.deltaSysVsPrev}/
-                                    {m.deltaDiaVsPrev >= 0 ? `+${m.deltaDiaVsPrev}` : m.deltaDiaVsPrev} mmHg
-                                  </strong>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-
-                        <td className="py-2.5 px-2.5">
-                          {m.minSys !== null ? (
-                            <div>
-                              <div className="text-slate-800 font-bold">
-                                {m.minSys}–{m.maxSys} / {m.minDia}–{m.maxDia}
-                              </div>
-                              {m.sdSys !== null && m.count >= 2 && (
-                                <div className="text-[10px] text-slate-500">
-                                  Độ lệch SD:{' '}
-                                  <strong
-                                    className={
-                                      m.sdSys >= 15
-                                        ? 'text-rose-600'
-                                        : m.sdSys >= 10
-                                        ? 'text-amber-700'
-                                        : 'text-emerald-700'
-                                    }
-                                  >
-                                    ±{m.sdSys} mmHg
-                                  </strong>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-
-                        <td className="py-2.5 px-2.5 text-center">
-                          {m.avgMAP !== null && m.avgPP !== null ? (
-                            <div>
-                              <span className="font-extrabold text-slate-800">
-                                MAP {m.avgMAP}
-                              </span>
-                              <span className="block text-[10px] text-slate-500">
-                                Hiệu áp: {m.avgPP} mmHg
-                              </span>
-                            </div>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-
-                        <td className="py-2.5 px-2.5">
-                          {m.avgPulse !== null ? (
-                            <div>
-                              <div className="flex items-center gap-1">
-                                <span
-                                  className={`font-black text-sm ${
-                                    m.avgPulse < 50
-                                      ? 'text-rose-700'
-                                      : m.avgPulse < 60
-                                      ? 'text-amber-800'
-                                      : m.avgPulse >= 100
-                                      ? 'text-rose-700'
-                                      : 'text-slate-900'
-                                  }`}
-                                >
-                                  ❤️ {m.avgPulse} bpm
-                                </span>
-                                <span className="text-[10px] text-slate-500">
-                                  ({m.minPulse}–{m.maxPulse})
-                                </span>
-                              </div>
-                              {m.verySlowPulseCount > 0 ? (
-                                <span className="text-[10px] font-bold text-rose-700 block">
-                                  🔴 {m.verySlowPulseCount} lần &lt;50 ({m.slowPulseCount} lần &lt;60)
-                                </span>
-                              ) : m.slowPulseCount > 0 ? (
-                                <span className="text-[10px] font-bold text-amber-800 block">
-                                  ⚠️ {m.slowPulseCount} lần mạch &lt;60
-                                </span>
-                              ) : m.fastPulseCount > 0 ? (
-                                <span className="text-[10px] font-bold text-rose-700 block">
-                                  ⚠️ {m.fastPulseCount} lần mạch ≥100
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-emerald-700 block">
-                                  Nhịp ổn định
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-slate-400">Chưa ghi</span>
-                          )}
-                        </td>
-
-                        <td className="py-2.5 px-2.5 text-center">
-                          {m.tirPct !== null ? (
-                            <span
-                              className={`inline-flex px-2 py-0.5 rounded-full text-xs font-black border ${
-                                m.tirPct >= 80
-                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                                  : m.tirPct >= 60
-                                  ? 'bg-amber-100 text-amber-900 border-amber-300'
-                                  : 'bg-rose-100 text-rose-800 border-rose-300'
-                              }`}
-                            >
-                              {m.tirPct}%
-                            </span>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* ===== PHẦN 2: CHỌN MỐC THỜI GIAN ĐỂ XEM PHÂN TÍCH CHUYÊN SÂU ===== */}
-          <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
-            <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-              2. Phân Tích Chuyên Sâu Theo Mốc Đang Chọn:{' '}
-              <span className="text-teal-700">
-                {activeMilestone.label} ({activeMilestone.count} lần đo)
-              </span>
+          {/* Thanh chọn nhanh khoảng thời gian muốn xem nhận định */}
+          <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-slate-100">
+            <span className="text-xs font-extrabold text-slate-700 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+              <span>Chọn mốc thời gian muốn xem đánh giá:</span>
             </span>
             <div className="flex items-center gap-1 flex-wrap">
               {milestones
@@ -1130,33 +781,64 @@ export default function ClinicalVitalsReportSection({
                     key={m.id}
                     type="button"
                     onClick={() => setSelectedMilestoneId(m.id)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
                       activeMilestone.id === m.id
                         ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
                         : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
-                    {m.label}
+                    {m.label} ({m.count})
                   </button>
                 ))}
             </div>
           </div>
 
-          {/* 3 Khối Phân Tích Chuyên Sâu: Phân tầng HA, Phân tầng Nhịp tim, và Ma trận 4 Khung Giờ Sinh Học */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-            {/* Khối A: Phân tầng Huyết Áp & Chỉ số Huyết Động (MAP, PP, SD, ARV) */}
+          {/* ===== PHẦN 1 (TRỌNG TÂM): NHẬN ĐỊNH & ĐÁNH GIÁ CỤ THỂ BẰNG NGÔN NGỮ DỄ HIỂU ===== */}
+          {clinicalFindings.length > 0 && (
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {clinicalFindings.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-xl border text-xs space-y-1 ${
+                      item.level === 'alert'
+                        ? 'bg-rose-50/90 border-rose-300 text-rose-950'
+                        : item.level === 'caution'
+                        ? 'bg-amber-50/80 border-amber-200 text-slate-900'
+                        : 'bg-emerald-50/60 border-emerald-200 text-slate-900'
+                    }`}
+                  >
+                    <div className="font-black flex items-start gap-1.5">
+                      {item.level === 'alert' ? (
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      ) : item.level === 'caution' ? (
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      ) : (
+                        <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      )}
+                      <span>{item.title}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-700 leading-relaxed pl-5">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ===== PHẦN 2: THỐNG KÊ TRỰC QUAN CÁC LẦN ĐO HUYẾT ÁP & NHỊP TIM TRONG KỲ ===== */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 pt-1">
+            {/* Khối A: Tỷ lệ các mức Huyết Áp & Độ ổn định */}
             <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                   <Activity className="w-4 h-4 text-rose-600" />
-                  <span>Phân Tầng Huyết Áp &amp; Độ Ổn Định Thành Mạch</span>
+                  <span>Phân Bổ Các Lần Đo Huyết Áp ({activeMilestone.label})</span>
                 </span>
-                <span className="text-[11px] font-bold text-slate-500">
-                  {distributionStats.total} lần đo
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  {activeMilestone.tirPct ?? 0}% đạt chuẩn
                 </span>
               </div>
 
-              {/* Thanh phân bổ 5 vùng HA */}
               {distributionStats.total > 0 && (
                 <div className="space-y-2">
                   <div className="h-3 w-full rounded-full overflow-hidden flex bg-slate-200">
@@ -1182,25 +864,25 @@ export default function ClinicalVitalsReportSection({
                     <div className="px-2 py-1.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-slate-700 font-semibold">
                         <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                        Tối ưu (&lt;130/80)
+                        Tốt (&lt;130/80)
                       </span>
-                      <span className="font-black text-slate-900">
+                      <span className="font-black text-emerald-800">
                         {distributionStats.bpZones.optimal} lần
                       </span>
                     </div>
                     <div className="px-2 py-1.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-slate-700 font-semibold">
                         <span className="w-2 h-2 rounded-full bg-teal-500" />
-                        BT-Cao (130–139)
+                        Đạt chuẩn (130–139)
                       </span>
-                      <span className="font-black text-slate-900">
+                      <span className="font-black text-teal-800">
                         {distributionStats.bpZones.normal_high} lần
                       </span>
                     </div>
                     <div className="px-2 py-1.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-slate-700 font-semibold">
                         <span className="w-2 h-2 rounded-full bg-amber-500" />
-                        Độ 1 (140–159)
+                        Hơi cao (140–159)
                       </span>
                       <span className="font-black text-amber-800">
                         {distributionStats.bpZones.stage1} lần
@@ -1209,7 +891,7 @@ export default function ClinicalVitalsReportSection({
                     <div className="px-2 py-1.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-slate-700 font-semibold">
                         <span className="w-2 h-2 rounded-full bg-rose-600" />
-                        Độ 2 (≥160/100)
+                        Cao vượt (≥160/100)
                       </span>
                       <span className="font-black text-rose-700">
                         {distributionStats.bpZones.stage2} lần
@@ -1218,7 +900,7 @@ export default function ClinicalVitalsReportSection({
                     <div className="px-2 py-1.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-slate-700 font-semibold">
                         <span className="w-2 h-2 rounded-full bg-sky-500" />
-                        Thấp (≤{bpThresholds.lowSys}/{bpThresholds.lowDia})
+                        Hơi thấp (≤{bpThresholds.lowSys}/{bpThresholds.lowDia})
                       </span>
                       <span className="font-black text-sky-800">
                         {distributionStats.bpZones.low} lần
@@ -1228,28 +910,10 @@ export default function ClinicalVitalsReportSection({
                 </div>
               )}
 
-              {/* 4 ô chỉ số huyết động học */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+              {/* 3 ô chỉ số bổ trợ đã Việt hóa dễ hiểu */}
+              <div className="grid grid-cols-3 gap-2 pt-1">
                 <div className="p-2 rounded-xl bg-white border border-slate-200 text-center">
-                  <span className="text-[10px] font-bold text-slate-500 block">Tưới máu não (MAP)</span>
-                  <span className="text-sm font-black text-slate-900">
-                    {activeMilestone.avgMAP ?? '—'} <small className="font-normal">mmHg</small>
-                  </span>
-                  <span className="text-[10px] text-emerald-700 block font-semibold">
-                    Chuẩn: 75–95
-                  </span>
-                </div>
-
-                <div className="p-2 rounded-xl bg-white border border-slate-200 text-center">
-                  <span className="text-[10px] font-bold text-slate-500 block">Hiệu áp (PP)</span>
-                  <span className="text-sm font-black text-slate-900">
-                    {activeMilestone.avgPP ?? '—'} <small className="font-normal">mmHg</small>
-                  </span>
-                  <span className="text-[10px] text-slate-500 block">Chuẩn: 40–55</span>
-                </div>
-
-                <div className="p-2 rounded-xl bg-white border border-slate-200 text-center">
-                  <span className="text-[10px] font-bold text-slate-500 block">Độ lệch (SD Tâm thu)</span>
+                  <span className="text-[10px] font-bold text-slate-500 block">Độ ổn định HA</span>
                   <span
                     className={`text-sm font-black ${
                       (activeMilestone.sdSys || 0) >= 15
@@ -1262,25 +926,35 @@ export default function ClinicalVitalsReportSection({
                     {activeMilestone.sdSys !== null ? `±${activeMilestone.sdSys}` : '—'}{' '}
                     <small className="font-normal">mmHg</small>
                   </span>
-                  <span className="text-[10px] text-slate-500 block">Tốt: &lt;10 mmHg</span>
+                  <span className="text-[10px] text-slate-500 block">Đều: &lt;10 mmHg</span>
                 </div>
 
                 <div className="p-2 rounded-xl bg-white border border-slate-200 text-center">
-                  <span className="text-[10px] font-bold text-slate-500 block">Nhảy áp liên tiếp (ARV)</span>
+                  <span className="text-[10px] font-bold text-slate-500 block">Độ chênh 2 số</span>
                   <span className="text-sm font-black text-slate-900">
-                    {activeMilestone.arvSys ?? '—'} <small className="font-normal">mmHg</small>
+                    {activeMilestone.avgPP ?? '—'} <small className="font-normal">mmHg</small>
                   </span>
-                  <span className="text-[10px] text-slate-500 block">Tốt: &lt;12 mmHg</span>
+                  <span className="text-[10px] text-slate-500 block">Đẹp: 40–55</span>
+                </div>
+
+                <div className="p-2 rounded-xl bg-white border border-slate-200 text-center">
+                  <span className="text-[10px] font-bold text-slate-500 block">Sức máu nuôi não</span>
+                  <span className="text-sm font-black text-slate-900">
+                    {activeMilestone.avgMAP ?? '—'} <small className="font-normal">mmHg</small>
+                  </span>
+                  <span className="text-[10px] text-emerald-700 block font-semibold">
+                    Chuẩn: 75–95
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Khối B: Phân tầng Nhịp Tim (Mạch) & Gánh nặng cơ tim (RPP) */}
+            {/* Khối B: Tỷ lệ các mức Nhịp Tim (Mạch) */}
             <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                   <HeartPulse className="w-4 h-4 text-violet-600" />
-                  <span>Phân Tích Nhịp Tim (Mạch) &amp; Gánh Nặng Cơ Tim</span>
+                  <span>Phân Bổ Các Lần Đo Nhịp Tim ({activeMilestone.label})</span>
                 </span>
                 <span className="text-[11px] font-bold text-slate-500">
                   {distributionStats.totalPulseCount} lần có mạch
@@ -1314,7 +988,7 @@ export default function ClinicalVitalsReportSection({
                     <div className="px-2 py-1.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-slate-700 font-semibold">
                         <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                        Tối ưu (60–79)
+                        Nhịp tốt (60–79)
                       </span>
                       <span className="font-black text-emerald-800">
                         {distributionStats.hrZones.optimal} lần
@@ -1323,7 +997,7 @@ export default function ClinicalVitalsReportSection({
                     <div className="px-2 py-1.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-slate-700 font-semibold">
                         <span className="w-2 h-2 rounded-full bg-teal-500" />
-                        BT-Cao (80–99)
+                        Bình thường (80–99)
                       </span>
                       <span className="font-black text-slate-900">
                         {distributionStats.hrZones.normal_high} lần
@@ -1360,7 +1034,7 @@ export default function ClinicalVitalsReportSection({
 
                   <div className="grid grid-cols-3 gap-2 pt-1">
                     <div className="p-2 rounded-xl bg-white border border-slate-200 text-center">
-                      <span className="text-[10px] font-bold text-slate-500 block">Mạch TB (Min–Max)</span>
+                      <span className="text-[10px] font-bold text-slate-500 block">Mạch Trung bình</span>
                       <span className="text-sm font-black text-slate-900">
                         {activeMilestone.avgPulse} <small className="font-normal">bpm</small>
                       </span>
@@ -1370,16 +1044,16 @@ export default function ClinicalVitalsReportSection({
                     </div>
 
                     <div className="p-2 rounded-xl bg-white border border-slate-200 text-center">
-                      <span className="text-[10px] font-bold text-slate-500 block">Dao động Mạch (SD)</span>
+                      <span className="text-[10px] font-bold text-slate-500 block">Độ đều của Mạch</span>
                       <span className="text-sm font-black text-slate-900">
                         {activeMilestone.sdPulse !== null ? `±${activeMilestone.sdPulse}` : '—'}{' '}
                         <small className="font-normal">bpm</small>
                       </span>
-                      <span className="text-[10px] text-slate-500 block">Độ biến thiên</span>
+                      <span className="text-[10px] text-slate-500 block">Chênh lệch</span>
                     </div>
 
                     <div className="p-2 rounded-xl bg-white border border-slate-200 text-center">
-                      <span className="text-[10px] font-bold text-slate-500 block">Gánh cơ tim (RPP)</span>
+                      <span className="text-[10px] font-bold text-slate-500 block">Sức đập của tim</span>
                       <span
                         className={`text-sm font-black ${
                           (activeMilestone.avgRPP || 0) > 12000
@@ -1389,11 +1063,13 @@ export default function ClinicalVitalsReportSection({
                             : 'text-emerald-700'
                         }`}
                       >
-                        {activeMilestone.avgRPP
-                          ? activeMilestone.avgRPP.toLocaleString('vi-VN')
-                          : '—'}
+                        {(activeMilestone.avgRPP || 0) > 12000
+                          ? 'Hơi gắng sức'
+                          : (activeMilestone.avgRPP || 0) > 10000
+                          ? 'Trung bình'
+                          : 'Nhẹ nhàng'}
                       </span>
-                      <span className="text-[10px] text-slate-500 block">Tốt: &lt;10.000</span>
+                      <span className="text-[10px] text-slate-500 block">Khi nghỉ ngơi</span>
                     </div>
                   </div>
                 </>
@@ -1405,161 +1081,214 @@ export default function ClinicalVitalsReportSection({
             </div>
           </div>
 
-          {/* ===== PHẦN 3: BẢNG PHÂN TÍCH NHỊP SINH HỌC 4 KHUNG GIỜ TRONG NGÀY (SÁNG • TRƯA • CHIỀU • TỐI) ===== */}
-          <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-2.5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                  3. Phân Tích Chuyên Sâu Theo 4 Khung Giờ Sinh Học ({activeMilestone.label})
-                </h4>
-                <p className="text-[11px] text-slate-500">
-                  Giúp phát hiện chính xác khung giờ nào trong ngày Bố hay bị tăng huyết áp hoặc chậm nhịp tim
-                </p>
-              </div>
-              <span
-                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold border self-start sm:self-auto ${circadianAnalysis.circadianPattern.badgeClass}`}
-              >
-                {circadianAnalysis.circadianPattern.title}
+          {/* ===== PHẦN 3: BẢNG SO SÁNH QUA CÁC MỐC THỜI GIAN (THU GỌN MẶC ĐỊNH ĐỂ TRANG THOÁNG, BẤM 1 CHẠM ĐỂ XEM) ===== */}
+          <div className="pt-1 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setShowMilestoneTable((prev) => !prev)}
+              className="w-full py-2 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 flex items-center justify-between text-xs font-extrabold text-slate-700 transition cursor-pointer"
+            >
+              <span className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-teal-700" />
+                <span>
+                  Bảng đối chiếu nhanh qua các mốc: Hôm nay • Hôm qua • 3 ngày • 7 ngày • 14 ngày • 30 ngày
+                </span>
               </span>
-            </div>
+              <span className="flex items-center gap-1 text-teal-700 shrink-0">
+                <span>{showMilestoneTable ? 'Thu gọn bảng' : 'Mở bảng so sánh'}</span>
+                {showMilestoneTable ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </span>
+            </button>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-              {ALL_SLOTS.map((sl) => {
-                const st = circadianAnalysis.slotDetails[sl];
-                const isHighestBp =
-                  circadianAnalysis.highestBpSlot?.slot === sl &&
-                  (st.avgSys || 0) >= bpThresholds.highSys - 5;
-                return (
-                  <div
-                    key={sl}
-                    className={`p-3 rounded-xl border bg-white space-y-1.5 ${
-                      st.highBpPct >= 50
-                        ? 'border-amber-300 ring-1 ring-amber-200'
-                        : 'border-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-xs font-extrabold text-slate-900">
-                        {st.emoji} Buổi {st.label}{' '}
-                        <span className="text-[10px] font-normal text-slate-500">
-                          ({st.timeRange})
-                        </span>
-                      </span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                        {st.count} lần
-                      </span>
-                    </div>
+            {showMilestoneTable && (
+              <div className="mt-2.5 overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 text-[11px] font-extrabold uppercase">
+                      <th className="py-2.5 px-3">Mốc thời gian</th>
+                      <th className="py-2.5 px-2.5 text-center">Số lần đo</th>
+                      <th className="py-2.5 px-2.5">Huyết áp TB (So với kỳ trước)</th>
+                      <th className="py-2.5 px-2.5">Thấp nhất – Cao nhất</th>
+                      <th className="py-2.5 px-2.5">Nhịp tim TB</th>
+                      <th className="py-2.5 px-2.5 text-center">Tỷ lệ đạt chuẩn</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {milestones.slice(0, 6).map((m) => {
+                      const isSelected = m.id === activeMilestone.id;
+                      const bpCls =
+                        m.avgSys !== null && m.avgDia !== null
+                          ? classifyClinicalBp(m.avgSys, m.avgDia, bpThresholds)
+                          : null;
 
-                    {st.count > 0 ? (
-                      <>
-                        <div className="flex items-baseline justify-between gap-2">
-                          <div>
-                            <span className="text-lg font-black text-slate-900">
-                              {st.avgSys}/{st.avgDia}
-                            </span>
-                            <span className="text-[10px] text-slate-500 ml-1">mmHg</span>
-                          </div>
-                          {st.avgPulse && (
-                            <span
-                              className={`text-xs font-extrabold ${
-                                st.avgPulse < 50 || st.avgPulse >= 100
-                                  ? 'text-rose-700'
-                                  : st.avgPulse < 60
-                                  ? 'text-amber-800'
-                                  : 'text-violet-700'
-                              }`}
-                            >
-                              ❤️ {st.avgPulse} bpm
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="text-[11px] text-slate-600 space-y-0.5 pt-1 border-t border-slate-100">
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Min–Max SYS:</span>
-                            <span className="font-bold text-slate-800">
-                              {st.minSys}–{st.maxSys} mmHg
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">MAP / Hiệu áp:</span>
-                            <span className="font-bold text-slate-800">
-                              {st.avgMAP} / {st.avgPP} mmHg
-                            </span>
-                          </div>
-                          {st.minPulse !== null && (
-                            <div className="flex justify-between">
-                              <span className="text-slate-500">Dao động Mạch:</span>
-                              <span className="font-bold text-slate-800">
-                                {st.minPulse}–{st.maxPulse} bpm
-                              </span>
+                      return (
+                        <tr
+                          key={m.id}
+                          onClick={() => m.count > 0 && setSelectedMilestoneId(m.id)}
+                          className={`transition ${
+                            m.count === 0
+                              ? 'opacity-50 bg-slate-50/40'
+                              : isSelected
+                              ? 'bg-teal-50/90 font-semibold cursor-pointer'
+                              : 'hover:bg-slate-50 cursor-pointer'
+                          }`}
+                        >
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`w-2 h-2 rounded-full shrink-0 ${
+                                  isSelected ? 'bg-teal-600 ring-4 ring-teal-100' : 'bg-slate-300'
+                                }`}
+                              />
+                              <div>
+                                <div className="font-extrabold text-slate-900">{m.label}</div>
+                                <div className="text-[10px] text-slate-500">{m.subLabel}</div>
+                              </div>
                             </div>
-                          )}
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Vượt ngưỡng:</span>
-                            <span
-                              className={`font-bold ${
-                                st.highBpCount > 0 ? 'text-amber-700' : 'text-emerald-700'
-                              }`}
-                            >
-                              {st.highBpCount}/{st.count} lần ({st.highBpPct}%)
-                            </span>
-                          </div>
-                        </div>
+                          </td>
 
-                        {isHighestBp && (
-                          <div className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
-                            ⚡ Khung giờ có HA trung bình cao nhất trong ngày
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="text-xs text-slate-400 italic py-3">
-                        Chưa có bản ghi buổi {st.label.toLowerCase()}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                          <td className="py-2.5 px-2.5 text-center">
+                            {m.count > 0 ? (
+                              <span className="font-bold text-slate-800">
+                                {m.count} lần
+                                <span className="block text-[10px] text-slate-400 font-normal">
+                                  ({m.daysCount} ngày)
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 italic">Chưa đo</span>
+                            )}
+                          </td>
+
+                          <td className="py-2.5 px-2.5">
+                            {m.avgSys !== null && m.avgDia !== null ? (
+                              <div>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-sm font-black text-slate-900">
+                                    {m.avgSys}/{m.avgDia}
+                                  </span>
+                                  {bpCls && (
+                                    <span
+                                      className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${bpCls.badgeClass}`}
+                                    >
+                                      {bpCls.shortLabel}
+                                    </span>
+                                  )}
+                                </div>
+                                {m.deltaSysVsPrev !== null && m.deltaDiaVsPrev !== null && (
+                                  <div className="text-[10px] text-slate-500 mt-0.5">
+                                    So kỳ trước:{' '}
+                                    <strong
+                                      className={
+                                        Math.abs(m.deltaSysVsPrev) <= 4
+                                          ? 'text-teal-700'
+                                          : m.deltaSysVsPrev > 4
+                                          ? 'text-rose-600'
+                                          : 'text-emerald-600'
+                                      }
+                                    >
+                                      {m.deltaSysVsPrev >= 0 ? `+${m.deltaSysVsPrev}` : m.deltaSysVsPrev}/
+                                      {m.deltaDiaVsPrev >= 0 ? `+${m.deltaDiaVsPrev}` : m.deltaDiaVsPrev} mmHg
+                                    </strong>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+
+                          <td className="py-2.5 px-2.5">
+                            {m.minSys !== null ? (
+                              <div>
+                                <div className="text-slate-800 font-bold">
+                                  {m.minSys}–{m.maxSys} / {m.minDia}–{m.maxDia}
+                                </div>
+                                {m.sdSys !== null && m.count >= 2 && (
+                                  <div className="text-[10px] text-slate-500">
+                                    Độ lệch:{' '}
+                                    <strong
+                                      className={
+                                        m.sdSys >= 15
+                                          ? 'text-rose-600'
+                                          : m.sdSys >= 10
+                                          ? 'text-amber-700'
+                                          : 'text-emerald-700'
+                                      }
+                                    >
+                                      ±{m.sdSys} mmHg
+                                    </strong>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+
+                          <td className="py-2.5 px-2.5">
+                            {m.avgPulse !== null ? (
+                              <div>
+                                <div className="flex items-center gap-1">
+                                  <span className="font-black text-sm text-slate-900">
+                                    ❤️ {m.avgPulse} bpm
+                                  </span>
+                                  <span className="text-[10px] text-slate-500">
+                                    ({m.minPulse}–{m.maxPulse})
+                                  </span>
+                                </div>
+                                {m.verySlowPulseCount > 0 ? (
+                                  <span className="text-[10px] font-bold text-rose-700 block">
+                                    🔴 {m.verySlowPulseCount} lần &lt;50 bpm
+                                  </span>
+                                ) : m.slowPulseCount > 0 ? (
+                                  <span className="text-[10px] font-bold text-amber-800 block">
+                                    Lưu ý: {m.slowPulseCount} lần &lt;60 bpm
+                                  </span>
+                                ) : m.fastPulseCount > 0 ? (
+                                  <span className="text-[10px] font-bold text-rose-700 block">
+                                    ⚠️ {m.fastPulseCount} lần ≥100 bpm
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-emerald-700 block">
+                                    Nhịp đều
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">Chưa ghi</span>
+                            )}
+                          </td>
+
+                          <td className="py-2.5 px-2.5 text-center">
+                            {m.tirPct !== null ? (
+                              <span
+                                className={`inline-flex px-2 py-0.5 rounded-full text-xs font-black border ${
+                                  m.tirPct >= 80
+                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                    : m.tirPct >= 60
+                                    ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                    : 'bg-rose-100 text-rose-800 border-rose-300'
+                                }`}
+                              >
+                                {m.tirPct}%
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-
-          {/* ===== PHẦN 4: TỔNG HỢP NHẬN ĐỊNH LÂM SÀNG & GỢI Ý TRAO ĐỔI VỚI BÁC SĨ ===== */}
-          {clinicalFindings.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-teal-700" />
-                <span>4. Nhận Định Y Khoa Tự Động &amp; Điểm Lưu Ý Khi Tái Khám ({activeMilestone.label})</span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {clinicalFindings.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3 rounded-xl border text-xs space-y-1 ${
-                      item.level === 'alert'
-                        ? 'bg-rose-50/90 border-rose-300 text-rose-950'
-                        : item.level === 'caution'
-                        ? 'bg-amber-50/90 border-amber-300 text-amber-950'
-                        : 'bg-emerald-50/70 border-emerald-200 text-slate-900'
-                    }`}
-                  >
-                    <div className="font-black flex items-start gap-1.5">
-                      {item.level === 'alert' ? (
-                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                      ) : item.level === 'caution' ? (
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      ) : (
-                        <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                      )}
-                      <span>{item.title}</span>
-                    </div>
-                    <p className="text-[11px] leading-relaxed opacity-90 pl-5">{item.detail}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
