@@ -15,6 +15,7 @@ import {
   DEFAULT_NOTIFICATION_PREFS,
   loadNotificationPrefs,
   saveNotificationPrefs,
+  speakVietnameseReminder,
 } from '@/lib/notifications';
 
 // Lazy-load các Tab phụ & Modal nặng để trang chính tải tức thì trên điện thoại
@@ -581,6 +582,19 @@ export default function CareSchedulePage() {
     });
     showToast('💓 Đã lưu chỉ số huyết áp!', 'success');
 
+    // Nếu người dùng bật "🗣️ Tự đọc giọng Tiếng Việt", tự động đọc kết quả + nhận xét ngay khi lưu
+    if (notificationPrefs.enabled && notificationPrefs.autoVoiceEnabled) {
+      const evalRes = evaluateVitalReading(cleanEntry, bpThresholds);
+      const pulseText = cleanEntry.pulse ? `, nhịp tim ${cleanEntry.pulse}` : '';
+      const statusText =
+        evalRes.overallAlertLevel === 'normal'
+          ? 'Chỉ số huyết áp và nhịp tim ổn định.'
+          : `${evalRes.reasons.join('. ')}. ${evalRes.clinicalAdvice}`;
+      speakVietnameseReminder(
+        `Đã lưu huyết áp ${cleanEntry.sys} trên ${cleanEntry.dia}${pulseText}. ${statusText}`
+      );
+    }
+
     // Đồng bộ ngầm không chặn giao diện
     void saveVitalsAction(cleanEntry)
       .then((res) => {
@@ -600,7 +614,7 @@ export default function CareSchedulePage() {
       .catch(() => {
         showToast('Lỗi kết nối khi đồng bộ huyết áp lên Sheet.', 'warn');
       });
-  }, [showToast]);
+  }, [showToast, notificationPrefs.enabled, notificationPrefs.autoVoiceEnabled, bpThresholds]);
 
   // Xóa huyết áp — Xóa tức thì trên giao diện, đồng bộ ngầm lên Sheet
   const handleDeleteVitals = useCallback(async (id: string) => {

@@ -390,7 +390,14 @@ export default function SmartReminderBanner({
                 urgent: false,
               });
             }
-            if (prefs.autoVoiceEnabled) {
+          }
+
+          // Tách khóa tự đọc giọng Tiếng Việt riêng để khi người dùng vừa bật "Tự đọc giọng Tiếng Việt"
+          // trong Cài đặt là nghe đọc nhắc việc buổi hiện tại ngay lập tức
+          if (prefs.autoVoiceEnabled) {
+            const slotVoiceKey = `voice_slot_${todayStr}_${currentSlot}`;
+            if (!hasNotificationBeenSent(slotVoiceKey)) {
+              markNotificationSent(slotVoiceKey);
               speakVietnameseReminder(buildVoiceReminderText());
             }
           }

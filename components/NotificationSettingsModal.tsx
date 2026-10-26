@@ -382,24 +382,46 @@ export default function NotificationSettingsModal({
           </label>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-            <label className="flex items-center gap-2.5 p-2 rounded-xl bg-white border border-slate-200 cursor-pointer">
+            <label className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer">
               <input
                 type="checkbox"
                 checked={draft.soundEnabled}
-                onChange={(e) => setDraft({ ...draft, soundEnabled: e.target.checked })}
-                className="w-4 h-4 accent-teal-700 rounded cursor-pointer"
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setDraft({ ...draft, soundEnabled: checked });
+                  if (checked) playNotificationSound('gentle');
+                }}
+                className="mt-0.5 w-4 h-4 accent-teal-700 rounded cursor-pointer shrink-0"
               />
-              <span className="text-xs font-bold text-slate-900">🔊 Phát âm chuông nhẹ</span>
+              <div className="text-xs">
+                <p className="font-bold text-slate-900">🔊 Phát âm chuông nhẹ</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Kêu tiếng chuông khi tới giờ hẹn, khi tích xong thuốc hoặc khi huyết áp bất thường
+                </p>
+              </div>
             </label>
 
-            <label className="flex items-center gap-2.5 p-2 rounded-xl bg-white border border-slate-200 cursor-pointer">
+            <label className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer">
               <input
                 type="checkbox"
                 checked={draft.autoVoiceEnabled}
-                onChange={(e) => setDraft({ ...draft, autoVoiceEnabled: e.target.checked })}
-                className="w-4 h-4 accent-teal-700 rounded cursor-pointer"
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setDraft({ ...draft, autoVoiceEnabled: checked });
+                  if (checked) {
+                    speakVietnameseReminder(
+                      'Đã bật tự động đọc giọng Tiếng Việt khi lưu huyết áp và khi tới giờ nhắc việc.'
+                    );
+                  }
+                }}
+                className="mt-0.5 w-4 h-4 accent-teal-700 rounded cursor-pointer shrink-0"
               />
-              <span className="text-xs font-bold text-slate-900">🗣️ Tự đọc giọng Tiếng Việt</span>
+              <div className="text-xs">
+                <p className="font-bold text-slate-900">🗣️ Tự đọc giọng Tiếng Việt</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Tự phát loa đọc kết quả + nhận xét ngay khi bấm Lưu huyết áp, và tự đọc nhắc việc khi tới giờ hẹn
+                </p>
+              </div>
             </label>
           </div>
         </div>
