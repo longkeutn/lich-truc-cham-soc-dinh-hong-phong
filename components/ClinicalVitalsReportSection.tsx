@@ -708,11 +708,15 @@ export default function ClinicalVitalsReportSection({
           <button
             type="button"
             onClick={() => setShowMedicalGuide((prev) => !prev)}
-            className="px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/20 text-xs font-bold flex items-center gap-1 cursor-pointer transition"
-            title="Xem giải thích các mức chỉ số chuẩn"
+            className={`px-2.5 py-1.5 rounded-xl border text-xs font-extrabold flex items-center gap-1 cursor-pointer transition ${
+              showMedicalGuide
+                ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-xs'
+                : 'bg-white/15 hover:bg-white/25 text-white border-white/20'
+            }`}
+            title="Xem giải thích chi tiết các chỉ số huyết áp & các triệu chứng đáng lo tại nhà"
           >
             <Info className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Mức chuẩn</span>
+            <span>{showMedicalGuide ? 'Đóng giải thích' : 'Giải thích chỉ số & Dấu hiệu lo ngại'}</span>
           </button>
 
           <button
@@ -728,38 +732,171 @@ export default function ClinicalVitalsReportSection({
 
       {isExpanded && (
         <div className="p-3.5 sm:p-4 space-y-4">
-          {/* Hộp giải thích mức chuẩn (Bấm nút Mức chuẩn mới hiện) */}
+          {/* Hộp Giải thích chi tiết các chỉ số & Triệu chứng đáng lo tại nhà */}
           {showMedicalGuide && (
-            <div className="p-3.5 rounded-2xl bg-teal-50/80 border border-teal-200 text-xs text-slate-800 space-y-2 leading-relaxed">
-              <div className="font-black text-teal-950 flex items-center justify-between">
-                <span>📚 Bảng mức chuẩn dễ nhớ khi theo dõi cho Bố tại nhà:</span>
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-teal-50/70 border-2 border-teal-300 text-xs text-slate-800 space-y-4 leading-relaxed shadow-xs">
+              <div className="flex items-center justify-between gap-2 border-b border-teal-200 pb-2.5">
+                <div>
+                  <h4 className="text-sm sm:text-base font-black text-teal-950">
+                    📖 Cẩm Nang Hiểu Đúng Chỉ Số Huyết Áp &amp; Các Triệu Chứng Đáng Lo Của Bố
+                  </h4>
+                  <p className="text-[11px] text-teal-800 font-medium">
+                    Biên soạn riêng theo bệnh cảnh chăm sóc phục hồi sau tai biến mạch máu não tại nhà
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowMedicalGuide(false)}
-                  className="text-teal-700 hover:underline font-bold"
+                  className="px-3 py-1 rounded-xl bg-white hover:bg-teal-100 text-teal-900 border border-teal-300 font-extrabold cursor-pointer shrink-0"
                 >
-                  Đóng
+                  Thu gọn ✕
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[11px]">
-                <div className="p-2.5 rounded-xl bg-white border border-teal-100">
-                  <strong>1. Mức Huyết áp an toàn:</strong> Đẹp nhất là{' '}
-                  <strong>115–130 / 70–80 mmHg</strong> (Đạt chuẩn an toàn dưới{' '}
-                  <strong>{bpThresholds.highSys}/{bpThresholds.highDia} mmHg</strong>). Không nên để hạ quá thấp (dưới{' '}
-                  {bpThresholds.lowSys}/{bpThresholds.lowDia} mmHg) vì sẽ làm Bố bị hoa mắt, thiếu máu lên não.
+
+              {/* PHẦN A: GIẢI THÍCH 5 CHỈ SỐ HUYẾT ÁP & MẠCH */}
+              <div className="space-y-2.5">
+                <div className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 rounded-md bg-teal-800 text-white text-[11px]">PHẦN 1</span>
+                  <span>Ý nghĩa từng chỉ số &amp; ảnh hưởng tới mạch máu não của Bố</span>
                 </div>
-                <div className="p-2.5 rounded-xl bg-white border border-teal-100">
-                  <strong>2. Độ ổn định giữa các lần đo:</strong> Chênh lệch trung bình{' '}
-                  <strong>dưới ±10 mmHg</strong> là huyết áp giữ rất đều. Nếu chênh lệch{' '}
-                  <strong>từ ±15 mmHg trở lên</strong> tức là huyết áp lúc vọt cao, lúc tụt thấp thất thường.
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+                  {/* 1. Số trên */}
+                  <div className="p-3 rounded-xl bg-white border border-rose-200 space-y-1.5">
+                    <div className="font-black text-rose-900 text-xs sm:text-sm flex items-center justify-between gap-1">
+                      <span>1️⃣ SỐ TRÊN — Huyết áp Tâm thu (SYS)</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold">
+                        Đẹp: 115–130 (An toàn &lt;{bpThresholds.highSys})
+                      </span>
+                    </div>
+                    <p className="text-slate-700">
+                      • <strong>Là gì:</strong> Áp lực máu bơm căng lên thành mạch <strong>lúc tim đang co bóp đẩy máu lên nuôi não</strong>. Đây là con số quan trọng số 1 đối với Bố.
+                    </p>
+                    <p className="text-rose-900 bg-rose-50/70 p-2 rounded-lg border border-rose-100">
+                      • <strong>Nếu quá cao (≥{bpThresholds.highSys}, nguy hiểm khi ≥160 mmHg):</strong> Lực máu dội lên mạch máu não quá mạnh. Vì mạch máu não của Bố từng tổn thương sau tai biến, áp lực cao dễ gây đau căng đầu, đỏ mặt và <strong>nguy cơ tái phát tai biến / xuất huyết não</strong>.
+                    </p>
+                    <p className="text-sky-900 bg-sky-50/70 p-2 rounded-lg border border-sky-100">
+                      • <strong>Nếu quá thấp (≤{bpThresholds.lowSys}, nguy hiểm khi &lt;90 mmHg):</strong> Lực bơm yếu không đẩy đủ máu lên vùng não đang hồi phục → Gây <strong>thiếu máu não tạm thời</strong> làm Bố hoa mắt, lả người, ngủ gà hoặc khuỵu ngã khi ngồi dậy.
+                    </p>
+                  </div>
+
+                  {/* 2. Số dưới */}
+                  <div className="p-3 rounded-xl bg-white border border-blue-200 space-y-1.5">
+                    <div className="font-black text-blue-900 text-xs sm:text-sm flex items-center justify-between gap-1">
+                      <span>2️⃣ SỐ DƯỚI — Huyết áp Tâm trương (DIA)</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold">
+                        Đẹp: 70–80 (An toàn &lt;{bpThresholds.highDia})
+                      </span>
+                    </div>
+                    <p className="text-slate-700">
+                      • <strong>Là gì:</strong> Áp lực máu còn giữ lại trong mạch <strong>lúc tim đang giãn ra nghỉ ngơi</strong> giữa 2 nhịp đập (thời điểm máu chảy về nuôi chính cơ tim).
+                    </p>
+                    <p className="text-amber-950 bg-amber-50/70 p-2 rounded-lg border border-amber-100">
+                      • <strong>Nếu cao (≥{bpThresholds.highDia}, nguy hiểm khi ≥100 mmHg):</strong> Thành mạch máu bị co thắt căng cứng liên tục ngay cả lúc tim nghỉ, làm tim nhanh mệt và quá tải.
+                    </p>
+                    <p className="text-sky-900 bg-sky-50/70 p-2 rounded-lg border border-sky-100">
+                      • <strong>Nếu quá thấp (≤{bpThresholds.lowDia} mmHg):</strong> Máu quay về nuôi cơ tim kém (hay gặp ở người lớn tuổi), làm Bố dễ mỏi mệt, hụt hơi, tay chân lạnh.
+                    </p>
+                  </div>
+
+                  {/* 3. Hiệu áp */}
+                  <div className="p-3 rounded-xl bg-white border border-purple-200 space-y-1.5">
+                    <div className="font-black text-purple-900 text-xs sm:text-sm flex items-center justify-between gap-1">
+                      <span>3️⃣ HIỆU ÁP (Độ chênh 2 số = Trên − Dưới)</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold">
+                        Chuẩn đẹp: 40–55 mmHg
+                      </span>
+                    </div>
+                    <p className="text-slate-700">
+                      • <strong>Là gì:</strong> Lấy <strong>Số trên trừ đi Số dưới</strong> (VD: 125/75 → Hiệu áp = 50 mmHg). Chỉ số này cho biết <strong>độ mềm dẻo hay xơ cứng của thành mạch máu</strong>.
+                    </p>
+                    <p className="text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                      • <strong>Hiệu áp rộng (≥60 mmHg, VD 150/75):</strong> Thành động mạch của người lớn tuổi bị cứng, làm máu dội mạnh từng nhịp lên não và thận. Cần tránh để Bố xúc động hay đứng phắt dậy đột ngột.<br />
+                      • <strong>Hiệu áp hẹp (≤30 mmHg, VD 105/80):</strong> Nhịp bơm của tim hơi yếu hoặc cơ thể Bố đang thiếu nước → Cần cho Bố uống đủ nước ấm rải đều trong ngày.
+                    </p>
+                  </div>
+
+                  {/* 4. Sức máu nuôi não & Độ ổn định + Nhịp tim */}
+                  <div className="p-3 rounded-xl bg-white border border-teal-200 space-y-1.5">
+                    <div className="font-black text-teal-900 text-xs sm:text-sm flex items-center justify-between gap-1">
+                      <span>4️⃣ SỨC MÁU NUÔI NÃO, ĐỘ ỔN ĐỊNH &amp; MẠCH</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold">
+                        Mạch nghỉ: 60–79 bpm
+                      </span>
+                    </div>
+                    <p className="text-slate-700">
+                      • <strong>Sức đẩy máu nuôi não (Chuẩn 75–95 mmHg):</strong> Áp lực trung bình đẩy máu nuôi tế bào não. Không được để tụt dưới 65 mmHg (thiếu máu não) hoặc vượt quá 105 mmHg.
+                    </p>
+                    <p className="text-slate-700">
+                      • <strong>Độ ổn định HA (Đều khi &lt;±10 mmHg):</strong> Với người sau tai biến, huyết áp nhảy lên xuống thất thường (≥±15 mmHg giữa Sáng và Tối) nguy hiểm không kém huyết áp cao. Cần uống thuốc đúng khung giờ cố định.
+                    </p>
+                    <p className="text-slate-700 bg-violet-50/70 p-2 rounded-lg border border-violet-100">
+                      • <strong>Nhịp tim / Mạch (BPM):</strong> Nếu <strong>&lt;55–60 bpm</strong> có thể do thuốc làm chậm nhịp (cần hỏi Bác sĩ nếu kèm chóng mặt). Nếu <strong>≥100 bpm lúc nghỉ</strong> hoặc đập loạn nhịp không đều thì dễ tạo cục máu đông hoặc báo hiệu Bố đang sốt, đau, mất nước.
+                    </p>
+                  </div>
                 </div>
-                <div className="p-2.5 rounded-xl bg-white border border-teal-100">
-                  <strong>3. Độ chênh 2 số (Số trên trừ Số dưới):</strong> Khoảng cách giữa số trên và số dưới đẹp nhất từ{' '}
-                  <strong>40–55 mmHg</strong>. Sức đẩy máu nuôi não đạt từ <strong>75–95 mmHg</strong> là đủ máu lên não.
+              </div>
+
+              {/* PHẦN B: CÁC TRIỆU CHỨNG ĐÁNG LO TRONG QUÁ TRÌNH CHĂM SÓC TẠI NHÀ */}
+              <div className="space-y-2.5 pt-2 border-t border-teal-200">
+                <div className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[11px]">PHẦN 2</span>
+                  <span>Các triệu chứng đáng lo cần theo dõi sát khi chăm sóc Bố tại nhà</span>
                 </div>
-                <div className="p-2.5 rounded-xl bg-white border border-teal-100">
-                  <strong>4. Nhịp tim (Mạch) lúc nghỉ:</strong> Tốt nhất là{' '}
-                  <strong>60–79 nhịp/phút</strong> (bình thường 60–99 nhịp/phút). Nếu dưới 60 là mạch hơi chậm, dưới 50 là mạch rất chậm cần báo Bác sĩ.
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
+                  {/* Cột 1: Mức Đỏ - Cấp cứu / Gọi bác sĩ ngay */}
+                  <div className="p-3 rounded-2xl bg-rose-50 border-2 border-rose-300 space-y-2 text-rose-950">
+                    <div className="font-black text-xs sm:text-sm text-rose-800 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>🚨 MỨC ĐỎ — Nguy Hiểm Khẩn Cấp (Gọi Bác sĩ / Cấp cứu 115 ngay)</span>
+                    </div>
+                    <p className="text-[11px] font-bold text-rose-700">
+                      Tuyệt đối KHÔNG tự ý cho uống dồn thêm thuốc hạ áp, không cạo gió hay chích lễ đầu ngón tay:
+                    </p>
+                    <ul className="space-y-1.5 text-slate-800 list-disc pl-4">
+                      <li>
+                        <strong>Dấu hiệu nghi ngờ tai biến tái phát (Quy tắc F.A.S.T):</strong>
+                        <br />• <strong>Mặt:</strong> Miệng méo lệch rõ hơn bình thường, nhân trung lệch, uống nước bị trào nhiều ra một bên mép.
+                        <br />• <strong>Tay chân:</strong> Bên tay/chân đang tập phục hồi bỗng <strong>yếu rũ hẳn đi</strong>, không nâng được như hôm trước hoặc tê bì đột ngột.
+                        <br />• <strong>Lời nói &amp; Ý thức:</strong> Nói đớ lưỡi nặng hơn hẳn, ú ớ, gọi hỏi phản ứng chậm, lơ mơ hoặc ngủ gà gọi khó dậy.
+                      </li>
+                      <li>
+                        <strong>Cơn tăng huyết áp kịch phát (≥180/110 mmHg) kèm triệu chứng:</strong> Đau đầu dữ dội, buồn nôn/nôn ói, nhìn mờ, tức ngực hoặc vã mồ hôi.
+                      </li>
+                      <li>
+                        <strong>Khó thở hoặc Sặc nghẹn đường thở:</strong> Ho sặc sụa khi ăn uống/bơm súp, thở khò khè nhiều đờm đặc, môi hoặc đầu ngón tay tím tái (nguy cơ viêm phổi hít).
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Cột 2: Mức Vàng - Theo dõi sát & Báo bác sĩ */}
+                  <div className="p-3 rounded-2xl bg-amber-50/90 border-2 border-amber-300 space-y-2 text-amber-950">
+                    <div className="font-black text-xs sm:text-sm text-amber-900 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>⚠️ MỨC VÀNG — Dấu Hiệu Cần Cảnh Giác &amp; Ghi Sổ Báo Bác Sĩ</span>
+                    </div>
+                    <p className="text-[11px] font-bold text-amber-800">
+                      Khi thấy các biểu hiện này, hãy cho Bố nằm nghỉ, đo lại huyết áp sau 15 phút và ghi vào Sổ:
+                    </p>
+                    <ul className="space-y-1.5 text-slate-800 list-disc pl-4">
+                      <li>
+                        <strong>Hoa mắt, choáng váng khi đổi tư thế (từ nằm sang ngồi/đứng):</strong> Thường do <strong>tụt huyết áp tư thế</strong> hoặc thuốc hạ áp đang tác dụng mạnh. Buổi sáng thức dậy cần cho Bố cử động tay chân trên giường 3–5 phút rồi mới đỡ ngồi dậy từ từ.
+                      </li>
+                      <li>
+                        <strong>Đau đầu âm ỉ, nặng mỏi vùng gáy, nóng bừng mặt hoặc ù tai:</strong> Báo hiệu huyết áp đang nhích lên cao hoặc Bố mất ngủ, căng thẳng.
+                      </li>
+                      <li>
+                        <strong>Sốt nhẹ (≥37.8°C), ho đờm vàng đục, hoặc tiểu buốt / nước tiểu đục nặng mùi:</strong> Dấu hiệu sớm của viêm phổi ứ đọng hoặc nhiễm trùng đường tiểu ở người bệnh ít vận động.
+                      </li>
+                      <li>
+                        <strong>Vùng da tỳ đè (cùng cụt, mông, gót chân, mắt cá, bả vai) đỏ ửng không nhạt màu khi ấn vào:</strong> Dấu hiệu sớm của <strong>loét tỳ đè</strong> → Cần lật nghiêng người 2 giờ/lần và kê gối mềm ngay.
+                      </li>
+                      <li>
+                        <strong>Tay/chân bên yếu bị sưng nề, căng tức hoặc táo bón trên 3 ngày:</strong> Cần kê cao nhẹ tay/chân bị sưng, không kéo giật khớp vai bên yếu và báo Bác sĩ khi tái khám.
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
@@ -902,7 +1039,7 @@ export default function ClinicalVitalsReportSection({
                 </div>
 
                 <div className="p-2 rounded-xl bg-white border border-slate-200 text-center">
-                  <span className="text-[10px] font-bold text-slate-500 block">Độ chênh 2 số</span>
+                  <span className="text-[10px] font-bold text-slate-500 block">Hiệu áp (Trên−Dưới)</span>
                   <span className="text-sm font-black text-slate-900">
                     {activeMilestone.avgPP ?? '—'} <small className="font-normal">mmHg</small>
                   </span>
@@ -1052,6 +1189,32 @@ export default function ClinicalVitalsReportSection({
               )}
             </div>
           </div>
+
+          {/* Nút mở nhanh Cẩm nang Giải thích chỉ số & Triệu chứng đáng lo ngay dưới chân bảng */}
+          {!showMedicalGuide && (
+            <button
+              type="button"
+              onClick={() => setShowMedicalGuide(true)}
+              className="w-full p-3 rounded-2xl bg-teal-50/80 hover:bg-teal-100/80 border border-teal-200 flex items-center justify-between gap-2 text-left transition cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="w-8 h-8 rounded-xl bg-teal-700 text-white flex items-center justify-center shrink-0">
+                  <Info className="w-4 h-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-black text-teal-950 truncate">
+                    📖 Giải thích: Số trên, Số dưới, Hiệu áp &amp; Các triệu chứng đáng lo tại nhà
+                  </p>
+                  <p className="text-[11px] text-teal-800 truncate">
+                    Bấm để xem ý nghĩa từng chỉ số đối với bệnh cảnh sau tai biến của Bố và dấu hiệu cần gọi Bác sĩ
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1.5 rounded-xl bg-white text-teal-900 border border-teal-300 text-xs font-extrabold shrink-0">
+                Xem chi tiết ▾
+              </span>
+            </button>
+          )}
         </div>
       )}
     </div>

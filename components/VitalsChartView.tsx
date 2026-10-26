@@ -1599,8 +1599,16 @@ export function VitalsChartView({
           )}
 
           {activeCardInfo === 2 && (
-            <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-700 bg-slate-50 p-2.5 rounded-xl leading-relaxed">
-              💡 <strong>Ý nghĩa:</strong> Huyết áp trung bình của các lần đo trong kỳ đang chọn. Nếu khoảng cách giữa mức thấp nhất và cao nhất không quá xa nhau nghĩa là huyết áp của Bố rất ổn định.
+            <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-700 bg-slate-50 p-2.5 rounded-xl leading-relaxed space-y-1">
+              <div>
+                • <strong>Số trên (Tâm thu):</strong> Áp lực máu bơm lên não lúc tim co bóp (An toàn &lt;{bpThresholds.highSys}, đẹp 115–130). Cao quá dễ gây tái phát tai biến; thấp quá (&lt;100) gây thiếu máu não, hoa mắt.
+              </div>
+              <div>
+                • <strong>Số dưới (Tâm trương):</strong> Áp lực mạch lúc tim giãn nghỉ nuôi cơ tim (An toàn &lt;{bpThresholds.highDia}, đẹp 70–80).
+              </div>
+              <div>
+                • <strong>Hiệu áp (Số trên − Số dưới):</strong> Đẹp nhất <strong>40–55 mmHg</strong> (TB kỳ này: {summaryStats.avgPP ?? '—'} mmHg). Nếu ≥60 là thành mạch hơi cứng.
+              </div>
             </div>
           )}
         </div>
