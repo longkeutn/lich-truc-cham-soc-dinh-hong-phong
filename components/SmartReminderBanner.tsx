@@ -398,7 +398,13 @@ export default function SmartReminderBanner({
             const slotVoiceKey = `voice_slot_${todayStr}_${currentSlot}`;
             if (!hasNotificationBeenSent(slotVoiceKey)) {
               markNotificationSent(slotVoiceKey);
-              speakVietnameseReminder(buildVoiceReminderText());
+              setIsSpeaking(true);
+              const ok = speakVietnameseReminder(buildVoiceReminderText(), () => {
+                setIsSpeaking(false);
+              });
+              if (!ok) {
+                setIsSpeaking(false);
+              }
             }
           }
         }

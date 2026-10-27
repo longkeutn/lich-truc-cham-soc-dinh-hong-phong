@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { PATIENT_INFO, getVietnamTimeStr } from '@/lib/config';
+import { speakVietnameseReminder, stopSpeakingVietnamese } from '@/lib/notifications';
 import {
   FamilyMember,
   PatientDailyReminder,
@@ -149,105 +150,44 @@ export default function PatientBanner({
     }
   }, [familyList, formAuthor]);
 
-  // Quản lý phát giọng đọc tiếng Việt trên điện thoại & máy tính (qua /api/tts MP3 + fallback speechSynthesis)
-  const reminderAudioRef = React.useRef<HTMLAudioElement | null>(null);
-
+  // Quản lý phát giọng đọc tiếng Việt tập trung qua speakVietnameseReminder / stopSpeakingVietnamese
+  // (Tránh xung đột luồng âm thanh hoặc bật nhầm giọng nam khi bấm Dừng đọc)
   const stopSpeech = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        if (reminderAudioRef.current) {
-          reminderAudioRef.current.pause();
-          reminderAudioRef.current.currentTime = 0;
-        }
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-        }
-      } catch {
-        // ignore
-      }
-    }
+    stopSpeakingVietnamese();
     setSpeakingId(null);
     setIsSpeakingAll(false);
   }, []);
 
   useEffect(() => {
     return () => {
-      stopSpeech();
+      stopSpeakingVietnamese();
     };
-  }, [stopSpeech]);
+  }, []);
 
   const speakText = useCallback(
     (text: string, id: string | 'all') => {
       if (typeof window === 'undefined' || !text.trim()) return;
 
-      stopSpeech();
+      stopSpeakingVietnamese();
 
       if (id === 'all') {
+        setSpeakingId(null);
         setIsSpeakingAll(true);
       } else {
+        setIsSpeakingAll(false);
         setSpeakingId(id);
       }
 
-      const fallbackToBrowserSpeech = () => {
-        try {
-          if (!('speechSynthesis' in window)) {
-            setSpeakingId(null);
-            setIsSpeakingAll(false);
-            return;
-          }
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = 'vi-VN';
-          utterance.rate = 0.95;
-
-          const voices = window.speechSynthesis.getVoices();
-          const viVoice = voices.find((v) => v.lang.toLowerCase().startsWith('vi'));
-          if (viVoice) {
-            utterance.voice = viVoice;
-          }
-
-          utterance.onend = () => {
-            setSpeakingId(null);
-            setIsSpeakingAll(false);
-          };
-
-          utterance.onerror = () => {
-            setSpeakingId(null);
-            setIsSpeakingAll(false);
-          };
-
-          window.speechSynthesis.speak(utterance);
-        } catch {
-          setSpeakingId(null);
-          setIsSpeakingAll(false);
-        }
-      };
-
-      try {
-        if (!reminderAudioRef.current) {
-          reminderAudioRef.current = new Audio();
-        }
-        const audio = reminderAudioRef.current;
-        audio.volume = 1.0;
-        audio.src = `/api/tts?text=${encodeURIComponent(text)}`;
-        audio.onended = () => {
-          setSpeakingId(null);
-          setIsSpeakingAll(false);
-        };
-        audio.onerror = () => {
-          fallbackToBrowserSpeech();
-        };
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(() => {
-            fallbackToBrowserSpeech();
-          });
-        }
-      } catch {
-        fallbackToBrowserSpeech();
+      const ok = speakVietnameseReminder(text, () => {
+        setSpeakingId(null);
+        setIsSpeakingAll(false);
+      });
+      if (!ok) {
+        setSpeakingId(null);
+        setIsSpeakingAll(false);
       }
     },
-    [stopSpeech]
+    []
   );
 
   // Đọc toàn bộ nhắc nhở quan trọng trong ngày
