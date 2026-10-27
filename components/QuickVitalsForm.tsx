@@ -369,9 +369,10 @@ export default function QuickVitalsForm({
   const quickVoiceInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<BrowserSpeechRecognitionInstance | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Lưu vị trí bắt đầu đọc kết quả trong phiên thu âm liên tục để khi bấm "Đọc lại" không cần đóng/mở lại phần cứng Micro!
-  const resultOffsetRef = useRef<number>(0);
-  const totalResultsCountRef = useRef<number>(0);
+  const watchdogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionCounterRef = useRef<number>(0);
   const latestParsedRef = useRef<ParsedVoiceVitals | null>(null);
   const hasSpokenConfirmationRef = useRef<boolean>(false);
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -395,11 +396,23 @@ export default function QuickVitalsForm({
     }
   }, []);
 
-  // Hàm dọn dẹp triệt để phiên thu âm cũ
+  // Hàm dọn dẹp triệt để mọi bộ đếm và phiên thu âm cũ
   const cleanupRecognitionInstance = useCallback(() => {
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
+    }
+    if (watchdogTimerRef.current) {
+      clearTimeout(watchdogTimerRef.current);
+      watchdogTimerRef.current = null;
+    }
+    if (stopFallbackTimerRef.current) {
+      clearTimeout(stopFallbackTimerRef.current);
+      stopFallbackTimerRef.current = null;
+    }
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
     }
     const inst = recognitionRef.current;
     if (inst) {
@@ -407,6 +420,11 @@ export default function QuickVitalsForm({
       inst.onresult = null;
       inst.onerror = null;
       inst.onend = null;
+      try {
+        inst.stop();
+      } catch {
+        // ignore
+      }
       try {
         inst.abort();
       } catch {
@@ -591,16 +609,34 @@ export default function QuickVitalsForm({
     setParsedPreview(parsed);
     latestParsedRef.current = parsed;
 
-    if (parsed.sys !== undefined) setSys(String(parsed.sys));
-    if (parsed.dia !== undefined) setDia(String(parsed.dia));
-    if (parsed.pulse !== undefined) setPulse(String(parsed.pulse));
+    // Cập nhật đồng bộ cả khi có giá trị lẫn khi về undefined (tránh kẹt giá trị nháp tạm thời của interimResults vào ô Ghi chú)
+    setSys(parsed.sys !== undefined ? String(parsed.sys) : '');
+    setDia(parsed.dia !== undefined ? String(parsed.dia) : '');
+    setPulse(parsed.pulse !== undefined ? String(parsed.pulse) : '');
     if (parsed.period !== undefined) setPeriod(parsed.period);
-    if (parsed.note !== undefined) setNote(parsed.note);
+    setNote(parsed.note !== undefined ? parsed.note : '');
 
     return parsed;
   }, []);
 
-  // --- Khởi chạy hoặc Đặt lại phiên thu âm (Nhạy 100% ngay ở lần bấm đầu tiên trên điện thoại) ---
+  // --- Dừng thu âm chủ động & đảm bảo không bao giờ bị treo trạng thái isListening ---
+  const finalizeVoiceSession = useCallback(
+    (speakIfComplete: boolean = true) => {
+      cleanupRecognitionInstance();
+      setIsListening(false);
+      if (
+        speakIfComplete &&
+        !hasSpokenConfirmationRef.current &&
+        latestParsedRef.current?.isComplete
+      ) {
+        hasSpokenConfirmationRef.current = true;
+        triggerConfirmationFeedback(latestParsedRef.current, false);
+      }
+    },
+    [cleanupRecognitionInstance, triggerConfirmationFeedback]
+  );
+
+  // --- Khởi chạy hoặc Đặt lại phiên thu âm (Tự phục hồi khi bấm "Đọc lại" nhiều lần liên tiếp) ---
   const startOrResetVoiceSession = useCallback(
     (clearFields: boolean = true) => {
       setVoiceError(null);
@@ -610,7 +646,7 @@ export default function QuickVitalsForm({
       stopVietnameseSpeech();
       setIsSpeakingBack(false);
 
-      // 2. Xoá dữ liệu cũ trên form nếu người dùng bấm "Đọc lại"
+      // 2. Xoá dữ liệu cũ trên form khi bắt đầu phiên đọc mới hoặc bấm "Đọc lại"
       if (clearFields) {
         setSys('');
         setDia('');
@@ -621,19 +657,6 @@ export default function QuickVitalsForm({
         latestParsedRef.current = null;
       }
       hasSpokenConfirmationRef.current = false;
-
-      // 3. KỸ THUẬT QUAN TRỌNG TRÊN ĐIỆN THOẠI:
-      // Nếu Micro ĐANG MỞ (isListening === true), TUYỆT ĐỐI KHÔNG đóng rồi mở lại phần cứng Micro
-      // (vì Android/iOS cần 400ms mới nhả phần cứng Micro, đóng/mở liền sẽ làm kẹt Micro!).
-      // Thay vào đó, ta chỉ cần dịch mốc resultOffsetRef sang vị trí mới và giữ nguyên Micro đang mở!
-      if (isListening && recognitionRef.current) {
-        resultOffsetRef.current = totalResultsCountRef.current;
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = null;
-        }
-        return;
-      }
 
       if (typeof window === 'undefined') return;
       const w = window as unknown as Record<string, unknown>;
@@ -651,99 +674,182 @@ export default function QuickVitalsForm({
         return;
       }
 
-      // Dọn sạch biến tham chiếu cũ (nếu có) và gọi recognition.start() ĐỒNG BỘ (synchronously) ngay trong cú chạm!
+      // 3. Ghi nhận xem có phiên Micro cũ đang mở hay không, sau đó dọn sạch hoàn toàn phiên cũ
+      const hadActiveRecognition = Boolean(recognitionRef.current || isListening);
+      const currentSessionId = ++sessionCounterRef.current;
       cleanupRecognitionInstance();
-      resultOffsetRef.current = 0;
-      totalResultsCountRef.current = 0;
 
-      try {
-        const recognition = new SpeechRecognitionCtor();
-        recognition.lang = 'vi-VN';
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.maxAlternatives = 1;
+      const launchRecognitionAttempt = (attempt: number) => {
+        if (sessionCounterRef.current !== currentSessionId) return;
 
-        recognition.onstart = () => {
-          setIsListening(true);
-        };
+        try {
+          const recognition = new SpeechRecognitionCtor();
+          recognition.lang = 'vi-VN';
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.maxAlternatives = 1;
 
-        recognition.onresult = (event: BrowserSpeechRecognitionEvent) => {
-          totalResultsCountRef.current = event.results.length;
-          let fullTranscript = '';
-          const startIdx = Math.min(resultOffsetRef.current, event.results.length);
-          for (let i = startIdx; i < event.results.length; i++) {
-            fullTranscript += event.results[i][0].transcript + ' ';
-          }
-          const cleanText = fullTranscript.trim();
-          if (!cleanText) return;
+          const startedAt = Date.now();
+          let gotAnySpeechResult = false;
 
-          const parsed = applyTranscriptToForm(cleanText);
+          const resetWatchdog = (ms: number) => {
+            if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
+            watchdogTimerRef.current = setTimeout(() => {
+              if (sessionCounterRef.current !== currentSessionId) return;
+              finalizeVoiceSession(true);
+            }, ms);
+          };
 
-          // Tự động dừng thông minh sau khi người dùng đọc xong:
-          // - Đã đủ 3 số (SYS + DIA + Mạch) hoặc có lệnh "lưu luôn": dừng sau 1.2 giây ngừng nói
-          // - Đã đủ 2 số (SYS + DIA): dừng sau 2.0 giây ngừng nói
-          // - Mới đọc 1 số: giữ Micro mở 4.0 giây để chờ đọc nốt số thứ 2
-          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-          const waitMs =
-            parsed.autoSave || (parsed.isComplete && parsed.pulse !== undefined)
-              ? 1200
-              : parsed.isComplete
-                ? 2000
-                : 4000;
+          // Watchdog 9 giây: đảm bảo nếu trình duyệt tự ngắt ngầm mà không gọi onend thì UI vẫn tự mở khóa
+          resetWatchdog(9000);
 
-          silenceTimerRef.current = setTimeout(() => {
-            if (recognitionRef.current === recognition) {
+          recognition.onstart = () => {
+            if (sessionCounterRef.current !== currentSessionId) return;
+            setIsListening(true);
+            setVoiceError(null);
+          };
+
+          recognition.onresult = (event: BrowserSpeechRecognitionEvent) => {
+            if (sessionCounterRef.current !== currentSessionId) return;
+            gotAnySpeechResult = true;
+
+            // Gom kết quả từ event.results và khử lỗi lặp đoạn cộng dồn (cumulative duplicate) trên Android Chrome
+            const segments: string[] = [];
+            for (let i = 0; i < event.results.length; i++) {
+              const seg = (event.results[i]?.[0]?.transcript || '').trim();
+              if (!seg) continue;
+              if (segments.length === 0) {
+                segments.push(seg);
+                continue;
+              }
+              const prev = segments[segments.length - 1];
+              const prevLower = prev.toLowerCase();
+              const segLower = seg.toLowerCase();
+
+              if (segLower.startsWith(prevLower)) {
+                segments[segments.length - 1] = seg;
+              } else if (prevLower.startsWith(segLower) || prevLower.endsWith(segLower)) {
+                continue;
+              } else {
+                segments.push(seg);
+              }
+            }
+
+            const cleanText = segments.join(' ').replace(/\s+/g, ' ').trim();
+            if (!cleanText) return;
+
+            const parsed = applyTranscriptToForm(cleanText);
+
+            // Tự động dừng thông minh sau khi người dùng đọc xong:
+            // - Đã đủ 3 số (SYS + DIA + Mạch) hoặc có lệnh "lưu luôn": dừng sau 1.1 giây ngừng nói
+            // - Đã đủ 2 số (SYS + DIA): dừng sau 1.8 giây ngừng nói
+            // - Mới đọc 1 số: giữ Micro mở 3.5 giây để chờ đọc nốt số thứ 2
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+            const waitMs =
+              parsed.autoSave || (parsed.isComplete && parsed.pulse !== undefined)
+                ? 1100
+                : parsed.isComplete
+                  ? 1800
+                  : 3500;
+
+            resetWatchdog(waitMs + 2500);
+
+            silenceTimerRef.current = setTimeout(() => {
+              if (sessionCounterRef.current !== currentSessionId) return;
               try {
                 recognition.stop();
               } catch {
                 // ignore
               }
+              // Dự phòng 350ms: nếu trình duyệt di động treo lệnh .stop() không bắn onend, chủ động kết thúc ngay
+              if (stopFallbackTimerRef.current) clearTimeout(stopFallbackTimerRef.current);
+              stopFallbackTimerRef.current = setTimeout(() => {
+                if (sessionCounterRef.current === currentSessionId) {
+                  finalizeVoiceSession(true);
+                }
+              }, 350);
+            }, waitMs);
+          };
+
+          recognition.onerror = (event: BrowserSpeechRecognitionErrorEvent) => {
+            if (sessionCounterRef.current !== currentSessionId) return;
+
+            const elapsed = Date.now() - startedAt;
+            // Nếu vừa bấm "Đọc lại" khi phiên cũ vừa đóng khiến phần cứng Micro chưa kịp nhả (lỗi aborted/audio-capture trong 600ms đầu),
+            // tự động thử khởi động lại lần 2 sau 220ms
+            if (
+              attempt < 2 &&
+              !gotAnySpeechResult &&
+              elapsed < 600 &&
+              (event.error === 'aborted' ||
+                event.error === 'audio-capture' ||
+                event.error === 'network')
+            ) {
+              cleanupRecognitionInstance();
+              retryTimerRef.current = setTimeout(() => {
+                launchRecognitionAttempt(attempt + 1);
+              }, 220);
+              return;
             }
-          }, waitMs);
-        };
 
-        recognition.onerror = (event: BrowserSpeechRecognitionErrorEvent) => {
-          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+            cleanupRecognitionInstance();
+            setIsListening(false);
+
+            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+              setVoiceError(
+                'Chưa cấp quyền Micro cho trình duyệt. Bạn có thể cấp quyền Micro hoặc bấm biểu tượng 🎙️ trên bàn phím điện thoại vào ô bên dưới.'
+              );
+              setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
+            } else if (event.error === 'no-speech') {
+              setVoiceError(
+                'Chưa nghe thấy giọng nói. Hãy bấm nút "Đọc lại" và đọc 3 số to rõ hơn nhé.'
+              );
+            } else if (event.error !== 'aborted') {
+              setVoiceError(
+                'Micro bị ngắt tạm thời. Hãy bấm lại nút "Bấm đọc lại bằng giọng nói" nhé.'
+              );
+            }
+          };
+
+          recognition.onend = () => {
+            if (sessionCounterRef.current !== currentSessionId) return;
+
+            const elapsed = Date.now() - startedAt;
+            // Nếu phiên mới bị trình duyệt đóng ngay lập tức (< 350ms) do xung đột đóng phiên cũ khi bấm "Đọc lại", tự thử lại 1 lần
+            if (attempt < 2 && hadActiveRecognition && !gotAnySpeechResult && elapsed < 350) {
+              cleanupRecognitionInstance();
+              retryTimerRef.current = setTimeout(() => {
+                launchRecognitionAttempt(attempt + 1);
+              }, 220);
+              return;
+            }
+
+            finalizeVoiceSession(true);
+          };
+
+          recognitionRef.current = recognition;
+          setIsListening(true);
+          recognition.start();
+        } catch {
+          if (attempt < 2) {
+            cleanupRecognitionInstance();
+            retryTimerRef.current = setTimeout(() => {
+              launchRecognitionAttempt(attempt + 1);
+            }, 220);
+            return;
+          }
+          cleanupRecognitionInstance();
           setIsListening(false);
-          if (recognitionRef.current === recognition) {
-            recognitionRef.current = null;
-          }
-          if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-            setVoiceError(
-              'Chưa cấp quyền Micro cho trình duyệt. Bạn có thể cấp quyền Micro hoặc bấm biểu tượng 🎙️ trên bàn phím điện thoại vào ô bên dưới.'
-            );
-            setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
-          } else if (event.error === 'no-speech') {
-            setVoiceError('Chưa nghe thấy giọng nói. Hãy bấm nút "Đọc lại" và đọc to rõ hơn nhé.');
-          } else if (event.error !== 'aborted') {
-            setVoiceError('Micro bị ngắt. Hãy bấm lại nút "Đọc Huyết Áp" hoặc dùng nút 🎙️ trên bàn phím.');
-          }
-        };
+          setVoiceError(
+            'Không khởi động được Micro. Hãy bấm lại hoặc dùng nút 🎙️ trên bàn phím ở ô bên dưới.'
+          );
+          setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
+        }
+      };
 
-        recognition.onend = () => {
-          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-          setIsListening(false);
-          if (recognitionRef.current === recognition) {
-            recognitionRef.current = null;
-          }
-
-          // Khi Micro trên điện thoại đã đóng hoàn toàn, tự động phát giọng đọc tiếng Việt xác nhận!
-          if (!hasSpokenConfirmationRef.current && latestParsedRef.current?.isComplete) {
-            hasSpokenConfirmationRef.current = true;
-            triggerConfirmationFeedback(latestParsedRef.current, false);
-          }
-        };
-
-        recognitionRef.current = recognition;
-        setIsListening(true);
-        recognition.start();
-      } catch {
-        setIsListening(false);
-        setVoiceError('Không khởi động được Micro. Hãy bấm lại hoặc dùng nút 🎙️ trên bàn phím ở ô bên dưới.');
-        setTimeout(() => quickVoiceInputRef.current?.focus(), 100);
-      }
+      launchRecognitionAttempt(1);
     },
-    [isListening, cleanupRecognitionInstance, applyTranscriptToForm, triggerConfirmationFeedback]
+    [isListening, cleanupRecognitionInstance, applyTranscriptToForm, finalizeVoiceSession]
   );
 
   // --- Dừng thu âm chủ động (khi người dùng bấm nút "Xong / Dừng") ---
@@ -752,18 +858,26 @@ export default function QuickVitalsForm({
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
+    const currentSessionId = sessionCounterRef.current;
     const inst = recognitionRef.current;
     if (inst) {
       try {
         inst.stop();
       } catch {
-        cleanupRecognitionInstance();
-        setIsListening(false);
+        finalizeVoiceSession(true);
+        return;
       }
+      // Nếu sau 300ms trình duyệt không gọi onend thì cưỡng bức kết thúc để không bao giờ bị kẹt nút
+      if (stopFallbackTimerRef.current) clearTimeout(stopFallbackTimerRef.current);
+      stopFallbackTimerRef.current = setTimeout(() => {
+        if (sessionCounterRef.current === currentSessionId) {
+          finalizeVoiceSession(true);
+        }
+      }, 300);
     } else {
-      setIsListening(false);
+      finalizeVoiceSession(true);
     }
-  }, [cleanupRecognitionInstance]);
+  }, [finalizeVoiceSession]);
 
   // --- Trend icons ---
   const renderTrendIcon = (trend: 'up' | 'down' | 'stable') => {
