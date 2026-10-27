@@ -35,6 +35,7 @@ interface ClinicalVitalsReportSectionProps {
   onChangeDateRange?: (range: 'today' | '3d' | '7d' | '14d' | '30d' | 'all') => void;
   patientName?: string;
   showToast?: (msg: string, type?: 'info' | 'success' | 'warn') => void;
+  onOpenDoctorReport?: () => void;
 }
 
 export interface TimeframeMetrics {
@@ -257,6 +258,7 @@ export default function ClinicalVitalsReportSection({
   externalDateRange = '7d',
   patientName = 'Đinh Hồng Phong',
   showToast,
+  onOpenDoctorReport,
 }: ClinicalVitalsReportSectionProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string>(externalDateRange);
@@ -686,7 +688,18 @@ export default function ClinicalVitalsReportSection({
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+          {onOpenDoctorReport && (
+            <button
+              type="button"
+              onClick={onOpenDoctorReport}
+              className="px-2.5 py-1.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 border border-emerald-200 text-xs font-extrabold flex items-center gap-1 shadow-xs transition cursor-pointer"
+              title="Mở Phiếu Tóm Tắt Chỉ Số Trình Bác Sĩ (Xem toàn màn hình / In A4 / Xuất PDF / Copy gửi Zalo)"
+            >
+              <span>📄 Phiếu trình Bác sĩ / In PDF</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleSpeakClinicalReport}

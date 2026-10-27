@@ -30,6 +30,9 @@ import {
   getVietnamTimeStr,
   diffDaysBetweenDateStr,
   formatVietnamDateFull,
+  VITALS_QUICK_NOTE_TAGS,
+  isQuickNoteTagSelected,
+  toggleQuickNoteTag,
 } from '@/lib/config';
 import { parseVoiceVitals, ParsedVoiceVitals } from '@/lib/voiceVitalsParser';
 import { speakVietnameseReminder, stopSpeakingVietnamese } from '@/lib/notifications';
@@ -1324,6 +1327,72 @@ export default function QuickVitalsForm({
             className="w-full min-h-[42px] text-sm font-medium text-slate-900 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-teal-600 placeholder:text-slate-400 transition-colors"
           />
         </div>
+      </div>
+
+      {/* ===== CHỌN NHANH 1 CHẠM: TÌNH TRẠNG VÙNG KHUYẾT SỌ & TRIỆU CHỨNG HẰNG NGÀY ===== */}
+      <div className="rounded-2xl bg-slate-50/80 border border-slate-200/90 p-2.5 sm:p-3 space-y-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <span className="text-[11px] sm:text-xs font-extrabold text-slate-700">
+            🏷️ Chạm chọn nhanh tình trạng Bố &amp; vùng khuyết sọ <span className="font-normal text-slate-500">(tự điền vào ô Ghi chú)</span>:
+          </span>
+          {note.trim() && (
+            <button
+              type="button"
+              onClick={() => setNote('')}
+              className="text-[11px] font-bold text-slate-500 hover:text-rose-600 cursor-pointer"
+            >
+              Xóa ghi chú ✕
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {VITALS_QUICK_NOTE_TAGS.map((tag) => {
+            const selected = isQuickNoteTagSelected(note, tag.value);
+            const activeClass =
+              tag.tone === 'warn'
+                ? 'bg-amber-600 text-white border-amber-700 shadow-2xs'
+                : tag.tone === 'good'
+                ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs'
+                : 'bg-teal-700 text-white border-teal-800 shadow-2xs';
+            const idleClass =
+              tag.tone === 'warn'
+                ? 'bg-white hover:bg-amber-50 text-amber-900 border-amber-300'
+                : tag.tone === 'good'
+                ? 'bg-white hover:bg-emerald-50 text-emerald-900 border-emerald-200'
+                : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200';
+
+            return (
+              <button
+                key={tag.id}
+                type="button"
+                onClick={() => setNote((prev) => toggleQuickNoteTag(prev, tag.value))}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer active:scale-95 ${
+                  selected ? activeClass : idleClass
+                }`}
+              >
+                {tag.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Nếu chọn thẻ cảnh báo (khuyết sọ căng/lõm sâu, chóng mặt/đau đầu) -> hiện nhắc nhở y khoa ngay lập tức */}
+        {(() => {
+          const activeWarnTags = VITALS_QUICK_NOTE_TAGS.filter(
+            (t) => t.tone === 'warn' && t.clinicalTip && isQuickNoteTagSelected(note, t.value)
+          );
+          if (activeWarnTags.length === 0) return null;
+          return (
+            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950 space-y-1">
+              {activeWarnTags.map((wt) => (
+                <div key={wt.id} className="leading-relaxed">
+                  <strong>💡 Lưu ý ({wt.value}):</strong> {wt.clinicalTip}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       {/* ===== NÚT LƯU HUYẾT ÁP ===== */}

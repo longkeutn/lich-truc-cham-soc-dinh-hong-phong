@@ -31,6 +31,7 @@ import {
   Info,
   ClipboardList,
   Copy,
+  Printer,
   AlertTriangle,
   CheckCircle2,
   Clock,
@@ -61,6 +62,9 @@ import {
   normalizeDateStr,
   normalizeTimeStr,
   extractRoutineStartDateStr,
+  VITALS_QUICK_NOTE_TAGS,
+  isQuickNoteTagSelected,
+  toggleQuickNoteTag,
 } from '@/lib/config';
 import ClinicalVitalsReportSection from './ClinicalVitalsReportSection';
 
@@ -245,6 +249,7 @@ export function VitalsChartView({
 
   // State Modal Tóm tắt tái khám cho Bác sĩ / Gia đình
   const [showDoctorReportModal, setShowDoctorReportModal] = useState<boolean>(false);
+  const [doctorReportTab, setDoctorReportTab] = useState<'sheet' | 'zalo'>('sheet');
   const [copiedDoctorReport, setCopiedDoctorReport] = useState<boolean>(false);
 
   // ===== State sửa bản ghi huyết áp =====
@@ -1169,6 +1174,7 @@ export function VitalsChartView({
     const todayStr = getVietnamDateStr();
     const lines: string[] = [];
     lines.push(`🩺 BÁO CÁO THEO DÕI HUYẾT ÁP & SỨC KHỎE TẠI NHÀ — BỆNH NHÂN: ${patientName.toUpperCase()}`);
+    lines.push(`📌 Bệnh cảnh: Sau mổ xuất huyết não, không liệt, tự đi lại & tập PHCN tại nhà, bán manh trái, đang chờ lịch mổ ghép sọ (6–8 tuần).`);
     lines.push(`📅 Kỳ tổng hợp: ${rangeLabel} (Cập nhật ngày ${fmtDateFull(todayStr)})`);
     lines.push(`────────────────────`);
 
@@ -1302,6 +1308,33 @@ export function VitalsChartView({
       lines.push(`• Thuốc uống khi cần: Đã dùng ${complianceStats.asNeededUsedCount} lần`);
     }
 
+    const activeMedsList = careRoutines.filter(
+      (r) => r.isActive && r.category === 'meds' && r.medType !== 'as_needed'
+    );
+    if (activeMedsList.length > 0) {
+      lines.push(`• Danh mục thuốc định kỳ đang uống:`);
+      for (const m of activeMedsList) {
+        const slotLabels = (m.timeSlots || []).map((s) => TIME_SLOT_CONFIG[s]?.label || s).join(', ');
+        lines.push(`  - ${m.title} (${m.dosage}) — Khung giờ: ${slotLabels}`);
+      }
+    }
+
+    const notedEntriesInPeriod = [...periodEntries]
+      .filter((e) => Boolean(e.note && e.note.trim()))
+      .sort(compareVitalsDesc)
+      .slice(0, 8);
+    if (notedEntriesInPeriod.length > 0) {
+      lines.push(`────────────────────`);
+      lines.push(`4️⃣ GHI CHÚ TRIỆU CHỨNG & VÙNG KHUYẾT SỌ TRONG KỲ:`);
+      for (const ne of notedEntriesInPeriod) {
+        lines.push(
+          `• ${fmtDateShort(ne.date)} ${ne.time} (${ne.sys}/${ne.dia} mmHg${
+            ne.pulse ? ` - Mạch ${ne.pulse}` : ''
+          }): ${ne.note}`
+        );
+      }
+    }
+
     lines.push(`────────────────────`);
     lines.push(`💡 Trích xuất tự động từ Sổ Sức Khỏe Bố.`);
     return lines.join('\n');
@@ -1316,6 +1349,223 @@ export function VitalsChartView({
     } catch {
       showToast?.('Không thể copy tự động, vui lòng thử lại.', 'warn');
     }
+  };
+
+  // ===== IN PHIẾU TRÌNH BÁC SĨ (CHUẨN A4 / LƯU PDF TRỰC TIẾP TRÊN ĐIỆN THOẠI & MÁY TÍNH) =====
+  const handlePrintDoctorReport = () => {
+    if (typeof window === 'undefined') return;
+    const rangeLabel =
+      dateRange === 'today'
+        ? 'Hôm nay'
+        : dateRange === '3d'
+          ? '3 ngày gần nhất'
+          : dateRange === '7d'
+            ? '7 ngày gần nhất'
+            : dateRange === '14d'
+              ? '14 ngày gần nhất'
+              : dateRange === '30d'
+                ? '30 ngày gần nhất'
+                : 'Toàn bộ lịch sử';
+    const todayStr = getVietnamDateStr();
+    const periodEntries = [...(filteredLog.length > 0 ? filteredLog : normalizedVitals)].sort(
+      compareVitalsDesc
+    );
+    const activeMedsList = careRoutines.filter(
+      (r) => r.isActive && r.category === 'meds' && r.medType !== 'as_needed'
+    );
+    const notedEntries = periodEntries.filter((e) => Boolean(e.note && e.note.trim()));
+
+    const slotRowsHtml = ALL_SLOTS.map((slot) => {
+      const st = summaryStats.byPeriod[slot];
+      const cfg = TIME_SLOT_CONFIG[slot];
+      if (!st || st.count === 0) {
+        return `<tr><td><strong>${cfg.label}</strong></td><td colspan="4" style="color:#64748b">Chưa có bản ghi</td></tr>`;
+      }
+      return `<tr>
+        <td><strong>${cfg.label}</strong> (${st.count} lần)</td>
+        <td><strong>${st.avgSys}/${st.avgDia}</strong> mmHg</td>
+        <td>${st.maxSys} mmHg</td>
+        <td>${st.avgPulse ? `${st.avgPulse} l/p` : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    const medsRowsHtml =
+      activeMedsList.length > 0
+        ? activeMedsList
+            .map((m) => {
+              const slots = (m.timeSlots || [])
+                .map((s) => TIME_SLOT_CONFIG[s]?.label || s)
+                .join(', ');
+              return `<tr><td><strong>${m.title}</strong></td><td>${m.dosage}</td><td>${slots}</td></tr>`;
+            })
+            .join('')
+        : `<tr><td colspan="3" style="color:#64748b">Chưa cài đặt danh mục thuốc định kỳ</td></tr>`;
+
+    const logRowsHtml = periodEntries
+      .slice(0, 35)
+      .map((v) => {
+        const pp = v.sys - v.dia;
+        const map = Math.round(v.dia + pp / 3);
+        const evalItem = evaluateVitalReading(v, bpThresholds);
+        return `<tr>
+          <td>${fmtDateShort(v.date)} ${v.time}</td>
+          <td>${periodLabel(v.period).replace(/^[^\s]+\s/, '')}</td>
+          <td><strong>${v.sys}/${v.dia}</strong></td>
+          <td>${v.pulse ? `<strong>${v.pulse}</strong>` : '—'}</td>
+          <td>${map} / ${pp}</td>
+          <td>${evalItem.badgeText}${v.note ? ` — <em>${v.note}</em>` : ''}</td>
+        </tr>`;
+      })
+      .join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>Phiếu Tóm Tắt Chỉ Số Trình Bác Sĩ — ${patientName}</title>
+  <style>
+    @page { size: A4 portrait; margin: 12mm; }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+    body { margin: 0; padding: 0; color: #0f172a; font-size: 12px; line-height: 1.45; }
+    .header { border-bottom: 2px solid #0f766e; padding-bottom: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .title { font-size: 17px; font-weight: 800; color: #0f766e; text-transform: uppercase; margin: 0 0 3px 0; }
+    .subtitle { font-size: 12px; font-weight: 700; color: #1e293b; margin: 0; }
+    .context-box { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 11.5px; }
+    .alert-box { background: #fffbeb; border: 1.5px solid #f59e0b; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; font-size: 11.5px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+    .card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 9px; background: #f8fafc; }
+    .card-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #475569; }
+    .card-val { font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 2px; }
+    .card-sub { font-size: 10.5px; color: #475569; margin-top: 2px; }
+    h3 { font-size: 12.5px; font-weight: 800; text-transform: uppercase; color: #0f766e; margin: 10px 0 5px 0; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 11.2px; }
+    th, td { border: 1px solid #cbd5e1; padding: 5px 7px; text-align: left; }
+    th { background: #f1f5f9; font-weight: 800; color: #1e293b; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <p class="title">PHIẾU TÓM TẮT THEO DÕI HUYẾT ÁP &amp; SINH HIỆU TẠI NHÀ</p>
+      <p class="subtitle">Bệnh nhân: ${patientName} • Kỳ báo cáo: ${rangeLabel} (${summaryStats.periodReadingsCount} lần đo)</p>
+    </div>
+    <div style="text-align:right;font-size:11px;color:#475569;">
+      <div>Ngày trích xuất: <strong>${fmtDateFull(todayStr)}</strong></div>
+      <div>Ngưỡng mục tiêu cài đặt: &lt;${bpThresholds.highSys}/${bpThresholds.highDia} mmHg</div>
+    </div>
+  </div>
+
+  <div class="context-box">
+    <strong>🩺 Tóm tắt bệnh cảnh hiện tại trình Bác sĩ:</strong> Sau phẫu thuật xuất huyết não • Hiện không liệt vận động, tự đi lại và tập phục hồi chức năng tại nhà • Di chứng bán manh đồng danh bên trái • Đang theo dõi ngoại trú chờ lịch phẫu thuật ghép sọ (6–8 tuần).
+  </div>
+
+  ${
+    summaryStats.slowPulseCount > 0 || summaryStats.warningCount > 0 || summaryStats.criticalCount > 0 || notedEntries.length > 0
+      ? `<div class="alert-box">
+          <strong>⚠️ Điểm lưu ý lâm sàng cần xin ý kiến Bác sĩ (Tim mạch / Ngoại thần kinh / Gây mê trước mổ ghép sọ):</strong>
+          <ul style="margin:4px 0 0 18px;padding:0;">
+            ${
+              summaryStats.slowPulseCount > 0
+                ? `<li><strong>Nhịp tim chậm (&lt; 60 lần/phút):</strong> Ghi nhận <strong>${summaryStats.slowPulseCount}/${summaryStats.periodReadingsCount} lần đo</strong> có mạch &lt; 60 l/p${
+                    summaryStats.verySlowPulseCount > 0
+                      ? ` (trong đó <strong>${summaryStats.verySlowPulseCount} lần &lt; 50 l/p</strong>)`
+                      : ''
+                  }, thấp nhất <strong>${summaryStats.minPulse} l/p</strong>. Xin ý kiến Bác sĩ xem xét đơn thuốc tim mạch/huyết áp hiện tại và lưu ý khi tiền mê ghép sọ.</li>`
+                : ''
+            }
+            ${
+              summaryStats.warningCount + summaryStats.criticalCount > 0
+                ? `<li><strong>Dao động huyết áp:</strong> Có <strong>${
+                    summaryStats.warningCount + summaryStats.criticalCount
+                  } lần</strong> vượt ngưỡng an toàn (Cao nhất: <strong>${summaryStats.maxSys}/${summaryStats.maxDia} mmHg</strong>).</li>`
+                : ''
+            }
+            ${
+              notedEntries.length > 0
+                ? `<li><strong>Ghi chú triệu chứng &amp; vùng khuyết sọ trong kỳ (${notedEntries.length} lần):</strong> ${notedEntries
+                    .slice(0, 5)
+                    .map((n) => `${fmtDateShort(n.date)} ${n.time}: "${n.note}"`)
+                    .join(' | ')}</li>`
+                : ''
+            }
+          </ul>
+        </div>`
+      : ''
+  }
+
+  <div class="grid-4">
+    <div class="card">
+      <div class="card-label">1. Huyết áp Trung bình</div>
+      <div class="card-val">${summaryStats.avgSys ?? '—'}/${summaryStats.avgDia ?? '—'} <small style="font-size:11px;font-weight:600">mmHg</small></div>
+      <div class="card-sub">Thấp–Cao: ${summaryStats.minSys ?? '—'}–${summaryStats.maxSys ?? '—'} / ${summaryStats.minDia ?? '—'}–${summaryStats.maxDia ?? '—'}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">2. Tỷ lệ đạt chuẩn</div>
+      <div class="card-val">${summaryStats.inRangePct}%</div>
+      <div class="card-sub">Đạt chuẩn ${summaryStats.inTargetBpCount}/${summaryStats.periodReadingsCount} lần đo</div>
+    </div>
+    <div class="card">
+      <div class="card-label">3. Áp lực tưới máu não (MAP)</div>
+      <div class="card-val">${summaryStats.avgMAP ?? '—'} <small style="font-size:11px;font-weight:600">mmHg</small></div>
+      <div class="card-sub">Hiệu áp (PP) TB: ${summaryStats.avgPP ?? '—'} mmHg</div>
+    </div>
+    <div class="card">
+      <div class="card-label">4. Nhịp tim (Mạch) TB</div>
+      <div class="card-val">${summaryStats.avgPulse ?? '—'} <small style="font-size:11px;font-weight:600">lần/phút</small></div>
+      <div class="card-sub">Biên độ: ${summaryStats.minPulse ?? '—'}–${summaryStats.maxPulse ?? '—'} l/p (${summaryStats.slowPulseCount} lần &lt;60)</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <h3>I. Trung bình theo 4 buổi trong ngày</h3>
+      <table>
+        <thead>
+          <tr><th>Buổi</th><th>HA Trung bình</th><th>SYS Cao nhất</th><th>Mạch TB</th></tr>
+        </thead>
+        <tbody>${slotRowsHtml}</tbody>
+      </table>
+    </div>
+    <div>
+      <h3>II. Đơn thuốc định kỳ đang uống (${complianceStats.medsPercentage !== null ? `Tuân thủ ${complianceStats.medsPercentage}%` : 'Tại nhà'})</h3>
+      <table>
+        <thead>
+          <tr><th>Tên thuốc</th><th>Liều dùng</th><th>Buổi uống</th></tr>
+        </thead>
+        <tbody>${medsRowsHtml}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <h3>III. Bảng nhật ký chi tiết các lần đo (${Math.min(periodEntries.length, 35)} lần đo gần nhất trong kỳ)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Ngày &amp; Giờ</th>
+        <th>Buổi</th>
+        <th>Huyết áp (mmHg)</th>
+        <th>Mạch (l/p)</th>
+        <th>MAP / PP</th>
+        <th>Đánh giá &amp; Ghi chú triệu chứng / vùng khuyết sọ</th>
+      </tr>
+    </thead>
+    <tbody>${logRowsHtml}</tbody>
+  </table>
+  <script>
+    window.onload = function() { setTimeout(function() { window.print(); }, 250); };
+  </script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (!win) {
+      showToast?.('Trình duyệt đang chặn cửa sổ bật lên. Hãy cho phép mở cửa sổ để in/lưu PDF.', 'warn');
+      return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
   };
 
   // ===== Xóa vitals handler =====
@@ -1447,10 +1697,10 @@ export function VitalsChartView({
         <button
           type="button"
           onClick={() => setShowDoctorReportModal(true)}
-          className="px-3.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs sm:text-sm font-extrabold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+          className="px-3.5 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white border border-teal-800 text-xs sm:text-sm font-extrabold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
         >
-          <ClipboardList className="w-4 h-4 text-teal-700" />
-          <span>Tóm tắt gửi Bác sĩ / Zalo</span>
+          <ClipboardList className="w-4 h-4 text-teal-100" />
+          <span>📄 Phiếu trình Bác sĩ / In PDF / Zalo</span>
         </button>
       </div>
 
@@ -2425,6 +2675,7 @@ export function VitalsChartView({
         onChangeDateRange={(r) => setDateRange(r)}
         patientName={patientName}
         showToast={showToast}
+        onOpenDoctorReport={() => setShowDoctorReportModal(true)}
       />
 
       {/* ===== SECTION 4 (GỘP DUY NHẤT): NHẬT KÝ THEO NGÀY — LỊCH SỬ ĐO HUYẾT ÁP & UỐNG THUỐC (THOÁNG, RÕ RÀNG, CÓ SỬA/XÓA) ===== */}
@@ -3031,90 +3282,416 @@ export function VitalsChartView({
         </div>
       )}
 
-      {/* ===== MODAL TÓM TẮT BÁO CÁO BÁC SĨ KHI TÁI KHÁM / GỬI ZALO ===== */}
-      {showDoctorReportModal && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
-          onClick={() => setShowDoctorReportModal(false)}
-        >
-          <div
-            className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border-2 border-slate-200 animate-in fade-in duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-4 sm:px-5 py-3.5 bg-teal-50/70 border-b border-teal-200 flex items-center justify-between gap-2 shrink-0">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0">
-                  <ClipboardList className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-base sm:text-lg font-black text-slate-900 truncate">
-                    Phiếu Tóm Tắt Sức Khỏe Tái Khám
-                  </h3>
-                  <p className="text-xs text-slate-600 truncate">
-                    Dùng đưa Bác sĩ xem nhanh hoặc Copy gửi vào nhóm Zalo gia đình
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowDoctorReportModal(false)}
-                className="w-9 h-9 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center shrink-0 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* ===== MODAL PHIẾU TÓM TẮT CHỈ SỐ TRÌNH BÁC SĨ (TÁI KHÁM & XÉT DUYỆT MỔ GHÉP SỌ) ===== */}
+      {showDoctorReportModal && (() => {
+        const periodEntriesDesc = [...(filteredLog.length > 0 ? filteredLog : normalizedVitals)].sort(
+          compareVitalsDesc
+        );
+        const activeMedsList = careRoutines.filter(
+          (r) => r.isActive && r.category === 'meds' && r.medType !== 'as_needed'
+        );
+        const notedEntries = periodEntriesDesc.filter((e) => Boolean(e.note && e.note.trim()));
 
-            <div className="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1">
-              {summaryStats.slowPulseCount > 0 && (
-                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-300 flex items-start gap-2.5 text-xs text-amber-950">
-                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                  <div>
-                    <strong>Điểm cần hỏi Bác sĩ khi tái khám:</strong> Trong kỳ có{' '}
-                    <strong>{summaryStats.slowPulseCount} lần</strong> nhịp tim của Bố dưới{' '}
-                    <strong>60 bpm</strong>
-                    {summaryStats.verySlowPulseCount > 0
-                      ? ` (trong đó ${summaryStats.verySlowPulseCount} lần <50 bpm)`
-                      : ''}{' '}
-                    — thấp nhất {summaryStats.minPulse} bpm, cần hỏi bác sĩ xem có cần điều chỉnh
-                    thuốc tim mạch/huyết áp hay không.
+        return (
+          <div
+            className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4"
+            onClick={() => setShowDoctorReportModal(false)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border-2 border-slate-200 animate-in fade-in duration-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header Modal */}
+              <div className="px-4 sm:px-5 py-3 bg-gradient-to-r from-teal-900 via-teal-800 to-slate-900 text-white flex items-center justify-between gap-2 shrink-0 flex-wrap">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+                    <ClipboardList className="w-5 h-5 text-teal-200" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm sm:text-base font-black truncate">
+                      📄 Phiếu Tóm Tắt Chỉ Số Trình Bác Sĩ — Bệnh Nhân {patientName}
+                    </h3>
+                    <p className="text-[11px] text-teal-100/90 truncate">
+                      Phục vụ tái khám &amp; xét duyệt mổ ghép sọ • Đưa Bác sĩ xem trực tiếp, In A4 / Lưu PDF hoặc Copy Zalo
+                    </p>
                   </div>
                 </div>
-              )}
+                <button
+                  type="button"
+                  onClick={() => setShowDoctorReportModal(false)}
+                  className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center shrink-0 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-              <pre className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 whitespace-pre-wrap font-sans leading-relaxed">
-                {buildDoctorSummaryText()}
-              </pre>
-            </div>
+              {/* Thanh chọn nhanh Kỳ báo cáo & Chế độ xem ngay trong Modal */}
+              <div className="px-4 sm:px-5 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2 flex-wrap shrink-0">
+                <div className="flex items-center gap-1 flex-wrap">
+                  <span className="text-xs font-extrabold text-slate-600 mr-1">📅 Kỳ báo cáo:</span>
+                  {(
+                    [
+                      { value: 'today', label: 'Hôm nay' },
+                      { value: '3d', label: '3 ngày' },
+                      { value: '7d', label: '7 ngày' },
+                      { value: '14d', label: '14 ngày' },
+                      { value: '30d', label: '30 ngày' },
+                      { value: 'all', label: 'Tất cả' },
+                    ] as { value: DateRange; label: string }[]
+                  ).map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => setDateRange(item.value)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                        dateRange === item.value
+                          ? 'bg-teal-700 text-white border-teal-700'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
 
-            <div className="px-4 sm:px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowDoctorReportModal(false)}
-                className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs sm:text-sm font-bold cursor-pointer"
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                onClick={handleCopyDoctorSummary}
-                className="px-4 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-extrabold flex items-center gap-1.5 shadow-sm cursor-pointer"
-              >
-                {copiedDoctorReport ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    <span>Đã Copy!</span>
-                  </>
+                <div className="flex items-center gap-1 bg-slate-200/80 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setDoctorReportTab('sheet')}
+                    className={`px-3 py-1 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+                      doctorReportTab === 'sheet'
+                        ? 'bg-white text-teal-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    📋 Phiếu Y Khoa (Trình Bác sĩ)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDoctorReportTab('zalo')}
+                    className={`px-3 py-1 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+                      doctorReportTab === 'zalo'
+                        ? 'bg-white text-teal-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    💬 Văn Bản Gửi Zalo
+                  </button>
+                </div>
+              </div>
+
+              {/* Nội dung Phiếu */}
+              <div className="p-3.5 sm:p-5 overflow-y-auto space-y-4 flex-1 bg-white">
+                {doctorReportTab === 'sheet' ? (
+                  <div className="space-y-4">
+                    {/* 1. Tóm tắt bệnh cảnh hiện tại */}
+                    <div className="p-3 sm:p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200 text-xs sm:text-sm text-slate-800 leading-relaxed">
+                      <div className="font-black text-teal-950 mb-0.5">
+                        🩺 Tóm tắt bệnh cảnh hiện tại trình Bác sĩ:
+                      </div>
+                      <p>
+                        Bệnh nhân <strong>{patientName}</strong> — Sau phẫu thuật xuất huyết não, hiện <strong>không liệt vận động</strong>, tự đi lại và tập phục hồi chức năng tại nhà; có hội chứng <strong>bán manh đồng danh bên trái</strong>; đang theo dõi ngoại trú chờ lịch phẫu thuật <strong>ghép sọ</strong> (6–8 tuần).
+                      </p>
+                    </div>
+
+                    {/* 2. Điểm lưu ý lâm sàng cần xin ý kiến Bác sĩ */}
+                    {(summaryStats.slowPulseCount > 0 ||
+                      summaryStats.warningCount + summaryStats.criticalCount > 0 ||
+                      notedEntries.length > 0) && (
+                      <div className="p-3.5 rounded-2xl bg-amber-50/90 border-2 border-amber-300 text-xs sm:text-sm text-amber-950 space-y-1.5">
+                        <div className="font-black flex items-center gap-1.5 text-amber-900">
+                          <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                          <span>
+                            Điểm lưu ý lâm sàng cần xin ý kiến Bác sĩ (Tim mạch / Ngoại thần kinh / Gây mê):
+                          </span>
+                        </div>
+                        <ul className="list-disc pl-5 space-y-1 leading-relaxed">
+                          {summaryStats.slowPulseCount > 0 && (
+                            <li>
+                              <strong>Nhịp tim chậm (&lt; 60 lần/phút):</strong> Ghi nhận{' '}
+                              <strong>
+                                {summaryStats.slowPulseCount}/{summaryStats.periodReadingsCount} lần đo
+                              </strong>{' '}
+                              có mạch dưới 60 bpm
+                              {summaryStats.verySlowPulseCount > 0
+                                ? ` (trong đó ${summaryStats.verySlowPulseCount} lần < 50 bpm)`
+                                : ''}
+                              , thấp nhất <strong>{summaryStats.minPulse} bpm</strong>. Xin ý kiến Bác sĩ xem xét đơn thuốc huyết áp/tim mạch hiện tại và lưu ý khi khám tiền mê ghép sọ.
+                            </li>
+                          )}
+                          {summaryStats.warningCount + summaryStats.criticalCount > 0 && (
+                            <li>
+                              <strong>Các lần huyết áp vượt ngưỡng (&ge; {bpThresholds.highSys}/{bpThresholds.highDia} mmHg):</strong>{' '}
+                              Có <strong>{summaryStats.warningCount + summaryStats.criticalCount} lần</strong> trong kỳ (Cao nhất:{' '}
+                              <strong>
+                                {summaryStats.maxSys}/{summaryStats.maxDia} mmHg
+                              </strong>
+                              ).
+                            </li>
+                          )}
+                          {notedEntries.length > 0 && (
+                            <li>
+                              <strong>Ghi chú triệu chứng &amp; vùng khuyết sọ đã ghi nhận ({notedEntries.length} lần):</strong>{' '}
+                              {notedEntries
+                                .slice(0, 5)
+                                .map((n) => `${fmtDateShort(n.date)} ${n.time} (${n.note})`)
+                                .join(' • ')}
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* 3. 4 Ô Chỉ Số Tổng Hợp */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                        <div className="text-[11px] font-bold text-slate-500 uppercase">
+                          1. Huyết áp Trung bình
+                        </div>
+                        <div className="text-xl font-black text-slate-900 mt-1">
+                          {summaryStats.avgSys ?? '—'}/{summaryStats.avgDia ?? '—'}{' '}
+                          <span className="text-xs font-semibold text-slate-500">mmHg</span>
+                        </div>
+                        <div className="text-[11px] text-slate-600 mt-0.5">
+                          Thấp–Cao: <strong>{summaryStats.minSys ?? '—'}–{summaryStats.maxSys ?? '—'}</strong> /{' '}
+                          <strong>{summaryStats.minDia ?? '—'}–{summaryStats.maxDia ?? '—'}</strong>
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                        <div className="text-[11px] font-bold text-slate-500 uppercase">
+                          2. Tỷ lệ đạt mục tiêu
+                        </div>
+                        <div className="text-xl font-black text-emerald-700 mt-1">
+                          {summaryStats.inRangePct}%
+                        </div>
+                        <div className="text-[11px] text-slate-600 mt-0.5">
+                          Đạt chuẩn {summaryStats.inTargetBpCount}/{summaryStats.periodReadingsCount} lần đo
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                        <div className="text-[11px] font-bold text-slate-500 uppercase">
+                          3. Tưới máu não (MAP)
+                        </div>
+                        <div className="text-xl font-black text-slate-900 mt-1">
+                          {summaryStats.avgMAP ?? '—'}{' '}
+                          <span className="text-xs font-semibold text-slate-500">mmHg</span>
+                        </div>
+                        <div className="text-[11px] text-slate-600 mt-0.5">
+                          Hiệu áp (PP) TB: <strong>{summaryStats.avgPP ?? '—'} mmHg</strong>
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                        <div className="text-[11px] font-bold text-slate-500 uppercase">
+                          4. Nhịp tim (Mạch) TB
+                        </div>
+                        <div className="text-xl font-black text-slate-900 mt-1">
+                          {summaryStats.avgPulse ?? '—'}{' '}
+                          <span className="text-xs font-semibold text-slate-500">lần/phút</span>
+                        </div>
+                        <div className="text-[11px] text-slate-600 mt-0.5">
+                          Biên độ: <strong>{summaryStats.minPulse ?? '—'}–{summaryStats.maxPulse ?? '—'}</strong> ({summaryStats.slowPulseCount} lần &lt;60)
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. Bảng 2 cột: Trung bình 4 buổi & Đơn thuốc đang uống */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="rounded-2xl border border-slate-200 overflow-hidden">
+                        <div className="px-3 py-2 bg-slate-100 text-xs font-black text-slate-800 uppercase">
+                          I. Diễn biến trung bình 4 buổi trong ngày
+                        </div>
+                        <table className="w-full text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                              <th className="py-1.5 px-2.5 text-left font-bold">Buổi</th>
+                              <th className="py-1.5 px-2.5 text-left font-bold">HA TB</th>
+                              <th className="py-1.5 px-2.5 text-left font-bold">SYS Max</th>
+                              <th className="py-1.5 px-2.5 text-left font-bold">Mạch TB</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {ALL_SLOTS.map((slot) => {
+                              const st = summaryStats.byPeriod[slot];
+                              const cfg = TIME_SLOT_CONFIG[slot];
+                              return (
+                                <tr key={slot}>
+                                  <td className="py-1.5 px-2.5 font-bold text-slate-800">
+                                    {cfg.emoji} {cfg.label} ({st.count})
+                                  </td>
+                                  <td className="py-1.5 px-2.5 font-extrabold text-slate-900">
+                                    {st.count > 0 ? `${st.avgSys}/${st.avgDia}` : '—'}
+                                  </td>
+                                  <td className="py-1.5 px-2.5 text-slate-700">
+                                    {st.count > 0 ? `${st.maxSys} mmHg` : '—'}
+                                  </td>
+                                  <td className="py-1.5 px-2.5 text-slate-700">
+                                    {st.avgPulse ? `${st.avgPulse} l/p` : '—'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-200 overflow-hidden">
+                        <div className="px-3 py-2 bg-slate-100 text-xs font-black text-slate-800 uppercase flex items-center justify-between">
+                          <span>II. Đơn thuốc định kỳ đang uống</span>
+                          {complianceStats.medsPercentage !== null && (
+                            <span className="text-emerald-700">
+                              Tuân thủ: {complianceStats.medsPercentage}%
+                            </span>
+                          )}
+                        </div>
+                        {activeMedsList.length === 0 ? (
+                          <div className="p-3 text-xs text-slate-400 italic">
+                            Chưa cài danh mục thuốc định kỳ.
+                          </div>
+                        ) : (
+                          <table className="w-full text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                                <th className="py-1.5 px-2.5 text-left font-bold">Tên thuốc</th>
+                                <th className="py-1.5 px-2.5 text-left font-bold">Liều</th>
+                                <th className="py-1.5 px-2.5 text-left font-bold">Khung giờ</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {activeMedsList.map((m) => (
+                                <tr key={m.id}>
+                                  <td className="py-1.5 px-2.5 font-bold text-slate-800">
+                                    {m.title}
+                                  </td>
+                                  <td className="py-1.5 px-2.5 text-slate-700">{m.dosage}</td>
+                                  <td className="py-1.5 px-2.5 text-slate-700">
+                                    {(m.timeSlots || [])
+                                      .map((s) => TIME_SLOT_CONFIG[s]?.label || s)
+                                      .join(', ')}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 5. Bảng Nhật Ký Chi Tiết Các Lần Đo Trong Kỳ */}
+                    <div className="rounded-2xl border border-slate-200 overflow-hidden">
+                      <div className="px-3 py-2 bg-slate-100 text-xs font-black text-slate-800 uppercase flex items-center justify-between">
+                        <span>
+                          III. Nhật ký chi tiết các lần đo ({periodEntriesDesc.length} lần đo)
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-500 normal-case">
+                          Mới nhất xếp trên
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                        <table className="w-full text-xs border-collapse">
+                          <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 text-slate-600">
+                            <tr>
+                              <th className="py-2 px-2.5 text-left font-bold">Ngày &amp; Giờ</th>
+                              <th className="py-2 px-2.5 text-left font-bold">Buổi</th>
+                              <th className="py-2 px-2.5 text-left font-bold">Huyết áp</th>
+                              <th className="py-2 px-2.5 text-left font-bold">Mạch</th>
+                              <th className="py-2 px-2.5 text-left font-bold">MAP / PP</th>
+                              <th className="py-2 px-2.5 text-left font-bold">
+                                Đánh giá &amp; Ghi chú triệu chứng / vùng khuyết sọ
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {periodEntriesDesc.map((v) => {
+                              const evalItem = evaluateVitalReading(v, bpThresholds);
+                              const pp = v.sys - v.dia;
+                              const map = Math.round(v.dia + pp / 3);
+                              return (
+                                <tr key={v.id} className="hover:bg-slate-50/80">
+                                  <td className="py-1.5 px-2.5 font-semibold text-slate-700 whitespace-nowrap">
+                                    {fmtDateShort(v.date)} {v.time}
+                                  </td>
+                                  <td className="py-1.5 px-2.5 text-slate-600 whitespace-nowrap">
+                                    {periodLabel(v.period)}
+                                  </td>
+                                  <td className="py-1.5 px-2.5 font-black text-slate-900 whitespace-nowrap">
+                                    {v.sys}/{v.dia}{' '}
+                                    <span className="text-[10px] font-normal text-slate-400">
+                                      mmHg
+                                    </span>
+                                  </td>
+                                  <td className="py-1.5 px-2.5 font-bold text-slate-800 whitespace-nowrap">
+                                    {v.pulse ? `${v.pulse} l/p` : '—'}
+                                  </td>
+                                  <td className="py-1.5 px-2.5 text-slate-600 whitespace-nowrap">
+                                    {map} / {pp}
+                                  </td>
+                                  <td className="py-1.5 px-2.5 text-slate-700">
+                                    <span className="font-bold">{evalItem.badgeText}</span>
+                                    {v.note && (
+                                      <span className="ml-1.5 text-slate-900 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md font-medium">
+                                        📝 {v.note}
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
-                  <>
-                    <Copy className="w-4 h-4" />
-                    <span>Copy gửi Bác sĩ / Zalo</span>
-                  </>
+                  <pre className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 whitespace-pre-wrap font-sans leading-relaxed">
+                    {buildDoctorSummaryText()}
+                  </pre>
                 )}
-              </button>
+              </div>
+
+              {/* Footer Modal: In A4 / Lưu PDF + Copy Zalo */}
+              <div className="px-4 sm:px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 flex-wrap shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowDoctorReportModal(false)}
+                  className="px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs sm:text-sm font-bold cursor-pointer"
+                >
+                  Đóng
+                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handlePrintDoctorReport}
+                    className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-extrabold flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>In Phiếu A4 / Lưu PDF</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyDoctorSummary}
+                    className="px-4 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-extrabold flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    {copiedDoctorReport ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Đã Copy!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        <span>Copy gửi Bác sĩ / Zalo</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ===== MODAL SỬA LẠI BẢN GHI HUYẾT ÁP ===== */}
       {editingEntry && (
@@ -3334,10 +3911,10 @@ export function VitalsChartView({
                 </div>
               </div>
 
-              {/* 5. Ghi chú */}
-              <div>
-                <label className="block text-xs font-black text-slate-700 mb-1">
-                  📝 Ghi chú
+              {/* 5. Ghi chú & Nút chọn nhanh vùng khuyết sọ / triệu chứng */}
+              <div className="space-y-2">
+                <label className="block text-xs font-black text-slate-700">
+                  📝 Ghi chú tình trạng Bố &amp; vùng khuyết sọ
                 </label>
                 <input
                   type="text"
@@ -3346,6 +3923,27 @@ export function VitalsChartView({
                   placeholder="VD: Sau tập đứng, hơi mệt..."
                   className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-medium text-slate-900 focus:outline-none focus:border-teal-600"
                 />
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {VITALS_QUICK_NOTE_TAGS.map((tag) => {
+                    const selected = isQuickNoteTagSelected(editNote, tag.value);
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() =>
+                          setEditNote((prev) => toggleQuickNoteTag(prev, tag.value))
+                        }
+                        className={`px-2 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                          selected
+                            ? 'bg-teal-700 text-white border-teal-800'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {tag.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Footer buttons */}

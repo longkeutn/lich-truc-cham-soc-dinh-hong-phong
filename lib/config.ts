@@ -1221,4 +1221,96 @@ export function compareVitalsDesc(
   return compareVitalsAsc(b, a);
 }
 
+// =============================================
+// QUICK TAGS THEO DÕI VÙNG KHUYẾT SỌ & TRIỆU CHỨNG HẰNG NGÀY (CHỜ MỔ GHÉP SỌ)
+// =============================================
+
+export interface VitalsQuickNoteTag {
+  id: string;
+  value: string;
+  label: string;
+  tone: 'good' | 'neutral' | 'warn';
+  clinicalTip?: string;
+}
+
+export const VITALS_QUICK_NOTE_TAGS: VitalsQuickNoteTag[] = [
+  {
+    id: 'fine',
+    value: 'Bố khỏe, tỉnh táo',
+    label: '✅ Bố khỏe, tỉnh táo',
+    tone: 'good',
+  },
+  {
+    id: 'flap_normal',
+    value: 'Khuyết sọ mềm/phẳng',
+    label: '🛡️ Khuyết sọ mềm/phẳng',
+    tone: 'good',
+  },
+  {
+    id: 'flap_tense',
+    value: 'Khuyết sọ hơi căng',
+    label: '⚠️ Khuyết sọ hơi căng',
+    tone: 'warn',
+    clinicalTip:
+      'Nếu vùng khuyết sọ căng phồng hơn bình thường (nhất là khi ngồi/nằm đầu cao mà vẫn căng) hoặc kèm đau đầu, buồn nôn: cho Bố nằm nghỉ đầu cao 30° và liên hệ Bác sĩ.',
+  },
+  {
+    id: 'flap_sunken',
+    value: 'Khuyết sọ hơi lõm sâu',
+    label: '⚠️ Khuyết sọ hơi lõm sâu',
+    tone: 'warn',
+    clinicalTip:
+      'Nếu vùng khuyết sọ lõm sâu kèm đau đầu, mệt lả khi ngồi/đứng dậy (hội chứng vạt da lõm): cho Bố nằm nghỉ đầu thấp/phẳng hơn và uống đủ nước ấm.',
+  },
+  {
+    id: 'after_meds',
+    value: 'Đo sau uống thuốc',
+    label: '💊 Đo sau uống thuốc',
+    tone: 'neutral',
+  },
+  {
+    id: 'after_walk',
+    value: 'Đo sau tập đi bộ',
+    label: '🚶 Đo sau tập đi bộ',
+    tone: 'neutral',
+  },
+  {
+    id: 'dizzy_headache',
+    value: 'Hơi chóng mặt / đau đầu',
+    label: '😵 Hơi chóng mặt / đau đầu',
+    tone: 'warn',
+    clinicalTip:
+      'Cho Bố ngồi hoặc nằm nghỉ yên tĩnh, không tự đi lại một mình để tránh vấp ngã bên trái, và đo kiểm tra lại sau 15–30 phút.',
+  },
+  {
+    id: 'left_vision',
+    value: 'Mỏi mắt / vướng nhìn trái',
+    label: '👁️ Mỏi mắt / vướng nhìn trái',
+    tone: 'neutral',
+  },
+];
+
+export function isQuickNoteTagSelected(currentNote: string, tagValue: string): boolean {
+  if (!currentNote.trim()) return false;
+  const parts = currentNote
+    .split(/[;,]/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return parts.includes(tagValue.toLowerCase());
+}
+
+export function toggleQuickNoteTag(currentNote: string, tagValue: string): string {
+  const rawParts = currentNote
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const idx = rawParts.findIndex((p) => p.toLowerCase() === tagValue.toLowerCase());
+  if (idx >= 0) {
+    rawParts.splice(idx, 1);
+    return rawParts.join(', ');
+  }
+  return [...rawParts, tagValue].join(', ');
+}
+
+
 
