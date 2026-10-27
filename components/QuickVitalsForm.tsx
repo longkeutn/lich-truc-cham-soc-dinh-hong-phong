@@ -32,6 +32,7 @@ import {
   formatVietnamDateFull,
 } from '@/lib/config';
 import { parseVoiceVitals, ParsedVoiceVitals } from '@/lib/voiceVitalsParser';
+import { speakVietnameseReminder, stopSpeakingVietnamese } from '@/lib/notifications';
 
 // ===== PROPS =====
 interface QuickVitalsFormProps {
@@ -162,26 +163,13 @@ function stopVietnameseSpeech() {
     clearTimeout(ttsPlaybackTimer);
     ttsPlaybackTimer = null;
   }
-  if (typeof window !== 'undefined') {
-    try {
-      if (sharedTtsAudio) {
-        sharedTtsAudio.pause();
-        sharedTtsAudio.currentTime = 0;
-      }
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-    } catch {
-      // ignore
-    }
-  }
+  stopSpeakingVietnamese();
 }
 
 /**
  * Phát giọng đọc tiếng Việt xác nhận kết quả trên điện thoại:
- * - Ưu tiên 1: Phát luồng âm thanh tiếng Việt chuẩn qua `/api/tts` bằng HTMLAudioElement
- *   (Hoạt động 100% trên mọi iPhone, Samsung, Xiaomi, Oppo kể cả khi máy không cài gói giọng đọc tiếng Việt!)
- * - Ưu tiên 2 (Dự phòng khi mất mạng): Dùng `window.speechSynthesis` nội bộ.
+ * Dùng chung bộ phát tập trung `speakVietnameseReminder` để không bao giờ phát chồng 2 giọng
+ * hoặc tự bật giọng nam khi người dùng bấm Dừng đọc.
  */
 function speakVietnameseConfirmation(
   text: string,
@@ -194,49 +182,13 @@ function speakVietnameseConfirmation(
   stopVietnameseSpeech();
 
   ttsPlaybackTimer = setTimeout(() => {
-    const audio = getOrCreateTtsAudioElement();
-    const ttsUrl = `/api/tts?text=${encodeURIComponent(text)}`;
-
-    const fallbackToBrowserSpeech = () => {
-      try {
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = 'vi-VN';
-          utterance.rate = 1.0;
-          utterance.onstart = () => onSpeakingChange?.(true);
-          utterance.onend = () => onSpeakingChange?.(false);
-          utterance.onerror = () => onSpeakingChange?.(false);
-          window.speechSynthesis.speak(utterance);
-        } else {
-          onSpeakingChange?.(false);
-        }
-      } catch {
-        onSpeakingChange?.(false);
-      }
-    };
-
-    if (audio) {
-      try {
-        audio.volume = 1.0;
-        audio.src = ttsUrl;
-        audio.onplay = () => onSpeakingChange?.(true);
-        audio.onended = () => onSpeakingChange?.(false);
-        audio.onerror = () => {
-          onSpeakingChange?.(false);
-          fallbackToBrowserSpeech();
-        };
-        const p = audio.play();
-        if (p !== undefined) {
-          p.catch(() => {
-            fallbackToBrowserSpeech();
-          });
-        }
-      } catch {
-        fallbackToBrowserSpeech();
-      }
-    } else {
-      fallbackToBrowserSpeech();
+    ttsPlaybackTimer = null;
+    onSpeakingChange?.(true);
+    const ok = speakVietnameseReminder(text, () => {
+      onSpeakingChange?.(false);
+    });
+    if (!ok) {
+      onSpeakingChange?.(false);
     }
   }, delayMs);
 }
