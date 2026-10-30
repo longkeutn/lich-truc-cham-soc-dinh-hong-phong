@@ -229,6 +229,7 @@ export function VitalsChartView({
   onToggleDailyLog,
   defaultRecorder = 'Mẹ',
 }: VitalsChartViewProps) {
+  const isPostStrokeProfile = profileType === 'post_stroke_cranioplasty';
   const quickNoteTags = getQuickNoteTagsForProfile(profileType);
   const [dateRange, setDateRange] = useState<DateRange>('7d');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -1336,7 +1337,11 @@ export function VitalsChartView({
       .slice(0, 8);
     if (notedEntriesInPeriod.length > 0) {
       lines.push(`────────────────────`);
-      lines.push(`4️⃣ GHI CHÚ TRIỆU CHỨNG & VÙNG KHUYẾT SỌ TRONG KỲ:`);
+      lines.push(
+        isPostStrokeProfile
+          ? `4️⃣ GHI CHÚ TRIỆU CHỨNG & VÙNG KHUYẾT SỌ TRONG KỲ:`
+          : `4️⃣ GHI CHÚ TRIỆU CHỨNG & TÌNH TRẠNG SỨC KHỎE TRONG KỲ:`
+      );
       for (const ne of notedEntriesInPeriod) {
         lines.push(
           `• ${fmtDateShort(ne.date)} ${ne.time} (${ne.sys}/${ne.dia} mmHg${
@@ -1347,7 +1352,7 @@ export function VitalsChartView({
     }
 
     lines.push(`────────────────────`);
-    lines.push(`💡 Trích xuất tự động từ Sổ Sức Khỏe Bố.`);
+    lines.push(`💡 Trích xuất tự động từ Sổ Sức Khỏe Gia Đình (${patientName}).`);
     return lines.join('\n');
   };
 
@@ -1662,18 +1667,18 @@ export function VitalsChartView({
           <Activity className="w-8 h-8 text-teal-500" />
         </div>
         <h2 className="text-lg font-black text-slate-900 mb-2">
-          📈 Biểu Đồ & Phân Tích Sức Khỏe
+          📈 Biểu Đồ & Phân Tích Sức Khỏe ({patientName})
         </h2>
         <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-          Chưa có dữ liệu huyết áp nào được ghi nhận. Hãy chuyển sang tab{' '}
-          <strong>Việc Hôm Nay</strong> để ghi lần đo đầu tiên cho Bố.
+          Chưa có dữ liệu huyết áp nào được ghi nhận cho <strong>{patientName}</strong>. Hãy chuyển sang tab{' '}
+          <strong>Việc Hôm Nay</strong> để ghi lần đo đầu tiên cho {patientName}.
         </p>
       </div>
     );
   }
 
   const latestEval = summaryStats.latest
-    ? evaluateVitalReading(summaryStats.latest, bpThresholds)
+    ? evaluateVitalReading(summaryStats.latest, bpThresholds, patientName)
     : null;
   const latestPulseEval = evaluatePulse(summaryStats.latest?.pulse);
 
@@ -3938,7 +3943,9 @@ export function VitalsChartView({
               {/* 5. Ghi chú & Nút chọn nhanh vùng khuyết sọ / triệu chứng */}
               <div className="space-y-2">
                 <label className="block text-xs font-black text-slate-700">
-                  📝 Ghi chú tình trạng Bố &amp; vùng khuyết sọ
+                  {isPostStrokeProfile
+                    ? '📝 Ghi chú tình trạng Bố & vùng khuyết sọ'
+                    : `📝 Ghi chú triệu chứng & tình trạng (${patientName})`}
                 </label>
                 <input
                   type="text"

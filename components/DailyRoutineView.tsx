@@ -39,6 +39,7 @@ interface DailyRoutineViewProps {
   onToggle: (log: DailyLog) => Promise<void>;  // Toggle completion
   onOpenManager?: () => void;     // Open RoutineManagerModal (Admin)
   defaultRecorder?: string;       // 'Mẹ'
+  patientDisplayName?: string;    // 'Bố' | 'Mẹ' | ...
 }
 
 // ===== CATEGORY ICON CONFIG =====
@@ -96,6 +97,7 @@ export default function DailyRoutineView({
   onToggle,
   onOpenManager,
   defaultRecorder = DEFAULT_RECORDER,
+  patientDisplayName = 'Bố',
 }: DailyRoutineViewProps) {
   // Ngày đang xem / tích checklist (mặc định là Hôm nay, có thể chọn lùi về quá khứ để tích bù)
   const [selectedDateStr, setSelectedDateStr] = useState<string>(todayStr);
@@ -382,8 +384,8 @@ export default function DailyRoutineView({
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
                       {isViewingPast
-                        ? `Checklist Ngày ${fmtShortDDMM(selectedDateStr)}`
-                        : 'Danh sách việc hôm nay'}
+                        ? `Checklist Ngày ${fmtShortDDMM(selectedDateStr)} • ${patientDisplayName}`
+                        : `Danh sách việc hôm nay • ${patientDisplayName}`}
                     </h3>
                     {mountedClient && (
                       <span
@@ -504,7 +506,7 @@ export default function DailyRoutineView({
           <div className="rounded-xl bg-amber-50 border border-amber-300 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="text-xs text-amber-950 font-semibold leading-snug">
               🕰️ <strong>Chế độ tích bù quá khứ ({formatVietnamDateFull(selectedDateStr)}):</strong>{' '}
-              Nếu hôm đó bố vẫn uống thuốc & tập đầy đủ nhưng quên bấm trên điện thoại, bạn có thể tích lại từng mục hoặc bấm <strong>Tích đủ cả ngày</strong>.
+              Nếu hôm đó {patientDisplayName} vẫn uống thuốc & tập đầy đủ nhưng quên bấm trên điện thoại, bạn có thể tích lại từng mục hoặc bấm <strong>Tích đủ cả ngày</strong>.
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               {doneItems < totalItems && totalItems > 0 && (

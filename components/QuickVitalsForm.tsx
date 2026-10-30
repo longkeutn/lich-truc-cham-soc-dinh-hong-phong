@@ -417,7 +417,8 @@ export default function QuickVitalsForm({
           dia: diaNum,
           pulse: pulseNum && !isNaN(pulseNum) && pulseNum > 0 ? pulseNum : undefined,
         },
-        thresholds
+        thresholds,
+        patientDisplayName
       )
     : null;
 
@@ -425,8 +426,9 @@ export default function QuickVitalsForm({
     ? currentEvaluation.overallAlertLevel
     : 'normal';
 
-  const lastEntryEval = lastEntry ? evaluateVitalReading(lastEntry, thresholds) : null;
-
+  const lastEntryEval = lastEntry
+    ? evaluateVitalReading(lastEntry, thresholds, patientDisplayName)
+    : null;
   const alertDisplay = ALERT_DISPLAY[currentAlertLevel];
 
   // --- Reset form ---
@@ -539,7 +541,7 @@ export default function QuickVitalsForm({
 
       if (parsed.autoSave) {
         speakVietnameseConfirmation(
-          `Đã lưu huyết áp ${parsed.sys} trên ${parsed.dia}${parsed.pulse ? `, mạch ${parsed.pulse}` : ''}`,
+          `Đã lưu huyết áp của ${patientDisplayName}: ${parsed.sys} trên ${parsed.dia}${parsed.pulse ? `, mạch ${parsed.pulse}` : ''}`,
           ttsEnabled,
           immediateGesture ? 30 : 350,
           setIsSpeakingBack
@@ -553,14 +555,14 @@ export default function QuickVitalsForm({
         });
       } else {
         speakVietnameseConfirmation(
-          `Huyết áp ${parsed.sys} trên ${parsed.dia}${parsed.pulse ? `, mạch ${parsed.pulse}` : ''}`,
+          `Huyết áp của ${patientDisplayName}: ${parsed.sys} trên ${parsed.dia}${parsed.pulse ? `, mạch ${parsed.pulse}` : ''}`,
           ttsEnabled,
           immediateGesture ? 30 : 350,
           setIsSpeakingBack
         );
       }
     },
-    [performSave, ttsEnabled]
+    [performSave, ttsEnabled, patientDisplayName]
   );
 
   // --- Áp dụng kết quả phân tích giọng nói vào các ô input ---
@@ -872,7 +874,7 @@ export default function QuickVitalsForm({
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight leading-snug">
-                Nhập số đo
+                Nhập số đo cho {patientDisplayName}
               </h3>
               {mountedClient && (
                 <span className="px-2 py-0.5 rounded-md bg-teal-50 border border-teal-200 text-teal-800 text-xs font-bold">
@@ -881,7 +883,7 @@ export default function QuickVitalsForm({
               )}
             </div>
             <p className="text-xs text-slate-500 font-medium truncate">
-              Nhập 3 số từ màn hình máy đo hoặc đọc bằng giọng nói
+              Nhập 3 số từ màn hình máy đo hoặc đọc bằng giọng nói ({patientDisplayName})
             </p>
           </div>
         </div>
@@ -1409,7 +1411,9 @@ export default function QuickVitalsForm({
       {showSuccess ? (
         <div className="min-h-[52px] px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-400 flex items-center justify-center gap-2 animate-in fade-in duration-300 text-center">
           <Check className="w-5 h-5 text-emerald-700 shrink-0" strokeWidth={3} />
-          <span className="text-base font-extrabold text-emerald-900">Đã lưu chỉ số huyết áp thành công!</span>
+          <span className="text-base font-extrabold text-emerald-900">
+            Đã lưu chỉ số huyết áp của {patientDisplayName} thành công!
+          </span>
         </div>
       ) : (
         <button
@@ -1432,8 +1436,8 @@ export default function QuickVitalsForm({
               <span className="shrink-0">{editingEntry ? '💾' : '💓'}</span>
               <span>
                 {editingEntry
-                  ? `CẬP NHẬT LẠI HUYẾT ÁP (${sysNum}/${diaNum})`
-                  : `BẤM LƯU HUYẾT ÁP (${sysNum}/{diaNum})`}
+                  ? `CẬP NHẬT LẠI HUYẾT ÁP ${patientDisplayName.toUpperCase()} (${sysNum}/${diaNum})`
+                  : `BẤM LƯU HUYẾT ÁP ${patientDisplayName.toUpperCase()} (${sysNum}/${diaNum})`}
               </span>
             </>
           ) : (

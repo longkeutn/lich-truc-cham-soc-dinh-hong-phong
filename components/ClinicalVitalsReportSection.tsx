@@ -262,6 +262,8 @@ export default function ClinicalVitalsReportSection({
   showToast,
   onOpenDoctorReport,
 }: ClinicalVitalsReportSectionProps) {
+  const isPostStrokeProfile = profileType === 'post_stroke_cranioplasty';
+  const subjectLabel = isPostStrokeProfile ? 'Bố' : patientName || 'người thân';
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string>(externalDateRange);
   const [isSpeakingReport, setIsSpeakingReport] = useState<boolean>(false);
@@ -453,7 +455,7 @@ export default function ClinicalVitalsReportSection({
         circadianPattern = {
           type: 'morning_surge',
           title: `Buổi Sáng thường cao hơn buổi Tối (+${morningEveningDiff} mmHg)`,
-          explanation: `Trung bình buổi Sáng là ${mSys}/${slotStats.morning.avgDia} mmHg, cao hơn buổi Tối (${eSys}/${slotStats.evening.avgDia} mmHg). Nên đo huyết áp ngay khi thức dậy trước khi uống thuốc sáng và cho Bố ngồi dậy từ từ.`,
+          explanation: `Trung bình buổi Sáng là ${mSys}/${slotStats.morning.avgDia} mmHg, cao hơn buổi Tối (${eSys}/${slotStats.evening.avgDia} mmHg). Nên đo huyết áp ngay khi thức dậy trước khi uống thuốc sáng và cho ${subjectLabel} ngồi dậy từ từ.`,
         };
       } else if (morningEveningDiff <= -10) {
         circadianPattern = {
@@ -486,7 +488,7 @@ export default function ClinicalVitalsReportSection({
       circadianPattern,
       lowestPulseSlot,
     };
-  }, [activeEntries]);
+  }, [activeEntries, subjectLabel]);
 
   // ===== 3. PHÂN BỔ MỨC HUYẾT ÁP & NHỊP TIM TRONG KỲ ĐANG CHỌN =====
   const distributionStats = useMemo(() => {
@@ -542,7 +544,8 @@ export default function ClinicalVitalsReportSection({
     const bpClass = classifyClinicalBp(
       activeMilestone.avgSys,
       activeMilestone.avgDia,
-      bpThresholds
+      bpThresholds,
+      subjectLabel
     );
     const deltaNote =
       activeMilestone.deltaSysVsPrev !== null && activeMilestone.deltaDiaVsPrev !== null
@@ -579,7 +582,7 @@ export default function ClinicalVitalsReportSection({
         findings.push({
           level: 'caution',
           title: `Huyết áp có dao động nhẹ giữa các lần đo (chênh lệch ±${activeMilestone.sdSys} mmHg)`,
-          detail: `Số trên dao động từ ${activeMilestone.minSys} đến ${activeMilestone.maxSys} mmHg (cách nhau ${rangeSpan} mmHg). Gia đình nên cho Bố uống thuốc đúng một khung giờ cố định mỗi ngày và nghỉ 10 phút trước khi đo.`,
+          detail: `Số trên dao động từ ${activeMilestone.minSys} đến ${activeMilestone.maxSys} mmHg (cách nhau ${rangeSpan} mmHg). Gia đình nên cho ${subjectLabel} uống thuốc đúng một khung giờ cố định mỗi ngày và nghỉ 10 phút trước khi đo.`,
         });
       } else {
         findings.push({
@@ -606,19 +609,19 @@ export default function ClinicalVitalsReportSection({
             circadianAnalysis.lowestPulseSlot
               ? ` (thường vào buổi ${circadianAnalysis.lowestPulseSlot.label})`
               : ''
-          }. Nếu Bố không bị mệt hay chóng mặt thì chỉ cần đỡ Bố ngồi dậy từ từ và báo Bác sĩ biết khi tái khám định kỳ.`,
+          }. Nếu ${subjectLabel} không bị mệt hay chóng mặt thì chỉ cần đỡ ${subjectLabel} ngồi dậy từ từ và báo Bác sĩ biết khi tái khám định kỳ.`,
         });
       } else if (activeMilestone.fastPulseCount > 0) {
         findings.push({
           level: 'caution',
           title: `Nhịp tim trung bình ${activeMilestone.avgPulse} nhịp/phút — Có ${activeMilestone.fastPulseCount} lần mạch đập nhanh (≥100 nhịp/phút)`,
-          detail: `Mạch cao nhất là ${activeMilestone.maxPulse} nhịp/phút. Khi thấy mạch nhanh nên kiểm tra xem Bố có vừa tập vận động, bị đau mỏi, sốt hay uống thiếu nước không.`,
+          detail: `Mạch cao nhất là ${activeMilestone.maxPulse} nhịp/phút. Khi thấy mạch nhanh nên kiểm tra xem ${subjectLabel} có vừa tập vận động, bị đau mỏi, sốt hay uống thiếu nước không.`,
         });
       } else {
         findings.push({
           level: 'good',
           title: `Nhịp tim (Mạch) đập đều và tốt: Trung bình ${activeMilestone.avgPulse} nhịp/phút (${activeMilestone.minPulse}–${activeMilestone.maxPulse} bpm)`,
-          detail: `Tất cả các lần đo nhịp tim đều nằm trong khoảng an toàn (60–99 nhịp/phút), tim của Bố làm việc nhẹ nhàng, không bị quá sức.`,
+          detail: `Tất cả các lần đo nhịp tim đều nằm trong khoảng an toàn (60–99 nhịp/phút), tim của ${subjectLabel} làm việc nhẹ nhàng, không bị quá sức.`,
         });
       }
     }
@@ -635,7 +638,7 @@ export default function ClinicalVitalsReportSection({
         activeMilestone.avgPP >= 60
           ? `Khoảng cách giữa số trên và số dưới trung bình hơi rộng (${activeMilestone.avgPP} mmHg, thường gặp ở người lớn tuổi có thành mạch hơi cứng).`
           : activeMilestone.avgPP < 35
-          ? `Khoảng cách giữa số trên và số dưới hơi hẹp (${activeMilestone.avgPP} mmHg), nên chú ý cho Bố uống đủ nước ấm trong ngày.`
+          ? `Khoảng cách giữa số trên và số dưới hơi hẹp (${activeMilestone.avgPP} mmHg), nên chú ý cho ${subjectLabel} uống đủ nước ấm trong ngày.`
           : `Khoảng cách giữa số trên và số dưới đạt mức đẹp (${activeMilestone.avgPP} mmHg, chuẩn 40–55 mmHg).`;
       findings.push({
         level: activeMilestone.avgPP > 65 || activeMilestone.avgMAP < 70 ? 'caution' : 'good',
@@ -647,7 +650,7 @@ export default function ClinicalVitalsReportSection({
     }
 
     return findings;
-  }, [activeMilestone, bpThresholds, circadianAnalysis]);
+  }, [activeMilestone, bpThresholds, circadianAnalysis, subjectLabel]);
 
   // Đọc báo cáo đánh giá bằng giọng nói Tiếng Việt
   const handleSpeakClinicalReport = () => {
@@ -659,14 +662,14 @@ export default function ClinicalVitalsReportSection({
     if (activeMilestone.count === 0) return;
 
     const sentences: string[] = [
-      `Đánh giá chi tiết huyết áp và nhịp tim của bố ${patientName} trong ${activeMilestone.label} (${activeMilestone.count} lần đo):`,
+      `Đánh giá chi tiết huyết áp và nhịp tim của ${isPostStrokeProfile ? `bố ${patientName}` : patientName} trong ${activeMilestone.label} (${activeMilestone.count} lần đo):`,
     ];
     for (const f of clinicalFindings) {
       sentences.push(`${f.title}. ${f.detail}`);
     }
 
     setIsSpeakingReport(true);
-    showToast?.('🔊 Đang đọc bản đánh giá sức khỏe...', 'info');
+    showToast?.(`🔊 Đang đọc bản đánh giá sức khỏe (${subjectLabel})...`, 'info');
     speakVietnameseReminder(sentences.join(' '), () => {
       setIsSpeakingReport(false);
     });
@@ -776,7 +779,7 @@ export default function ClinicalVitalsReportSection({
               <div className="space-y-2.5">
                 <div className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
                   <span className="px-2 py-0.5 rounded-md bg-teal-800 text-white text-[11px]">PHẦN 1</span>
-                  <span>Ý nghĩa từng chỉ số &amp; ảnh hưởng tới mạch máu não của Bố</span>
+                  <span>Ý nghĩa từng chỉ số &amp; ảnh hưởng tới mạch máu não của {subjectLabel}</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
@@ -789,13 +792,13 @@ export default function ClinicalVitalsReportSection({
                       </span>
                     </div>
                     <p className="text-slate-700">
-                      • <strong>Là gì:</strong> Áp lực máu bơm căng lên thành mạch <strong>lúc tim đang co bóp đẩy máu lên nuôi não</strong>. Đây là con số quan trọng số 1 đối với Bố.
+                      • <strong>Là gì:</strong> Áp lực máu bơm căng lên thành mạch <strong>lúc tim đang co bóp đẩy máu lên nuôi não</strong>. Đây là con số quan trọng số 1 đối với {subjectLabel}.
                     </p>
                     <p className="text-rose-900 bg-rose-50/70 p-2 rounded-lg border border-rose-100">
-                      • <strong>Nếu quá cao (≥{bpThresholds.highSys}, nguy hiểm khi ≥160 mmHg):</strong> Lực máu dội lên mạch máu não quá mạnh. Vì mạch máu não của Bố từng tổn thương sau tai biến, áp lực cao dễ gây đau căng đầu, đỏ mặt và <strong>nguy cơ tái phát tai biến / xuất huyết não</strong>.
+                      • <strong>Nếu quá cao (≥{bpThresholds.highSys}, nguy hiểm khi ≥160 mmHg):</strong> Lực máu dội lên mạch máu não quá mạnh. {isPostStrokeProfile ? 'Vì mạch máu não của Bố từng tổn thương sau tai biến, áp lực cao dễ gây đau căng đầu, đỏ mặt và ' : 'Áp lực cao kéo dài dễ gây đau căng đầu, đỏ mặt và '}<strong>nguy cơ tai biến mạch máu não</strong>.
                     </p>
                     <p className="text-sky-900 bg-sky-50/70 p-2 rounded-lg border border-sky-100">
-                      • <strong>Nếu quá thấp (≤{bpThresholds.lowSys}, nguy hiểm khi &lt;90 mmHg):</strong> Lực bơm yếu không đẩy đủ máu lên vùng não đang hồi phục → Gây <strong>thiếu máu não tạm thời</strong> làm Bố hoa mắt, lả người, ngủ gà hoặc khuỵu ngã khi ngồi dậy.
+                      • <strong>Nếu quá thấp (≤{bpThresholds.lowSys}, nguy hiểm khi &lt;90 mmHg):</strong> Lực bơm yếu không đẩy đủ máu lên não → Gây <strong>thiếu máu não tạm thời</strong> làm {subjectLabel} hoa mắt, lả người, ngủ gà hoặc khuỵu ngã khi ngồi dậy.
                     </p>
                   </div>
 
@@ -814,7 +817,7 @@ export default function ClinicalVitalsReportSection({
                       • <strong>Nếu cao (≥{bpThresholds.highDia}, nguy hiểm khi ≥100 mmHg):</strong> Thành mạch máu bị co thắt căng cứng liên tục ngay cả lúc tim nghỉ, làm tim nhanh mệt và quá tải.
                     </p>
                     <p className="text-sky-900 bg-sky-50/70 p-2 rounded-lg border border-sky-100">
-                      • <strong>Nếu quá thấp (≤{bpThresholds.lowDia} mmHg):</strong> Máu quay về nuôi cơ tim kém (hay gặp ở người lớn tuổi), làm Bố dễ mỏi mệt, hụt hơi, tay chân lạnh.
+                      • <strong>Nếu quá thấp (≤{bpThresholds.lowDia} mmHg):</strong> Máu quay về nuôi cơ tim kém (hay gặp ở người lớn tuổi), làm {subjectLabel} dễ mỏi mệt, hụt hơi, tay chân lạnh.
                     </p>
                   </div>
 
@@ -830,8 +833,8 @@ export default function ClinicalVitalsReportSection({
                       • <strong>Là gì:</strong> Lấy <strong>Số trên trừ đi Số dưới</strong> (VD: 125/75 → Hiệu áp = 50 mmHg). Chỉ số này cho biết <strong>độ mềm dẻo hay xơ cứng của thành mạch máu</strong>.
                     </p>
                     <p className="text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-200">
-                      • <strong>Hiệu áp rộng (≥60 mmHg, VD 150/75):</strong> Thành động mạch của người lớn tuổi bị cứng, làm máu dội mạnh từng nhịp lên não và thận. Cần tránh để Bố xúc động hay đứng phắt dậy đột ngột.<br />
-                      • <strong>Hiệu áp hẹp (≤30 mmHg, VD 105/80):</strong> Nhịp bơm của tim hơi yếu hoặc cơ thể Bố đang thiếu nước → Cần cho Bố uống đủ nước ấm rải đều trong ngày.
+                      • <strong>Hiệu áp rộng (≥60 mmHg, VD 150/75):</strong> Thành động mạch của người lớn tuổi bị cứng, làm máu dội mạnh từng nhịp lên não và thận. Cần tránh để {subjectLabel} xúc động hay đứng phắt dậy đột ngột.<br />
+                      • <strong>Hiệu áp hẹp (≤30 mmHg, VD 105/80):</strong> Nhịp bơm của tim hơi yếu hoặc cơ thể {subjectLabel} đang thiếu nước → Cần cho {subjectLabel} uống đủ nước ấm rải đều trong ngày.
                     </p>
                   </div>
 
@@ -847,10 +850,10 @@ export default function ClinicalVitalsReportSection({
                       • <strong>Sức đẩy máu nuôi não (Chuẩn 75–95 mmHg):</strong> Áp lực trung bình đẩy máu nuôi tế bào não. Không được để tụt dưới 65 mmHg (thiếu máu não) hoặc vượt quá 105 mmHg.
                     </p>
                     <p className="text-slate-700">
-                      • <strong>Độ ổn định HA (Đều khi &lt;±10 mmHg):</strong> Với người sau tai biến, huyết áp nhảy lên xuống thất thường (≥±15 mmHg giữa Sáng và Tối) nguy hiểm không kém huyết áp cao. Cần uống thuốc đúng khung giờ cố định.
+                      • <strong>Độ ổn định HA (Đều khi &lt;±10 mmHg):</strong> Huyết áp nhảy lên xuống thất thường (≥±15 mmHg giữa Sáng và Tối) nguy hiểm không kém huyết áp cao. Cần uống thuốc đúng khung giờ cố định.
                     </p>
                     <p className="text-slate-700 bg-violet-50/70 p-2 rounded-lg border border-violet-100">
-                      • <strong>Nhịp tim / Mạch (BPM):</strong> Nếu <strong>&lt;55–60 bpm</strong> có thể do thuốc làm chậm nhịp (cần hỏi Bác sĩ nếu kèm chóng mặt). Nếu <strong>≥100 bpm lúc nghỉ</strong> hoặc đập loạn nhịp không đều thì dễ tạo cục máu đông hoặc báo hiệu Bố đang sốt, đau, mất nước.
+                      • <strong>Nhịp tim / Mạch (BPM):</strong> Nếu <strong>&lt;55–60 bpm</strong> có thể do thuốc làm chậm nhịp (cần hỏi Bác sĩ nếu kèm chóng mặt). Nếu <strong>≥100 bpm lúc nghỉ</strong> hoặc đập loạn nhịp không đều thì dễ tạo cục máu đông hoặc báo hiệu {subjectLabel} đang sốt, đau, mất nước.
                     </p>
                   </div>
                 </div>
@@ -1314,7 +1317,9 @@ export default function ClinicalVitalsReportSection({
                     📖 Giải thích: Số trên, Số dưới, Hiệu áp &amp; Các triệu chứng đáng lo tại nhà
                   </p>
                   <p className="text-[11px] text-teal-800 truncate">
-                    Bấm để xem ý nghĩa từng chỉ số đối với bệnh cảnh sau tai biến của Bố và dấu hiệu cần gọi Bác sĩ
+                    {isPostStrokeProfile
+                      ? 'Bấm để xem ý nghĩa từng chỉ số đối với bệnh cảnh sau tai biến của Bố và dấu hiệu cần gọi Bác sĩ'
+                      : `Bấm để xem ý nghĩa từng chỉ số huyết áp, nhịp tim của ${subjectLabel} và dấu hiệu cần gọi Bác sĩ`}
                   </p>
                 </div>
               </div>

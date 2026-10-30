@@ -748,8 +748,10 @@ export function getVitalAlertLabel(level: VitalAlertLevel): string {
 export function classifyClinicalBp(
   sys: number,
   dia: number,
-  thresholds: BpThresholds = DEFAULT_BP_THRESHOLDS
+  thresholds: BpThresholds = DEFAULT_BP_THRESHOLDS,
+  subjectName: string = 'Bố'
 ): ClinicalBpResult {
+  const who = (subjectName || 'Bố').trim();
   // 1. Huyết áp thấp (Hạ áp — Nguy cơ giảm máu nuôi não)
   if (sys <= thresholds.lowSys || dia <= thresholds.lowDia) {
     const isCriticalLow = sys <= 90 || dia <= 50;
@@ -766,7 +768,7 @@ export function classifyClinicalBp(
       dotColor: isCriticalLow ? '#e11d48' : '#3b82f6',
       barColor: 'bg-blue-500',
       clinicalNote:
-        'Huyết áp đang thấp hơn mức chuẩn, dễ gây hoa mắt, chóng mặt. Nên cho Bố nằm nghỉ, kê thấp đầu, uống thêm nước ấm và kiểm tra lại thuốc huyết áp.',
+        `Huyết áp đang thấp hơn mức chuẩn, dễ gây hoa mắt, chóng mặt. Nên cho ${who} nằm nghỉ, kê thấp đầu, uống thêm nước ấm và kiểm tra lại thuốc huyết áp.`,
     };
   }
 
@@ -784,8 +786,8 @@ export function classifyClinicalBp(
       dotColor: '#e11d48',
       barColor: 'bg-rose-500',
       clinicalNote: isCrisis
-        ? 'Huyết áp tăng rất cao! Cho Bố nằm nghỉ ngơi tuyệt đối, kiểm tra ngay các dấu hiệu bất thường (đau đầu, tê yếu tay chân, nói khó) và liên hệ Bác sĩ.'
-        : 'Huyết áp vượt ngưỡng an toàn (≥160/100 mmHg). Cần cho Bố nằm nghỉ yên tĩnh 15–30 phút, kiểm tra việc uống thuốc hạ áp và đo lại.',
+        ? `Huyết áp tăng rất cao! Cho ${who} nằm nghỉ ngơi tuyệt đối, kiểm tra ngay các dấu hiệu bất thường (đau đầu, tê yếu tay chân, nói khó) và liên hệ Bác sĩ.`
+        : `Huyết áp vượt ngưỡng an toàn (≥160/100 mmHg). Cần cho ${who} nằm nghỉ yên tĩnh 15–30 phút, kiểm tra việc uống thuốc hạ áp và đo lại.`,
     };
   }
 
@@ -800,7 +802,7 @@ export function classifyClinicalBp(
       dotColor: '#f59e0b',
       barColor: 'bg-amber-500',
       clinicalNote:
-        'Huyết áp cao hơn mức chuẩn một chút. Nên cho Bố ngồi hoặc nằm nghỉ thư giãn 15 phút rồi đo kiểm tra lại.',
+        `Huyết áp cao hơn mức chuẩn một chút. Nên cho ${who} ngồi hoặc nằm nghỉ thư giãn 15 phút rồi đo kiểm tra lại.`,
     };
   }
 
@@ -814,7 +816,7 @@ export function classifyClinicalBp(
       badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
       dotColor: '#10b981',
       barColor: 'bg-emerald-500',
-      clinicalNote: 'Huyết áp rất đẹp và êm, rất tốt cho quá trình hồi phục của Bố.',
+      clinicalNote: `Huyết áp rất đẹp và êm, rất tốt cho sức khỏe và tim mạch của ${who}.`,
     };
   }
 
@@ -839,7 +841,11 @@ export function classifyClinicalBp(
  * - 80–99 bpm: Nhịp bình thường (Normal)
  * - ≥ 100 bpm: Mạch nhanh (Warning từ 100–119 bpm, Critical nếu ≥ 120 bpm)
  */
-export function classifyClinicalPulse(pulse?: number | null): ClinicalPulseResult {
+export function classifyClinicalPulse(
+  pulse?: number | null,
+  subjectName: string = 'Bố'
+): ClinicalPulseResult {
+  const who = (subjectName || 'Bố').trim();
   const p = typeof pulse === 'number' && !isNaN(pulse) ? pulse : 0;
   if (p <= 0) {
     return {
@@ -864,7 +870,7 @@ export function classifyClinicalPulse(pulse?: number | null): ClinicalPulseResul
       dotColor: '#e11d48',
       barColor: 'bg-rose-500',
       clinicalNote:
-        'Nhịp tim đập dưới 50 lần/phút là khá chậm. Gia đình nên hỏi Bác sĩ xem thuốc đang uống có làm chậm nhịp tim không và theo dõi xem Bố có mệt hay chóng mặt không.',
+        `Nhịp tim đập dưới 50 lần/phút là khá chậm. Gia đình nên hỏi Bác sĩ xem thuốc đang uống có làm chậm nhịp tim không và theo dõi xem ${who} có mệt hay chóng mặt không.`,
     };
   }
 
@@ -878,7 +884,7 @@ export function classifyClinicalPulse(pulse?: number | null): ClinicalPulseResul
       dotColor: '#f59e0b',
       barColor: 'bg-amber-400',
       clinicalNote:
-        'Nhịp tim hơi chậm (<60 lần/phút). Khi đỡ Bố thay đổi tư thế (từ nằm sang ngồi hoặc đứng) nên làm từ từ để tránh choáng váng.',
+        `Nhịp tim hơi chậm (<60 lần/phút). Khi đỡ ${who} thay đổi tư thế (từ nằm sang ngồi hoặc đứng) nên làm từ từ để tránh choáng váng.`,
     };
   }
 
@@ -893,7 +899,7 @@ export function classifyClinicalPulse(pulse?: number | null): ClinicalPulseResul
       dotColor: '#e11d48',
       barColor: 'bg-rose-500',
       clinicalNote:
-        'Nhịp tim đập nhanh lúc nghỉ (≥100 lần/phút). Cần kiểm tra xem Bố có vừa tập vận động, bị đau mỏi, sốt hay thiếu nước không.',
+        `Nhịp tim đập nhanh lúc nghỉ (≥100 lần/phút). Cần kiểm tra xem ${who} có vừa tập vận động, bị đau mỏi, sốt hay thiếu nước không.`,
     };
   }
 
@@ -965,14 +971,15 @@ export function computeAlertLevel(
  */
 export function evaluateVitalReading(
   input: { sys: number; dia: number; pulse?: number | null },
-  thresholds: BpThresholds = DEFAULT_BP_THRESHOLDS
+  thresholds: BpThresholds = DEFAULT_BP_THRESHOLDS,
+  subjectName: string = 'Bố'
 ): VitalReadingEvaluation {
   const sys = Number(input.sys) || 0;
   const dia = Number(input.dia) || 0;
   const pulseVal = typeof input.pulse === 'number' && !isNaN(input.pulse) ? input.pulse : 0;
 
-  const bp = classifyClinicalBp(sys, dia, thresholds);
-  const pulse = classifyClinicalPulse(pulseVal);
+  const bp = classifyClinicalBp(sys, dia, thresholds, subjectName);
+  const pulse = classifyClinicalPulse(pulseVal, subjectName);
   const overallAlertLevel =
     ALERT_SEVERITY_RANK[bp.alertLevel] >= ALERT_SEVERITY_RANK[pulse.alertLevel]
       ? bp.alertLevel

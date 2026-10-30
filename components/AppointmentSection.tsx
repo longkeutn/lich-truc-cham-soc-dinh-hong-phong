@@ -22,6 +22,7 @@ interface AppointmentSectionProps {
   onSave: (info: AppointmentInfo) => Promise<void>;
   isAdmin?: boolean;
   todayStr?: string;
+  patientDisplayName?: string;
 }
 
 /**
@@ -49,6 +50,7 @@ export function AppointmentSection({
   onSave,
   isAdmin: _isAdmin = false,
   todayStr,
+  patientDisplayName = 'Bố',
 }: AppointmentSectionProps) {
   const currentTodayStr = todayStr || getVietnamDateStr();
   const [isEditing, setIsEditing] = useState(false);
@@ -166,7 +168,7 @@ export function AppointmentSection({
           {/* Ngày đã đi khám */}
           <div className="space-y-1">
             <label className="block text-xs font-bold text-slate-700">
-              📅 Ngày Bố đã đi khám:
+              📅 Ngày {patientDisplayName} đã đi khám:
             </label>
             <input
               type="date"
@@ -316,12 +318,12 @@ export function AppointmentSection({
           </div>
 
           <div className="space-y-1">
-            <label className="block text-xs font-bold text-slate-700">👤 Người đưa bố đi</label>
+            <label className="block text-xs font-bold text-slate-700">👤 Người đưa {patientDisplayName} đi</label>
             <input
               type="text"
               value={form.nextWho || ''}
               onChange={(e) => updateField('nextWho', e.target.value)}
-              placeholder="VD: Anh Dũng đưa bố đi"
+              placeholder={`VD: Anh Dũng đưa ${patientDisplayName} đi`}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 min-h-[42px]"
             />
           </div>
@@ -422,7 +424,7 @@ export function AppointmentSection({
               <span className="font-bold text-amber-900">
                 Lịch tái khám ngày {formatDateVN(appointment.nextDate!)} đã qua {Math.abs(daysLeft!)} ngày.
               </span>{' '}
-              <span>Bố đã đi khám đợt này chưa?</span>
+              <span>{patientDisplayName} đã đi khám đợt này chưa?</span>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -450,7 +452,7 @@ export function AppointmentSection({
           <div className="flex items-center gap-2">
             <CalendarCheck className="w-4 h-4 text-teal-700 shrink-0" />
             <div className="text-xs text-teal-950 font-bold">
-              🔔 Hôm nay là ngày tái khám của Bố!
+              🔔 Hôm nay là ngày tái khám của {patientDisplayName}!
             </div>
           </div>
           <button

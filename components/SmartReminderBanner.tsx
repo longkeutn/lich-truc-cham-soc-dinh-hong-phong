@@ -176,7 +176,7 @@ export default function SmartReminderBanner({
 
   const latestVitalAlert = useMemo(() => {
     if (!latestTodayVital) return null;
-    const evaluation = evaluateVitalReading(latestTodayVital, bpThresholds);
+    const evaluation = evaluateVitalReading(latestTodayVital, bpThresholds, patientDisplayName);
     if (evaluation.overallAlertLevel === 'normal') return null;
 
     return {
@@ -185,7 +185,7 @@ export default function SmartReminderBanner({
       evaluation,
       summary: evaluation.reasons.join(' • '),
     };
-  }, [latestTodayVital, bpThresholds]);
+  }, [latestTodayVital, bpThresholds, patientDisplayName]);
 
   // ===== 3. VIỆC CẦN LÀM TRONG BUỔI HIỆN TẠI & CÁC BUỔI TRƯỚC TRONG NGÀY =====
   const currentSlotRoutines = useMemo(() => {
@@ -246,31 +246,31 @@ export default function SmartReminderBanner({
     }
 
     if (currentSlotVitals.length === 0) {
-      parts.push(`Buổi ${slotLabel} hôm nay chưa đo huyết áp.`);
+      parts.push(`Buổi ${slotLabel} hôm nay ${patientDisplayName} chưa đo huyết áp.`);
     } else {
       const latestSlotVital = currentSlotVitals[0];
       parts.push(
-        `Buổi ${slotLabel} đã đo huyết áp ${latestSlotVital.sys} trên ${latestSlotVital.dia}, nhịp tim ${latestSlotVital.pulse}.`
+        `Buổi ${slotLabel} ${patientDisplayName} đã đo huyết áp ${latestSlotVital.sys} trên ${latestSlotVital.dia}, nhịp tim ${latestSlotVital.pulse}.`
       );
     }
 
     if (currentSlotPending.length > 0) {
       const names = currentSlotPending.map((r) => r.title).join(', ');
-      parts.push(`Còn ${currentSlotPending.length} mục buổi ${slotLabel} chưa tích hoàn thành gồm: ${names}.`);
+      parts.push(`Còn ${currentSlotPending.length} mục buổi ${slotLabel} của ${patientDisplayName} chưa tích hoàn thành gồm: ${names}.`);
     } else if (currentSlotRoutines.length > 0) {
-      parts.push(`Đã hoàn thành đầy đủ tất cả thuốc và bài tập buổi ${slotLabel}.`);
+      parts.push(`Đã hoàn thành đầy đủ tất cả thuốc và bài tập buổi ${slotLabel} của ${patientDisplayName}.`);
     }
 
     if (earlierMissedItems.length > 0) {
-      parts.push(`Ngoài ra, các buổi trước trong ngày còn ${earlierMissedItems.length} mục chưa tích.`);
+      parts.push(`Ngoài ra, các buổi trước trong ngày của ${patientDisplayName} còn ${earlierMissedItems.length} mục chưa tích.`);
     }
 
     if (upcomingAppointment) {
       if (upcomingAppointment.diffDays === 0) {
-        parts.push(`Đặc biệt hôm nay ngày ${upcomingAppointment.formattedDate} bố có lịch tái khám.`);
+        parts.push(`Đặc biệt hôm nay ngày ${upcomingAppointment.formattedDate} ${patientDisplayName} có lịch tái khám.`);
       } else {
         parts.push(
-          `Còn ${upcomingAppointment.diffDays} ngày nữa, vào ngày ${upcomingAppointment.formattedDate} bố có lịch tái khám.`
+          `Còn ${upcomingAppointment.diffDays} ngày nữa, vào ngày ${upcomingAppointment.formattedDate} ${patientDisplayName} có lịch tái khám.`
         );
       }
     }
@@ -295,7 +295,7 @@ export default function SmartReminderBanner({
     }
     const text = buildVoiceReminderText();
     setIsSpeaking(true);
-    showToast?.('🔊 Đang phát giọng đọc nhắc việc Tiếng Việt...', 'info');
+    showToast?.(`🔊 Đang phát giọng đọc nhắc việc (${patientDisplayName})...`, 'info');
     const ok = speakVietnameseReminder(text, () => {
       setIsSpeaking(false);
     });
@@ -303,7 +303,7 @@ export default function SmartReminderBanner({
       setIsSpeaking(false);
       showToast?.('Không thể phát giọng đọc trên thiết bị này.', 'warn');
     }
-  }, [isSpeaking, buildVoiceReminderText, showToast]);
+  }, [isSpeaking, buildVoiceReminderText, patientDisplayName, showToast]);
 
   // ===== 6. CƠ CHẾ TỰ ĐỘNG BẮN THÔNG BÁO ĐẨY PWA & ÂM BÁO THEO KHUNG GIỜ =====
   useEffect(() => {
@@ -318,13 +318,18 @@ export default function SmartReminderBanner({
         const isRecent = Math.abs(nowMin - vitalMin) <= 25;
 
         if (isRecent) {
+          const recorderSuffix = latestTodayVital.recordedBy
+            ? ` (Người đo: ${latestTodayVital.recordedBy})`
+            : '';
           if (latestVitalAlert && prefs.notifyOnHighBp) {
             markNotificationSent(vitalNotifKey);
             if (prefs.soundEnabled) playNotificationSound('urgent');
             if (prefs.pwaPushEnabled) {
               void sendPwaNotification({
-                title: `🚨 Cảnh Báo Huyết Áp Bố (${latestTodayVital.time})`,
-                body: `${latestTodayVital.sys}/${latestTodayVital.dia} mmHg • Mạch ${latestTodayVital.pulse} l/p. ${latestVitalAlert.summary}`,
+                title: `🚨 Cảnh Báo Huyết Áp ${patientDisplayName} (${latestTodayVital.time})`,
+                body: `${latestTodayVital.sys}/${latestTodayVital.dia} mmHg${
+                  latestTodayVital.pulse ? ` • Mạch ${latestTodayVital.pulse} l/p` : ''
+                }${recorderSuffix}. ${latestVitalAlert.summary}`,
                 tag: vitalNotifKey,
                 url: '/#section-vitals',
                 urgent: true,
@@ -334,8 +339,10 @@ export default function SmartReminderBanner({
             markNotificationSent(vitalNotifKey);
             if (prefs.pwaPushEnabled) {
               void sendPwaNotification({
-                title: `💓 Bố vừa đo huyết áp (${latestTodayVital.time})`,
-                body: `Chỉ số ổn định: ${latestTodayVital.sys}/${latestTodayVital.dia} mmHg • Mạch ${latestTodayVital.pulse} lần/phút.`,
+                title: `💓 ${patientDisplayName} vừa đo huyết áp (${latestTodayVital.time})`,
+                body: `Chỉ số ổn định: ${latestTodayVital.sys}/${latestTodayVital.dia} mmHg${
+                  latestTodayVital.pulse ? ` • Mạch ${latestTodayVital.pulse} lần/phút` : ''
+                }${recorderSuffix}.`,
                 tag: vitalNotifKey,
                 url: '/#section-vitals',
                 urgent: false,
@@ -363,19 +370,19 @@ export default function SmartReminderBanner({
         const needsRoutines = currentSlotPending.length > 0;
 
         if (needsBp || needsRoutines) {
-          const slotNotifKey = `slot_${todayStr}_${currentSlot}`;
+          const slotNotifKey = `slot_${patientDisplayName}_${todayStr}_${currentSlot}`;
           if (!hasNotificationBeenSent(slotNotifKey)) {
             markNotificationSent(slotNotifKey);
 
             const msgParts: string[] = [];
-            if (needsBp) msgParts.push(`Chưa đo huyết áp buổi ${slotCfg.label}`);
+            if (needsBp) msgParts.push(`${patientDisplayName} chưa đo huyết áp buổi ${slotCfg.label}`);
             if (needsRoutines) {
               const previewTitles = currentSlotPending
                 .slice(0, 2)
                 .map((r) => r.title)
                 .join(', ');
               msgParts.push(
-                `Còn ${currentSlotPending.length} mục thuốc/tập chưa tích (${previewTitles}${
+                `Còn ${currentSlotPending.length} mục thuốc/tập của ${patientDisplayName} chưa tích (${previewTitles}${
                   currentSlotPending.length > 2 ? '...' : ''
                 })`
               );
@@ -386,7 +393,7 @@ export default function SmartReminderBanner({
             }
             if (prefs.pwaPushEnabled) {
               void sendPwaNotification({
-                title: `${slotCfg.emoji} Nhắc Việc Buổi ${slotCfg.label} (${targetTimeStr})`,
+                title: `${slotCfg.emoji} Nhắc Việc Buổi ${slotCfg.label} • ${patientDisplayName} (${targetTimeStr})`,
                 body: msgParts.join(' • '),
                 tag: slotNotifKey,
                 url: needsBp ? '/#section-vitals' : '/#section-routine',
@@ -398,7 +405,7 @@ export default function SmartReminderBanner({
           // Tách khóa tự đọc giọng Tiếng Việt riêng để khi người dùng vừa bật "Tự đọc giọng Tiếng Việt"
           // trong Cài đặt là nghe đọc nhắc việc buổi hiện tại ngay lập tức
           if (prefs.autoVoiceEnabled) {
-            const slotVoiceKey = `voice_slot_${todayStr}_${currentSlot}`;
+            const slotVoiceKey = `voice_slot_${patientDisplayName}_${todayStr}_${currentSlot}`;
             if (!hasNotificationBeenSent(slotVoiceKey)) {
               markNotificationSent(slotVoiceKey);
               setIsSpeaking(true);
@@ -421,7 +428,7 @@ export default function SmartReminderBanner({
       upcomingAppointment.diffDays <= 2 &&
       getVietnamHour() >= 7
     ) {
-      const apptKey = `appt_${todayStr}_${appointment.nextDate}`;
+      const apptKey = `appt_${patientDisplayName}_${todayStr}_${appointment.nextDate}`;
       if (!hasNotificationBeenSent(apptKey)) {
         markNotificationSent(apptKey);
         const dayText =
@@ -432,7 +439,7 @@ export default function SmartReminderBanner({
             : `Còn ${upcomingAppointment.diffDays} ngày nữa`;
         if (prefs.pwaPushEnabled) {
           void sendPwaNotification({
-            title: `📅 Nhắc Lịch Tái Khám Của Bố (${dayText})`,
+            title: `📅 Nhắc Lịch Tái Khám Của ${patientDisplayName} (${dayText})`,
             body: `Ngày ${upcomingAppointment.formattedDate}${
               upcomingAppointment.note ? ` — ${upcomingAppointment.note}` : ''
             }`,
@@ -455,6 +462,7 @@ export default function SmartReminderBanner({
     todayStr,
     upcomingAppointment,
     appointment.nextDate,
+    patientDisplayName,
     buildVoiceReminderText,
   ]);
 
@@ -499,8 +507,8 @@ export default function SmartReminderBanner({
         note: '',
       });
     }
-    showToast?.(`✅ Đã tích hoàn thành toàn bộ buổi ${TIME_SLOT_CONFIG[currentSlot].label}!`, 'success');
-  }, [currentSlotPending, todayStr, currentSlot, defaultRecorder, prefs.soundEnabled, onToggleDailyLog, showToast]);
+    showToast?.(`✅ Đã tích hoàn thành toàn bộ buổi ${TIME_SLOT_CONFIG[currentSlot].label} của ${patientDisplayName}!`, 'success');
+  }, [currentSlotPending, todayStr, currentSlot, defaultRecorder, prefs.soundEnabled, onToggleDailyLog, patientDisplayName, showToast]);
 
   const handleSnooze30Min = useCallback(() => {
     const until = setSnoozeMinutes(30);
@@ -594,10 +602,10 @@ export default function SmartReminderBanner({
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs sm:text-sm font-black text-slate-900 truncate">
                 {latestVitalAlert
-                  ? 'Cảnh Báo Chỉ Số Sinh Hiệu'
+                  ? `Cảnh Báo Chỉ Số Sinh Hiệu • ${patientDisplayName}`
                   : isAllCurrentDone
-                  ? `${slotInfo.emoji} Buổi ${slotInfo.label} Đã Hoàn Tất Đầy Đủ!`
-                  : `${slotInfo.emoji} Nhắc Việc Buổi ${slotInfo.label} (${slotInfo.timeRange})`}
+                  ? `${slotInfo.emoji} Buổi ${slotInfo.label} (${patientDisplayName}) Đã Hoàn Tất Đầy Đủ!`
+                  : `${slotInfo.emoji} Nhắc Việc Buổi ${slotInfo.label} • ${patientDisplayName} (${slotInfo.timeRange})`}
               </span>
               {permissionState !== 'granted' && (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold">
@@ -609,9 +617,9 @@ export default function SmartReminderBanner({
               {latestVitalAlert
                 ? latestVitalAlert.summary
                 : isAllCurrentDone
-                ? `Đã đo HA buổi ${slotInfo.label} & hoàn thành ${currentSlotRoutines.length}/${currentSlotRoutines.length} mục`
+                ? `${patientDisplayName} đã đo HA buổi ${slotInfo.label} & hoàn thành ${currentSlotRoutines.length}/${currentSlotRoutines.length} mục`
                 : [
-                    needsCurrentBp ? `Chưa đo HA buổi ${slotInfo.label}` : `Đã đo HA buổi ${slotInfo.label}`,
+                    needsCurrentBp ? `${patientDisplayName} chưa đo HA buổi ${slotInfo.label}` : `${patientDisplayName} đã đo HA buổi ${slotInfo.label}`,
                     hasPendingCurrent
                       ? `Còn ${currentSlotPending.length} mục thuốc/tập buổi ${slotInfo.label}`
                       : 'Thuốc/tập buổi này đã xong',
@@ -717,10 +725,10 @@ export default function SmartReminderBanner({
                 </span>
                 <div className="min-w-0">
                   <p className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
-                    Chưa đo Huyết áp buổi {slotInfo.label}
+                    {patientDisplayName} chưa đo Huyết áp buổi {slotInfo.label}
                   </p>
                   <p className="text-[11px] text-slate-500 truncate">
-                    Nên đo huyết áp trước khi uống thuốc hạ áp buổi {slotInfo.label.toLowerCase()}
+                    Nên đo huyết áp cho {patientDisplayName} trước khi uống thuốc buổi {slotInfo.label.toLowerCase()}
                   </p>
                 </div>
               </div>
@@ -740,7 +748,7 @@ export default function SmartReminderBanner({
                 <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
                   <Pill className="w-3.5 h-3.5 text-teal-700 shrink-0" />
                   <span>
-                    Việc buổi {slotInfo.label} cần làm ({currentSlotPending.length} mục):
+                    Việc buổi {slotInfo.label} của {patientDisplayName} cần làm ({currentSlotPending.length} mục):
                   </span>
                 </span>
                 {currentSlotPending.length > 1 && (
@@ -832,8 +840,8 @@ export default function SmartReminderBanner({
                 <Calendar className="w-4 h-4 text-cyan-700 shrink-0" />
                 <span className="font-bold truncate">
                   {upcomingAppointment.diffDays === 0
-                    ? `📅 HÔM NAY (${upcomingAppointment.formattedDate}) Bố có lịch tái khám!`
-                    : `📅 Còn ${upcomingAppointment.diffDays} ngày nữa (${upcomingAppointment.formattedDate}) tới lịch tái khám của Bố`}
+                    ? `📅 HÔM NAY (${upcomingAppointment.formattedDate}) ${patientDisplayName} có lịch tái khám!`
+                    : `📅 Còn ${upcomingAppointment.diffDays} ngày nữa (${upcomingAppointment.formattedDate}) tới lịch tái khám của ${patientDisplayName}`}
                   {upcomingAppointment.note ? ` — ${upcomingAppointment.note}` : ''}
                 </span>
               </div>

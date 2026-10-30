@@ -752,15 +752,19 @@ export default function CareSchedulePage() {
       }
       return next.sort(compareVitalsDesc);
     });
-    showToast(`💓 Đã lưu chỉ số huyết áp (${patientDisplayName})!`, 'success');
+    const recorderInfo = cleanEntry.recordedBy ? ` • Người đo: ${cleanEntry.recordedBy}` : '';
+    showToast(
+      `💓 Đã lưu huyết áp của ${patientDisplayName}: ${cleanEntry.sys}/${cleanEntry.dia} mmHg${recorderInfo}!`,
+      'success'
+    );
 
     // Nếu người dùng bật "🗣️ Tự đọc giọng Tiếng Việt", tự động đọc kết quả + nhận xét ngay khi lưu
     if (notificationPrefs.enabled && notificationPrefs.autoVoiceEnabled) {
-      const evalRes = evaluateVitalReading(cleanEntry, profileBpThresholds);
+      const evalRes = evaluateVitalReading(cleanEntry, profileBpThresholds, patientDisplayName);
       const pulseText = cleanEntry.pulse ? `, nhịp tim ${cleanEntry.pulse}` : '';
       const statusText =
         evalRes.overallAlertLevel === 'normal'
-          ? 'Chỉ số huyết áp và nhịp tim ổn định.'
+          ? `Chỉ số huyết áp và nhịp tim của ${patientDisplayName} ổn định.`
           : `${evalRes.reasons.join('. ')}. ${evalRes.clinicalAdvice}`;
       speakVietnameseReminder(
         `Đã lưu huyết áp của ${patientDisplayName}: ${cleanEntry.sys} trên ${cleanEntry.dia}${pulseText}. ${statusText}`
@@ -805,7 +809,7 @@ export default function CareSchedulePage() {
   const handleDeleteVitals = useCallback(async (id: string) => {
     const backup = vitalsLog;
     setVitalsLog((prev) => prev.filter((v) => v.id !== id));
-    showToast('🗑️ Đã xóa bản ghi huyết áp.', 'info');
+    showToast(`🗑️ Đã xóa bản ghi huyết áp của ${patientDisplayName}.`, 'info');
 
     void deleteVitalsAction(id)
       .then((res) => {
@@ -818,7 +822,7 @@ export default function CareSchedulePage() {
         setVitalsLog(backup);
         showToast('Lỗi xóa bản ghi trên Sheet.', 'warn');
       });
-  }, [vitalsLog, showToast]);
+  }, [vitalsLog, patientDisplayName, showToast]);
 
   // Toggle checklist thuốc/tập — Phản hồi 0ms khi bấm tích, hỗ trợ cả ngày hiện tại và tích bù ngày quá khứ
   const handleToggleDailyLog = useCallback(async (log: DailyLog) => {
@@ -852,6 +856,16 @@ export default function CareSchedulePage() {
       return [...prev, normalizedLog];
     });
 
+    const routineItem = careRoutines.find((r) => r.id === normalizedLog.routineId);
+    if (routineItem) {
+      if (normalizedLog.isDone) {
+        const actor = normalizedLog.doneBy ? `${normalizedLog.doneBy} đã tích` : 'Đã tích';
+        showToast(`✅ ${actor} hoàn thành "${routineItem.title}" (${patientDisplayName})`, 'success');
+      } else {
+        showToast(`↩️ Đã bỏ tích "${routineItem.title}" (${patientDisplayName})`, 'info');
+      }
+    }
+
     void toggleDailyLogAction(normalizedLog)
       .then((res) => {
         if (res.success && res.log) {
@@ -863,7 +877,7 @@ export default function CareSchedulePage() {
       .catch(() => {
         showToast('Lỗi đồng bộ trạng thái checklist lên Sheet.', 'warn');
       });
-  }, [showToast]);
+  }, [careRoutines, patientDisplayName, showToast]);
 
   // Lưu routine (thuốc/bài tập) — Phản hồi tức thì 0ms, đóng form ngay
   const handleSaveRoutine = useCallback(async (routine: CareRoutine) => {
@@ -881,7 +895,7 @@ export default function CareSchedulePage() {
       }
       return [...prev, scopedRoutine];
     });
-    showToast(`✅ Đã lưu: ${scopedRoutine.title}`, 'success');
+    showToast(`✅ Đã lưu cho ${patientDisplayName}: ${scopedRoutine.title}`, 'success');
 
     void saveRoutineAction(scopedRoutine)
       .then((res) => {
@@ -892,12 +906,12 @@ export default function CareSchedulePage() {
       .catch(() => {
         showToast('Lỗi đồng bộ đơn thuốc/bài tập lên Sheet.', 'warn');
       });
-  }, [activeProfile.id, activeStageId, showToast]);
+  }, [activeProfile.id, activeStageId, patientDisplayName, showToast]);
 
   // Xóa routine — Xoá tức thì trên giao diện, đồng bộ ngầm lên Sheet
   const handleDeleteRoutine = useCallback(async (id: string) => {
     setCareRoutines((prev) => prev.filter((r) => r.id !== id));
-    showToast('Đã xoá đầu việc chăm sóc.', 'info');
+    showToast(`🗑️ Đã xoá đầu việc chăm sóc của ${patientDisplayName}.`, 'info');
 
     void deleteRoutineAction(id)
       .then((res) => {
@@ -908,13 +922,13 @@ export default function CareSchedulePage() {
       .catch(() => {
         showToast('Lỗi xoá đơn thuốc/bài tập trên Sheet.', 'warn');
       });
-  }, [showToast]);
+  }, [patientDisplayName, showToast]);
 
   // Lưu lịch tái khám — Phản hồi tức thì 0ms (hỗ trợ cả Bố và các hồ sơ thành viên khác)
   const handleSaveAppointment = useCallback(async (info: AppointmentInfo) => {
     if (isFatherProfile) {
       setAppointment(info);
-      showToast('📅 Đã lưu lịch tái khám!', 'success');
+      showToast(`📅 Đã lưu lịch tái khám của ${patientDisplayName}!`, 'success');
 
       void saveAppointmentAction(info)
         .then((res) => {
@@ -1092,9 +1106,18 @@ export default function CareSchedulePage() {
     [lastVitalsEntry, routineDoneToday, routineTotalToday, apptStatusText]
   );
 
-  // ===== Tên người ghi mặc định lấy từ danh sách thành viên trên Sheet (Mẹ Phương) =====
+  // ===== Tên người ghi mặc định tự động khớp theo thành viên đang chọn hoặc Mẹ Phương =====
   const recorderName = useMemo(() => {
     if (members.length === 0) return DEFAULT_RECORDER;
+    if (!isFatherProfile) {
+      const matchedSelf = members.find(
+        (m) =>
+          m.name.toLowerCase() === activeProfile.name.toLowerCase() ||
+          (activeProfile.relation &&
+            m.relation.toLowerCase() === activeProfile.relation.toLowerCase())
+      );
+      if (matchedSelf) return matchedSelf.name;
+    }
     const motherMember = members.find(
       (m) =>
         m.name.toLowerCase().includes('mẹ') ||
@@ -1102,7 +1125,7 @@ export default function CareSchedulePage() {
         m.relation.toLowerCase().includes('mẹ')
     );
     return motherMember ? motherMember.name : members[0].name;
-  }, [members]);
+  }, [members, isFatherProfile, activeProfile.name, activeProfile.relation]);
 
   // ===== CRUD Reminders (Phản hồi tức thì 0ms, tự động gắn tiền tố hồ sơ hiện tại) =====
   const handleAddReminder = useCallback(async (newReminder: PatientDailyReminder) => {
@@ -1119,22 +1142,22 @@ export default function CareSchedulePage() {
       }
       return [scopedReminder, ...prev];
     });
-    showToast('Đã lưu nhắc nhở mới!', 'success');
+    showToast(`🔔 Đã lưu nhắc nhở cho ${patientDisplayName}!`, 'success');
 
     void saveReminderAction(scopedReminder).catch((err) => {
       console.error('Lỗi lưu nhắc nhở:', err);
       showToast('Không thể đồng bộ nhắc nhở lên Sheet.', 'warn');
     });
-  }, [activeProfile.id, showToast]);
+  }, [activeProfile.id, patientDisplayName, showToast]);
 
   const handleDeleteReminder = useCallback(async (reminderId: string, title: string) => {
     setReminders((prev) => prev.filter((r) => r.id !== reminderId));
-    showToast(`Đã xoá nhắc nhở "${title}"`, 'info');
+    showToast(`🗑️ Đã xoá nhắc nhở "${title}" của ${patientDisplayName}`, 'info');
 
     void deleteReminderAction(reminderId).catch((err) => {
       console.error('Lỗi xoá nhắc nhở:', err);
     });
-  }, [showToast]);
+  }, [patientDisplayName, showToast]);
 
   // --- Admin Security Helpers (2 cấp: isAdmin = Sửa danh mục [1234], isExpenseUnlocked = Admin thực sự [2468]) ---
   const requireAdmin = useCallback((action: () => void) => {
@@ -1468,6 +1491,7 @@ export default function CareSchedulePage() {
                 onToggle={handleToggleDailyLog}
                 onOpenManager={handleOpenRoutineManager}
                 defaultRecorder={recorderName}
+                patientDisplayName={patientDisplayName}
               />
             </div>
           </div>
@@ -1485,6 +1509,7 @@ export default function CareSchedulePage() {
                 onSave={handleSaveAppointment}
                 isAdmin={isAdmin}
                 todayStr={todayStr}
+                patientDisplayName={patientDisplayName}
               />
             </div>
           </div>

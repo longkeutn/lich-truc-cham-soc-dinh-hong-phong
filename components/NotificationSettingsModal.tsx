@@ -75,8 +75,8 @@ export default function NotificationSettingsModal({
       onSavePrefs(updated);
       playNotificationSound('success');
       await sendPwaNotification({
-        title: '✅ Đã bật Thông Báo Sổ Sức Khỏe Bố!',
-        body: 'Điện thoại sẽ tự động nhắc lịch đo huyết áp, uống thuốc và báo khi có chỉ số cần lưu ý.',
+        title: '✅ Đã bật Thông Báo Sổ Sức Khỏe Gia Đình!',
+        body: 'Điện thoại sẽ tự động nhắc lịch đo huyết áp, uống thuốc và báo khi có chỉ số cần lưu ý cho từng thành viên.',
         tag: 'test-welcome-notif',
         url: '/#section-vitals',
       });
@@ -99,7 +99,7 @@ export default function NotificationSettingsModal({
         }
       }
       const sent = await sendPwaNotification({
-        title: '🔔 Thông Báo Thử Nghiệm — Sổ Sức Khỏe Bố',
+        title: '🔔 Thông Báo Thử Nghiệm — Sổ Sức Khỏe Gia Đình',
         body: 'Hộp thông báo đẩy PWA và âm báo chuông đang hoạt động tốt trên thiết bị này!',
         tag: `test-notif-${Date.now()}`,
         url: '/#section-routine',
@@ -116,7 +116,7 @@ export default function NotificationSettingsModal({
 
   const handleTestVoice = () => {
     const ok = speakVietnameseReminder(
-      'Xin chào! Đây là giọng đọc nhắc việc tự động của ứng dụng Sổ Sức Khỏe Bố Đinh Hồng Phong. Chúc bố và gia đình luôn mạnh khỏe.'
+      'Xin chào! Đây là giọng đọc nhắc việc tự động của ứng dụng Sổ Sức Khỏe Gia Đình. Chúc bố mẹ và cả gia đình luôn mạnh khỏe.'
     );
     if (ok) {
       showToast?.('🗣️ Đang phát thử giọng đọc Tiếng Việt...', 'info');
@@ -346,7 +346,7 @@ export default function NotificationSettingsModal({
             <div className="text-xs">
               <p className="font-bold text-slate-900">💓 Thông báo mỗi khi có kết quả đo HA mới</p>
               <p className="text-[11px] text-slate-500">
-                Giúp máy của các con ở xa nhận thông báo khi Mẹ vừa đo huyết áp cho Bố
+                Giúp máy của các thành viên ở xa nhận thông báo ngay khi Bố, Mẹ hoặc người thân vừa đo huyết áp
               </p>
             </div>
           </label>
@@ -376,7 +376,7 @@ export default function NotificationSettingsModal({
             <div className="text-xs">
               <p className="font-bold text-slate-900">📅 Nhắc lịch tái khám sắp tới (trước 2 ngày)</p>
               <p className="text-[11px] text-slate-500">
-                Tự động nhắc lịch tái khám của Bố vào buổi sáng để gia đình chuẩn bị
+                Tự động nhắc lịch tái khám của Bố, Mẹ và các thành viên vào buổi sáng để gia đình chuẩn bị
               </p>
             </div>
           </label>

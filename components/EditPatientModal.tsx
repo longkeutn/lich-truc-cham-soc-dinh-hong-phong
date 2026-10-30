@@ -471,7 +471,7 @@ export function EditPatientModal({
                   3. Các mục thông tin bệnh nhân bổ sung (Thêm / Sửa / Xoá tự do)
                 </h4>
                 <p className="text-[11px] text-slate-600 mt-0.5">
-                  Thêm bất kỳ thông tin nào của Bố (Năm sinh, Nhóm máu, Tiền sử bệnh, Dị ứng, BHYT...)
+                  Thêm bất kỳ thông tin nào của {formData.name || 'người thân'} (Năm sinh, Nhóm máu, Tiền sử bệnh, Dị ứng, BHYT...)
                 </p>
               </div>
               <button
