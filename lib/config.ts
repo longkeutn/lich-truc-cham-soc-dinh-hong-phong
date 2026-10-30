@@ -1,12 +1,51 @@
 import { FamilyMember, PhaseConfig, EmergencyContact, ShiftRecord, CarePhase, ShiftType, PatientDailyReminder, PatientInfo, TimeSlot, BpThresholds, RehabStage, AppointmentInfo, CareRoutine, HealthProfile, HealthProfileType } from './types';
 
+// =============================================
+// CẤU HÌNH ĐA GIA ĐÌNH (MULTI-FAMILY EDITION CONFIG)
+// =============================================
+export const IS_FAMILY_STANDARD_MODE =
+  process.env.NEXT_PUBLIC_APP_MODE === 'family_standard';
+
+export const ENABLE_FAMILY_SHIFT_TAB =
+  process.env.NEXT_PUBLIC_ENABLE_SHIFTS === 'true'
+    ? true
+    : process.env.NEXT_PUBLIC_ENABLE_SHIFTS === 'false'
+      ? false
+      : !IS_FAMILY_STANDARD_MODE;
+
+export const DEFAULT_MEMBER_NAME =
+  (
+    process.env.NEXT_PUBLIC_DEFAULT_MEMBER_NAME ||
+    process.env.NEXT_PUBLIC_DEFAULT_PATIENT_NAME ||
+    ''
+  ).trim() || (IS_FAMILY_STANDARD_MODE ? 'Bố' : 'Đinh Hồng Phong');
+
+export const APP_TITLE =
+  (process.env.NEXT_PUBLIC_APP_TITLE || '').trim() ||
+  (IS_FAMILY_STANDARD_MODE
+    ? 'Sổ Sức Khỏe Gia Đình'
+    : `Sổ Sức Khỏe Bố - ${DEFAULT_MEMBER_NAME}`);
+
+export const APP_SHORT_TITLE =
+  (process.env.NEXT_PUBLIC_APP_SHORT_TITLE || '').trim() ||
+  (IS_FAMILY_STANDARD_MODE ? 'Sổ Sức Khỏe Gia Đình' : 'Sổ Sức Khỏe Bố');
+
 export const PATIENT_INFO: PatientInfo = {
-  name: 'Đinh Hồng Phong',
-  diagnosis: 'Đang phục hồi chức năng sau đột quỵ (tai biến mạch máu não)',
-  hospital: 'Bệnh viện Bạch Mai - Hà Nội (nơi điều trị trước đó)',
-  room: 'Phục hồi tại nhà',
-  notes: 'Cần theo dõi huyết áp hàng ngày, uống thuốc đúng giờ, tập phục hồi chức năng đều đặn.',
-  emergencyPhone: '0913 218 765',
+  name: DEFAULT_MEMBER_NAME,
+  diagnosis: IS_FAMILY_STANDARD_MODE
+    ? 'Theo dõi huyết áp, tim mạch & chăm sóc sức khỏe hằng ngày'
+    : 'Đang phục hồi chức năng sau đột quỵ (tai biến mạch máu não)',
+  hospital: IS_FAMILY_STANDARD_MODE
+    ? 'Khám & kiểm tra định kỳ'
+    : 'Bệnh viện Bạch Mai - Hà Nội (nơi điều trị trước đó)',
+  room: 'Tại nhà',
+  notes: 'Cần theo dõi huyết áp hàng ngày, uống thuốc đúng giờ, tập vận động và nghỉ ngơi đều đặn.',
+  emergencyPhone: IS_FAMILY_STANDARD_MODE ? '' : '0913 218 765',
+  statusBadge: 'Theo dõi sức khỏe gia đình',
+  conditionTag: IS_FAMILY_STANDARD_MODE ? 'Huyết áp & Tim mạch' : 'Phục hồi tại nhà',
+  headerBadge: 'Tại nhà',
+  careMode: 'Hằng ngày',
+  careGoal: 'Duy trì huyết áp & sức khỏe ổn định',
 };
 
 export const FAMILY_MEMBERS: FamilyMember[] = [
@@ -26,7 +65,7 @@ export const FAMILY_MEMBERS: FamilyMember[] = [
   {
     id: 'mem-2',
     name: 'Cô Lan',
-    relation: 'Em gái bệnh nhân',
+    relation: 'Cô ruột',
     phone: '0983 222 111',
     badgeColor: 'bg-emerald-600',
     avatarInitials: 'CL',
@@ -435,12 +474,12 @@ export const DEFAULT_CARE_ROUTINES: CareRoutine[] = [
   {
     id: 'routine-rehab-01',
     stageId: 'stage-1',
-    stageName: 'Mới về nhà — Chăm sóc tích cực',
+    stageName: 'Chăm sóc & Theo dõi tại nhà',
     category: 'rehab',
-    title: 'Tập co duỗi tay chân (bên liệt)',
-    dosage: '15 phút',
+    title: 'Đi bộ / tập vận động nhẹ nhàng',
+    dosage: '15–20 phút',
     timeSlots: ['morning', 'afternoon'],
-    instructions: 'Từ từ, nhẹ nhàng. Dừng nếu bố kêu đau.',
+    instructions: 'Tập vừa sức, nghỉ ngơi ngay nếu thấy mỏi hoặc chóng mặt.',
     conditionNote: '',
     isActive: true,
     sortOrder: 5,
@@ -448,47 +487,17 @@ export const DEFAULT_CARE_ROUTINES: CareRoutine[] = [
     updatedAt: '2026-10-17T00:00:00.000Z',
   },
   {
-    id: 'routine-rehab-02',
+    id: 'routine-care-01',
     stageId: 'stage-1',
-    stageName: 'Mới về nhà — Chăm sóc tích cực',
-    category: 'rehab',
-    title: 'Tập ngồi tựa lưng trên giường',
-    dosage: '10–20 phút',
-    timeSlots: ['morning'],
-    instructions: 'Đỡ bố ngồi dậy tựa gối, giữ thẳng lưng.',
+    stageName: 'Chăm sóc & Theo dõi tại nhà',
+    category: 'care',
+    title: 'Uống đủ nước ấm & ăn nhạt giảm muối',
+    dosage: 'Hằng ngày',
+    timeSlots: ['morning', 'noon', 'afternoon', 'evening'],
+    instructions: 'Chia nhỏ lượng nước uống trong ngày, hạn chế đồ mặn và dầu mỡ.',
     conditionNote: '',
     isActive: true,
     sortOrder: 6,
-    createdAt: '2026-10-17T00:00:00.000Z',
-    updatedAt: '2026-10-17T00:00:00.000Z',
-  },
-  {
-    id: 'routine-care-01',
-    stageId: 'stage-1',
-    stageName: 'Mới về nhà — Chăm sóc tích cực',
-    category: 'care',
-    title: 'Lật trở & chống loét tì đè',
-    dosage: 'Mỗi 2 giờ',
-    timeSlots: ['morning', 'noon', 'afternoon', 'evening'],
-    instructions: 'Xoay nghiêng trái/phải, kê gối đỡ lưng và gót chân.',
-    conditionNote: '',
-    isActive: true,
-    sortOrder: 7,
-    createdAt: '2026-10-17T00:00:00.000Z',
-    updatedAt: '2026-10-17T00:00:00.000Z',
-  },
-  {
-    id: 'routine-care-02',
-    stageId: 'stage-1',
-    stageName: 'Mới về nhà — Chăm sóc tích cực',
-    category: 'care',
-    title: 'Vệ sinh răng miệng & thân thể',
-    dosage: '',
-    timeSlots: ['morning', 'evening'],
-    instructions: 'Lau mặt ấm, đánh răng/lau nướu, thay quần áo sạch.',
-    conditionNote: '',
-    isActive: true,
-    sortOrder: 8,
     createdAt: '2026-10-17T00:00:00.000Z',
     updatedAt: '2026-10-17T00:00:00.000Z',
   },
@@ -1437,13 +1446,13 @@ export function buildResolvedHealthProfiles(
     ? fatherPatientInfo.healthProfiles
     : [];
 
-  // 1. Hồ sơ mặc định của Bố Đinh Hồng Phong
+  // 1. Hồ sơ mặc định của thành viên chính (Bố)
   const fatherProfile: HealthProfile = {
     id: DEFAULT_HEALTH_PROFILE_ID,
-    name: fatherPatientInfo.name || 'Đinh Hồng Phong',
+    name: fatherPatientInfo.name || DEFAULT_MEMBER_NAME,
     relation: 'Bố',
     avatarEmoji: '👨',
-    profileType: 'post_stroke_cranioplasty',
+    profileType: IS_FAMILY_STANDARD_MODE ? 'general_health' : 'post_stroke_cranioplasty',
     patientInfo: {
       ...fatherPatientInfo,
       healthProfiles: undefined,

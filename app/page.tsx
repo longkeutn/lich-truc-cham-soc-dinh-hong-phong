@@ -89,6 +89,8 @@ import {
   DEFAULT_REHAB_STAGES,
   DEFAULT_RECORDER,
   DEFAULT_HEALTH_PROFILE_ID,
+  ENABLE_FAMILY_SHIFT_TAB,
+  APP_SHORT_TITLE,
   extractRecordProfileId,
   ensureRecordProfilePrefix,
   buildResolvedHealthProfiles,
@@ -1541,7 +1543,7 @@ export default function CareSchedulePage() {
           </div>
         )}
 
-        {visitedViews.family && (
+        {ENABLE_FAMILY_SHIFT_TAB && visitedViews.family && (
           <div className={activeView === 'family' ? 'block' : 'hidden'}>
             {/* ===== TAB GIA ĐÌNH ĐỒNG HÀNH — Đợt C ===== */}
             <FamilySupportView
@@ -1580,7 +1582,7 @@ export default function CareSchedulePage() {
       <footer className="border-t border-slate-200 bg-white pt-4 px-4 pb-24 md:pb-4 mt-8 text-center text-xs text-slate-600">
         <div className="max-w-md mx-auto space-y-1">
           <p className="text-slate-800 font-bold">
-            Sổ Sức Khỏe Gia Đình • Đang xem: {activeProfile.avatarEmoji} {profilePatientInfo.name}
+            {APP_SHORT_TITLE} • Đang xem: {activeProfile.avatarEmoji} {profilePatientInfo.name}
           </p>
           <p className="text-[11px] text-slate-500">
             Theo dõi huyết áp, thuốc & chăm sóc sức khỏe cả gia đình — Đồng bộ Google Sheets

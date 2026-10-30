@@ -21,7 +21,7 @@ import {
   PHASE_CONFIGS,
   buildDefaultShiftRecord,
   DEFAULT_BP_THRESHOLDS,
-  DEFAULT_APPOINTMENT,
+  DEFAULT_APPOINTMENT, DEFAULT_MEMBER_NAME, IS_FAMILY_STANDARD_MODE,
   compareVitalsDesc,
   normalizeDateStr,
   normalizeTimeStr,
@@ -109,24 +109,24 @@ class MemoryShiftStore {
   private shifts: Map<string, ShiftRecord> = new Map();
   private members: FamilyMember[] = [];
   private patientInfo: PatientInfo = {
-    name: 'Đinh Hồng Phong',
+    name: DEFAULT_MEMBER_NAME,
     diagnosis: '',
     hospital: '',
     room: '',
     notes: '',
     emergencyPhone: '',
-    statusBadge: 'Bệnh nhân theo dõi đặc biệt',
-    conditionTag: 'Tai biến nặng',
+    statusBadge: 'Theo dõi sức khỏe gia đình',
+    conditionTag: IS_FAMILY_STANDARD_MODE ? 'Huyết áp & Tim mạch' : 'Phục hồi tại nhà',
     headerBadge: 'Tại nhà',
-    careMode: 'Liên tục 24/7',
-    careGoal: 'Chống loét & duy trì SpO2',
+    careMode: 'Hằng ngày',
+    careGoal: 'Duy trì huyết áp & sức khỏe ổn định',
     customFields: [],
   };
   private contacts: EmergencyContact[] = [];
   private reminders: PatientDailyReminder[] = [];
   private systemSettings: SystemSettings = {
     currentPhase: 'phase2',
-    patientName: 'Đinh Hồng Phong',
+    patientName: DEFAULT_MEMBER_NAME,
     patientRoom: '',
     hospital: '',
     diagnosis: '',
@@ -1034,7 +1034,7 @@ function unpackPatientInfoFromSheet(raw: PatientInfo): PatientInfo {
   }
 
   return {
-    name: raw.name || 'Đinh Hồng Phong',
+    name: raw.name || DEFAULT_MEMBER_NAME,
     diagnosis: raw.diagnosis ?? '',
     hospital: raw.hospital ?? '',
     room: raw.room ?? '',
@@ -1045,13 +1045,13 @@ function unpackPatientInfoFromSheet(raw: PatientInfo): PatientInfo {
         ? raw.statusBadge
         : parsedMeta?.statusBadge !== undefined
           ? parsedMeta.statusBadge
-          : 'Bệnh nhân theo dõi đặc biệt',
+          : 'Theo dõi sức khỏe gia đình',
     conditionTag:
       raw.conditionTag !== undefined
         ? raw.conditionTag
         : parsedMeta?.conditionTag !== undefined
           ? parsedMeta.conditionTag
-          : 'Tai biến nặng',
+          : (IS_FAMILY_STANDARD_MODE ? 'Huyết áp & Tim mạch' : 'Phục hồi tại nhà'),
     headerBadge:
       raw.headerBadge !== undefined
         ? raw.headerBadge
@@ -1063,13 +1063,13 @@ function unpackPatientInfoFromSheet(raw: PatientInfo): PatientInfo {
         ? raw.careMode
         : parsedMeta?.careMode !== undefined
           ? parsedMeta.careMode
-          : 'Liên tục 24/7',
+          : 'Hằng ngày',
     careGoal:
       raw.careGoal !== undefined
         ? raw.careGoal
         : parsedMeta?.careGoal !== undefined
           ? parsedMeta.careGoal
-          : 'Chống loét & duy trì SpO2',
+          : 'Duy trì huyết áp & sức khỏe ổn định',
     customFields: Array.isArray(raw.customFields)
       ? raw.customFields
       : Array.isArray(parsedMeta?.customFields)

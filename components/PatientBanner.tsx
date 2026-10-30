@@ -70,7 +70,7 @@ const CATEGORY_CONFIG: Record<
     badge: 'bg-sky-50 text-sky-800 border-sky-200',
   },
   feeding: {
-    label: 'Ăn qua sonde',
+    label: 'Dinh dưỡng & Ăn uống',
     icon: Utensils,
     color: 'text-emerald-700',
     badge: 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -84,11 +84,11 @@ const CATEGORY_CONFIG: Record<
 };
 
 const PRESET_SUGGESTIONS = [
-  { title: 'Uống thuốc hạ áp đúng giờ', category: 'meds' as ReminderCategory, isUrgent: true },
-  { title: 'Hút đờm sạch trước cữ ăn', category: 'condition' as ReminderCategory, isUrgent: true },
-  { title: 'Bơm súp ấm qua sonde đầu cao', category: 'feeding' as ReminderCategory, isUrgent: false },
-  { title: 'Lật trở & vỗ rung tránh loét tì đè', category: 'general' as ReminderCategory, isUrgent: false },
-  { title: 'Đo SpO2 & theo dõi nhịp thở', category: 'condition' as ReminderCategory, isUrgent: true },
+  { title: 'Đo huyết áp trước khi uống thuốc cử sáng', category: 'meds' as ReminderCategory, isUrgent: true },
+  { title: 'Uống thuốc huyết áp đúng giờ', category: 'meds' as ReminderCategory, isUrgent: true },
+  { title: 'Ăn nhạt, giảm muối & uống đủ nước ấm', category: 'feeding' as ReminderCategory, isUrgent: false },
+  { title: 'Đi bộ / tập vận động nhẹ nhàng 15–30 phút', category: 'general' as ReminderCategory, isUrgent: false },
+  { title: 'Theo dõi giấc ngủ & triệu chứng mỏi gáy, chóng mặt', category: 'condition' as ReminderCategory, isUrgent: false },
 ];
 
 export default function PatientBanner({
@@ -416,14 +416,14 @@ export default function PatientBanner({
         <div className="p-4 sm:p-6 border-t border-slate-100 bg-white space-y-5 animate-in fade-in duration-200">
           <div className="absolute -right-10 -top-10 w-44 h-44 bg-rose-50 rounded-full blur-3xl pointer-events-none" />
 
-          {/* PHẦN 1: THÔNG TIN HÀNH CHÍNH & CHẨN ĐOÁN BỆNH NHÂN (ĐẦY ĐỦ CRUD) */}
+          {/* PHẦN 1: THÔNG TIN HỒ SƠ SỨC KHỎE & THEO DÕI (ĐẦY ĐỦ CRUD) */}
           <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5 border-b border-slate-100 pb-5">
             <div className="space-y-2.5 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                {(patient.statusBadge ?? 'Bệnh nhân theo dõi đặc biệt') !== '' && (
+                {(patient.statusBadge ?? 'Theo dõi sức khỏe gia đình') !== '' && (
                   <span className="px-3 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-200 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
                     <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
-                    {patient.statusBadge ?? 'Bệnh nhân theo dõi đặc biệt'}
+                    {patient.statusBadge ?? 'Theo dõi sức khỏe gia đình'}
                   </span>
                 )}
                 {patient.hospital && (
@@ -438,9 +438,9 @@ export default function PatientBanner({
                 <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                   {patient.name}
                 </h2>
-                {(patient.conditionTag ?? 'Tai biến nặng') !== '' && (
+                {(patient.conditionTag ?? 'Theo dõi tại nhà') !== '' && (
                   <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 border border-rose-200 shadow-xs">
-                    {patient.conditionTag ?? 'Tai biến nặng'}
+                    {patient.conditionTag ?? 'Theo dõi tại nhà'}
                   </span>
                 )}
                 {onEditPatient && (
@@ -448,7 +448,7 @@ export default function PatientBanner({
                     type="button"
                     onClick={onEditPatient}
                     className="px-2.5 py-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer"
-                    title="Chỉnh sửa toàn bộ thông tin bệnh nhân (Yêu cầu PIN Admin)"
+                    title="Chỉnh sửa toàn bộ thông tin hồ sơ (Yêu cầu PIN Admin)"
                   >
                     <span>✏️ Sửa thông tin</span>
                   </button>
@@ -464,7 +464,7 @@ export default function PatientBanner({
                       setIsAddingCustomField(!isAddingCustomField);
                     }}
                     className="px-2.5 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer"
-                    title="Thêm nhanh mục thông tin bệnh nhân mới"
+                    title="Thêm nhanh mục thông tin mới"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Thêm mục thông tin</span>
@@ -472,10 +472,10 @@ export default function PatientBanner({
                 )}
               </div>
 
-              {/* Chẩn đoán y khoa */}
+              {/* Tình trạng sức khỏe / Chẩn đoán */}
               <div className="text-xs sm:text-sm text-slate-700 font-medium leading-relaxed flex items-center gap-2 flex-wrap">
                 <span>
-                  <strong className="text-slate-900 font-bold">Chẩn đoán:</strong>{' '}
+                  <strong className="text-slate-900 font-bold">Tình trạng / Theo dõi:</strong>{' '}
                   {patient.diagnosis ? (
                     patient.diagnosis
                   ) : (
@@ -488,7 +488,7 @@ export default function PatientBanner({
                     onClick={onEditPatient}
                     className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
                   >
-                    + Nhập chẩn đoán
+                    + Nhập tình trạng
                   </button>
                 )}
               </div>
@@ -579,14 +579,14 @@ export default function PatientBanner({
                 </div>
               )}
 
-              {/* Form thêm/sửa nhanh mục thông tin bệnh nhân ngay trên Banner */}
+              {/* Form thêm/sửa nhanh mục thông tin ngay trên Banner */}
               {isAddingCustomField && onSavePatient && (
                 <div className="p-3 rounded-2xl bg-indigo-50/70 border border-indigo-200 space-y-2.5 animate-in fade-in duration-150">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-indigo-900">
                       {editingCustomFieldId
-                        ? '✏️ Sửa mục thông tin bệnh nhân'
-                        : '➕ Thêm mục thông tin bệnh nhân mới'}
+                        ? '✏️ Sửa mục thông tin hồ sơ'
+                        : '➕ Thêm mục thông tin mới'}
                     </span>
                     <button
                       type="button"
@@ -620,7 +620,7 @@ export default function PatientBanner({
                       aria-label="Vị trí hiển thị"
                       className="px-2.5 py-1.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-700"
                     >
-                      <option value="profile">Cột Bệnh án (Trái)</option>
+                      <option value="profile">Cột Hồ sơ (Trái)</option>
                       <option value="care">Hộp Chăm sóc (Phải)</option>
                     </select>
                     <button
@@ -675,9 +675,9 @@ export default function PatientBanner({
                   Chế độ chăm sóc
                 </span>
                 <div className="flex items-center gap-1.5">
-                  {(patient.careMode ?? 'Liên tục 24/7') !== '' && (
+                  {(patient.careMode ?? 'Hằng ngày') !== '' && (
                     <span className="text-[11px] text-emerald-800 font-black px-2 py-0.5 rounded-md bg-emerald-100 border border-emerald-300">
-                      {patient.careMode ?? 'Liên tục 24/7'}
+                      {patient.careMode ?? 'Hằng ngày'}
                     </span>
                   )}
                   {onEditPatient && (
@@ -697,14 +697,14 @@ export default function PatientBanner({
                 <div className="flex justify-between items-center gap-3">
                   <span className="text-slate-500 shrink-0">Vị trí:</span>
                   <span className="font-bold text-slate-900 text-right">
-                    {patient.room || 'Chưa cập nhật'}
+                    {patient.room || 'Tại nhà'}
                   </span>
                 </div>
-                {(patient.careGoal ?? 'Chống loét & duy trì SpO2') !== '' && (
+                {(patient.careGoal ?? 'Duy trì huyết áp & sức khỏe ổn định') !== '' && (
                   <div className="flex justify-between items-center gap-3">
                     <span className="text-slate-500 shrink-0">Mục tiêu:</span>
                     <span className="font-bold text-emerald-700 text-right">
-                      {patient.careGoal ?? 'Chống loét & duy trì SpO2'}
+                      {patient.careGoal ?? 'Duy trì huyết áp & sức khỏe ổn định'}
                     </span>
                   </div>
                 )}
@@ -833,12 +833,12 @@ export default function PatientBanner({
                 {editingReminderId ? (
                   <>
                     <Edit2 className="w-3.5 h-3.5" />
-                    Chỉnh sửa lưu ý cho bệnh nhân (Lưu Google Sheets)
+                    Chỉnh sửa lưu ý chăm sóc (Lưu Google Sheets)
                   </>
                 ) : (
                   <>
                     <Plus className="w-3.5 h-3.5" />
-                    Thêm lưu ý mới cho bệnh nhân (Lưu Google Sheets)
+                    Thêm lưu ý chăm sóc mới (Lưu Google Sheets)
                   </>
                 )}
               </span>
@@ -920,7 +920,7 @@ export default function PatientBanner({
                   type="text"
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="Ví dụ: Thuốc hạ áp lúc 14h, Hút đờm trước cữ ăn..."
+                  placeholder="Ví dụ: Đo huyết áp trước khi uống thuốc sáng, uống đủ nước ấm..."
                   className="w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:border-amber-500 placeholder:text-slate-400"
                 />
               </div>

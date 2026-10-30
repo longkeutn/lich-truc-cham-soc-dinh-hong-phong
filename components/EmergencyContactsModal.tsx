@@ -207,7 +207,7 @@ export default function EmergencyContactsModal({
     const lines = primary.map(
       (c) => `${c.name}, số điện thoại ${c.phone.split('').join(' ')}.`
     );
-    return `Danh bạ số khẩn cấp cho người bệnh: Cấp cứu y tế: 1 1 5. ${lines.join(' ')}`;
+    return `Danh bạ số khẩn cấp cho gia đình: Cấp cứu y tế: 1 1 5. ${lines.join(' ')}`;
   }, [localContacts]);
 
   const isSpeakingAll = isSpeaking && currentText === allContactsSpeech;
@@ -251,7 +251,7 @@ export default function EmergencyContactsModal({
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-300 font-medium">
-                Bác sĩ ICU, Cấp cứu 115, Điều dưỡng tiêm truyền & Hàng xóm hỗ trợ
+                Bác sĩ điều trị, Cấp cứu 115, Y tế & Người thân hỗ trợ
               </p>
             </div>
           </div>
@@ -309,7 +309,7 @@ export default function EmergencyContactsModal({
                   <div className="text-xs font-bold uppercase tracking-wider text-rose-100">
                     Gọi Cấp Cứu Y Tế
                   </div>
-                  <div className="text-base font-black text-white">Tổng Đài 115 Hà Nội</div>
+                  <div className="text-base font-black text-white">Tổng Đài Cấp Cứu 115</div>
                 </div>
               </div>
               <Phone className="w-6 h-6 text-white group-hover:scale-110 transition" />
@@ -354,7 +354,7 @@ export default function EmergencyContactsModal({
             <div className="flex items-center gap-2">
               <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
               <span>
-                <strong className="text-white">Bệnh nhân:</strong> {patient.name}
+                <strong className="text-white">Người thân:</strong> {patient.name}
                 {patient.room ? ` (${patient.room})` : ''}
               </span>
             </div>

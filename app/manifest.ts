@@ -1,11 +1,12 @@
 import type { MetadataRoute } from 'next';
+import { APP_TITLE, APP_SHORT_TITLE } from '@/lib/config';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Sổ Sức Khỏe Bố - Đinh Hồng Phong',
-    short_name: 'Sức Khỏe Bố',
+    name: APP_TITLE,
+    short_name: APP_SHORT_TITLE,
     description:
-      'Ứng dụng theo dõi huyết áp, nhắc uống thuốc, tập phục hồi chức năng & lịch gia đình chăm Bố hàng ngày',
+      'Ứng dụng theo dõi huyết áp, nhắc uống thuốc, vận động & lịch tái khám cho gia đình hàng ngày',
     start_url: '/',
     scope: '/',
     display: 'standalone',

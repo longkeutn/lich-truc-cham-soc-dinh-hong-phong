@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { APP_TITLE, APP_SHORT_TITLE } from '@/lib/config';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -10,14 +11,14 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Sổ Sức Khỏe Bố - Đinh Hồng Phong',
+  title: APP_TITLE,
   description:
-    'Ứng dụng theo dõi sức khỏe hàng ngày cho bố Đinh Hồng Phong: ghi huyết áp, quản lý thuốc & bài tập phục hồi chức năng, lịch tái khám (tích hợp Google Sheets thời gian thực)',
+    'Ứng dụng theo dõi sức khỏe hàng ngày cho gia đình: ghi huyết áp, quản lý thuốc & sinh hoạt, lịch tái khám (đồng bộ Google Sheets thời gian thực)',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Sức Khỏe Bố',
+    title: APP_SHORT_TITLE,
   },
   formatDetection: {
     telephone: true,
@@ -31,8 +32,8 @@ export const metadata: Metadata = {
     apple: [{ url: '/apple-icon', sizes: '180x180', type: 'image/png' }],
   },
   openGraph: {
-    title: 'Sổ Sức Khỏe Bố - Đinh Hồng Phong',
-    description: 'Theo dõi huyết áp, thuốc & phục hồi chức năng hàng ngày cho bố Đinh Hồng Phong',
+    title: APP_TITLE,
+    description: 'Theo dõi huyết áp, thuốc & chăm sóc sức khỏe hàng ngày cho gia đình',
   },
 };
 

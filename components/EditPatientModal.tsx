@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { PatientInfo, PatientCustomField } from '@/lib/types';
+import { DEFAULT_MEMBER_NAME } from '@/lib/config';
 import { Plus, Trash2, X, Save, Sparkles, Eraser } from 'lucide-react';
 
 interface EditPatientModalProps {
@@ -28,17 +29,17 @@ export function EditPatientModal({
   onUpdated,
 }: EditPatientModalProps) {
   const [formData, setFormData] = useState<PatientInfo>({
-    name: patient.name || 'Đinh Hồng Phong',
+    name: patient.name || DEFAULT_MEMBER_NAME,
     diagnosis: patient.diagnosis ?? '',
     hospital: patient.hospital ?? '',
     room: patient.room ?? '',
     notes: patient.notes ?? '',
     emergencyPhone: patient.emergencyPhone ?? '',
-    statusBadge: patient.statusBadge ?? 'Bệnh nhân theo dõi đặc biệt',
-    conditionTag: patient.conditionTag ?? 'Tai biến nặng',
+    statusBadge: patient.statusBadge ?? 'Theo dõi sức khỏe gia đình',
+    conditionTag: patient.conditionTag ?? 'Theo dõi tại nhà',
     headerBadge: patient.headerBadge ?? 'Tại nhà',
-    careMode: patient.careMode ?? 'Liên tục 24/7',
-    careGoal: patient.careGoal ?? 'Chống loét & duy trì SpO2',
+    careMode: patient.careMode ?? 'Hằng ngày',
+    careGoal: patient.careGoal ?? 'Duy trì huyết áp & sức khỏe ổn định',
     customFields: Array.isArray(patient.customFields) ? patient.customFields : [],
   });
   const [errorMsg, setErrorMsg] = useState('');
@@ -46,17 +47,17 @@ export function EditPatientModal({
   useEffect(() => {
     if (isOpen) {
       setFormData({
-        name: patient.name || 'Đinh Hồng Phong',
+        name: patient.name || DEFAULT_MEMBER_NAME,
         diagnosis: patient.diagnosis ?? '',
         hospital: patient.hospital ?? '',
         room: patient.room ?? '',
         notes: patient.notes ?? '',
         emergencyPhone: patient.emergencyPhone ?? '',
-        statusBadge: patient.statusBadge ?? 'Bệnh nhân theo dõi đặc biệt',
-        conditionTag: patient.conditionTag ?? 'Tai biến nặng',
+        statusBadge: patient.statusBadge ?? 'Theo dõi sức khỏe gia đình',
+        conditionTag: patient.conditionTag ?? 'Theo dõi tại nhà',
         headerBadge: patient.headerBadge ?? 'Tại nhà',
-        careMode: patient.careMode ?? 'Liên tục 24/7',
-        careGoal: patient.careGoal ?? 'Chống loét & duy trì SpO2',
+        careMode: patient.careMode ?? 'Hằng ngày',
+        careGoal: patient.careGoal ?? 'Duy trì huyết áp & sức khỏe ổn định',
         customFields: Array.isArray(patient.customFields)
           ? patient.customFields.map((f) => ({ ...f }))
           : [],
@@ -106,7 +107,7 @@ export function EditPatientModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      setErrorMsg('Vui lòng nhập họ và tên bệnh nhân');
+      setErrorMsg('Vui lòng nhập họ và tên người thân');
       return;
     }
 
@@ -157,10 +158,10 @@ export function EditPatientModal({
             </span>
             <div>
               <h3 className="text-base sm:text-lg font-black">
-                Quản Lý Toàn Bộ Thông Tin Bệnh Nhân (CRUD)
+                Quản Lý Toàn Bộ Thông Tin Hồ Sơ Sức Khỏe
               </h3>
               <p className="text-xs text-blue-100">
-                Thêm, sửa, xoá từng mục bệnh án, nhãn trạng thái & chế độ chăm sóc — Đồng bộ Google Sheets
+                Thêm, sửa, xoá từng mục hồ sơ, nhãn trạng thái & chế độ chăm sóc — Đồng bộ Google Sheets
               </p>
             </div>
           </div>
@@ -195,7 +196,7 @@ export function EditPatientModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Họ và tên bệnh nhân <span className="text-rose-500">*</span>
+                  Họ và tên người thân <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -227,7 +228,7 @@ export function EditPatientModal({
                   value={formData.conditionTag || ''}
                   onChange={(e) => setFormData({ ...formData, conditionTag: e.target.value })}
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="VD: Tai biến nặng / Phục hồi sau đột quỵ"
+                  placeholder="VD: Huyết áp & Tim mạch / Phục hồi tại nhà"
                 />
               </div>
             </div>
@@ -236,7 +237,7 @@ export function EditPatientModal({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-bold text-slate-700">
-                    Nhãn tiêu đề đầu thẻ bệnh án
+                    Nhãn tiêu đề đầu thẻ hồ sơ
                   </label>
                   {formData.statusBadge && (
                     <button
@@ -253,7 +254,7 @@ export function EditPatientModal({
                   value={formData.statusBadge || ''}
                   onChange={(e) => setFormData({ ...formData, statusBadge: e.target.value })}
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="VD: Bệnh nhân theo dõi đặc biệt"
+                  placeholder="VD: Theo dõi sức khỏe gia đình"
                 />
               </div>
 
@@ -468,7 +469,7 @@ export function EditPatientModal({
               <div>
                 <h4 className="text-xs font-black uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-indigo-600" />
-                  3. Các mục thông tin bệnh nhân bổ sung (Thêm / Sửa / Xoá tự do)
+                  3. Các mục thông tin sức khỏe bổ sung (Thêm / Sửa / Xoá tự do)
                 </h4>
                 <p className="text-[11px] text-slate-600 mt-0.5">
                   Thêm bất kỳ thông tin nào của {formData.name || 'người thân'} (Năm sinh, Nhóm máu, Tiền sử bệnh, Dị ứng, BHYT...)
@@ -545,7 +546,7 @@ export function EditPatientModal({
                         aria-label="Vị trí hiển thị"
                         className="px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700"
                       >
-                        <option value="profile">Cột Bệnh án (Trái)</option>
+                        <option value="profile">Cột Hồ sơ (Trái)</option>
                         <option value="care">Hộp Chăm sóc (Phải)</option>
                       </select>
                       <button

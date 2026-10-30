@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { PatientInfo } from '@/lib/types';
-import { PATIENT_INFO } from '@/lib/config';
+import { PATIENT_INFO, APP_SHORT_TITLE, ENABLE_FAMILY_SHIFT_TAB } from '@/lib/config';
 import {
   HeartPulse,
   TrendingUp,
@@ -101,7 +101,7 @@ export default function HeaderBar({
                       type="button"
                       onClick={onEditPatient}
                       className="p-1 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-teal-50 transition hidden sm:inline-flex cursor-pointer shrink-0"
-                      title="Chỉnh sửa thông tin bệnh nhân (Admin PIN)"
+                      title="Chỉnh sửa thông tin hồ sơ (Admin PIN)"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
@@ -121,14 +121,14 @@ export default function HeaderBar({
                     </span>
                   )}
                   <span className="text-xs text-slate-500 font-medium truncate">
-                    Sổ Sức Khỏe Bố
+                    {APP_SHORT_TITLE}
                     <span className="hidden sm:inline"> • Chăm sóc hàng ngày</span>
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Cụm Giữa (Desktop >= md): 3 Tab đồng nhất tông màu Y tế */}
+            {/* Cụm Giữa (Desktop >= md): Các Tab đồng nhất tông màu Y tế */}
             <div className="hidden md:flex items-center gap-1 p-1 bg-slate-100 border border-slate-200 rounded-xl">
               <button
                 type="button"
@@ -156,18 +156,20 @@ export default function HeaderBar({
                 <span>Biểu Đồ HA</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => onChangeView('family')}
-                className={`px-3.5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition cursor-pointer ${
-                  activeView === 'family'
-                    ? 'bg-teal-700 text-white shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
-                }`}
-              >
-                <UsersIcon className="w-4 h-4" />
-                <span>Gia Đình</span>
-              </button>
+              {ENABLE_FAMILY_SHIFT_TAB && (
+                <button
+                  type="button"
+                  onClick={() => onChangeView('family')}
+                  className={`px-3.5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition cursor-pointer ${
+                    activeView === 'family'
+                      ? 'bg-teal-700 text-white shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                  }`}
+                >
+                  <UsersIcon className="w-4 h-4" />
+                  <span>Gia Đình</span>
+                </button>
+              )}
             </div>
 
             {/* Cụm Phải: Nút công cụ trung tính + Nút SOS đỏ nổi bật duy nhất */}
@@ -293,7 +295,7 @@ export default function HeaderBar({
         aria-label="Điều hướng chính trên điện thoại"
         className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] px-3 py-1.5"
       >
-        <div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
+        <div className={`grid ${ENABLE_FAMILY_SHIFT_TAB ? 'grid-cols-3' : 'grid-cols-2'} gap-2 max-w-md mx-auto`}>
           <button
             type="button"
             onClick={() => onChangeView('today')}
@@ -324,20 +326,22 @@ export default function HeaderBar({
             <span className="text-xs leading-tight">Biểu Đồ HA</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => onChangeView('family')}
-            className={`min-h-[54px] rounded-xl px-2 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
-              activeView === 'family'
-                ? 'bg-teal-700 text-white border-teal-800 font-extrabold shadow-2xs'
-                : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 font-semibold'
-            }`}
-          >
-            <UsersIcon
-              className={`w-5 h-5 ${activeView === 'family' ? 'text-white' : 'text-slate-500'}`}
-            />
-            <span className="text-xs leading-tight">Lịch Phụ Mẹ</span>
-          </button>
+          {ENABLE_FAMILY_SHIFT_TAB && (
+            <button
+              type="button"
+              onClick={() => onChangeView('family')}
+              className={`min-h-[54px] rounded-xl px-2 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
+                activeView === 'family'
+                  ? 'bg-teal-700 text-white border-teal-800 font-extrabold shadow-2xs'
+                  : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 font-semibold'
+              }`}
+            >
+              <UsersIcon
+                className={`w-5 h-5 ${activeView === 'family' ? 'text-white' : 'text-slate-500'}`}
+              />
+              <span className="text-xs leading-tight">Lịch Phụ Mẹ</span>
+            </button>
+          )}
         </div>
       </nav>
     </>

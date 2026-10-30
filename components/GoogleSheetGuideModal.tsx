@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { DEFAULT_MEMBER_NAME, APP_TITLE } from '@/lib/config';
 import {
   FileSpreadsheet,
   X,
@@ -20,7 +21,7 @@ interface GoogleSheetGuideModalProps {
 }
 
 const APPS_SCRIPT_5_SHEETS_CODE = `/**
- * GOOGLE APPS SCRIPT WEB APP — SỔ SỨC KHỎE BỐ (ĐINH HỒNG PHONG) v2.2
+ * GOOGLE APPS SCRIPT WEB APP — ${APP_TITLE.toUpperCase()} v2.2
  * Tự động tạo và quản lý 9 Bảng Tính:
  *   5 Bảng gốc: Shifts, Members, Settings, Contacts, Reminders
  *   4 Bảng mới: VitalsLog, CareRoutines, DailyLogs, Expenses (Sổ Thu Chi)
@@ -311,7 +312,7 @@ function ensureSheetsSetup(ss) {
 
     const defaultMembers = [
       ['mem-1', 'Bác Thành', 'Bác cả (Trưởng ban điều phối)', '0912 345 678', 'bg-blue-600', 'BT', 'bg-blue-50/90', 'border-blue-300', 'text-blue-900', 'bg-blue-600 text-white', 'bg-blue-100 text-blue-800 border-blue-300 font-bold', 'FALSE'],
-      ['mem-2', 'Cô Lan', 'Em gái bệnh nhân', '0983 222 111', 'bg-emerald-600', 'CL', 'bg-emerald-50/90', 'border-emerald-300', 'text-emerald-900', 'bg-emerald-600 text-white', 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold', 'FALSE'],
+      ['mem-2', 'Cô Lan', 'Cô ruột', '0983 222 111', 'bg-emerald-600', 'CL', 'bg-emerald-50/90', 'border-emerald-300', 'text-emerald-900', 'bg-emerald-600 text-white', 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold', 'FALSE'],
       ['mem-3', 'Anh Dũng', 'Con trai trưởng', '0977 888 999', 'bg-indigo-600', 'AD', 'bg-indigo-50/90', 'border-indigo-300', 'text-indigo-900', 'bg-indigo-600 text-white', 'bg-indigo-100 text-indigo-800 border-indigo-300 font-bold', 'FALSE'],
       ['mem-4', 'Chị Mai', 'Con dâu trưởng', '0904 555 444', 'bg-rose-600', 'CM', 'bg-rose-50/90', 'border-rose-300', 'text-rose-900', 'bg-rose-600 text-white', 'bg-rose-100 text-rose-800 border-rose-300 font-bold', 'FALSE'],
       ['mem-5', 'Anh Hùng', 'Con trai thứ', '0918 666 777', 'bg-amber-600', 'AH', 'bg-amber-50/90', 'border-amber-300', 'text-amber-950', 'bg-amber-600 text-white', 'bg-amber-100 text-amber-900 border-amber-300 font-bold', 'FALSE'],
@@ -326,24 +327,24 @@ function ensureSheetsSetup(ss) {
     if (!sheetMembers.getRange(1, 12).getValue()) sheetMembers.getRange(1, 12).setValue('is_supporter');
   }
 
-  // Sheet 3: Settings (Thông tin bệnh nhân & cấu hình V1 + V2.2)
+  // Sheet 3: Settings (Thông tin hồ sơ sức khỏe & cấu hình V1 + V2.2)
   let sheetSettings = ss.getSheetByName('Settings');
   const requiredSettings = [
-    ['patient_name', 'Đinh Hồng Phong', 'Họ và tên bệnh nhân'],
-    ['patient_diagnosis', 'Đang phục hồi chức năng sau đột quỵ (tai biến mạch máu não)', 'Chẩn đoán y khoa chính'],
-    ['patient_hospital', 'Bệnh viện Bạch Mai - Hà Nội (nơi điều trị trước đó)', 'Bệnh viện điều trị'],
-    ['patient_room', 'Phục hồi tại nhà', 'Vị trí chăm sóc hiện tại'],
-    ['patient_notes', 'Cần theo dõi huyết áp hàng ngày, uống thuốc đúng giờ, tập phục hồi chức năng đều đặn.', 'Chỉ định chăm sóc đặc biệt'],
-    ['emergency_phone', '0913 218 765 (BS. Hùng)', 'Số điện thoại bác sĩ điều trị chính'],
-    ['current_phase', 'phase2', 'Giai đoạn hiện tại (phase1: ICU, phase2: Tại nhà)'],
+    ['patient_name', '${DEFAULT_MEMBER_NAME}', 'Họ và tên người thân chính'],
+    ['patient_diagnosis', 'Theo dõi huyết áp, tim mạch & chăm sóc sức khỏe hằng ngày', 'Tình trạng sức khỏe / Theo dõi chính'],
+    ['patient_hospital', 'Khám & kiểm tra định kỳ', 'Cơ sở y tế theo dõi'],
+    ['patient_room', 'Tại nhà', 'Vị trí chăm sóc hiện tại'],
+    ['patient_notes', 'Đo huyết áp hàng ngày (sáng/tối), uống thuốc đúng giờ, vận động và nghỉ ngơi hợp lý.', 'Lưu ý chăm sóc hàng ngày'],
+    ['emergency_phone', '115', 'Số điện thoại bác sĩ / liên hệ y tế'],
+    ['current_phase', 'phase2', 'Chế độ chăm sóc tại nhà'],
     ['admin_pin', '1234', 'Mã PIN quyền Admin bảo mật'],
-    ['expense_pin', '2468', 'Mã PIN riêng bảo mật Sổ Thu Chi Điều Trị'],
-    ['app_mode', 'home_care', 'Chế độ ứng dụng (home_care / icu)'],
-    ['active_stage_id', 'stage-1', 'Giai đoạn phục hồi đang kích hoạt'],
+    ['expense_pin', '2468', 'Mã PIN riêng bảo mật Sổ Thu Chi'],
+    ['app_mode', 'home_care', 'Chế độ ứng dụng (home_care)'],
+    ['active_stage_id', 'stage-1', 'Giai đoạn chăm sóc đang kích hoạt'],
     ['default_recorder', 'Mẹ', 'Tên người ghi mặc định'],
     ['appt_next_date', '', 'Ngày tái khám tiếp theo (YYYY-MM-DD)'],
     ['appt_next_note', '', 'Ghi chú lịch tái khám tiếp theo'],
-    ['appt_next_who', '', 'Người đưa bố đi tái khám'],
+    ['appt_next_who', '', 'Người đưa đi tái khám'],
     ['appt_last_date', '', 'Ngày khám gần nhất (YYYY-MM-DD)'],
     ['appt_last_note', '', 'Lời dặn bác sĩ lần khám gần nhất'],
     ['bp_high_sys', '140', 'Ngưỡng cảnh báo HA tâm thu cao'],
@@ -381,12 +382,9 @@ function ensureSheetsSetup(ss) {
     sheetContacts.setFrozenRows(1);
 
     const defaultContacts = [
-      ['emg-1', 'Tổng đài Cấp cứu 115 Hà Nội', 'ambulance', '115', 'Yêu cầu xe cấp cứu có bình oxy và máy hỗ trợ thở khẩn cấp', '11 Phan Chu Trinh, Hoàn Kiếm, Hà Nội', 'TRUE'],
-      ['emg-2', 'BS. CKII Nguyễn Văn Hùng', 'doctor', '0913 218 765', 'Trưởng kíp Hồi sức tích cực (ICU) BV Bạch Mai - Bác sĩ điều trị chính', 'Khoa Hồi sức tích cực, Tầng 4, Nhà A, BV Bạch Mai', 'TRUE'],
-      ['emg-3', 'Bàn trực Khoa Hồi sức tích cực ICU', 'doctor', '024 3869 3731', 'Số máy bàn trực 24/7 Khoa ICU Bạch Mai (Máy lẻ 402)', '78 Giải Phóng, Phương Mai, Đống Đa, Hà Nội', 'FALSE'],
-      ['emg-4', 'Cô Loan - Điều dưỡng ngoài giờ & Phục hồi', 'nurse', '0984 567 890', 'Hỗ trợ thay sonde dạ dày/tiểu, hút đờm sâu, tiêm truyền tại nhà', 'Gần viện Bạch Mai (Đến sau 15 phút khi gọi)', 'FALSE'],
-      ['emg-5', 'Bác Nam (Nhà số 14 đối diện)', 'neighbor', '0903 456 789', 'Hàng xóm thân thiết, hỗ trợ mở cổng xe cấp cứu và nâng người khẩn cấp', 'Số 14 ngõ 78 Giải Phóng', 'FALSE'],
-      ['emg-6', 'Chị Mai Lan (Thủ quỹ gia đình)', 'family', '0904 555 444', 'Giữ thẻ viện phí và quỹ thuốc cấp cứu của gia đình', 'Túc trực thường xuyên', 'FALSE']
+      ['emg-1', 'Tổng đài Cấp cứu Y tế 115', 'ambulance', '115', 'Gọi cấp cứu y tế khẩn cấp 24/7', 'Toàn quốc', 'TRUE'],
+      ['emg-2', 'Bác sĩ điều trị / Tư vấn gia đình', 'doctor', '0913 218 765', 'Bác sĩ theo dõi huyết áp & sức khỏe định kỳ', 'Bệnh viện / Phòng khám', 'TRUE'],
+      ['emg-3', 'Chị Mai (Người thân phụ trách thuốc & quỹ)', 'family', '0904 555 444', 'Quản lý đơn thuốc và hồ sơ khám bệnh của gia đình', 'Gia đình', 'FALSE']
     ];
     defaultContacts.forEach(c => sheetContacts.appendRow(c));
   }
@@ -401,9 +399,9 @@ function ensureSheetsSetup(ss) {
     sheetReminders.setFrozenRows(1);
 
     const defaultReminders = [
-      ['reminder-meds-1', 'meds', 'Lưu ý thuốc huyết áp 14:00', 'Đo huyết áp trước khi cho uống Amlodipine 5mg lúc 14h. Nếu huyết áp tâm thu < 110 hoặc tâm trương < 70, hoãn uống và gọi BS Thắng.', 'Cô Lan (Em gái)', '08:15', 'TRUE', new Date().toISOString()],
-      ['reminder-feeding-2', 'feeding', 'Quy trình bơm súp qua sonde', 'Bơm súp ấm (khoảng 37°C) chậm qua sonde, mỗi cữ 250ml. Nâng đầu giường 45 độ trong và sau ăn ít nhất 30 phút để chống trào ngược sặc phổi.', 'Anh Dũng (Con trai)', '09:00', 'FALSE', new Date().toISOString()],
-      ['reminder-condition-3', 'condition', 'Hút đờm & theo dõi SpO2', 'Hôm nay đờm hơi đặc đục, nhớ vỗ rung lồng ngực trước khi hút đờm. Bật oxy 2L/phút nếu SpO2 tụt dưới 94%.', 'BS. Nguyễn Văn Thắng', '07:30', 'TRUE', new Date().toISOString()]
+      ['reminder-meds-1', 'meds', 'Đo huyết áp trước khi uống thuốc sáng', 'Ngồi nghỉ 5–10 phút trước khi đo huyết áp. Nếu huyết áp tâm thu < 100 hoặc tâm trương < 60, nghỉ ngơi và hỏi ý kiến Bác sĩ.', 'Gia đình', '07:30', 'TRUE', new Date().toISOString()],
+      ['reminder-feeding-2', 'feeding', 'Chế độ ăn nhạt & uống đủ nước ấm', 'Hạn chế ăn mặn, giảm muối và đồ nhiều dầu mỡ. Chia nhỏ lượng nước ấm uống đều trong ngày.', 'Gia đình', '09:00', 'FALSE', new Date().toISOString()],
+      ['reminder-condition-3', 'condition', 'Tập vận động nhẹ nhàng & theo dõi giấc ngủ', 'Đi bộ hoặc vận động nhẹ nhàng 15–20 phút mỗi buổi, tránh thay đổi tư thế đột ngột khi mới thức dậy.', 'Bác sĩ tư vấn', '16:30', 'FALSE', new Date().toISOString()]
     ];
     defaultReminders.forEach(r => sheetReminders.appendRow(r));
   }
@@ -461,22 +459,14 @@ function ensureSheetsSetup(ss) {
        'Paracetamol 500mg', '1 viên', '[]',
        'Khi đau đầu hoặc sốt ≥ 38°C. Cách ít nhất 6 giờ giữa 2 lần.', 'Tối đa 3 viên/ngày',
        'TRUE', 10, now, now, 'Thuốc giảm đau, hạ sốt — Viên nén dài màu trắng (hoặc sủi)', ''],
-      ['routine-rehab-01', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'rehab', '',
-       'Tập co duỗi tay chân (bên liệt)', '15 phút', '["morning","afternoon"]',
-       'Từ từ, nhẹ nhàng. Dừng nếu bố kêu đau.', '',
+      ['routine-rehab-01', 'stage-1', 'Chăm sóc & Theo dõi tại nhà', 'rehab', '',
+       'Đi bộ / tập vận động nhẹ nhàng', '15–20 phút', '["morning","afternoon"]',
+       'Tập vừa sức, nghỉ ngơi ngay nếu thấy mỏi hoặc chóng mặt.', '',
        'TRUE', 5, now, now, '', ''],
-      ['routine-rehab-02', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'rehab', '',
-       'Tập ngồi tựa lưng trên giường', '10–20 phút', '["morning"]',
-       'Đỡ bố ngồi dậy tựa gối, giữ thẳng lưng.', '',
+      ['routine-care-01', 'stage-1', 'Chăm sóc & Theo dõi tại nhà', 'care', '',
+       'Uống đủ nước ấm & ăn nhạt giảm muối', 'Hằng ngày', '["morning","noon","afternoon","evening"]',
+       'Chia nhỏ lượng nước uống trong ngày, hạn chế đồ mặn và dầu mỡ.', '',
        'TRUE', 6, now, now, '', ''],
-      ['routine-care-01', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'care', '',
-       'Lật trở & chống loét tì đè', 'Mỗi 2 giờ', '["morning","noon","afternoon","evening"]',
-       'Xoay nghiêng trái/phải, kê gối đỡ lưng và gót chân.', '',
-       'TRUE', 7, now, now, '', ''],
-      ['routine-care-02', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'care', '',
-       'Vệ sinh răng miệng & thân thể', '', '["morning","evening"]',
-       'Lau mặt ấm, đánh răng/lau nướu, thay quần áo sạch.', '',
-       'TRUE', 8, now, now, '', ''],
     ];
     sampleRoutines.forEach(r => sheetRoutines.appendRow(r));
   } else {
@@ -651,23 +641,23 @@ function readMembers(ss) {
 function readPatientInfo(ss) {
   const sheet = ss.getSheetByName('Settings');
   const info = {
-    name: 'Đinh Hồng Phong',
-    diagnosis: 'Tai biến mạch máu não nặng (Đột quỵ diện rộng), liệt nửa người, thở máy/sonde',
-    hospital: 'Bệnh viện Bạch Mai - Hà Nội',
-    room: 'Khoa Hồi Sức Tích Cực (ICU) • Phòng 402, Giường 12',
-    notes: 'Cần lật trở chống loét 2h/lần, kiểm tra SpO2 và hút đờm thường xuyên.',
-    emergencyPhone: '0913 218 765'
+    name: '${DEFAULT_MEMBER_NAME}',
+    diagnosis: 'Theo dõi huyết áp, tim mạch & chăm sóc sức khỏe hằng ngày',
+    hospital: 'Khám & kiểm tra định kỳ',
+    room: 'Tại nhà',
+    notes: 'Đo huyết áp hàng ngày, uống thuốc đúng giờ, tập vận động và nghỉ ngơi đều đặn.',
+    emergencyPhone: '115'
   };
   if (!sheet) return info;
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     const key = String(data[i][0]);
     const val = String(data[i][1] || '');
-    if (key === 'patient_name') info.name = val;
-    if (key === 'patient_diagnosis') info.diagnosis = val;
-    if (key === 'patient_hospital') info.hospital = val;
-    if (key === 'patient_room') info.room = val;
-    if (key === 'patient_notes') info.notes = val;
+    if (key === 'patient_name' || key === 'member_name') info.name = val;
+    if (key === 'patient_diagnosis' || key === 'member_diagnosis') info.diagnosis = val;
+    if (key === 'patient_hospital' || key === 'member_hospital') info.hospital = val;
+    if (key === 'patient_room' || key === 'member_room') info.room = val;
+    if (key === 'patient_notes' || key === 'member_notes') info.notes = val;
     if (key === 'emergency_phone') info.emergencyPhone = val;
   }
   return info;
