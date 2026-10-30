@@ -68,6 +68,7 @@ interface SmartReminderBannerProps {
   onToggleDailyLog: (log: DailyLog) => Promise<void>;
   onOpenSettings: () => void;
   showToast?: (message: string, type?: 'info' | 'success' | 'warn') => void;
+  patientDisplayName?: string;
 }
 
 export default function SmartReminderBanner({
@@ -83,6 +84,7 @@ export default function SmartReminderBanner({
   onToggleDailyLog,
   onOpenSettings,
   showToast,
+  patientDisplayName = 'bố Đinh Hồng Phong',
 }: SmartReminderBannerProps) {
   const [currentSlot, setCurrentSlot] = useState<TimeSlot>('morning');
   const [currentTimeHHmm, setCurrentTimeHHmm] = useState<string>('08:00');
@@ -237,7 +239,7 @@ export default function SmartReminderBanner({
   // ===== 5. TỔNG HỢP LỜI NHẮC BẰNG GIỌNG NÓI TIẾNG VIỆT =====
   const buildVoiceReminderText = useCallback(() => {
     const slotLabel = TIME_SLOT_CONFIG[currentSlot].label;
-    const parts: string[] = [`Nhắc việc chăm sóc bố Đinh Hồng Phong buổi ${slotLabel}:`];
+    const parts: string[] = [`Nhắc việc chăm sóc sức khỏe của ${patientDisplayName} buổi ${slotLabel}:`];
 
     if (latestVitalAlert) {
       parts.push(`Lưu ý: Lần đo lúc ${latestVitalAlert.entry.time} có ${latestVitalAlert.summary}.`);
@@ -282,6 +284,7 @@ export default function SmartReminderBanner({
     currentSlotRoutines.length,
     earlierMissedItems.length,
     upcomingAppointment,
+    patientDisplayName,
   ]);
 
   const handleToggleVoice = useCallback(() => {

@@ -46,6 +46,7 @@ import type {
   AlertLevel,
   FamilyMember,
   TimeSlot,
+  HealthProfileType,
 } from '@/lib/types';
 import {
   TIME_SLOT_CONFIG,
@@ -63,6 +64,7 @@ import {
   normalizeTimeStr,
   extractRoutineStartDateStr,
   VITALS_QUICK_NOTE_TAGS,
+  getQuickNoteTagsForProfile,
   isQuickNoteTagSelected,
   toggleQuickNoteTag,
 } from '@/lib/config';
@@ -82,6 +84,8 @@ interface VitalsChartViewProps {
   isAdmin: boolean;
   members?: FamilyMember[];
   patientName?: string;
+  patientDiagnosis?: string;
+  profileType?: HealthProfileType;
   showToast?: (msg: string, type?: 'info' | 'success' | 'warn') => void;
   onDeleteVitals: (id: string) => Promise<void>;
   onSaveVitals: (entry: VitalsLogEntry) => Promise<void>;
@@ -217,12 +221,15 @@ export function VitalsChartView({
   careRoutines,
   members = [],
   patientName = 'Đinh Hồng Phong',
+  patientDiagnosis,
+  profileType = 'post_stroke_cranioplasty',
   showToast,
   onDeleteVitals,
   onSaveVitals,
   onToggleDailyLog,
   defaultRecorder = 'Mẹ',
 }: VitalsChartViewProps) {
+  const quickNoteTags = getQuickNoteTagsForProfile(profileType);
   const [dateRange, setDateRange] = useState<DateRange>('7d');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -1174,7 +1181,11 @@ export function VitalsChartView({
     const todayStr = getVietnamDateStr();
     const lines: string[] = [];
     lines.push(`🩺 BÁO CÁO THEO DÕI HUYẾT ÁP & SỨC KHỎE TẠI NHÀ — BỆNH NHÂN: ${patientName.toUpperCase()}`);
-    lines.push(`📌 Bệnh cảnh: Sau mổ xuất huyết não, không liệt, tự đi lại & tập PHCN tại nhà, bán manh trái, đang chờ lịch mổ ghép sọ (6–8 tuần).`);
+    lines.push(
+      profileType === 'post_stroke_cranioplasty'
+        ? `📌 Bệnh cảnh: Sau mổ xuất huyết não, không liệt, tự đi lại & tập PHCN tại nhà, bán manh trái, đang chờ lịch mổ ghép sọ (6–8 tuần).`
+        : `📌 Tình trạng theo dõi: ${patientDiagnosis || 'Theo dõi huyết áp, nhịp tim & sức khỏe định kỳ tại nhà'}.`
+    );
     lines.push(`📅 Kỳ tổng hợp: ${rangeLabel} (Cập nhật ngày ${fmtDateFull(todayStr)})`);
     lines.push(`────────────────────`);
 
@@ -1457,7 +1468,11 @@ export function VitalsChartView({
   </div>
 
   <div class="context-box">
-    <strong>🩺 Tóm tắt bệnh cảnh hiện tại trình Bác sĩ:</strong> Sau phẫu thuật xuất huyết não • Hiện không liệt vận động, tự đi lại và tập phục hồi chức năng tại nhà • Di chứng bán manh đồng danh bên trái • Đang theo dõi ngoại trú chờ lịch phẫu thuật ghép sọ (6–8 tuần).
+    <strong>🩺 Tóm tắt bệnh cảnh hiện tại trình Bác sĩ:</strong> ${
+      profileType === 'post_stroke_cranioplasty'
+        ? 'Sau phẫu thuật xuất huyết não • Hiện không liệt vận động, tự đi lại và tập phục hồi chức năng tại nhà • Di chứng bán manh đồng danh bên trái • Đang theo dõi ngoại trú chờ lịch phẫu thuật ghép sọ (6–8 tuần).'
+        : patientDiagnosis || 'Theo dõi huyết áp, nhịp tim và chăm sóc sức khỏe định kỳ tại nhà.'
+    }
   </div>
 
   ${
@@ -2674,6 +2689,7 @@ export function VitalsChartView({
         externalDateRange={dateRange}
         onChangeDateRange={(r) => setDateRange(r)}
         patientName={patientName}
+        profileType={profileType}
         showToast={showToast}
         onOpenDoctorReport={() => setShowDoctorReportModal(true)}
       />
@@ -3389,9 +3405,17 @@ export function VitalsChartView({
                       <div className="font-black text-teal-950 mb-0.5">
                         🩺 Tóm tắt bệnh cảnh hiện tại trình Bác sĩ:
                       </div>
-                      <p>
-                        Bệnh nhân <strong>{patientName}</strong> — Sau phẫu thuật xuất huyết não, hiện <strong>không liệt vận động</strong>, tự đi lại và tập phục hồi chức năng tại nhà; có hội chứng <strong>bán manh đồng danh bên trái</strong>; đang theo dõi ngoại trú chờ lịch phẫu thuật <strong>ghép sọ</strong> (6–8 tuần).
-                      </p>
+                      {profileType === 'post_stroke_cranioplasty' ? (
+                        <p>
+                          Bệnh nhân <strong>{patientName}</strong> — Sau phẫu thuật xuất huyết não, hiện <strong>không liệt vận động</strong>, tự đi lại và tập phục hồi chức năng tại nhà; có hội chứng <strong>bán manh đồng danh bên trái</strong>; đang theo dõi ngoại trú chờ lịch phẫu thuật <strong>ghép sọ</strong> (6–8 tuần).
+                        </p>
+                      ) : (
+                        <p>
+                          Hồ sơ sức khỏe: <strong>{patientName}</strong> —{' '}
+                          {patientDiagnosis ||
+                            'Theo dõi huyết áp, nhịp tim và chăm sóc sức khỏe định kỳ tại nhà.'}
+                        </p>
+                      )}
                     </div>
 
                     {/* 2. Điểm lưu ý lâm sàng cần xin ý kiến Bác sĩ */}
@@ -3924,7 +3948,7 @@ export function VitalsChartView({
                   className="w-full min-h-[44px] px-3 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm font-medium text-slate-900 focus:outline-none focus:border-teal-600"
                 />
                 <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {VITALS_QUICK_NOTE_TAGS.map((tag) => {
+                  {quickNoteTags.map((tag) => {
                     const selected = isQuickNoteTagSelected(editNote, tag.value);
                     return (
                       <button

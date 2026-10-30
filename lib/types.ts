@@ -86,6 +86,19 @@ export interface PatientCustomField {
   section?: 'profile' | 'care';
 }
 
+export type HealthProfileType = 'post_stroke_cranioplasty' | 'general_health';
+
+export interface HealthProfile {
+  id: string;                 // 'father' (mặc định cho Bố), 'mother' (Mẹ), hoặc 'profile-...'
+  name: string;               // VD: 'Đinh Hồng Phong', 'Mẹ', ...
+  relation: string;           // VD: 'Bố', 'Mẹ', 'Bản thân', ...
+  avatarEmoji: string;        // VD: '👨', '👩', '👴', '👵', '🧑'
+  profileType: HealthProfileType;
+  patientInfo: PatientInfo;
+  bpThresholds: BpThresholds;
+  appointment: AppointmentInfo;
+}
+
 export interface PatientInfo {
   name: string;
   diagnosis: string;
@@ -99,6 +112,7 @@ export interface PatientInfo {
   careMode?: string;
   careGoal?: string;
   customFields?: PatientCustomField[];
+  healthProfiles?: HealthProfile[];
 }
 
 export interface SystemSettings {

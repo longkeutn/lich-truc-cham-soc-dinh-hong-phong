@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { PatientInfo, PatientCustomField } from '@/lib/types';
-import { savePatientInfoAction } from '@/lib/actions';
 import { Plus, Trash2, X, Save, Sparkles, Eraser } from 'lucide-react';
 
 interface EditPatientModalProps {
@@ -133,16 +132,12 @@ export function EditPatientModal({
       careMode: (formData.careMode ?? '').trim(),
       careGoal: (formData.careGoal ?? '').trim(),
       customFields: cleanedCustomFields,
+      healthProfiles: patient.healthProfiles,
     };
 
-    // Cập nhật giao diện và đóng hộp thoại tức thì (0ms)
+    // Cập nhật giao diện, đóng hộp thoại tức thì (0ms) và đồng bộ qua callback onUpdated
     onUpdated(finalInfo);
     onClose();
-
-    // Đồng bộ ngầm vào Google Sheets
-    void savePatientInfoAction(finalInfo).catch((err) => {
-      console.error('Lỗi đồng bộ hồ sơ bệnh nhân:', err);
-    });
   };
 
   return (

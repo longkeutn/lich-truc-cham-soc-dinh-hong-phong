@@ -13,7 +13,7 @@ import {
   Info,
   ShieldCheck,
 } from 'lucide-react';
-import type { VitalsLogEntry, BpThresholds, TimeSlot } from '@/lib/types';
+import type { VitalsLogEntry, BpThresholds, TimeSlot, HealthProfileType } from '@/lib/types';
 import {
   getVietnamDateStr,
   getVietnamDateOffsetStr,
@@ -34,6 +34,7 @@ interface ClinicalVitalsReportSectionProps {
   externalDateRange?: 'today' | '3d' | '7d' | '14d' | '30d' | 'all';
   onChangeDateRange?: (range: 'today' | '3d' | '7d' | '14d' | '30d' | 'all') => void;
   patientName?: string;
+  profileType?: HealthProfileType;
   showToast?: (msg: string, type?: 'info' | 'success' | 'warn') => void;
   onOpenDoctorReport?: () => void;
 }
@@ -257,6 +258,7 @@ export default function ClinicalVitalsReportSection({
   bpThresholds,
   externalDateRange = '7d',
   patientName = 'Đinh Hồng Phong',
+  profileType = 'post_stroke_cranioplasty',
   showToast,
   onOpenDoctorReport,
 }: ClinicalVitalsReportSectionProps) {
@@ -751,10 +753,14 @@ export default function ClinicalVitalsReportSection({
               <div className="flex items-center justify-between gap-2 border-b border-teal-200 pb-2.5">
                 <div>
                   <h4 className="text-sm sm:text-base font-black text-teal-950">
-                    📖 Cẩm Nang Hiểu Đúng Chỉ Số Huyết Áp &amp; Các Triệu Chứng Đáng Lo Của Bố
+                    {profileType === 'post_stroke_cranioplasty'
+                      ? '📖 Cẩm Nang Hiểu Đúng Chỉ Số Huyết Áp & Các Triệu Chứng Đáng Lo Của Bố'
+                      : `📖 Cẩm Nang Hiểu Đúng Chỉ Số Huyết Áp & Dấu Hiệu Tim Mạch (${patientName})`}
                   </h4>
                   <p className="text-[11px] text-teal-800 font-medium">
-                    Biên soạn theo bệnh cảnh của Bố: sau mổ xuất huyết não, đang tập phục hồi tại nhà, bán manh trái, chờ ghép sọ
+                    {profileType === 'post_stroke_cranioplasty'
+                      ? 'Biên soạn theo bệnh cảnh của Bố: sau mổ xuất huyết não, đang tập phục hồi tại nhà, bán manh trái, chờ ghép sọ'
+                      : `Hướng dẫn đọc hiểu chỉ số huyết áp, nhịp mạch và các dấu hiệu cảnh báo tim mạch tại nhà cho ${patientName}`}
                   </p>
                 </div>
                 <button
@@ -850,7 +856,8 @@ export default function ClinicalVitalsReportSection({
                 </div>
               </div>
 
-              {/* PHẦN B: CÁC TRIỆU CHỨNG ĐÁNG LO — ĐIỀU CHỈNH THEO BỆNH CẢNH CỦA BỐ (SAU MỔ XUẤT HUYẾT NÃO, ĐI LẠI ĐƯỢC, BÁN MANH TRÁI, CHỜ GHÉP SỌ) */}
+              {/* PHẦN B: CÁC TRIỆU CHỨNG ĐÁNG LO — TỰ ĐỘNG THÍCH ỨNG THEO HỒ SƠ (BỐ SAU MỔ XUẤT HUYẾT NÃO VS THÀNH VIÊN GIA ĐÌNH) */}
+              {profileType === 'post_stroke_cranioplasty' ? (
               <div className="space-y-2.5 pt-2 border-t border-teal-200">
                 <div className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
                   <span className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[11px]">PHẦN 2</span>
@@ -956,6 +963,50 @@ export default function ClinicalVitalsReportSection({
                   Lưu ý: nội dung mang tính tham khảo để gia đình nhận biết sớm, không thay thế chỉ định của bác sĩ điều trị. Khi phân vân, hãy gọi bác sĩ phẫu thuật của Bố hoặc đưa Bố đến viện.
                 </p>
               </div>
+              ) : (
+              <div className="space-y-2.5 pt-2 border-t border-teal-200">
+                <div className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[11px]">PHẦN 2</span>
+                  <span>Các dấu hiệu cảnh báo huyết áp &amp; tim mạch cần lưu ý đối với {patientName}</span>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 rounded-2xl bg-rose-50 border-2 border-rose-300 space-y-1.5 text-rose-950">
+                    <div className="font-black text-xs sm:text-sm text-rose-800 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>🚨 MỨC ĐỎ — Đi khám cấp cứu ngay nếu có:</span>
+                    </div>
+                    <ul className="space-y-1 text-slate-800 list-disc pl-4">
+                      <li>
+                        <strong>Huyết áp tăng vọt &ge; 180/110 mmHg</strong> kèm đau đầu dữ dội, tức ngực, khó thở, nhìn mờ hoặc buồn nôn.
+                      </li>
+                      <li>
+                        <strong>Dấu hiệu đột quỵ sớm (FAST):</strong> Méo miệng khi cười, tê hoặc yếu một bên tay/chân, nói ngọng hoặc khó tìm từ đột ngột.
+                      </li>
+                      <li>
+                        <strong>Đau thắt ngực trái</strong> lan lên vai/cổ, vã mồ hôi lạnh, hồi hộp trống ngực mạnh hoặc ngất xỉu.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-amber-50 border-2 border-amber-300 space-y-1.5 text-amber-950">
+                    <div className="font-black text-xs sm:text-sm text-amber-900">
+                      ⚠️ MỨC VÀNG — Nghỉ ngơi &amp; tham khảo ý kiến Bác sĩ:
+                    </div>
+                    <ul className="space-y-1 text-slate-800 list-disc pl-4">
+                      <li>
+                        <strong>Huyết áp vượt ngưỡng (&ge; {bpThresholds.highSys}/{bpThresholds.highDia} mmHg)</strong> nhiều lần liên tiếp hoặc hay tăng vào sáng sớm / tối muộn.
+                      </li>
+                      <li>
+                        <strong>Hạ huyết áp tư thế (&lt; {bpThresholds.lowSys}/{bpThresholds.lowDia} mmHg):</strong> Hoa mắt, choáng váng khi đang nằm/ngồi mà đứng dậy nhanh.
+                      </li>
+                      <li>
+                        <strong>Nhịp tim lúc nghỉ quá chậm (&lt; 55–60 l/p) hoặc quá nhanh (&ge; 100 l/p)</strong> kèm cảm giác mệt lả, hụt hơi.
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              )}
             </div>
           )}
 

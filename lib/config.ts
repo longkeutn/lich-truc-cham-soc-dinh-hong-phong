@@ -1,4 +1,4 @@
-import { FamilyMember, PhaseConfig, EmergencyContact, ShiftRecord, CarePhase, ShiftType, PatientDailyReminder, PatientInfo, TimeSlot, BpThresholds, RehabStage, AppointmentInfo, CareRoutine } from './types';
+import { FamilyMember, PhaseConfig, EmergencyContact, ShiftRecord, CarePhase, ShiftType, PatientDailyReminder, PatientInfo, TimeSlot, BpThresholds, RehabStage, AppointmentInfo, CareRoutine, HealthProfile, HealthProfileType } from './types';
 
 export const PATIENT_INFO: PatientInfo = {
   name: 'Đinh Hồng Phong',
@@ -1310,6 +1310,215 @@ export function toggleQuickNoteTag(currentNote: string, tagValue: string): strin
     return rawParts.join(', ');
   }
   return [...rawParts, tagValue].join(', ');
+}
+
+export const GENERAL_VITALS_QUICK_NOTE_TAGS: VitalsQuickNoteTag[] = [
+  {
+    id: 'gen_fine',
+    value: 'Khỏe mạnh, dễ chịu',
+    label: '✅ Khỏe mạnh, dễ chịu',
+    tone: 'good',
+  },
+  {
+    id: 'gen_after_meds',
+    value: 'Đo sau uống thuốc',
+    label: '💊 Đo sau uống thuốc',
+    tone: 'neutral',
+  },
+  {
+    id: 'gen_after_walk',
+    value: 'Đo sau tập thể dục',
+    label: '🚶 Đo sau tập thể dục',
+    tone: 'neutral',
+  },
+  {
+    id: 'gen_dizzy',
+    value: 'Hơi hoa mắt / chóng mặt',
+    label: '😵 Hơi hoa mắt / chóng mặt',
+    tone: 'warn',
+    clinicalTip:
+      'Nên ngồi hoặc nằm nghỉ yên tĩnh 15–20 phút, uống một ngụm nước ấm và đo kiểm tra lại huyết áp.',
+  },
+  {
+    id: 'gen_headache',
+    value: 'Hơi đau đầu / mỏi vai gáy',
+    label: '🤕 Đau đầu / mỏi vai gáy',
+    tone: 'warn',
+    clinicalTip:
+      'Nếu đau đầu kèm huyết áp tăng cao (≥140/90 mmHg), cần nghỉ ngơi tuyệt đối và theo dõi sát để dùng thuốc theo chỉ định Bác sĩ.',
+  },
+  {
+    id: 'gen_insomnia',
+    value: 'Đêm qua khó ngủ / mất ngủ',
+    label: '😴 Đêm qua khó ngủ',
+    tone: 'neutral',
+  },
+  {
+    id: 'gen_tired',
+    value: 'Người hơi mệt / uể oải',
+    label: '😮‍💨 Người hơi mệt',
+    tone: 'warn',
+    clinicalTip:
+      'Chú ý xem nhịp mạch có quá chậm (<60 l/p) hoặc huyết áp có hơi tụt thấp hơn mọi ngày không.',
+  },
+];
+
+export function getQuickNoteTagsForProfile(
+  profileType: HealthProfileType = 'post_stroke_cranioplasty'
+): VitalsQuickNoteTag[] {
+  return profileType === 'post_stroke_cranioplasty'
+    ? VITALS_QUICK_NOTE_TAGS
+    : GENERAL_VITALS_QUICK_NOTE_TAGS;
+}
+
+// =============================================
+// MULTI-PROFILE — HỆ THỐNG ĐA HỒ SƠ SỨC KHỎE GIA ĐÌNH (100% TƯƠNG THÍCH NGƯỢC)
+// =============================================
+
+export const DEFAULT_HEALTH_PROFILE_ID = 'father';
+
+/**
+ * Trích xuất mã hồ sơ (`profileId`) từ `id` hoặc `routineId` của bản ghi.
+ * - Các bản ghi cũ hoặc của Bố không có tiền tố `p_<id>__` -> trả về `'father'`.
+ * - Các bản ghi của thành viên khác có dạng `p_<profileId>__...` hoặc `dl-YYYY-MM-DD-p_<profileId>__...` -> trả về `<profileId>`.
+ */
+export function extractRecordProfileId(idOrRoutineId: string | undefined | null): string {
+  if (!idOrRoutineId) return DEFAULT_HEALTH_PROFILE_ID;
+  const str = String(idOrRoutineId).trim();
+  const directMatch = str.match(/^p_([a-zA-Z0-9_-]+)__/);
+  if (directMatch && directMatch[1]) {
+    return directMatch[1];
+  }
+  const dlMatch = str.match(/^dl-\d{4}-\d{2}-\d{2}-p_([a-zA-Z0-9_-]+)__/);
+  if (dlMatch && dlMatch[1]) {
+    return dlMatch[1];
+  }
+  return DEFAULT_HEALTH_PROFILE_ID;
+}
+
+/**
+ * Đảm bảo ID của bản ghi (Vitals, CareRoutine, Reminder) mang tiền tố đúng của hồ sơ đang chọn.
+ * Với hồ sơ mặc định của Bố (`'father'`), giữ nguyên ID gốc không gắn tiền tố để tương thích 100% dữ liệu cũ.
+ */
+export function ensureRecordProfilePrefix(
+  rawId: string,
+  profileId: string = DEFAULT_HEALTH_PROFILE_ID
+): string {
+  const cleanProfileId = (profileId || DEFAULT_HEALTH_PROFILE_ID).trim();
+  const stripped = String(rawId || '')
+    .trim()
+    .replace(/^p_[a-zA-Z0-9_-]+__/, '');
+  if (!cleanProfileId || cleanProfileId === DEFAULT_HEALTH_PROFILE_ID) {
+    return stripped;
+  }
+  return `p_${cleanProfileId}__${stripped}`;
+}
+
+/**
+ * Tổng hợp danh sách Hồ sơ Sức khỏe của gia đình:
+ * 1. Hồ sơ số 1 luôn là Bố (`id: 'father'`) lấy từ dữ liệu gốc.
+ * 2. Tự động khởi tạo sẵn hồ sơ số 2 cho Mẹ (`id: 'mother'`) nếu chưa có để gia đình dùng ngay.
+ * 3. Kết hợp thêm các hồ sơ thành viên khác đã lưu trong `patientInfo.healthProfiles`.
+ */
+export function buildResolvedHealthProfiles(
+  fatherPatientInfo: PatientInfo,
+  fatherThresholds: BpThresholds = DEFAULT_BP_THRESHOLDS,
+  fatherAppointment: AppointmentInfo = DEFAULT_APPOINTMENT,
+  members: FamilyMember[] = []
+): HealthProfile[] {
+  const savedList = Array.isArray(fatherPatientInfo.healthProfiles)
+    ? fatherPatientInfo.healthProfiles
+    : [];
+
+  // 1. Hồ sơ mặc định của Bố Đinh Hồng Phong
+  const fatherProfile: HealthProfile = {
+    id: DEFAULT_HEALTH_PROFILE_ID,
+    name: fatherPatientInfo.name || 'Đinh Hồng Phong',
+    relation: 'Bố',
+    avatarEmoji: '👨',
+    profileType: 'post_stroke_cranioplasty',
+    patientInfo: {
+      ...fatherPatientInfo,
+      healthProfiles: undefined,
+    },
+    bpThresholds: fatherThresholds || DEFAULT_BP_THRESHOLDS,
+    appointment: fatherAppointment || DEFAULT_APPOINTMENT,
+  };
+
+  // 2. Các hồ sơ thành viên khác đã lưu
+  const otherProfiles: HealthProfile[] = savedList
+    .filter((p) => p && p.id && p.id !== DEFAULT_HEALTH_PROFILE_ID)
+    .map((p) => ({
+      id: p.id,
+      name: p.name || 'Thành viên',
+      relation: p.relation || 'Gia đình',
+      avatarEmoji: p.avatarEmoji || '👩',
+      profileType: p.profileType || 'general_health',
+      patientInfo: {
+        name: p.patientInfo?.name || p.name || 'Thành viên',
+        diagnosis:
+          p.patientInfo?.diagnosis ?? 'Theo dõi huyết áp, nhịp tim & sức khỏe định kỳ',
+        hospital: p.patientInfo?.hospital ?? '',
+        room: p.patientInfo?.room ?? 'Tại nhà',
+        notes:
+          p.patientInfo?.notes ??
+          'Đo huyết áp định kỳ sáng/tối, uống đủ nước ấm, nghỉ ngơi hợp lý.',
+        emergencyPhone: p.patientInfo?.emergencyPhone || fatherPatientInfo.emergencyPhone || '',
+        statusBadge: p.patientInfo?.statusBadge || 'Theo dõi sức khỏe gia đình',
+        conditionTag: p.patientInfo?.conditionTag || 'Huyết áp & Tim mạch',
+        headerBadge: p.patientInfo?.headerBadge || 'Tại nhà',
+        careMode: p.patientInfo?.careMode || 'Hằng ngày',
+        careGoal: p.patientInfo?.careGoal || 'Duy trì huyết áp & nhịp tim ổn định',
+        customFields: Array.isArray(p.patientInfo?.customFields)
+          ? p.patientInfo.customFields
+          : [],
+      },
+      bpThresholds: p.bpThresholds || { ...DEFAULT_BP_THRESHOLDS },
+      appointment: p.appointment || { ...DEFAULT_APPOINTMENT },
+    }));
+
+  // Nếu chưa có hồ sơ của Mẹ ('mother'), tự động tạo sẵn hồ sơ Mẹ để gia đình bấm chuyển sang dùng được ngay!
+  if (!otherProfiles.some((p) => p.id === 'mother')) {
+    const motherMember = members.find(
+      (m) =>
+        m.name.toLowerCase().includes('mẹ') ||
+        m.relation.toLowerCase().includes('mẹ') ||
+        m.relation.toLowerCase().includes('vợ')
+    );
+    const motherDisplayName = motherMember ? motherMember.name : 'Mẹ';
+    otherProfiles.unshift({
+      id: 'mother',
+      name: motherDisplayName,
+      relation: 'Mẹ',
+      avatarEmoji: '👩',
+      profileType: 'general_health',
+      patientInfo: {
+        name: motherDisplayName,
+        diagnosis: 'Theo dõi huyết áp, tim mạch & chăm sóc sức khỏe hằng ngày',
+        hospital: 'Khám định kỳ',
+        room: 'Tại nhà',
+        notes:
+          'Chú ý đo huyết áp khi thấy mỏi gáy, hoa mắt hoặc mất ngủ; uống thuốc và nghỉ ngơi đúng giờ.',
+        emergencyPhone: motherMember?.phone || fatherPatientInfo.emergencyPhone || '',
+        statusBadge: 'Sức khỏe gia đình',
+        conditionTag: 'Huyết áp & Tim mạch',
+        headerBadge: 'Tại nhà',
+        careMode: 'Hằng ngày',
+        careGoal: 'Duy trì huyết áp & giấc ngủ ổn định',
+        customFields: [],
+      },
+      bpThresholds: { ...DEFAULT_BP_THRESHOLDS },
+      appointment: {
+        nextDate: '',
+        nextNote: '',
+        nextWho: '',
+        lastDate: '',
+        lastNote: '',
+      },
+    });
+  }
+
+  return [fatherProfile, ...otherProfiles];
 }
 
 

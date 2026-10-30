@@ -289,7 +289,13 @@ class MemoryShiftStore {
   }
 
   public setPatientInfo(info: PatientInfo): void {
-    this.patientInfo = { ...this.patientInfo, ...info };
+    const preservedProfiles =
+      info.healthProfiles !== undefined ? info.healthProfiles : this.patientInfo.healthProfiles;
+    this.patientInfo = {
+      ...this.patientInfo,
+      ...info,
+      healthProfiles: preservedProfiles,
+    };
     this.systemSettings.patientName = this.patientInfo.name;
     this.systemSettings.patientRoom = this.patientInfo.room;
     this.systemSettings.hospital = this.patientInfo.hospital;
@@ -1002,6 +1008,7 @@ function packPatientInfoForSheet(info: PatientInfo): PatientInfo {
     careMode: info.careMode ?? '',
     careGoal: info.careGoal ?? '',
     customFields: Array.isArray(info.customFields) ? info.customFields : [],
+    healthProfiles: Array.isArray(info.healthProfiles) ? info.healthProfiles : [],
   };
   return {
     ...info,
@@ -1068,12 +1075,21 @@ function unpackPatientInfoFromSheet(raw: PatientInfo): PatientInfo {
       : Array.isArray(parsedMeta?.customFields)
         ? parsedMeta!.customFields
         : [],
+    healthProfiles: Array.isArray(raw.healthProfiles)
+      ? raw.healthProfiles
+      : Array.isArray(parsedMeta?.healthProfiles)
+        ? parsedMeta!.healthProfiles
+        : [],
   };
 }
 
 export async function savePatientSettingsToStorage(info: PatientInfo): Promise<PatientInfo> {
+  const currentStored = memoryStore.getPatientInfo();
   const cleanInfo: PatientInfo = {
+    ...currentStored,
     ...info,
+    healthProfiles:
+      info.healthProfiles !== undefined ? info.healthProfiles : currentStored.healthProfiles,
     emergencyPhone: String(info.emergencyPhone || '').split(PATIENT_META_DELIM)[0].trim(),
   };
   memoryStore.setPatientInfo(cleanInfo);

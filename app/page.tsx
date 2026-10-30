@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic';
 import HeaderBar, { AppView } from '@/components/HeaderBar';
 import PatientBanner from '@/components/PatientBanner';
+import HealthProfileSwitcher from '@/components/HealthProfileSwitcher';
 import QuickVitalsForm from '@/components/QuickVitalsForm';
 import DailyRoutineView from '@/components/DailyRoutineView';
 import { AppointmentSection } from '@/components/AppointmentSection';
@@ -80,12 +81,17 @@ import {
   AppointmentInfo,
   BpThresholds,
   ExpenseEntry,
+  HealthProfile,
 } from '@/lib/types';
 import {
   DEFAULT_BP_THRESHOLDS,
   DEFAULT_APPOINTMENT,
   DEFAULT_REHAB_STAGES,
   DEFAULT_RECORDER,
+  DEFAULT_HEALTH_PROFILE_ID,
+  extractRecordProfileId,
+  ensureRecordProfilePrefix,
+  buildResolvedHealthProfiles,
   getVietnamDateStr,
   getVietnamDateOffsetStr,
   formatVietnamDateFull,
@@ -192,15 +198,20 @@ export default function CareSchedulePage() {
   const [membersModalOpen, setMembersModalOpen] = useState<boolean>(false);
   const [pendingAdminAction, setPendingAdminAction] = useState<(() => void) | null>(null);
 
-  // V2.0: RoutineManager Modal
+  // V2.0: RoutineManager Modal & Hồ sơ sức khỏe gia đình đang chọn
   const [routineManagerOpen, setRoutineManagerOpen] = useState<boolean>(false);
   const [activeStageId, setActiveStageId] = useState<string>('stage-1');
+  const [activeProfileId, setActiveProfileId] = useState<string>(DEFAULT_HEALTH_PROFILE_ID);
 
   // Dọn dẹp bộ nhớ trình duyệt cũ (localStorage) & tải ngầm trước các tab phụ sau khi trang chính đã lên
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('care_app_member_id');
+        const savedProfileId = localStorage.getItem('care_active_profile_id');
+        if (savedProfileId) {
+          setActiveProfileId(savedProfileId);
+        }
         setNotificationPrefs(loadNotificationPrefs());
         if (sessionStorage.getItem('care_admin_auth') === 'true') {
           setIsAdmin(true);
@@ -560,14 +571,175 @@ export default function CareSchedulePage() {
     };
   }, [loadAllData, showToast]);
 
+  // ===== ĐA HỒ SƠ SỨC KHỎE GIA ĐÌNH (MULTI-PROFILE: BỐ + MẸ & CÁC THÀNH VIÊN KHÁC) =====
+  const healthProfiles = useMemo(
+    () => buildResolvedHealthProfiles(patientInfo, bpThresholds, appointment, members),
+    [patientInfo, bpThresholds, appointment, members]
+  );
+
+  const activeProfile = useMemo(
+    () => healthProfiles.find((p) => p.id === activeProfileId) || healthProfiles[0],
+    [healthProfiles, activeProfileId]
+  );
+
+  const isFatherProfile = activeProfile.id === DEFAULT_HEALTH_PROFILE_ID;
+  const profilePatientInfo = activeProfile.patientInfo;
+  const profileBpThresholds = activeProfile.bpThresholds;
+  const profileAppointment = activeProfile.appointment;
+
+  const patientDisplayName = useMemo(() => {
+    if (isFatherProfile) return 'Bố';
+    return activeProfile.relation || activeProfile.name || 'thành viên';
+  }, [isFatherProfile, activeProfile.relation, activeProfile.name]);
+
+  const profileVitalsLog = useMemo(
+    () =>
+      vitalsLog
+        .filter((v) => extractRecordProfileId(v.id) === activeProfile.id)
+        .map((v) => ({
+          ...v,
+          alertLevel: computeAlertLevel(v.sys, v.dia, profileBpThresholds, v.pulse),
+        })),
+    [vitalsLog, activeProfile.id, profileBpThresholds]
+  );
+
+  const profileCareRoutines = useMemo(
+    () => careRoutines.filter((r) => extractRecordProfileId(r.id) === activeProfile.id),
+    [careRoutines, activeProfile.id]
+  );
+
+  const profileDailyLogs = useMemo(
+    () => dailyLogs.filter((l) => extractRecordProfileId(l.routineId || l.id) === activeProfile.id),
+    [dailyLogs, activeProfile.id]
+  );
+
+  const profileReminders = useMemo(
+    () => reminders.filter((rem) => extractRecordProfileId(rem.id) === activeProfile.id),
+    [reminders, activeProfile.id]
+  );
+
+  const handleSelectProfile = useCallback(
+    (profileId: string) => {
+      setActiveProfileId(profileId);
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('care_active_profile_id', profileId);
+        }
+      } catch {
+        // ignore
+      }
+      const target = healthProfiles.find((p) => p.id === profileId);
+      if (target) {
+        showToast(
+          `👤 Đang xem sổ sức khỏe: ${target.relation ? `${target.relation} • ` : ''}${target.name}`,
+          'info'
+        );
+      }
+    },
+    [healthProfiles, showToast]
+  );
+
+  const syncRootPatientInfo = useCallback(
+    (nextInfo: PatientInfo, toastMsg?: string) => {
+      setPatientInfo(nextInfo);
+      if (toastMsg) {
+        showToast(toastMsg, 'success');
+      }
+      void savePatientInfoAction(nextInfo)
+        .then((res) => {
+          if (!res.success) {
+            showToast('Cảnh báo: Chưa đồng bộ được hồ sơ lên Sheet.', 'warn');
+          }
+        })
+        .catch(() => {
+          showToast('Lỗi đồng bộ hồ sơ sức khỏe lên Google Sheets.', 'warn');
+        });
+    },
+    [showToast]
+  );
+
+  const handleSaveHealthProfile = useCallback(
+    async (savedProfile: HealthProfile) => {
+      if (savedProfile.id === DEFAULT_HEALTH_PROFILE_ID) {
+        const extraProfiles = healthProfiles.filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID);
+        const nextFatherInfo: PatientInfo = {
+          ...savedProfile.patientInfo,
+          name: savedProfile.name || savedProfile.patientInfo.name || 'Đinh Hồng Phong',
+          healthProfiles: extraProfiles,
+        };
+        setBpThresholds(savedProfile.bpThresholds);
+        setAppointment(savedProfile.appointment);
+        syncRootPatientInfo(nextFatherInfo, `✅ Đã lưu hồ sơ sức khỏe: ${savedProfile.name}`);
+        return;
+      }
+
+      const existingExtras = healthProfiles.filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID);
+      const existsIdx = existingExtras.findIndex((p) => p.id === savedProfile.id);
+      const nextExtras =
+        existsIdx >= 0
+          ? existingExtras.map((p, idx) => (idx === existsIdx ? savedProfile : p))
+          : [...existingExtras, savedProfile];
+
+      const nextRootInfo: PatientInfo = {
+        ...patientInfo,
+        healthProfiles: nextExtras,
+      };
+      setActiveProfileId(savedProfile.id);
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('care_active_profile_id', savedProfile.id);
+        }
+      } catch {
+        // ignore
+      }
+      syncRootPatientInfo(
+        nextRootInfo,
+        `✅ Đã lưu hồ sơ sức khỏe: ${savedProfile.relation ? `${savedProfile.relation} ` : ''}${savedProfile.name}`
+      );
+    },
+    [healthProfiles, patientInfo, syncRootPatientInfo]
+  );
+
+  const handleDeleteHealthProfile = useCallback(
+    async (profileId: string) => {
+      if (profileId === DEFAULT_HEALTH_PROFILE_ID) return;
+      const target = healthProfiles.find((p) => p.id === profileId);
+      const nextExtras = healthProfiles.filter(
+        (p) => p.id !== DEFAULT_HEALTH_PROFILE_ID && p.id !== profileId
+      );
+      const nextRootInfo: PatientInfo = {
+        ...patientInfo,
+        healthProfiles: nextExtras,
+      };
+      if (activeProfileId === profileId) {
+        setActiveProfileId(DEFAULT_HEALTH_PROFILE_ID);
+        try {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('care_active_profile_id', DEFAULT_HEALTH_PROFILE_ID);
+          }
+        } catch {
+          // ignore
+        }
+      }
+      syncRootPatientInfo(
+        nextRootInfo,
+        `🗑️ Đã xóa hồ sơ: ${target?.name || profileId}`
+      );
+    },
+    [healthProfiles, patientInfo, activeProfileId, syncRootPatientInfo]
+  );
+
   // ===== V2.0 HANDLERS (PHẢN HỒI TỨC THÌ 0ms — ĐỒNG BỘ NGẦM LÊN SHEET) =====
 
   // Lưu huyết áp — Cập nhật giao diện ngay lập tức, đồng bộ Google Sheets ở chế độ nền
   const handleSaveVitals = useCallback(async (entry: VitalsLogEntry) => {
+    const scopedId = ensureRecordProfilePrefix(entry.id, activeProfile.id);
     const cleanEntry: VitalsLogEntry = {
       ...entry,
+      id: scopedId,
       date: normalizeDateStr(entry.date),
       time: normalizeTimeStr(entry.time),
+      alertLevel: computeAlertLevel(entry.sys, entry.dia, profileBpThresholds, entry.pulse),
     };
     setVitalsLog((prev) => {
       const exists = prev.findIndex((v) => v.id === cleanEntry.id);
@@ -580,18 +752,18 @@ export default function CareSchedulePage() {
       }
       return next.sort(compareVitalsDesc);
     });
-    showToast('💓 Đã lưu chỉ số huyết áp!', 'success');
+    showToast(`💓 Đã lưu chỉ số huyết áp (${patientDisplayName})!`, 'success');
 
     // Nếu người dùng bật "🗣️ Tự đọc giọng Tiếng Việt", tự động đọc kết quả + nhận xét ngay khi lưu
     if (notificationPrefs.enabled && notificationPrefs.autoVoiceEnabled) {
-      const evalRes = evaluateVitalReading(cleanEntry, bpThresholds);
+      const evalRes = evaluateVitalReading(cleanEntry, profileBpThresholds);
       const pulseText = cleanEntry.pulse ? `, nhịp tim ${cleanEntry.pulse}` : '';
       const statusText =
         evalRes.overallAlertLevel === 'normal'
           ? 'Chỉ số huyết áp và nhịp tim ổn định.'
           : `${evalRes.reasons.join('. ')}. ${evalRes.clinicalAdvice}`;
       speakVietnameseReminder(
-        `Đã lưu huyết áp ${cleanEntry.sys} trên ${cleanEntry.dia}${pulseText}. ${statusText}`
+        `Đã lưu huyết áp của ${patientDisplayName}: ${cleanEntry.sys} trên ${cleanEntry.dia}${pulseText}. ${statusText}`
       );
     }
 
@@ -603,6 +775,12 @@ export default function CareSchedulePage() {
             ...res.entry,
             date: normalizeDateStr(res.entry.date),
             time: normalizeTimeStr(res.entry.time),
+            alertLevel: computeAlertLevel(
+              res.entry.sys,
+              res.entry.dia,
+              profileBpThresholds,
+              res.entry.pulse
+            ),
           };
           setVitalsLog((prev) =>
             prev.map((v) => (v.id === cleanEntry.id ? savedClean : v)).sort(compareVitalsDesc)
@@ -614,7 +792,14 @@ export default function CareSchedulePage() {
       .catch(() => {
         showToast('Lỗi kết nối khi đồng bộ huyết áp lên Sheet.', 'warn');
       });
-  }, [showToast, notificationPrefs.enabled, notificationPrefs.autoVoiceEnabled, bpThresholds]);
+  }, [
+    activeProfile.id,
+    profileBpThresholds,
+    patientDisplayName,
+    showToast,
+    notificationPrefs.enabled,
+    notificationPrefs.autoVoiceEnabled,
+  ]);
 
   // Xóa huyết áp — Xóa tức thì trên giao diện, đồng bộ ngầm lên Sheet
   const handleDeleteVitals = useCallback(async (id: string) => {
@@ -682,18 +867,23 @@ export default function CareSchedulePage() {
 
   // Lưu routine (thuốc/bài tập) — Phản hồi tức thì 0ms, đóng form ngay
   const handleSaveRoutine = useCallback(async (routine: CareRoutine) => {
+    const scopedRoutine: CareRoutine = {
+      ...routine,
+      id: ensureRecordProfilePrefix(routine.id, activeProfile.id),
+      stageId: routine.stageId || activeStageId,
+    };
     setCareRoutines((prev) => {
-      const idx = prev.findIndex((r) => r.id === routine.id);
+      const idx = prev.findIndex((r) => r.id === scopedRoutine.id);
       if (idx >= 0) {
         const copy = [...prev];
-        copy[idx] = routine;
+        copy[idx] = scopedRoutine;
         return copy;
       }
-      return [...prev, routine];
+      return [...prev, scopedRoutine];
     });
-    showToast(`✅ Đã lưu: ${routine.title}`, 'success');
+    showToast(`✅ Đã lưu: ${scopedRoutine.title}`, 'success');
 
-    void saveRoutineAction(routine)
+    void saveRoutineAction(scopedRoutine)
       .then((res) => {
         if (!res.success) {
           showToast('Lỗi đồng bộ đơn thuốc/bài tập lên Sheet.', 'warn');
@@ -702,7 +892,7 @@ export default function CareSchedulePage() {
       .catch(() => {
         showToast('Lỗi đồng bộ đơn thuốc/bài tập lên Sheet.', 'warn');
       });
-  }, [showToast]);
+  }, [activeProfile.id, activeStageId, showToast]);
 
   // Xóa routine — Xoá tức thì trên giao diện, đồng bộ ngầm lên Sheet
   const handleDeleteRoutine = useCallback(async (id: string) => {
@@ -720,21 +910,47 @@ export default function CareSchedulePage() {
       });
   }, [showToast]);
 
-  // Lưu lịch tái khám — Phản hồi tức thì 0ms
+  // Lưu lịch tái khám — Phản hồi tức thì 0ms (hỗ trợ cả Bố và các hồ sơ thành viên khác)
   const handleSaveAppointment = useCallback(async (info: AppointmentInfo) => {
-    setAppointment(info);
-    showToast('📅 Đã lưu lịch tái khám!', 'success');
+    if (isFatherProfile) {
+      setAppointment(info);
+      showToast('📅 Đã lưu lịch tái khám!', 'success');
 
-    void saveAppointmentAction(info)
-      .then((res) => {
-        if (res.success && res.appointment) {
-          setAppointment(res.appointment);
-        }
-      })
-      .catch(() => {
-        showToast('Lỗi lưu lịch tái khám lên Sheet.', 'warn');
-      });
-  }, [showToast]);
+      void saveAppointmentAction(info)
+        .then((res) => {
+          if (res.success && res.appointment) {
+            setAppointment(res.appointment);
+          }
+        })
+        .catch(() => {
+          showToast('Lỗi lưu lịch tái khám lên Sheet.', 'warn');
+        });
+    } else {
+      const updatedProfile: HealthProfile = {
+        ...activeProfile,
+        appointment: info,
+      };
+      const existingExtras = healthProfiles.filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID);
+      const existsIdx = existingExtras.findIndex((p) => p.id === activeProfile.id);
+      const nextExtras =
+        existsIdx >= 0
+          ? existingExtras.map((p, idx) => (idx === existsIdx ? updatedProfile : p))
+          : [...existingExtras, updatedProfile];
+      const nextRootInfo: PatientInfo = {
+        ...patientInfo,
+        healthProfiles: nextExtras,
+      };
+      syncRootPatientInfo(nextRootInfo, `📅 Đã lưu lịch tái khám của ${patientDisplayName}!`);
+    }
+  }, [
+    isFatherProfile,
+    activeProfile,
+    healthProfiles,
+    patientInfo,
+    patientDisplayName,
+    syncRootPatientInfo,
+    showToast,
+  ]);
 
   // ===== V2.2: QUYỀN ADMIN THỰC SỰ (PIN 2468) — MỞ TOÀN QUYỀN + SỔ THU CHI + CODE.GS =====
   const handleUnlockExpenseSuccess = useCallback(() => {
@@ -809,32 +1025,29 @@ export default function CareSchedulePage() {
       });
   }, [showToast]);
 
-  // ===== Lấy các routines đang hoạt động cho stage hiện tại =====
+  // ===== Lấy các routines đang hoạt động cho stage & hồ sơ hiện tại =====
   const activeRoutines = useMemo(() => {
-    return careRoutines.filter((r) => r.isActive && r.stageId === activeStageId);
-  }, [careRoutines, activeStageId]);
+    return profileCareRoutines.filter(
+      (r) => r.isActive && (!r.stageId || r.stageId === activeStageId)
+    );
+  }, [profileCareRoutines, activeStageId]);
 
-  // ===== Lấy daily logs cho hôm nay =====
+  // ===== Lấy daily logs cho hôm nay của hồ sơ hiện tại =====
   const todayDailyLogs = useMemo(() => {
-    return dailyLogs.filter((l) => l.date === todayStr);
-  }, [dailyLogs, todayStr]);
+    return profileDailyLogs.filter((l) => l.date === todayStr);
+  }, [profileDailyLogs, todayStr]);
 
-  // ===== Vitals gần nhất (Luôn sắp xếp chuẩn theo thời gian thực tế) =====
+  // ===== Vitals gần nhất của hồ sơ hiện tại (Luôn sắp xếp chuẩn theo thời gian thực tế) =====
   const lastVitalsEntry = useMemo(() => {
-    if (vitalsLog.length === 0) return null;
-    const sorted = [...vitalsLog].sort(compareVitalsDesc);
+    if (profileVitalsLog.length === 0) return null;
+    const sorted = [...profileVitalsLog].sort(compareVitalsDesc);
     return sorted[0] || null;
-  }, [vitalsLog]);
-
-  const lastVitalsEval = useMemo(() => {
-    if (!lastVitalsEntry) return null;
-    return evaluateVitalReading(lastVitalsEntry, bpThresholds);
-  }, [lastVitalsEntry, bpThresholds]);
+  }, [profileVitalsLog]);
 
   // ===== Trạng thái nhanh hiển thị trên biển hiệu & thanh điều hướng 3 phần =====
   const vitalsTodayCount = useMemo(
-    () => vitalsLog.filter((v) => normalizeDateStr(v.date) === todayStr).length,
-    [vitalsLog, todayStr]
+    () => profileVitalsLog.filter((v) => normalizeDateStr(v.date) === todayStr).length,
+    [profileVitalsLog, todayStr]
   );
 
   const routineTotalToday = useMemo(
@@ -856,7 +1069,7 @@ export default function CareSchedulePage() {
   }, [activeRoutines, todayDailyLogs, routineTotalToday]);
 
   const apptStatusText = useMemo(() => {
-    const next = normalizeDateStr(appointment.nextDate);
+    const next = normalizeDateStr(profileAppointment.nextDate);
     if (!next) return 'Chưa có lịch hẹn';
     const diff = Math.round(
       (Date.parse(`${next}T12:00:00Z`) - Date.parse(`${todayStr}T12:00:00Z`)) / 86400000
@@ -866,7 +1079,7 @@ export default function CareSchedulePage() {
     if (diff === 0) return 'Khám hôm nay';
     if (diff === 1) return 'Khám ngày mai';
     return `Còn ${diff} ngày`;
-  }, [appointment.nextDate, todayStr]);
+  }, [profileAppointment.nextDate, todayStr]);
 
   const sectionNavHints = useMemo(
     () => ({
@@ -891,24 +1104,28 @@ export default function CareSchedulePage() {
     return motherMember ? motherMember.name : members[0].name;
   }, [members]);
 
-  // ===== CRUD Reminders (Phản hồi tức thì 0ms) =====
+  // ===== CRUD Reminders (Phản hồi tức thì 0ms, tự động gắn tiền tố hồ sơ hiện tại) =====
   const handleAddReminder = useCallback(async (newReminder: PatientDailyReminder) => {
+    const scopedReminder: PatientDailyReminder = {
+      ...newReminder,
+      id: ensureRecordProfilePrefix(newReminder.id, activeProfile.id),
+    };
     setReminders((prev) => {
-      const idx = prev.findIndex((r) => r.id === newReminder.id);
+      const idx = prev.findIndex((r) => r.id === scopedReminder.id);
       if (idx >= 0) {
         const copy = [...prev];
-        copy[idx] = newReminder;
+        copy[idx] = scopedReminder;
         return copy;
       }
-      return [newReminder, ...prev];
+      return [scopedReminder, ...prev];
     });
     showToast('Đã lưu nhắc nhở mới!', 'success');
 
-    void saveReminderAction(newReminder).catch((err) => {
+    void saveReminderAction(scopedReminder).catch((err) => {
       console.error('Lỗi lưu nhắc nhở:', err);
       showToast('Không thể đồng bộ nhắc nhở lên Sheet.', 'warn');
     });
-  }, [showToast]);
+  }, [activeProfile.id, showToast]);
 
   const handleDeleteReminder = useCallback(async (reminderId: string, title: string) => {
     setReminders((prev) => prev.filter((r) => r.id !== reminderId));
@@ -1005,32 +1222,57 @@ export default function CareSchedulePage() {
     });
   }, [requireAdmin, showToast]);
 
-  // CRUD Patient Details
+  // CRUD Patient Details (Tự động định tuyến đúng hồ sơ Bố hoặc hồ sơ thành viên đang chọn)
   const handleOpenEditPatient = useCallback(() => {
     requireAdmin(() => setEditPatientModalOpen(true));
   }, [requireAdmin]);
 
-  const handlePatientUpdated = useCallback((newInfo: PatientInfo) => {
-    setPatientInfo(newInfo);
-    showToast('Đã cập nhật hồ sơ bệnh nhân!', 'success');
-  }, [showToast]);
+  const persistActiveProfilePatientInfo = useCallback(
+    (newInfo: PatientInfo, toastMsg: string) => {
+      if (isFatherProfile) {
+        const extraProfiles = healthProfiles.filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID);
+        const mergedRoot: PatientInfo = {
+          ...newInfo,
+          healthProfiles: extraProfiles,
+        };
+        syncRootPatientInfo(mergedRoot, toastMsg);
+      } else {
+        const updatedProfile: HealthProfile = {
+          ...activeProfile,
+          name: newInfo.name || activeProfile.name,
+          patientInfo: newInfo,
+        };
+        const existingExtras = healthProfiles.filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID);
+        const existsIdx = existingExtras.findIndex((p) => p.id === activeProfile.id);
+        const nextExtras =
+          existsIdx >= 0
+            ? existingExtras.map((p, idx) => (idx === existsIdx ? updatedProfile : p))
+            : [...existingExtras, updatedProfile];
+        const nextRootInfo: PatientInfo = {
+          ...patientInfo,
+          healthProfiles: nextExtras,
+        };
+        syncRootPatientInfo(nextRootInfo, toastMsg);
+      }
+    },
+    [isFatherProfile, healthProfiles, activeProfile, patientInfo, syncRootPatientInfo]
+  );
 
-  const handleInlineSavePatient = useCallback((newInfo: PatientInfo) => {
-    requireAdmin(() => {
-      setPatientInfo(newInfo);
-      showToast('Đã lưu thông tin bệnh nhân!', 'success');
+  const handlePatientUpdated = useCallback(
+    (newInfo: PatientInfo) => {
+      persistActiveProfilePatientInfo(newInfo, `Đã cập nhật hồ sơ ${patientDisplayName}!`);
+    },
+    [persistActiveProfilePatientInfo, patientDisplayName]
+  );
 
-      void savePatientInfoAction(newInfo)
-        .then((res) => {
-          if (!res.success) {
-            showToast('Cảnh báo: Chưa đồng bộ được hồ sơ lên Sheet.', 'warn');
-          }
-        })
-        .catch(() => {
-          showToast('Lỗi đồng bộ hồ sơ bệnh nhân lên Google Sheets.', 'warn');
-        });
-    });
-  }, [requireAdmin, showToast]);
+  const handleInlineSavePatient = useCallback(
+    (newInfo: PatientInfo) => {
+      requireAdmin(() => {
+        persistActiveProfilePatientInfo(newInfo, `Đã lưu thông tin ${patientDisplayName}!`);
+      });
+    },
+    [requireAdmin, persistActiveProfilePatientInfo, patientDisplayName]
+  );
 
   // CRUD Members
   const handleOpenMembers = useCallback(() => {
@@ -1112,7 +1354,7 @@ export default function CareSchedulePage() {
         onOpenEmergencyContacts={() => setEmergencyModalOpen(true)}
         onOpenInstallApp={() => setInstallPwaModalOpen(true)}
         onOpenNotificationSettings={() => setNotifSettingsModalOpen(true)}
-        patientInfo={patientInfo}
+        patientInfo={profilePatientInfo}
         isAdmin={isAdmin}
         isExpenseUnlocked={isExpenseUnlocked}
         onOpenAdminPin={handleToggleAdmin}
@@ -1132,10 +1374,24 @@ export default function CareSchedulePage() {
           </div>
         )}
 
+        {/* Thanh chuyển đổi Hồ Sơ Sức Khỏe Gia Đình (Bố Đinh Hồng Phong + Mẹ & các thành viên) */}
+        {(activeView === 'today' || activeView === 'charts') && (
+          <HealthProfileSwitcher
+            profiles={healthProfiles}
+            activeProfileId={activeProfile.id}
+            allVitalsLog={vitalsLog}
+            todayStr={todayStr}
+            members={members}
+            onSelectProfile={handleSelectProfile}
+            onSaveProfile={handleSaveHealthProfile}
+            onDeleteProfile={handleDeleteHealthProfile}
+          />
+        )}
+
         {/* Banner mini tóm tắt bệnh nhân & Nhắc nhở (Bấm mở rộng chi tiết) */}
         <PatientBanner
-          patientInfo={patientInfo}
-          reminders={reminders}
+          patientInfo={profilePatientInfo}
+          reminders={profileReminders}
           members={members}
           onAddReminder={handleAddReminder}
           onDeleteReminder={handleDeleteReminder}
@@ -1151,21 +1407,22 @@ export default function CareSchedulePage() {
           <div className="space-y-2.5">
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 rounded-full bg-slate-700 text-white text-sm font-black tracking-wide">
-                📋 TỔNG QUAN
+                📋 TỔNG QUAN • {activeProfile.avatarEmoji} {patientDisplayName.toUpperCase()}
               </span>
               <span className="flex-1 h-0.5 bg-slate-300 rounded-full" />
             </div>
             {/* Hộp Nhắc Việc Thông Minh theo Khung Giờ & Phát Âm Báo / Giọng Nói Tiếng Việt + Thông Báo Đẩy PWA */}
             <SmartReminderBanner
-              vitalsLog={vitalsLog}
-              bpThresholds={bpThresholds}
+              vitalsLog={profileVitalsLog}
+              bpThresholds={profileBpThresholds}
               activeRoutines={activeRoutines}
-              dailyLogs={dailyLogs}
-              appointment={appointment}
+              dailyLogs={profileDailyLogs}
+              appointment={profileAppointment}
               todayStr={todayStr}
               defaultRecorder={recorderName}
               prefs={notificationPrefs}
               hasInitialLoaded={hasInitialLoaded}
+              patientDisplayName={patientDisplayName}
               onToggleDailyLog={handleToggleDailyLog}
               onOpenSettings={() => setNotifSettingsModalOpen(true)}
               showToast={showToast}
@@ -1179,17 +1436,19 @@ export default function CareSchedulePage() {
           <div id="section-vitals" className="scroll-mt-32 space-y-2.5">
             <SectionBanner
               section="vitals"
-              subtitle="Đo xong, ghi 3 số vào đây"
+              subtitle={`Đo xong cho ${patientDisplayName}, ghi 3 số vào đây`}
               status={vitalsTodayCount > 0 ? `Hôm nay đã đo ${vitalsTodayCount} lần` : 'Hôm nay chưa đo'}
             />
             <div className={`rounded-2xl ${SECTION_THEME.vitals.cardBorder} ${SECTION_THEME.vitals.cardBg} p-1.5 sm:p-2`}>
               <QuickVitalsForm
                 onSave={handleSaveVitals}
                 lastEntry={lastVitalsEntry}
-                bpThresholds={bpThresholds}
+                bpThresholds={profileBpThresholds}
                 defaultRecorder={recorderName}
                 members={members}
                 todayStr={todayStr}
+                profileType={activeProfile.profileType}
+                patientDisplayName={patientDisplayName}
               />
             </div>
           </div>
@@ -1198,13 +1457,13 @@ export default function CareSchedulePage() {
           <div id="section-routine" className="scroll-mt-32 space-y-2.5">
             <SectionBanner
               section="routine"
-              subtitle="Bấm vào từng việc để tích đã làm"
+              subtitle={`Bấm vào từng việc của ${patientDisplayName} để tích đã làm`}
               status={routineTotalToday > 0 ? `Xong ${routineDoneToday}/${routineTotalToday} việc` : undefined}
             />
             <div className={`rounded-2xl ${SECTION_THEME.routine.cardBorder} ${SECTION_THEME.routine.cardBg} p-1.5 sm:p-2`}>
               <DailyRoutineView
                 routines={activeRoutines}
-                dailyLogs={dailyLogs}
+                dailyLogs={profileDailyLogs}
                 todayStr={todayStr}
                 onToggle={handleToggleDailyLog}
                 onOpenManager={handleOpenRoutineManager}
@@ -1217,12 +1476,12 @@ export default function CareSchedulePage() {
           <div id="section-appointment" className="scroll-mt-32 space-y-2.5">
             <SectionBanner
               section="appointment"
-              subtitle="Ngày khám tiếp theo & lời dặn"
+              subtitle={`Ngày khám tiếp theo & lời dặn cho ${patientDisplayName}`}
               status={apptStatusText}
             />
             <div className={`rounded-2xl ${SECTION_THEME.appointment.cardBorder} ${SECTION_THEME.appointment.cardBg} p-1.5 sm:p-2`}>
               <AppointmentSection
-                appointment={appointment}
+                appointment={profileAppointment}
                 onSave={handleSaveAppointment}
                 isAdmin={isAdmin}
                 todayStr={todayStr}
@@ -1231,7 +1490,7 @@ export default function CareSchedulePage() {
           </div>
 
           <p className="text-center text-sm font-bold text-slate-500 pb-2">
-            ✅ Hết trang — đã xem đủ 3 phần
+            ✅ Hết trang — đã xem đủ 3 phần ({patientDisplayName})
           </p>
         </div>
 
@@ -1239,13 +1498,15 @@ export default function CareSchedulePage() {
           <div className={activeView === 'charts' ? 'block' : 'hidden'}>
             {/* ===== TAB BIỂU ĐỒ — Đợt B ===== */}
             <VitalsChartView
-              vitalsLog={vitalsLog}
-              bpThresholds={bpThresholds}
-              dailyLogs={dailyLogs}
-              careRoutines={careRoutines}
+              vitalsLog={profileVitalsLog}
+              bpThresholds={profileBpThresholds}
+              dailyLogs={profileDailyLogs}
+              careRoutines={profileCareRoutines}
               isAdmin={isAdmin}
               members={members}
-              patientName={patientInfo.name}
+              patientName={profilePatientInfo.name}
+              patientDiagnosis={profilePatientInfo.diagnosis}
+              profileType={activeProfile.profileType}
               showToast={showToast}
               onDeleteVitals={handleDeleteVitals}
               onSaveVitals={handleSaveVitals}
@@ -1294,10 +1555,10 @@ export default function CareSchedulePage() {
       <footer className="border-t border-slate-200 bg-white pt-4 px-4 pb-24 md:pb-4 mt-8 text-center text-xs text-slate-600">
         <div className="max-w-md mx-auto space-y-1">
           <p className="text-slate-800 font-bold">
-            Sổ Sức Khỏe Bố • Bệnh nhân: {patientInfo.name}
+            Sổ Sức Khỏe Gia Đình • Đang xem: {activeProfile.avatarEmoji} {profilePatientInfo.name}
           </p>
           <p className="text-[11px] text-slate-500">
-            Theo dõi huyết áp, thuốc & phục hồi chức năng hàng ngày — Đồng bộ Google Sheets
+            Theo dõi huyết áp, thuốc & chăm sóc sức khỏe cả gia đình — Đồng bộ Google Sheets
             {' • '}
             <button
               type="button"
@@ -1344,7 +1605,7 @@ export default function CareSchedulePage() {
           isOpen={emergencyModalOpen}
           onClose={() => setEmergencyModalOpen(false)}
           contacts={contacts}
-          patientInfo={patientInfo}
+          patientInfo={profilePatientInfo}
           onSaveContact={handleSaveContact}
           onDeleteContact={handleDeleteContact}
         />
@@ -1372,7 +1633,7 @@ export default function CareSchedulePage() {
         <EditPatientModal
           isOpen={editPatientModalOpen}
           onClose={() => setEditPatientModalOpen(false)}
-          patient={patientInfo}
+          patient={profilePatientInfo}
           onUpdated={handlePatientUpdated}
         />
       )}
@@ -1390,7 +1651,7 @@ export default function CareSchedulePage() {
         <RoutineManagerModal
           isOpen={routineManagerOpen}
           onClose={() => setRoutineManagerOpen(false)}
-          routines={careRoutines}
+          routines={profileCareRoutines}
           stages={stages}
           activeStageId={activeStageId}
           onSaveRoutine={handleSaveRoutine}

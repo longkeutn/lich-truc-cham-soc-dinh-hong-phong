@@ -18,7 +18,7 @@ import {
   X,
   Edit3,
 } from 'lucide-react';
-import { VitalsLogEntry, VitalsPeriod, BpThresholds, AlertLevel, FamilyMember } from '@/lib/types';
+import { VitalsLogEntry, VitalsPeriod, BpThresholds, AlertLevel, FamilyMember, HealthProfileType } from '@/lib/types';
 import {
   TIME_SLOT_CONFIG,
   DEFAULT_BP_THRESHOLDS,
@@ -31,6 +31,7 @@ import {
   diffDaysBetweenDateStr,
   formatVietnamDateFull,
   VITALS_QUICK_NOTE_TAGS,
+  getQuickNoteTagsForProfile,
   isQuickNoteTagSelected,
   toggleQuickNoteTag,
 } from '@/lib/config';
@@ -45,6 +46,8 @@ interface QuickVitalsFormProps {
   defaultRecorder?: string;
   members?: FamilyMember[];
   todayStr?: string;
+  profileType?: HealthProfileType;
+  patientDisplayName?: string;
 }
 
 // Khai báo kiểu cho Web Speech API gốc của trình duyệt (Không dùng API AI ngoài)
@@ -246,9 +249,12 @@ export default function QuickVitalsForm({
   defaultRecorder,
   members,
   todayStr: todayStrProp,
+  profileType = 'post_stroke_cranioplasty',
+  patientDisplayName = 'Bố',
 }: QuickVitalsFormProps) {
   const thresholds = bpThresholds || DEFAULT_BP_THRESHOLDS;
   const familyList = members || [];
+  const quickNoteTags = getQuickNoteTagsForProfile(profileType);
   const [recorder, setRecorder] = useState<string>(defaultRecorder || DEFAULT_RECORDER);
   const [hasUserSelectedRecorder, setHasUserSelectedRecorder] = useState<boolean>(false);
 
@@ -1333,7 +1339,11 @@ export default function QuickVitalsForm({
       <div className="rounded-2xl bg-slate-50/80 border border-slate-200/90 p-2.5 sm:p-3 space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="text-[11px] sm:text-xs font-extrabold text-slate-700">
-            🏷️ Chạm chọn nhanh tình trạng Bố &amp; vùng khuyết sọ <span className="font-normal text-slate-500">(tự điền vào ô Ghi chú)</span>:
+            🏷️{' '}
+            {profileType === 'post_stroke_cranioplasty'
+              ? 'Chạm chọn nhanh tình trạng Bố & vùng khuyết sọ'
+              : `Chạm chọn nhanh tình trạng sức khỏe của ${patientDisplayName}`}{' '}
+            <span className="font-normal text-slate-500">(tự điền vào ô Ghi chú)</span>:
           </span>
           {note.trim() && (
             <button
@@ -1347,7 +1357,7 @@ export default function QuickVitalsForm({
         </div>
 
         <div className="flex flex-wrap gap-1.5">
-          {VITALS_QUICK_NOTE_TAGS.map((tag) => {
+          {quickNoteTags.map((tag) => {
             const selected = isQuickNoteTagSelected(note, tag.value);
             const activeClass =
               tag.tone === 'warn'
@@ -1379,7 +1389,7 @@ export default function QuickVitalsForm({
 
         {/* Nếu chọn thẻ cảnh báo (khuyết sọ căng/lõm sâu, chóng mặt/đau đầu) -> hiện nhắc nhở y khoa ngay lập tức */}
         {(() => {
-          const activeWarnTags = VITALS_QUICK_NOTE_TAGS.filter(
+          const activeWarnTags = quickNoteTags.filter(
             (t) => t.tone === 'warn' && t.clinicalTip && isQuickNoteTagSelected(note, t.value)
           );
           if (activeWarnTags.length === 0) return null;
