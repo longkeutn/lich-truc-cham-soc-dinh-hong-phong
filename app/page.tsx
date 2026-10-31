@@ -47,6 +47,14 @@ const ExpenseTrackerView = dynamic(() => import('@/components/ExpenseTrackerView
   ),
 });
 
+const LabResultsView = dynamic(() => import('@/components/LabResultsView'), {
+  loading: () => (
+    <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500 animate-pulse">
+      Đang mở Sổ Xét Nghiệm & Hóa Sinh...
+    </div>
+  ),
+});
+
 const RoutineManagerModal = dynamic(() =>
   import('@/components/RoutineManagerModal').then((m) => m.RoutineManagerModal)
 );
@@ -82,6 +90,7 @@ import {
   BpThresholds,
   ExpenseEntry,
   HealthProfile,
+  LabResultEntry,
 } from '@/lib/types';
 import {
   DEFAULT_BP_THRESHOLDS,
@@ -89,11 +98,14 @@ import {
   DEFAULT_REHAB_STAGES,
   DEFAULT_RECORDER,
   DEFAULT_HEALTH_PROFILE_ID,
+  DEFAULT_MEMBER_NAME,
+  IS_FAMILY_STANDARD_MODE,
   ENABLE_FAMILY_SHIFT_TAB,
   APP_SHORT_TITLE,
   extractRecordProfileId,
   ensureRecordProfilePrefix,
   buildResolvedHealthProfiles,
+  buildPresetCareRoutinesForProfile,
   getVietnamDateStr,
   getVietnamDateOffsetStr,
   formatVietnamDateFull,
@@ -121,6 +133,8 @@ import {
   changeExpensePinAction,
   saveExpenseAction,
   deleteExpenseAction,
+  saveLabResultAction,
+  deleteLabResultAction,
   fetchAllAppDataV2Action,
 } from '@/lib/actions';
 
@@ -131,17 +145,17 @@ import {
 } from 'lucide-react';
 
 const EMPTY_PATIENT_INFO: PatientInfo = {
-  name: 'Đinh Hồng Phong',
+  name: DEFAULT_MEMBER_NAME,
   diagnosis: '',
   hospital: '',
   room: '',
   notes: '',
   emergencyPhone: '',
-  statusBadge: 'Bệnh nhân theo dõi đặc biệt',
-  conditionTag: 'Tai biến nặng',
+  statusBadge: 'Theo dõi sức khỏe gia đình',
+  conditionTag: IS_FAMILY_STANDARD_MODE ? 'Huyết áp & Tim mạch' : 'Phục hồi tại nhà',
   headerBadge: 'Tại nhà',
-  careMode: 'Liên tục 24/7',
-  careGoal: 'Chống loét & duy trì SpO2',
+  careMode: 'Chăm sóc tại nhà',
+  careGoal: IS_FAMILY_STANDARD_MODE ? 'Huyết áp ổn định & uống thuốc đều' : 'Phục hồi vận động & huyết áp ổn định',
   customFields: [],
 };
 
@@ -162,6 +176,7 @@ export default function CareSchedulePage() {
   const [appointment, setAppointment] = useState<AppointmentInfo>(DEFAULT_APPOINTMENT);
   const [bpThresholds, setBpThresholds] = useState<BpThresholds>(DEFAULT_BP_THRESHOLDS);
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
+  const [labResults, setLabResults] = useState<LabResultEntry[]>([]);
 
   // V2.0: Phase cố định là 'phase2' (tại nhà), không cho user chuyển nữa
   const activePhase: CarePhase = 'phase2';
@@ -171,6 +186,7 @@ export default function CareSchedulePage() {
   const [visitedViews, setVisitedViews] = useState<Record<AppView, boolean>>({
     today: true,
     charts: false,
+    labs: false,
     family: false,
     expenses: false,
   });
@@ -230,6 +246,7 @@ export default function CareSchedulePage() {
     // Tải ngầm trước JS của các tab phụ sau 1.2s để bấm chuyển tab phản hồi 0ms
     const preloadTimer = setTimeout(() => {
       import('@/components/VitalsChartView').catch(() => {});
+      import('@/components/LabResultsView').catch(() => {});
       import('@/components/FamilySupportView').catch(() => {});
       import('@/components/ExpenseTrackerView').catch(() => {});
     }, 1200);
@@ -312,6 +329,7 @@ export default function CareSchedulePage() {
           if (appData.appointment) setAppointment(appData.appointment);
           if (appData.bpThresholds) setBpThresholds(appData.bpThresholds);
           if (Array.isArray(appData.expenses)) setExpenses(appData.expenses);
+          if (Array.isArray(appData.labResults)) setLabResults(appData.labResults);
 
           if (forceRefresh && !silent) {
             showToast('Đã đồng bộ dữ liệu mới nhất từ Google Sheets!', 'success');
@@ -369,6 +387,7 @@ export default function CareSchedulePage() {
           if (snap.appointment) setAppointment(snap.appointment);
           if (snap.bpThresholds) setBpThresholds(snap.bpThresholds);
           if (Array.isArray(snap.expenses)) setExpenses(snap.expenses);
+          if (Array.isArray(snap.labResults)) setLabResults(snap.labResults);
           setHasInitialLoaded(true);
           setIsLoading(false);
           restoredFromSnapshot = true;
@@ -401,6 +420,7 @@ export default function CareSchedulePage() {
         appointment,
         bpThresholds,
         expenses,
+        labResults,
       };
       try {
         localStorage.setItem('care_app_snapshot_v2', JSON.stringify(snapshotPayload));
@@ -436,6 +456,7 @@ export default function CareSchedulePage() {
     appointment,
     bpThresholds,
     expenses,
+    labResults,
   ]);
 
   // ===== CƠ CHẾ TỰ ĐỘNG NHẢY NGÀY & TỰ ĐỘNG LÀM MỚI DỮ LIỆU & TỰ ĐỘNG CẬP NHẬT MÃ NGUỒN PWA =====
@@ -618,6 +639,11 @@ export default function CareSchedulePage() {
   const profileReminders = useMemo(
     () => reminders.filter((rem) => extractRecordProfileId(rem.id) === activeProfile.id),
     [reminders, activeProfile.id]
+  );
+
+  const profileLabResults = useMemo(
+    () => labResults.filter((lab) => extractRecordProfileId(lab.id) === activeProfile.id),
+    [labResults, activeProfile.id]
   );
 
   const handleSelectProfile = useCallback(
@@ -925,6 +951,91 @@ export default function CareSchedulePage() {
         showToast('Lỗi xoá đơn thuốc/bài tập trên Sheet.', 'warn');
       });
   }, [patientDisplayName, showToast]);
+
+  // Khởi tạo nhanh danh sách thuốc & lịch chăm sóc mẫu theo chế độ bệnh lý của thành viên
+  const handleApplyPresetRoutines = useCallback(async () => {
+    const activeStageObj = stages.find((s) => s.id === activeStageId);
+    const presets = buildPresetCareRoutinesForProfile(
+      activeProfile.id,
+      activeProfile.profileType,
+      activeStageId,
+      activeStageObj?.name || 'Tại nhà'
+    );
+    if (presets.length === 0) return;
+
+    setCareRoutines((prev) => {
+      const existingIds = new Set(prev.map((r) => r.id));
+      const newItems = presets.filter((p) => !existingIds.has(p.id));
+      return [...prev, ...newItems];
+    });
+    showToast(
+      `✨ Đã khởi tạo ${presets.length} đầu việc thuốc & chăm sóc mẫu cho ${patientDisplayName}!`,
+      'success'
+    );
+
+    for (const preset of presets) {
+      void saveRoutineAction(preset).catch(() => {});
+    }
+  }, [stages, activeStageId, activeProfile.id, activeProfile.profileType, patientDisplayName, showToast]);
+
+  // Lưu phiếu xét nghiệm & hóa sinh (Phản hồi tức thì 0ms, đồng bộ ngầm lên Sheet)
+  const handleSaveLabResult = useCallback(
+    async (entry: LabResultEntry) => {
+      const scopedEntry: LabResultEntry = {
+        ...entry,
+        id: ensureRecordProfilePrefix(entry.id, activeProfile.id),
+        date: normalizeDateStr(entry.date),
+      };
+      setLabResults((prev) => {
+        const idx = prev.findIndex((l) => l.id === scopedEntry.id);
+        let next: LabResultEntry[];
+        if (idx >= 0) {
+          next = [...prev];
+          next[idx] = scopedEntry;
+        } else {
+          next = [scopedEntry, ...prev];
+        }
+        return next.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      });
+      showToast(
+        `🔬 Đã lưu phiếu xét nghiệm ngày ${scopedEntry.date} của ${patientDisplayName}!`,
+        'success'
+      );
+
+      void saveLabResultAction(scopedEntry)
+        .then((res) => {
+          if (!res.success) {
+            showToast('Cảnh báo: Chưa đồng bộ được phiếu xét nghiệm lên Sheet.', 'warn');
+          }
+        })
+        .catch(() => {
+          showToast('Lỗi đồng bộ phiếu xét nghiệm lên Google Sheets.', 'warn');
+        });
+    },
+    [activeProfile.id, patientDisplayName, showToast]
+  );
+
+  // Xóa phiếu xét nghiệm
+  const handleDeleteLabResult = useCallback(
+    async (id: string) => {
+      const backup = labResults;
+      setLabResults((prev) => prev.filter((l) => l.id !== id));
+      showToast(`🗑️ Đã xóa phiếu xét nghiệm của ${patientDisplayName}.`, 'info');
+
+      void deleteLabResultAction(id)
+        .then((res) => {
+          if (!res.success) {
+            setLabResults(backup);
+            showToast('Lỗi xóa phiếu xét nghiệm trên Sheet.', 'warn');
+          }
+        })
+        .catch(() => {
+          setLabResults(backup);
+          showToast('Lỗi xóa phiếu xét nghiệm trên Sheet.', 'warn');
+        });
+    },
+    [labResults, patientDisplayName, showToast]
+  );
 
   // Lưu lịch tái khám — Phản hồi tức thì 0ms (hỗ trợ cả Bố và các hồ sơ thành viên khác)
   const handleSaveAppointment = useCallback(async (info: AppointmentInfo) => {
@@ -1399,8 +1510,8 @@ export default function CareSchedulePage() {
           </div>
         )}
 
-        {/* Thanh chuyển đổi Hồ Sơ Sức Khỏe Gia Đình (Bố Đinh Hồng Phong + Mẹ & các thành viên) */}
-        {(activeView === 'today' || activeView === 'charts') && (
+        {/* Thanh chuyển đổi Hồ Sơ Sức Khỏe Gia Đình (Bố + Mẹ & các thành viên) */}
+        {(activeView === 'today' || activeView === 'charts' || activeView === 'labs') && (
           <HealthProfileSwitcher
             profiles={healthProfiles}
             activeProfileId={activeProfile.id}
@@ -1492,6 +1603,7 @@ export default function CareSchedulePage() {
                 todayStr={todayStr}
                 onToggle={handleToggleDailyLog}
                 onOpenManager={handleOpenRoutineManager}
+                onApplyPresetRoutines={handleApplyPresetRoutines}
                 defaultRecorder={recorderName}
                 patientDisplayName={patientDisplayName}
               />
@@ -1539,6 +1651,27 @@ export default function CareSchedulePage() {
               onSaveVitals={handleSaveVitals}
               onToggleDailyLog={handleToggleDailyLog}
               defaultRecorder={recorderName}
+            />
+          </div>
+        )}
+
+        {visitedViews.labs && (
+          <div className={activeView === 'labs' ? 'block' : 'hidden'}>
+            {/* ===== TAB XÉT NGHIỆM & HÓA SINH — Dùng chung cho cả 2 gia đình ===== */}
+            <LabResultsView
+              labResults={profileLabResults}
+              vitalsLog={profileVitalsLog}
+              profileId={activeProfile.id}
+              profileType={activeProfile.profileType}
+              patientName={profilePatientInfo.name}
+              patientDisplayName={patientDisplayName}
+              patientDiagnosis={profilePatientInfo.diagnosis}
+              todayStr={todayStr}
+              defaultRecorder={recorderName}
+              members={members}
+              onSaveLabResult={handleSaveLabResult}
+              onDeleteLabResult={handleDeleteLabResult}
+              showToast={showToast}
             />
           </div>
         )}

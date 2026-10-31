@@ -38,6 +38,7 @@ interface DailyRoutineViewProps {
   todayStr: string;               // YYYY-MM-DD for today
   onToggle: (log: DailyLog) => Promise<void>;  // Toggle completion
   onOpenManager?: () => void;     // Open RoutineManagerModal (Admin)
+  onApplyPresetRoutines?: () => Promise<void>; // Nạp nhanh lịch thuốc & chăm sóc mẫu cho hồ sơ hiện tại
   defaultRecorder?: string;       // 'Mẹ'
   patientDisplayName?: string;    // 'Bố' | 'Mẹ' | ...
 }
@@ -96,6 +97,7 @@ export default function DailyRoutineView({
   todayStr,
   onToggle,
   onOpenManager,
+  onApplyPresetRoutines,
   defaultRecorder = DEFAULT_RECORDER,
   patientDisplayName = 'Bố',
 }: DailyRoutineViewProps) {
@@ -531,6 +533,45 @@ export default function DailyRoutineView({
           </div>
         )}
       </div>
+
+      {/* ===== TRẠNG THÁI CHƯA CÓ ĐƠN THUỐC / VIỆC HẰNG NGÀY CHO HỒ SƠ NÀY ===== */}
+      {scheduledRoutines.length === 0 && asNeededRoutines.length === 0 && (
+        <div className="rounded-2xl border-2 border-dashed border-teal-300 bg-white p-5 sm:p-6 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center mx-auto">
+            <Pill className="w-6 h-6" />
+          </div>
+          <div className="max-w-md mx-auto space-y-1">
+            <h4 className="text-sm sm:text-base font-black text-slate-900">
+              Chưa có lịch uống thuốc & sinh hoạt hằng ngày cho {patientDisplayName}
+            </h4>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              Bạn có thể bấm <strong>Khởi tạo lịch mẫu</strong> bên dưới để tạo sẵn các mục thuốc & vận động chuẩn theo hồ sơ của {patientDisplayName}, sau đó chỉnh sửa/thêm/xóa tùy ý.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-2.5 flex-wrap pt-1">
+            {onApplyPresetRoutines && (
+              <button
+                type="button"
+                onClick={() => void onApplyPresetRoutines()}
+                className="px-4 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-extrabold flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <Zap className="w-4 h-4" />
+                <span>✨ Khởi tạo lịch thuốc & chăm sóc mẫu cho {patientDisplayName}</span>
+              </button>
+            )}
+            {onOpenManager && (
+              <button
+                type="button"
+                onClick={onOpenManager}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-xs sm:text-sm font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Settings className="w-4 h-4" />
+                <span>Tự thêm thuốc / bài tập mới</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ===== 4 TIME PERIOD SECTIONS ===== */}
       {TIME_SLOT_ORDER.map((slot) => {

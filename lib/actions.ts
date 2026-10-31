@@ -16,6 +16,7 @@ import {
   AppointmentInfo,
   AllAppDataV2,
   ExpenseEntry,
+  LabResultEntry,
 } from './types';
 import {
   fetchAppDataFromStorage,
@@ -42,6 +43,8 @@ import {
   changeExpensePinStorage,
   saveExpenseToStorage,
   deleteExpenseFromStorage,
+  saveLabResultToStorage,
+  deleteLabResultFromStorage,
   fetchAllAppDataV2,
 } from './sheets';
 
@@ -541,6 +544,32 @@ export async function deleteExpenseAction(
   }
 }
 
+// --- V2.3: Lab Results & Biochemistry (Sổ Theo Dõi Xét Nghiệm & Hóa Sinh) ---
+
+export async function saveLabResultAction(
+  entry: LabResultEntry
+): Promise<{ success: boolean; labResults: LabResultEntry[] }> {
+  try {
+    const labResults = await saveLabResultToStorage(entry);
+    return { success: true, labResults };
+  } catch (error) {
+    console.error('saveLabResultAction error:', error);
+    return { success: false, labResults: [] };
+  }
+}
+
+export async function deleteLabResultAction(
+  labId: string
+): Promise<{ success: boolean; labResults: LabResultEntry[] }> {
+  try {
+    const labResults = await deleteLabResultFromStorage(labId);
+    return { success: true, labResults };
+  } catch (error) {
+    console.error('deleteLabResultAction error:', error);
+    return { success: false, labResults: [] };
+  }
+}
+
 // --- V2.0: Fetch All App Data V2 (mở rộng fetchAllAppDataAction) ---
 
 export async function fetchAllAppDataV2Action(
@@ -565,6 +594,7 @@ export async function fetchAllAppDataV2Action(
       bpThresholds: { highSys: 140, highDia: 90, lowSys: 100, lowDia: 60 },
       appMode: 'home_care',
       expenses: [],
+      labResults: [],
     };
   }
 }

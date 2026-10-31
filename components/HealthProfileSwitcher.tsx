@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   HealthProfile,
+  HealthProfileType,
   VitalsLogEntry,
   FamilyMember,
   BpThresholds,
@@ -53,6 +54,7 @@ export default function HealthProfileSwitcher({
   const [name, setName] = useState<string>('');
   const [relation, setRelation] = useState<string>('');
   const [avatarEmoji, setAvatarEmoji] = useState<string>('👩');
+  const [profileType, setProfileType] = useState<HealthProfileType>('general_health');
   const [diagnosis, setDiagnosis] = useState<string>('');
   const [hospital, setHospital] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
@@ -86,6 +88,7 @@ export default function HealthProfileSwitcher({
     setName('');
     setRelation('Thành viên gia đình');
     setAvatarEmoji('🧑');
+    setProfileType('general_health');
     setDiagnosis('Theo dõi huyết áp, nhịp tim & sức khỏe định kỳ');
     setHospital('Khám định kỳ');
     setNotes('Đo huyết áp sáng/tối, uống đủ nước ấm, nghỉ ngơi hợp lý.');
@@ -101,6 +104,7 @@ export default function HealthProfileSwitcher({
     setName(profile.name);
     setRelation(profile.relation);
     setAvatarEmoji(profile.avatarEmoji || '👩');
+    setProfileType(profile.profileType || 'general_health');
     setDiagnosis(profile.patientInfo?.diagnosis || '');
     setHospital(profile.patientInfo?.hospital || '');
     setNotes(profile.patientInfo?.notes || '');
@@ -142,10 +146,7 @@ export default function HealthProfileSwitcher({
       name: name.trim(),
       relation: relation.trim() || 'Gia đình',
       avatarEmoji: avatarEmoji || '🧑',
-      profileType:
-        id === DEFAULT_HEALTH_PROFILE_ID
-          ? 'post_stroke_cranioplasty'
-          : existing?.profileType || 'general_health',
+      profileType: profileType || existing?.profileType || 'general_health',
       patientInfo: {
         ...(existing?.patientInfo || {
           statusBadge: 'Theo dõi sức khỏe gia đình',
@@ -438,6 +439,27 @@ export default function HealthProfileSwitcher({
                     className="w-full min-h-[42px] px-3 py-2 rounded-xl border border-slate-300 text-sm font-bold text-slate-900 focus:outline-none focus:border-teal-600"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                  Nhóm chế độ theo dõi chuyên biệt (Gợi ý triệu chứng, thuốc & xét nghiệm)
+                </label>
+                <select
+                  value={profileType}
+                  onChange={(e) => setProfileType(e.target.value as HealthProfileType)}
+                  className="w-full min-h-[42px] px-3 py-2 rounded-xl border border-slate-300 text-sm font-bold text-slate-900 bg-white focus:outline-none focus:border-teal-600"
+                >
+                  <option value="general_health">
+                    ❤️ Sức khỏe tổng quát — Huyết áp, Tim mạch & Mỡ máu
+                  </option>
+                  <option value="thyroid_post_op">
+                    🦋 Chuyên biệt Tuyến giáp (Hormone Levothyroxine, Canxi, Mỡ máu & Tim mạch)
+                  </option>
+                  <option value="post_stroke_cranioplasty">
+                    🧠 Phục hồi sau tai biến & Theo dõi vùng khuyết sọ
+                  </option>
+                </select>
               </div>
 
               <div>

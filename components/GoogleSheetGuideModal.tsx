@@ -50,6 +50,7 @@ function doGet(e) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     if (
       !ss.getSheetByName('Expenses') ||
+      !ss.getSheetByName('LabResults') ||
       !ss.getSheetByName('DailyLogs') ||
       !ss.getSheetByName('CareRoutines') ||
       !ss.getSheetByName('VitalsLog') ||
@@ -79,6 +80,7 @@ function doGet(e) {
         appointment: readAppointment(ss),
         bpThresholds: readBpThresholds(ss),
         expenses: readExpenses(ss),
+        labResults: readLabResults(ss),
       };
 
       if (!startDate && !endDate && !phase) {
@@ -262,6 +264,14 @@ function doPost(e) {
     if (action === 'deleteExpense' && postData.expenseId) {
       deleteRowById(ss, 'Expenses', postData.expenseId);
       return jsonResponse({ success: true, message: 'Đã xoá khoản thu/chi' });
+    }
+    if (action === 'saveLabResult' && postData.labResult) {
+      saveLabResult(ss, postData.labResult);
+      return jsonResponse({ success: true, message: 'Đã lưu kết quả xét nghiệm' });
+    }
+    if (action === 'deleteLabResult' && postData.labResultId) {
+      deleteRowById(ss, 'LabResults', postData.labResultId);
+      return jsonResponse({ success: true, message: 'Đã xoá kết quả xét nghiệm' });
     }
 
     return jsonResponse({ success: false, message: 'Thao tác không hợp lệ' });
@@ -505,6 +515,17 @@ function ensureSheetsSetup(ss) {
       .setFontWeight('bold').setBackground('#CCFBF1');
     sheetExpenses.setFrozenRows(1);
     sheetExpenses.getRange('D:D').setNumberFormat('#,##0');
+  }
+
+  // Sheet 10: LabResults (Sổ Xét Nghiệm & Hóa Sinh - lưu JSON linh hoạt)
+  let sheetLabs = ss.getSheetByName('LabResults');
+  const labHeaders = ['id', 'date', 'facility', 'doctor', 'med_dose', 'note', 'json_payload', 'created_at'];
+  if (!sheetLabs) {
+    sheetLabs = ss.insertSheet('LabResults');
+    sheetLabs.appendRow(labHeaders);
+    sheetLabs.getRange(1, 1, 1, labHeaders.length)
+      .setFontWeight('bold').setBackground('#E0E7FF');
+    sheetLabs.setFrozenRows(1);
   }
 }
 
@@ -1211,6 +1232,48 @@ function saveExpense(ss, e) {
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(e.id)) {
       sheet.getRange(i + 1, 1, 1, 13).setValues([rowData]);
+      return;
+    }
+  }
+  sheet.appendRow(rowData);
+}
+
+function readLabResults(ss) {
+  const sheet = ss.getSheetByName('LabResults');
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+  const data = sheet.getDataRange().getValues();
+  const list = [];
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row[0]) continue;
+    try {
+      const parsed = JSON.parse(String(row[6] || '{}'));
+      if (parsed && parsed.id) {
+        parsed.date = formatRowDate(row[1] || parsed.date);
+        list.push(parsed);
+      }
+    } catch (err) {}
+  }
+  return list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+
+function saveLabResult(ss, lab) {
+  const sheet = ss.getSheetByName('LabResults');
+  if (!sheet || !lab) return;
+  const rowData = [
+    String(lab.id),
+    "'" + (lab.date || ''),
+    lab.facility || '',
+    lab.doctor || '',
+    lab.medDose || '',
+    lab.note || '',
+    JSON.stringify(lab),
+    lab.createdAt || new Date().toISOString()
+  ];
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(lab.id)) {
+      sheet.getRange(i + 1, 1, 1, rowData.length).setValues([rowData]);
       return;
     }
   }

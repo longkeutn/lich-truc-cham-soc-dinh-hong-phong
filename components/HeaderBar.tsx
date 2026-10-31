@@ -13,12 +13,12 @@ import {
   Home,
   Smartphone,
   Type,
-  Wallet,
   Bell,
+  FlaskConical,
 } from 'lucide-react';
 
-// V2.2: 4 tab chính (Tab Thu Chi bảo mật bằng mã PIN riêng biệt)
-export type AppView = 'today' | 'charts' | 'family' | 'expenses';
+// V2.3: 5 tab chính (Hôm nay, Biểu Đồ HA, Xét Nghiệm, Gia Đình, và Sổ Thu Chi bảo mật bằng mã PIN riêng)
+export type AppView = 'today' | 'charts' | 'labs' | 'family' | 'expenses';
 
 interface HeaderBarProps {
   activeView: AppView;
@@ -154,6 +154,19 @@ export default function HeaderBar({
               >
                 <TrendingUp className="w-4 h-4" />
                 <span>Biểu Đồ HA</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onChangeView('labs')}
+                className={`px-3.5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition cursor-pointer ${
+                  activeView === 'labs'
+                    ? 'bg-teal-700 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                }`}
+              >
+                <FlaskConical className="w-4 h-4" />
+                <span>Xét Nghiệm</span>
               </button>
 
               {ENABLE_FAMILY_SHIFT_TAB && (
@@ -295,11 +308,11 @@ export default function HeaderBar({
         aria-label="Điều hướng chính trên điện thoại"
         className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] px-3 py-1.5"
       >
-        <div className={`grid ${ENABLE_FAMILY_SHIFT_TAB ? 'grid-cols-3' : 'grid-cols-2'} gap-2 max-w-md mx-auto`}>
+        <div className={`grid ${ENABLE_FAMILY_SHIFT_TAB ? 'grid-cols-4' : 'grid-cols-3'} gap-1.5 sm:gap-2 max-w-md mx-auto`}>
           <button
             type="button"
             onClick={() => onChangeView('today')}
-            className={`min-h-[54px] rounded-xl px-2 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
+            className={`min-h-[54px] rounded-xl px-1.5 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
               activeView === 'today'
                 ? 'bg-teal-700 text-white border-teal-800 font-extrabold shadow-2xs'
                 : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 font-semibold'
@@ -308,13 +321,13 @@ export default function HeaderBar({
             <HeartPulse
               className={`w-5 h-5 ${activeView === 'today' ? 'text-white' : 'text-slate-500'}`}
             />
-            <span className="text-xs leading-tight">Hôm Nay</span>
+            <span className="text-[11px] sm:text-xs leading-tight">Hôm Nay</span>
           </button>
 
           <button
             type="button"
             onClick={() => onChangeView('charts')}
-            className={`min-h-[54px] rounded-xl px-2 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
+            className={`min-h-[54px] rounded-xl px-1.5 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
               activeView === 'charts'
                 ? 'bg-teal-700 text-white border-teal-800 font-extrabold shadow-2xs'
                 : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 font-semibold'
@@ -323,14 +336,29 @@ export default function HeaderBar({
             <TrendingUp
               className={`w-5 h-5 ${activeView === 'charts' ? 'text-white' : 'text-slate-500'}`}
             />
-            <span className="text-xs leading-tight">Biểu Đồ HA</span>
+            <span className="text-[11px] sm:text-xs leading-tight">Biểu Đồ HA</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChangeView('labs')}
+            className={`min-h-[54px] rounded-xl px-1.5 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
+              activeView === 'labs'
+                ? 'bg-teal-700 text-white border-teal-800 font-extrabold shadow-2xs'
+                : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 font-semibold'
+            }`}
+          >
+            <FlaskConical
+              className={`w-5 h-5 ${activeView === 'labs' ? 'text-white' : 'text-slate-500'}`}
+            />
+            <span className="text-[11px] sm:text-xs leading-tight">Xét Nghiệm</span>
           </button>
 
           {ENABLE_FAMILY_SHIFT_TAB && (
             <button
               type="button"
               onClick={() => onChangeView('family')}
-              className={`min-h-[54px] rounded-xl px-2 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
+              className={`min-h-[54px] rounded-xl px-1.5 py-1.5 flex flex-col items-center justify-center gap-0.5 transition cursor-pointer border ${
                 activeView === 'family'
                   ? 'bg-teal-700 text-white border-teal-800 font-extrabold shadow-2xs'
                   : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 font-semibold'
@@ -339,7 +367,7 @@ export default function HeaderBar({
               <UsersIcon
                 className={`w-5 h-5 ${activeView === 'family' ? 'text-white' : 'text-slate-500'}`}
               />
-              <span className="text-xs leading-tight">Lịch Phụ Mẹ</span>
+              <span className="text-[11px] sm:text-xs leading-tight">Lịch Phụ Mẹ</span>
             </button>
           )}
         </div>

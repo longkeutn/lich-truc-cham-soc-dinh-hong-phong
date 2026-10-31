@@ -15,7 +15,7 @@ import {
   BpThresholds,
   AllAppDataV2,
   AppMode,
-  ExpenseEntry,
+  ExpenseEntry, LabResultEntry,
 } from './types';
 import {
   PHASE_CONFIGS,
@@ -38,7 +38,7 @@ export const SHEET_NAMES = {
   VITALS_LOG: 'VitalsLog',
   CARE_ROUTINES: 'CareRoutines',
   DAILY_LOGS: 'DailyLogs',
-  EXPENSES: 'Expenses',
+  EXPENSES: 'Expenses', LAB_RESULTS: 'LabResults',
 };
 
 // Thứ tự các cột trong trang tính 'Shifts'
@@ -144,7 +144,7 @@ class MemoryShiftStore {
   private bpThresholds: BpThresholds = { ...DEFAULT_BP_THRESHOLDS };
   private appointment: AppointmentInfo = { ...DEFAULT_APPOINTMENT };
   private appMode: AppMode = 'home_care';
-  private expenses: ExpenseEntry[] = [];
+  private expenses: ExpenseEntry[] = []; private labResults: LabResultEntry[] = [];
 
   constructor() {
     // Khởi tạo rỗng 100% — chỉ hiển thị dữ liệu thực tế từ Google Sheets
@@ -636,6 +636,45 @@ class MemoryShiftStore {
     return this.getExpenses();
   }
 
+  // --- LabResults (Sổ Theo Dõi Xét Nghiệm & Hóa Sinh) ---
+  public getLabResults(): LabResultEntry[] {
+    return [...this.labResults].sort((a, b) => {
+      const dateCmp = normalizeDateStr(b.date).localeCompare(normalizeDateStr(a.date));
+      if (dateCmp !== 0) return dateCmp;
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
+  }
+
+  public setLabResults(list: LabResultEntry[]): void {
+    if (Array.isArray(list)) {
+      this.labResults = list.map((item) => ({
+        ...item,
+        date: normalizeDateStr(item.date),
+      }));
+    }
+  }
+
+  public saveLabResult(entry: LabResultEntry): LabResultEntry[] {
+    const clean: LabResultEntry = {
+      ...entry,
+      date: normalizeDateStr(entry.date),
+    };
+    const idx = this.labResults.findIndex((l) => l.id === clean.id);
+    if (idx >= 0) {
+      this.labResults[idx] = clean;
+    } else {
+      this.labResults.unshift(clean);
+    }
+    return this.getLabResults();
+  }
+
+  public deleteLabResult(id: string): LabResultEntry[] {
+    this.labResults = this.labResults.filter(
+      (l) => l.id !== id && `lab_${l.id}` !== id && l.id !== `lab_${id}`
+    );
+    return this.getLabResults();
+  }
+
   // --- All App Data V2 (mở rộng getAllData) ---
   public getAllDataV2(startDate: string, endDate: string, phase: CarePhase): AllAppDataV2 {
     return {
@@ -648,7 +687,7 @@ class MemoryShiftStore {
       appointment: this.getAppointment(),
       bpThresholds: this.getBpThresholds(),
       appMode: this.getAppMode(),
-      expenses: this.getExpenses(),
+      expenses: this.getExpenses(), labResults: this.getLabResults(),
     };
   }
 }
@@ -821,6 +860,7 @@ async function syncMemoryStoreFromWebapp(): Promise<boolean> {
 
       // Phân tách Reminders thông thường và các bản ghi Sổ Thu Chi lưu tương thích ngược trên Sheet
       const fallbackExpenses: ExpenseEntry[] = [];
+      const fallbackLabs: LabResultEntry[] = [];
       if (Array.isArray(data.reminders)) {
         const cleanReminders: PatientDailyReminder[] = [];
         for (const rawRem of data.reminders as PatientDailyReminder[]) {
@@ -828,6 +868,15 @@ async function syncMemoryStoreFromWebapp(): Promise<boolean> {
           if (remId === 'sys_expense_pin') {
             if (rawRem.content && String(rawRem.content).trim()) {
               memoryStore.setExpensePin(String(rawRem.content).trim());
+            }
+          } else if (remId.startsWith('lab_')) {
+            try {
+              const parsedLab = JSON.parse(String(rawRem.content || '')) as LabResultEntry;
+              if (parsedLab && parsedLab.id && parsedLab.date) {
+                fallbackLabs.push(parsedLab);
+              }
+            } catch {
+              // ignore malformed json
             }
           } else if (remId.startsWith('exp_')) {
             try {
@@ -858,6 +907,19 @@ async function syncMemoryStoreFromWebapp(): Promise<boolean> {
         }
       }
       memoryStore.setExpenses(Array.from(expenseMap.values()));
+
+      const labMap = new Map<string, LabResultEntry>();
+      for (const fl of fallbackLabs) {
+        labMap.set(fl.id, fl);
+      }
+      if (Array.isArray(data.labResults)) {
+        for (const sl of data.labResults as LabResultEntry[]) {
+          if (sl && sl.id) {
+            labMap.set(sl.id, sl);
+          }
+        }
+      }
+      memoryStore.setLabResults(Array.from(labMap.values()));
 
       // Nạp toàn bộ ca trực thực tế từ Google Sheets (cả phase1 và phase2 trong 1 lần đọc)
       memoryStore.clearShifts();
@@ -1403,6 +1465,72 @@ export async function deleteExpenseFromStorage(expenseId: string): Promise<Expen
     );
   } else {
     // Đảm bảo xoá sạch nếu trước đó lưu ở fallback
+    void sendToWebappWithTimeout({ action: 'deleteReminder', reminderId: fallbackId }, 10000);
+  }
+
+  return updatedList;
+}
+
+// ==========================================
+// LAB RESULTS MODULE — SỔ THEO DÕI XÉT NGHIỆM & HÓA SINH
+// ==========================================
+
+export async function saveLabResultToStorage(entry: LabResultEntry): Promise<LabResultEntry[]> {
+  const normalized: LabResultEntry = {
+    ...entry,
+    id: entry.id || `lab-${Date.now()}`,
+    date: normalizeDateStr(entry.date),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const updatedList = memoryStore.saveLabResult(normalized);
+  serverCacheManager.invalidateAll();
+
+  // 1. Thử lưu vào Sheet LabResults (nếu Code.gs đã cập nhật)
+  const syncRes = await sendToWebappWithTimeout(
+    { action: 'saveLabResult', labResult: normalized },
+    15000
+  );
+
+  // 2. Fallback tự động lưu lên Google Sheets qua bảng Reminders nếu Code.gs chưa redeploy bản mới
+  if (!syncRes.success) {
+    const fallbackId = normalized.id.startsWith('lab_') ? normalized.id : `lab_${normalized.id}`;
+    await sendToWebappWithTimeout(
+      {
+        action: 'saveReminder',
+        reminder: {
+          id: fallbackId,
+          category: 'general',
+          title: `[Xét nghiệm ${normalized.date}] ${normalized.facility || 'Hóa sinh & Tuyến giáp'}`,
+          content: JSON.stringify(normalized),
+          author: normalized.recordedBy || 'Gia đình',
+          time: normalized.date,
+          isUrgent: false,
+        },
+      },
+      15000
+    );
+  }
+
+  return updatedList;
+}
+
+export async function deleteLabResultFromStorage(labId: string): Promise<LabResultEntry[]> {
+  const updatedList = memoryStore.deleteLabResult(labId);
+  serverCacheManager.invalidateAll();
+
+  const syncRes = await sendToWebappWithTimeout(
+    { action: 'deleteLabResult', labId },
+    15000
+  );
+
+  const fallbackId = labId.startsWith('lab_') ? labId : `lab_${labId}`;
+  if (!syncRes.success) {
+    await sendToWebappWithTimeout(
+      { action: 'deleteReminder', reminderId: fallbackId },
+      15000
+    );
+  } else {
     void sendToWebappWithTimeout({ action: 'deleteReminder', reminderId: fallbackId }, 10000);
   }
 

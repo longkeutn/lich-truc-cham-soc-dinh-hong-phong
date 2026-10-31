@@ -86,7 +86,7 @@ export interface PatientCustomField {
   section?: 'profile' | 'care';
 }
 
-export type HealthProfileType = 'post_stroke_cranioplasty' | 'general_health';
+export type HealthProfileType = 'post_stroke_cranioplasty' | 'thyroid_post_op' | 'general_health';
 
 export interface HealthProfile {
   id: string;                 // 'father' (mặc định cho Bố), 'mother' (Mẹ), hoặc 'profile-...'
@@ -275,6 +275,71 @@ export interface ExpenseEntry {
   updatedAt?: string;
 }
 
+// ===== LAB RESULTS & BIOCHEMISTRY — Sổ Theo Dõi Xét Nghiệm & Hóa Sinh (Dùng chung Đa Hồ Sơ) =====
+export type TshTargetLevel = 'high_risk' | 'moderate_risk' | 'normal';
+
+export interface CustomLabItem {
+  id: string;
+  name: string;
+  value: string;
+  unit?: string;
+  refRange?: string;
+}
+
+export interface LabResultEntry {
+  id: string;                   // Gắn tiền tố hồ sơ p_<profileId>__lab-... (hoặc lab-... cho hồ sơ mặc định)
+  date: string;                 // YYYY-MM-DD (Ngày xét nghiệm)
+  facility?: string;            // Cơ sở xét nghiệm / Bệnh viện (VD: BV Nội Tiết, BV Bạch Mai, Medlatec...)
+  doctorAdvice?: string;        // Kết luận / Lời dặn của Bác sĩ
+  recordedBy?: string;          // Người nhập
+
+  // Nhóm 1: Chỉ số Tuyến giáp & Liều thuốc Hormone
+  levothyroxineDose?: string;   // Liều thuốc Levothyroxine đang uống (VD: "100mcg", "100x6 125x1")
+  tsh?: number;                 // TSH (µIU/mL hoặc mIU/L)
+  tshTargetLevel?: TshTargetLevel; // Mục tiêu ức chế TSH: 'high_risk' (<0.1), 'moderate_risk' (0.1-0.5), 'normal' (0.4-4.0)
+  ft4?: number;                 // Free T4
+  ft4Unit?: 'ng/dL' | 'pmol/L'; // Đơn vị FT4 (1 ng/dL ≈ 12.87 pmol/L)
+  ft3?: number;                 // Free T3
+  ft3Unit?: 'pg/mL' | 'pmol/L'; // Đơn vị FT3 (1 pg/mL ≈ 1.536 pmol/L)
+  t4?: number;                  // T4 toàn phần (µg/dL hoặc nmol/L)
+  t3?: number;                  // T3 toàn phần (ng/dL hoặc nmol/L)
+
+  // Nhóm 2: Dấu ấn Ung thư Tuyến giáp & Kháng thể (Markers)
+  tg?: number;                  // Thyroglobulin - TG (ng/mL)
+  antiTg?: number;              // Anti-TG (IU/mL)
+  antiTpo?: number;             // Anti-TPO (IU/mL)
+
+  // Nhóm 3: Bộ Mỡ máu — Tim mạch (Lipid Panel)
+  lipidUnit?: 'mmol/L' | 'mg/dL';
+  cholesterol?: number;         // Cholesterol toàn phần
+  triglyceride?: number;        // Triglyceride
+  hdlC?: number;                // HDL-C (Mỡ tốt)
+  ldlC?: number;                // LDL-C (Mỡ xấu)
+
+  // Nhóm 4: Đường huyết, Khoáng chất & Vitamin (Canxi & Vitamin D hậu phẫu tuyến giáp)
+  glucoseUnit?: 'mmol/L' | 'mg/dL';
+  glucose?: number;             // Đường huyết lúc đói
+  hba1c?: number;               // HbA1c (%)
+  calciumUnit?: 'mmol/L' | 'mg/dL';
+  calcium?: number;             // Canxi máu toàn phần
+  ionizedCalcium?: number;      // Canxi ion hóa Ca++ (mmol/L)
+  vitaminD?: number;            // 25-OH Vitamin D (ng/mL)
+
+  // Nhóm 5: Chức năng Gan, Thận & Huyết học
+  ast?: number;                 // AST / GOT (U/L)
+  alt?: number;                 // ALT / GPT (U/L)
+  creatinine?: number;          // Creatinine máu (µmol/L)
+  urea?: number;                // Ure máu (mmol/L)
+  uricAcid?: number;            // Acid Uric (µmol/L)
+  hemoglobin?: number;          // Hemoglobin - Huyết sắc tố (g/dL hoặc g/L)
+
+  // Chỉ số mở rộng tự định nghĩa (CRUD linh hoạt)
+  customLabs?: CustomLabItem[];
+
+  createdAt: string;
+  updatedAt?: string;
+}
+
 // ===== EXTENDED AllAppData cho v2.0 =====
 export interface AllAppDataV2 extends AllAppData {
   vitalsLog: VitalsLogEntry[];
@@ -285,4 +350,5 @@ export interface AllAppDataV2 extends AllAppData {
   bpThresholds: BpThresholds;
   appMode: AppMode;
   expenses: ExpenseEntry[];
+  labResults: LabResultEntry[];
 }
