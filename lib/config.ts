@@ -2150,6 +2150,72 @@ export function evaluateLabEntry(
     });
   }
 
+  // 3b. T3 toàn phần (nmol/L hoặc ng/dL -> chuẩn nmol/L: 1.1 – 2.8 nmol/L; chuẩn ng/dL: 70 – 180 ng/dL)
+  if (typeof entry.t3 === 'number' && !isNaN(entry.t3)) {
+    const unit = entry.t3Unit || (entry.t3 > 15 ? 'ng/dL' : 'nmol/L');
+    const valNmol = unit === 'ng/dL' ? entry.t3 * 0.01536 : entry.t3;
+    const refText = unit === 'nmol/L' ? '1.1 – 2.8 nmol/L' : '70 – 180 ng/dL';
+    let status: LabEvalStatus = 'normal';
+    let badgeText = '🟢 Bình thường';
+    let badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    let clinicalNote = 'Nồng độ hormone T3 toàn phần nằm trong giới hạn sinh lý ổn định.';
+
+    if (valNmol < 1.1) {
+      status = 'low';
+      badgeText = '🟡 T3 thấp';
+      badgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
+      clinicalNote = 'T3 toàn phần hơi thấp; cơ thể chuyển hóa T4 sang T3 chậm hơn bình thường.';
+    } else if (valNmol > 2.8) {
+      status = 'high';
+      badgeText = '🟡 T3 cao';
+      badgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
+      clinicalNote = 'T3 toàn phần cao; dễ gây cảm giác hồi hộp, tim đập nhanh.';
+    }
+
+    indicators.push({
+      key: 't3',
+      label: 'T3 toàn phần (Triiodothyronine)',
+      shortLabel: 'T3',
+      group: 'thyroid',
+      value: entry.t3,
+      unit,
+      refText,
+      status,
+      badgeText,
+      badgeClass,
+      clinicalNote,
+    });
+  }
+
+  // 3c. T4 toàn phần (µg/dL hoặc nmol/L -> chuẩn µg/dL: 5.1 – 14.1 µg/dL; chuẩn nmol/L: 66 – 181 nmol/L)
+  if (typeof entry.t4 === 'number' && !isNaN(entry.t4)) {
+    const unit = entry.t4Unit || (entry.t4 > 30 ? 'nmol/L' : 'µg/dL');
+    const valUg = unit === 'nmol/L' ? entry.t4 / 12.87 : entry.t4;
+    const refText = unit === 'nmol/L' ? '66 – 181 nmol/L' : '5.1 – 14.1 µg/dL';
+    const isLow = valUg < 5.1;
+    const isHigh = valUg > 14.1;
+    indicators.push({
+      key: 't4',
+      label: 'T4 toàn phần (Thyroxine)',
+      shortLabel: 'T4',
+      group: 'thyroid',
+      value: entry.t4,
+      unit,
+      refText,
+      status: isLow ? 'low' : isHigh ? 'high' : 'normal',
+      badgeText: isLow ? '🟡 T4 thấp' : isHigh ? '🟡 T4 cao' : '🟢 Bình thường',
+      badgeClass:
+        isLow || isHigh
+          ? 'bg-amber-100 text-amber-800 border-amber-300'
+          : 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      clinicalNote: isHigh
+        ? 'T4 toàn phần hơi cao do đang duy trì liều Levothyroxine ức chế TSH.'
+        : isLow
+          ? 'T4 toàn phần hơi thấp.'
+          : 'T4 toàn phần trong giới hạn bình thường.',
+    });
+  }
+
   // 4. TG (Thyroglobulin - ng/mL)
   if (typeof entry.tg === 'number' && !isNaN(entry.tg)) {
     const val = entry.tg;

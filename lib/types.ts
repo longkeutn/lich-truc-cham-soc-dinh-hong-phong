@@ -302,7 +302,11 @@ export interface LabResultEntry {
   ft3?: number;                 // Free T3
   ft3Unit?: 'pg/mL' | 'pmol/L'; // Đơn vị FT3 (1 pg/mL ≈ 1.536 pmol/L)
   t4?: number;                  // T4 toàn phần (µg/dL hoặc nmol/L)
+  t4Unit?: 'µg/dL' | 'nmol/L';
   t3?: number;                  // T3 toàn phần (ng/dL hoặc nmol/L)
+  t3Unit?: 'nmol/L' | 'ng/dL';
+  symptoms?: string;            // Triệu chứng ghi nhận lúc xét nghiệm (cột TrieuChung từ Sheet cũ)
+  legacyTimestamp?: string;     // Timestamp gốc từ cột A của Sheet cũ (để nối chính xác Data & BiochemistryData)
 
   // Nhóm 2: Dấu ấn Ung thư Tuyến giáp & Kháng thể (Markers)
   tg?: number;                  // Thyroglobulin - TG (ng/mL)

@@ -64,16 +64,147 @@ interface LabResultsViewProps {
 type ChartCategory = 'thyroid' | 'lipid' | 'metabolic' | 'liver_kidney';
 
 const QUICK_DOSES = [
+  '100mcg',
+  '100mcgx6',
+  '100mcgx6, 50mcgx1',
+  '100x5, 50x2',
   '50mcg',
-  '62.5mcg',
   '75mcg',
   '87.5mcg',
-  '100mcg',
   '112.5mcg',
   '125mcg',
-  '100x6 125x1',
-  '100x5 125x2',
-  '75x5 100x2',
+];
+
+// 12 mốc lịch sử từ Sheet Data của Mẹ Bạch Yến (2022–2025) trích xuất nguyên bản từ Google Sheet cũ
+const BACH_YEN_LEGACY_DATA_PRESETS: Array<Omit<LabResultEntry, 'id' | 'createdAt'>> = [
+  {
+    date: '2022-09-01',
+    legacyTimestamp: '01/09/2025 12:32:18',
+    levothyroxineDose: '100mcg',
+    symptoms: 'mệt mỏi, khám lần đầu sau mổ 3 tháng',
+    doctorAdvice: 'Đã cắt toàn bộ tuyến giáp',
+    tshTargetLevel: 'moderate_risk',
+  },
+  {
+    date: '2022-09-12',
+    legacyTimestamp: '01/09/2025 12:30:55',
+    levothyroxineDose: '100mcg',
+    symptoms: 'mệt mỏi, khám lần đầu sau mổ 3 tháng',
+    tshTargetLevel: 'moderate_risk',
+  },
+  {
+    date: '2022-12-12',
+    legacyTimestamp: '01/09/2025 12:34:45',
+    levothyroxineDose: '100x5, 50x2',
+    symptoms: 'Chuẩn đoán thiếu Calci do chế độ ăn. Suy giáp sau điều trị mổ',
+    doctorAdvice: 'Đã cắt toàn bộ tuyến giáp',
+    tshTargetLevel: 'moderate_risk',
+  },
+  {
+    date: '2023-09-18',
+    legacyTimestamp: '01/09/2025 12:45:08',
+    tsh: 3.3147,
+    t3: 1.1,
+    t3Unit: 'nmol/L',
+    ft4: 10.6,
+    ft4Unit: 'pmol/L',
+    levothyroxineDose: '100x5, 50x2',
+    doctorAdvice: 'Đã cắt toàn bộ tuyến giáp',
+    tshTargetLevel: 'moderate_risk',
+  },
+  {
+    date: '2024-03-11',
+    legacyTimestamp: '01/09/2025 12:51:58',
+    tsh: 2.354,
+    t3: 1.54,
+    t3Unit: 'nmol/L',
+    ft4: 14.1,
+    ft4Unit: 'pmol/L',
+    levothyroxineDose: '100mcg',
+    doctorAdvice: 'K giáp thể nhú • Đã cắt toàn bộ tuyến giáp',
+    tshTargetLevel: 'moderate_risk',
+  },
+  {
+    date: '2024-06-16',
+    legacyTimestamp: '01/09/2025 13:25:23',
+    tsh: 0.091,
+    t3: 1.58,
+    t3Unit: 'nmol/L',
+    ft4: 22.6,
+    ft4Unit: 'pmol/L',
+    levothyroxineDose: '100mcgx6, 50mcgx1',
+    symptoms: 'tim đập nhanh',
+    doctorAdvice: 'K giáp thể nhú • Đã cắt toàn bộ tuyến giáp',
+    tshTargetLevel: 'moderate_risk',
+  },
+  {
+    date: '2024-09-02',
+    legacyTimestamp: '01/09/2025 12:58:08',
+    tsh: 0.133,
+    t3: 2.04,
+    t3Unit: 'nmol/L',
+    ft4: 26.27,
+    ft4Unit: 'pmol/L',
+    levothyroxineDose: '100x5, 50x2',
+    doctorAdvice: 'K giáp thể nhú, đã phẫu thuật • Đã cắt toàn bộ tuyến giáp',
+    tshTargetLevel: 'moderate_risk',
+  },
+  {
+    date: '2024-11-23',
+    legacyTimestamp: '01/09/2025 13:04:06',
+    tsh: 0.263,
+    t3: 1.89,
+    t3Unit: 'nmol/L',
+    ft4: 23.29,
+    ft4Unit: 'pmol/L',
+    tg: 0.25,
+    antiTg: 19.44,
+    levothyroxineDose: '100mcg',
+    symptoms: 'chuẩn đoán suy giáp',
+    doctorAdvice: 'K giáp thể nhú • Đã cắt toàn bộ tuyến giáp',
+    tshTargetLevel: 'moderate_risk',
+  },
+  {
+    date: '2025-05-28',
+    legacyTimestamp: '01/09/2025 13:40:08',
+    tsh: 0.193,
+    t3: 1.83,
+    t3Unit: 'nmol/L',
+    ft4: 24.57,
+    ft4Unit: 'pmol/L',
+    levothyroxineDose: '100x5, 50x2',
+    symptoms: 'mệt mỏi, tim đập nhanh',
+    doctorAdvice: 'K giáp thể nhú • Đã cắt toàn bộ tuyến giáp',
+    tshTargetLevel: 'moderate_risk',
+  },
+  {
+    date: '2025-08-30',
+    legacyTimestamp: '01/09/2025 13:47:16',
+    tsh: 0.335,
+    t3: 1.5,
+    t3Unit: 'nmol/L',
+    ft4: 28.14,
+    ft4Unit: 'pmol/L',
+    tg: 0.04,
+    levothyroxineDose: '100mcgx6',
+    symptoms: 'mệt mỏi, tim đập nhanh. Chỉ số TG (Thyroglobulin) < 0.040 ng/mL',
+    doctorAdvice: 'K giáp thể nhú • Đã cắt toàn bộ tuyến giáp',
+    tshTargetLevel: 'moderate_risk',
+  },
+  {
+    date: '2025-09-01',
+    legacyTimestamp: '01/09/2025 15:07:56',
+    levothyroxineDose: '100mcgx6',
+    symptoms: 'Mệt mỏi, tim đập nhanh',
+    tshTargetLevel: 'moderate_risk',
+  },
+  {
+    date: '2025-10-29',
+    legacyTimestamp: '29/10/2025 19:56:01',
+    levothyroxineDose: '100mcgx6',
+    symptoms: 'Bị đau họng, hơi sốt • hơi mệt',
+    tshTargetLevel: 'moderate_risk',
+  },
 ];
 
 const QUICK_FACILITIES = [
@@ -152,16 +283,17 @@ export default function LabResultsView({
   const [editingId, setEditingId] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Modal Nhập nhanh từ bảng Google Sheet cũ (Data / BiochemistryData)
+  // Modal Nhập nhanh từ bảng Google Sheet cũ (Data & BiochemistryData)
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importRawText, setImportRawText] = useState('');
-  const [importSheetType, setImportSheetType] = useState<'thyroid_data' | 'biochem_data'>('thyroid_data');
+  const [importBiochemText, setImportBiochemText] = useState('');
   const [isImporting, setIsImporting] = useState(false);
 
   // State các trường trong Form
   const [date, setDate] = useState(() => getVietnamDateStr());
   const [facility, setFacility] = useState('');
   const [recordedBy, setRecordedBy] = useState(defaultRecorder);
+  const [symptoms, setSymptoms] = useState('');
   const [doctorAdvice, setDoctorAdvice] = useState('');
 
   // Tuyến giáp & Markers
@@ -171,11 +303,15 @@ export default function LabResultsView({
   );
   const [tsh, setTsh] = useState('');
   const [ft4, setFt4] = useState('');
-  const [ft4Unit, setFt4Unit] = useState<'ng/dL' | 'pmol/L'>('ng/dL');
+  const [ft4Unit, setFt4Unit] = useState<'ng/dL' | 'pmol/L'>(
+    profileType === 'thyroid_post_op' ? 'pmol/L' : 'ng/dL'
+  );
   const [ft3, setFt3] = useState('');
   const [ft3Unit, setFt3Unit] = useState<'pg/mL' | 'pmol/L'>('pg/mL');
   const [t4, setT4] = useState('');
+  const [t4Unit, setT4Unit] = useState<'µg/dL' | 'nmol/L'>('µg/dL');
   const [t3, setT3] = useState('');
+  const [t3Unit, setT3Unit] = useState<'nmol/L' | 'ng/dL'>('nmol/L');
   const [tg, setTg] = useState('');
   const [antiTg, setAntiTg] = useState('');
   const [antiTpo, setAntiTpo] = useState('');
@@ -229,6 +365,7 @@ export default function LabResultsView({
     setDate(getVietnamDateStr());
     setFacility(latestLab?.facility || '');
     setRecordedBy(defaultRecorder);
+    setSymptoms('');
     setDoctorAdvice('');
     setLevothyroxineDose(latestLab?.levothyroxineDose || '');
     setTshTargetLevel(
@@ -237,11 +374,15 @@ export default function LabResultsView({
     );
     setTsh('');
     setFt4('');
-    setFt4Unit(latestLab?.ft4Unit || 'ng/dL');
+    setFt4Unit(
+      latestLab?.ft4Unit || (profileType === 'thyroid_post_op' ? 'pmol/L' : 'ng/dL')
+    );
     setFt3('');
     setFt3Unit(latestLab?.ft3Unit || 'pg/mL');
     setT4('');
+    setT4Unit(latestLab?.t4Unit || 'µg/dL');
     setT3('');
+    setT3Unit(latestLab?.t3Unit || 'nmol/L');
     setTg('');
     setAntiTg('');
     setAntiTpo('');
@@ -272,6 +413,7 @@ export default function LabResultsView({
     setDate(normalizeDateStr(entry.date) || getVietnamDateStr());
     setFacility(entry.facility || '');
     setRecordedBy(entry.recordedBy || defaultRecorder);
+    setSymptoms(entry.symptoms || '');
     setDoctorAdvice(entry.doctorAdvice || '');
     setLevothyroxineDose(entry.levothyroxineDose || '');
     setTshTargetLevel(
@@ -280,11 +422,13 @@ export default function LabResultsView({
     );
     setTsh(entry.tsh !== undefined ? String(entry.tsh) : '');
     setFt4(entry.ft4 !== undefined ? String(entry.ft4) : '');
-    setFt4Unit(entry.ft4Unit || 'ng/dL');
+    setFt4Unit(entry.ft4Unit || (entry.ft4 && entry.ft4 > 5 ? 'pmol/L' : 'ng/dL'));
     setFt3(entry.ft3 !== undefined ? String(entry.ft3) : '');
     setFt3Unit(entry.ft3Unit || 'pg/mL');
     setT4(entry.t4 !== undefined ? String(entry.t4) : '');
+    setT4Unit(entry.t4Unit || 'µg/dL');
     setT3(entry.t3 !== undefined ? String(entry.t3) : '');
+    setT3Unit(entry.t3Unit || 'nmol/L');
     setTg(entry.tg !== undefined ? String(entry.tg) : '');
     setAntiTg(entry.antiTg !== undefined ? String(entry.antiTg) : '');
     setAntiTpo(entry.antiTpo !== undefined ? String(entry.antiTpo) : '');
@@ -339,12 +483,16 @@ export default function LabResultsView({
       (c) => c.name.trim() !== '' && c.value.trim() !== ''
     );
 
+    const existingItem = editingId ? labResults.find((l) => l.id === editingId) : undefined;
+
     const entry: LabResultEntry = {
       id: editingId || `lab-${Date.now()}`,
       date: normalizeDateStr(date),
       facility: facility.trim() || undefined,
       recordedBy: recordedBy.trim() || defaultRecorder,
+      symptoms: symptoms.trim() || undefined,
       doctorAdvice: doctorAdvice.trim() || undefined,
+      legacyTimestamp: existingItem?.legacyTimestamp,
       levothyroxineDose: levothyroxineDose.trim() || undefined,
       tshTargetLevel,
       tsh: parseOptionalNumber(tsh),
@@ -353,7 +501,9 @@ export default function LabResultsView({
       ft3: parseOptionalNumber(ft3),
       ft3Unit,
       t4: parseOptionalNumber(t4),
+      t4Unit,
       t3: parseOptionalNumber(t3),
+      t3Unit,
       tg: parseOptionalNumber(tg),
       antiTg: parseOptionalNumber(antiTg),
       antiTpo: parseOptionalNumber(antiTpo),
@@ -376,9 +526,7 @@ export default function LabResultsView({
       uricAcid: parseOptionalNumber(uricAcid),
       hemoglobin: parseOptionalNumber(hemoglobin),
       customLabs: cleanCustomLabs.length > 0 ? cleanCustomLabs : undefined,
-      createdAt: editingId
-        ? labResults.find((l) => l.id === editingId)?.createdAt || new Date().toISOString()
-        : new Date().toISOString(),
+      createdAt: existingItem?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
@@ -388,9 +536,10 @@ export default function LabResultsView({
       evalCheck.indicators.length === 0 &&
       cleanCustomLabs.length === 0 &&
       !entry.levothyroxineDose &&
+      !entry.symptoms &&
       !entry.doctorAdvice
     ) {
-      showToast('Vui lòng nhập ít nhất 1 chỉ số xét nghiệm hoặc ghi chú bác sĩ.', 'warn');
+      showToast('Vui lòng nhập ít nhất 1 chỉ số xét nghiệm, liều thuốc hoặc triệu chứng.', 'warn');
       return;
     }
 
@@ -403,147 +552,291 @@ export default function LabResultsView({
     }
   };
 
-  // Xử lý Import từ bảng Google Sheet cũ (Data hoặc BiochemistryData của dự án Tuyến Giáp)
-  const handleImportLegacyData = async () => {
-    if (!importRawText.trim() || isImporting) return;
+  // Nạp nhanh 12 mốc lịch sử từ Sheet Data của Mẹ Bạch Yến (2022–2025)
+  const handleQuickLoadBachYenPresets = async () => {
+    if (isImporting) return;
     setIsImporting(true);
     try {
-      const lines = importRawText
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter(Boolean);
-
-      let importedCount = 0;
       const existingByDate = new Map<string, LabResultEntry>();
       for (const item of labResults) {
         existingByDate.set(normalizeDateStr(item.date), { ...item });
       }
 
-      for (const line of lines) {
-        // Hỗ trợ cả copy từ Google Sheets (phân tách bằng Tab \t) hoặc CSV
-        const cols = line.includes('\t') ? line.split('\t') : line.split(',');
-        if (cols.length < 3) continue;
-
-        // Bỏ qua dòng tiêu đề nếu cột ngày không hợp lệ
-        const rawDateCandidate = (cols[1] || cols[0] || '').trim();
-        if (
-          rawDateCandidate.toLowerCase().includes('ngày') ||
-          rawDateCandidate.toLowerCase().includes('date') ||
-          rawDateCandidate.toLowerCase() === 'stt'
-        ) {
-          continue;
-        }
-
-        // Nhận diện xem cột 0 là STT hay Ngày xét nghiệm
-        const col0Norm = normalizeDateStr(cols[0]);
-        const col1Norm = normalizeDateStr(cols[1]);
-        const hasSttColumn = !/^\d{4}-\d{2}-\d{2}$/.test(col0Norm) && /^\d{4}-\d{2}-\d{2}$/.test(col1Norm);
-        const offset = hasSttColumn ? 1 : 0;
-        const parsedDate = normalizeDateStr(cols[offset]);
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(parsedDate)) continue;
-
-        const baseEntry: LabResultEntry = existingByDate.get(parsedDate) || {
-          id: `lab-import-${parsedDate}-${Math.random().toString(36).slice(2, 6)}`,
-          date: parsedDate,
-          recordedBy: defaultRecorder,
-          tshTargetLevel: profileType === 'thyroid_post_op' ? 'moderate_risk' : 'normal',
-          createdAt: new Date().toISOString(),
+      let count = 0;
+      for (const preset of BACH_YEN_LEGACY_DATA_PRESETS) {
+        const prev = existingByDate.get(preset.date);
+        const merged: LabResultEntry = {
+          ...(prev || {}),
+          ...preset,
+          id: prev?.id || `lab-by-${preset.date}`,
+          recordedBy: prev?.recordedBy || defaultRecorder,
+          createdAt: prev?.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         };
+        existingByDate.set(preset.date, merged);
+        await onSaveLabResult(merged);
+        count++;
+      }
 
-        if (importSheetType === 'thyroid_data') {
-          // Cấu trúc Sheet Data trong Code_SucKhoeTuyenGiap:
-          // [STT], Ngày, TSH, FT4, T3, FT3, T4, TG, Anti_TG, Liều thuốc, Anti_TPO, AST, ALT, Cholesterol, HDL_C, LDL_C, Triglyceride, Glucose, HbA1c, Hemoglobin
-          const vTsh = parseOptionalNumber(cols[offset + 1] || '');
-          const vFt4 = parseOptionalNumber(cols[offset + 2] || '');
-          const vT3 = parseOptionalNumber(cols[offset + 3] || '');
-          const vFt3 = parseOptionalNumber(cols[offset + 4] || '');
-          const vT4 = parseOptionalNumber(cols[offset + 5] || '');
-          const vTg = parseOptionalNumber(cols[offset + 6] || '');
-          const vAntiTg = parseOptionalNumber(cols[offset + 7] || '');
-          const vDose = (cols[offset + 8] || '').trim();
-          const vAntiTpo = parseOptionalNumber(cols[offset + 9] || '');
-          const vAst = parseOptionalNumber(cols[offset + 10] || '');
-          const vAlt = parseOptionalNumber(cols[offset + 11] || '');
-          const vChol = parseOptionalNumber(cols[offset + 12] || '');
-          const vHdl = parseOptionalNumber(cols[offset + 13] || '');
-          const vLdl = parseOptionalNumber(cols[offset + 14] || '');
-          const vTrig = parseOptionalNumber(cols[offset + 15] || '');
-          const vGlu = parseOptionalNumber(cols[offset + 16] || '');
-          const vHba1c = parseOptionalNumber(cols[offset + 17] || '');
-          const vHb = parseOptionalNumber(cols[offset + 18] || '');
+      showToast(
+        `✅ Đã nạp thành công ${count} mốc lịch sử Tuyến giáp (2022–2025) của ${patientName}!`,
+        'success'
+      );
+      setImportModalOpen(false);
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
-          if (vTsh !== undefined) baseEntry.tsh = vTsh;
-          if (vFt4 !== undefined) {
-            baseEntry.ft4 = vFt4;
-            baseEntry.ft4Unit = vFt4 > 5 ? 'pmol/L' : 'ng/dL';
-          }
-          if (vT3 !== undefined) baseEntry.t3 = vT3;
-          if (vFt3 !== undefined) {
-            baseEntry.ft3 = vFt3;
-            baseEntry.ft3Unit = vFt3 > 4.8 ? 'pmol/L' : 'pg/mL';
-          }
-          if (vT4 !== undefined) baseEntry.t4 = vT4;
-          if (vTg !== undefined) baseEntry.tg = vTg;
-          if (vAntiTg !== undefined) baseEntry.antiTg = vAntiTg;
-          if (vDose) baseEntry.levothyroxineDose = vDose;
-          if (vAntiTpo !== undefined) baseEntry.antiTpo = vAntiTpo;
-          if (vAst !== undefined) baseEntry.ast = vAst;
-          if (vAlt !== undefined) baseEntry.alt = vAlt;
-          if (vChol !== undefined) {
-            baseEntry.cholesterol = vChol;
-            baseEntry.lipidUnit = vChol > 25 ? 'mg/dL' : 'mmol/L';
-          }
-          if (vHdl !== undefined) baseEntry.hdlC = vHdl;
-          if (vLdl !== undefined) baseEntry.ldlC = vLdl;
-          if (vTrig !== undefined) baseEntry.triglyceride = vTrig;
-          if (vGlu !== undefined) {
-            baseEntry.glucose = vGlu;
-            baseEntry.glucoseUnit = vGlu > 25 ? 'mg/dL' : 'mmol/L';
-          }
-          if (vHba1c !== undefined) baseEntry.hba1c = vHba1c;
-          if (vHb !== undefined) baseEntry.hemoglobin = vHb;
-        } else {
-          // Cấu trúc Sheet BiochemistryData trong Code_SucKhoeTuyenGiap:
-          // [STT], Ngày, Canxi, Vitamin D, AST, ALT, Cholesterol, HDL-C, LDL-C, Triglyceride, Glucose, HbA1c, Hemoglobin, Ghi chú
-          const vCa = parseOptionalNumber(cols[offset + 1] || '');
-          const vVitD = parseOptionalNumber(cols[offset + 2] || '');
-          const vAst = parseOptionalNumber(cols[offset + 3] || '');
-          const vAlt = parseOptionalNumber(cols[offset + 4] || '');
-          const vChol = parseOptionalNumber(cols[offset + 5] || '');
-          const vHdl = parseOptionalNumber(cols[offset + 6] || '');
-          const vLdl = parseOptionalNumber(cols[offset + 7] || '');
-          const vTrig = parseOptionalNumber(cols[offset + 8] || '');
-          const vGlu = parseOptionalNumber(cols[offset + 9] || '');
-          const vHba1c = parseOptionalNumber(cols[offset + 10] || '');
-          const vHb = parseOptionalNumber(cols[offset + 11] || '');
-          const vNote = (cols[offset + 12] || '').trim();
+  // Xử lý Import chuẩn xác 100% theo cấu trúc 24 cột Sheet "Data" & 23 cột Sheet "BiochemistryData"
+  const handleImportLegacyData = async () => {
+    if ((!importRawText.trim() && !importBiochemText.trim()) || isImporting) return;
+    setIsImporting(true);
+    try {
+      const existingByDate = new Map<string, LabResultEntry>();
+      const existingByTimestamp = new Map<string, LabResultEntry>();
 
-          if (vCa !== undefined) {
-            baseEntry.calcium = vCa;
-            baseEntry.calciumUnit = vCa > 5 ? 'mg/dL' : 'mmol/L';
-          }
-          if (vVitD !== undefined) baseEntry.vitaminD = vVitD;
-          if (vAst !== undefined) baseEntry.ast = vAst;
-          if (vAlt !== undefined) baseEntry.alt = vAlt;
-          if (vChol !== undefined) {
-            baseEntry.cholesterol = vChol;
-            baseEntry.lipidUnit = vChol > 25 ? 'mg/dL' : 'mmol/L';
-          }
-          if (vHdl !== undefined) baseEntry.hdlC = vHdl;
-          if (vLdl !== undefined) baseEntry.ldlC = vLdl;
-          if (vTrig !== undefined) baseEntry.triglyceride = vTrig;
-          if (vGlu !== undefined) {
-            baseEntry.glucose = vGlu;
-            baseEntry.glucoseUnit = vGlu > 25 ? 'mg/dL' : 'mmol/L';
-          }
-          if (vHba1c !== undefined) baseEntry.hba1c = vHba1c;
-          if (vHb !== undefined) baseEntry.hemoglobin = vHb;
-          if (vNote) baseEntry.doctorAdvice = vNote;
+      for (const item of labResults) {
+        const normD = normalizeDateStr(item.date);
+        existingByDate.set(normD, { ...item });
+        if (item.legacyTimestamp) {
+          existingByTimestamp.set(item.legacyTimestamp.trim(), { ...item });
         }
+      }
 
-        existingByDate.set(parsedDate, baseEntry);
-        await onSaveLabResult(baseEntry);
-        importedCount++;
+      const touchedDates = new Set<string>();
+
+      // BƯỚC 1: Đọc bảng Sheet "Data" (24 cột A -> X):
+      // A(0):Timestamp | B(1):TieuSuBenhNhan | C(2):TinhTrangBenh | D(3):BenhLyNen | E(4):NgayXetNghiem |
+      // F(5):TSH | G(6):TSH_Unit | H(7):T3 | I(8):T3_Unit | J(9):T4 | K(10):T4_Unit |
+      // L(11):FT3 | M(12):FT3_Unit | N(13):FT4 | O(14):FT4_Unit | P(15):TG | Q(16):TG_Unit |
+      // R(17):Anti_TG | S(18):Anti_TG_Unit | T(19):Anti_TPO | U(20):Anti_TPO_Unit |
+      // V(21):LieuThuoc | W(22):TrieuChung | X(23):GhiChu
+      if (importRawText.trim()) {
+        const dataLines = importRawText
+          .split(/\r?\n/)
+          .map((l) => l.replace(/\r$/, ''))
+          .filter((l) => l.trim().length > 0);
+
+        for (const line of dataLines) {
+          const cols = line.includes('\t') ? line.split('\t') : line.split(',');
+          if (cols.length < 2) continue;
+
+          const c0 = (cols[0] || '').trim();
+          const c4 = (cols[4] || '').trim();
+
+          // Bỏ qua dòng tiêu đề (Header)
+          if (
+            c0.toLowerCase() === 'timestamp' ||
+            c0.toLowerCase() === 'ngayxetnghiem' ||
+            c4.toLowerCase() === 'ngayxetnghiem'
+          ) {
+            continue;
+          }
+
+          // Hỗ trợ cả 2 kiểu bôi đen:
+          // Kiểu 1 (Chuẩn): Copy từ cột A (Timestamp) -> NgayXetNghiem nằm ở cột E (cols[4])
+          // Kiểu 2: Copy từ cột E (NgayXetNghiem) -> NgayXetNghiem nằm ở cột đầu (cols[0])
+          const normC4 = normalizeDateStr(c4);
+          const normC0 = normalizeDateStr(c0);
+
+          let shift = 0;
+          let parsedDate = '';
+          let rawTimestamp = '';
+
+          if (/^\d{4}-\d{2}-\d{2}$/.test(normC4)) {
+            shift = 0;
+            parsedDate = normC4;
+            rawTimestamp = c0;
+          } else if (/^\d{4}-\d{2}-\d{2}$/.test(normC0)) {
+            // Nếu c0 có giờ phút (Timestamp) nhưng cột E trống, vẫn là shift = 0; nếu c0 là YYYY-MM-DD thuần và cột 2 là TSH_Unit thì shift = -4
+            const c2 = (cols[2] || '').trim();
+            if (c2.includes('IU') || c2.includes('mL') || c2.includes('L')) {
+              shift = -4;
+              parsedDate = normC0;
+            } else {
+              shift = 0;
+              parsedDate = normC0;
+              rawTimestamp = c0;
+            }
+          } else {
+            continue;
+          }
+
+          const getCol = (idx: number): string => {
+            const actualIdx = idx + shift;
+            return actualIdx >= 0 && actualIdx < cols.length ? (cols[actualIdx] || '').trim() : '';
+          };
+
+          const prevEntry =
+            (rawTimestamp && existingByTimestamp.get(rawTimestamp)) ||
+            existingByDate.get(parsedDate);
+
+          const entry: LabResultEntry = prevEntry
+            ? { ...prevEntry }
+            : {
+                id: `lab-import-${parsedDate}-${Math.random().toString(36).slice(2, 6)}`,
+                date: parsedDate,
+                recordedBy: defaultRecorder,
+                tshTargetLevel: profileType === 'thyroid_post_op' ? 'moderate_risk' : 'normal',
+                createdAt: new Date().toISOString(),
+              };
+
+          if (rawTimestamp) entry.legacyTimestamp = rawTimestamp;
+
+          const tieuSu = getCol(1);
+          const tinhTrang = getCol(2);
+          const benhNen = getCol(3);
+
+          const vTsh = parseOptionalNumber(getCol(5));
+          const vT3 = parseOptionalNumber(getCol(7));
+          const uT3 = getCol(8);
+          const vT4 = parseOptionalNumber(getCol(9));
+          const uT4 = getCol(10);
+          const vFt3 = parseOptionalNumber(getCol(11));
+          const uFt3 = getCol(12);
+          const vFt4 = parseOptionalNumber(getCol(13));
+          const uFt4 = getCol(14);
+          const vTg = parseOptionalNumber(getCol(15));
+          const vAntiTg = parseOptionalNumber(getCol(17));
+          const vAntiTpo = parseOptionalNumber(getCol(19));
+          const vDose = getCol(21);
+          const vSymptoms = getCol(22);
+          const vNote = getCol(23);
+
+          if (vTsh !== undefined) entry.tsh = vTsh;
+          if (vT3 !== undefined) {
+            entry.t3 = vT3;
+            entry.t3Unit = uT3 === 'ng/dL' ? 'ng/dL' : 'nmol/L';
+          }
+          if (vT4 !== undefined) {
+            entry.t4 = vT4;
+            entry.t4Unit = uT4 === 'nmol/L' ? 'nmol/L' : 'µg/dL';
+          }
+          if (vFt3 !== undefined) {
+            entry.ft3 = vFt3;
+            entry.ft3Unit = uFt3 === 'pmol/L' || vFt3 > 4.8 ? 'pmol/L' : 'pg/mL';
+          }
+          if (vFt4 !== undefined) {
+            entry.ft4 = vFt4;
+            entry.ft4Unit = uFt4 === 'pmol/L' || vFt4 > 5 ? 'pmol/L' : 'ng/dL';
+          }
+          if (vTg !== undefined) entry.tg = vTg;
+          if (vAntiTg !== undefined) entry.antiTg = vAntiTg;
+          if (vAntiTpo !== undefined) entry.antiTpo = vAntiTpo;
+          if (vDose) entry.levothyroxineDose = vDose;
+
+          if (vSymptoms) {
+            if (entry.symptoms && !entry.symptoms.includes(vSymptoms)) {
+              entry.symptoms = `${entry.symptoms} • ${vSymptoms}`;
+            } else {
+              entry.symptoms = vSymptoms;
+            }
+          }
+
+          const noteParts = [tieuSu, tinhTrang, benhNen, vNote].filter(Boolean);
+          if (noteParts.length > 0) {
+            const combinedNote = noteParts.join(' • ');
+            if (!entry.doctorAdvice) {
+              entry.doctorAdvice = combinedNote;
+            } else if (vNote && !entry.doctorAdvice.includes(vNote)) {
+              entry.doctorAdvice = `${entry.doctorAdvice} • ${vNote}`;
+            }
+          }
+
+          entry.updatedAt = new Date().toISOString();
+          existingByDate.set(parsedDate, entry);
+          if (rawTimestamp) existingByTimestamp.set(rawTimestamp, entry);
+          touchedDates.add(parsedDate);
+        }
+      }
+
+      // BƯỚC 2: Đọc bảng Sheet "BiochemistryData" (23 cột A -> W):
+      // A(0):Timestamp | B(1):Cholesterol | C(2):Cholesterol_Unit | D(3):LDL_C | E(4):LDL_C_Unit |
+      // F(5):HDL_C | G(6):HDL_C_Unit | H(7):Triglyceride | I(8):Triglyceride_Unit |
+      // J(9):Glucose | K(10):Glucose_Unit | L(11):HbA1c | M(12):HbA1c_Unit |
+      // N(13):Canxi | O(14):Canxi_Unit | P(15):VitaminD | Q(16):VitaminD_Unit |
+      // R(17):AST | S(18):AST_Unit | T(19):ALT | U(20):ALT_Unit | V(21):Hemoglobin | W(22):Hemoglobin_Unit
+      if (importBiochemText.trim()) {
+        const bioLines = importBiochemText
+          .split(/\r?\n/)
+          .map((l) => l.replace(/\r$/, ''))
+          .filter((l) => l.trim().length > 0);
+
+        for (const line of bioLines) {
+          const cols = line.includes('\t') ? line.split('\t') : line.split(',');
+          if (cols.length < 2) continue;
+
+          const rawTs = (cols[0] || '').trim();
+          if (!rawTs || rawTs.toLowerCase() === 'timestamp') continue;
+
+          // Tìm bản ghi khớp Timestamp với Sheet Data trước, nếu không có thì lấy ngày từ Timestamp
+          const matchedByTs = existingByTimestamp.get(rawTs);
+          const fallbackDate = normalizeDateStr(rawTs);
+          const targetDate = matchedByTs ? normalizeDateStr(matchedByTs.date) : fallbackDate;
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) continue;
+
+          const entry: LabResultEntry =
+            matchedByTs ||
+            existingByDate.get(targetDate) || {
+              id: `lab-import-${targetDate}-${Math.random().toString(36).slice(2, 6)}`,
+              date: targetDate,
+              legacyTimestamp: rawTs,
+              recordedBy: defaultRecorder,
+              tshTargetLevel: profileType === 'thyroid_post_op' ? 'moderate_risk' : 'normal',
+              createdAt: new Date().toISOString(),
+            };
+
+          const vChol = parseOptionalNumber(cols[1] || '');
+          const uChol = (cols[2] || '').trim();
+          const vLdl = parseOptionalNumber(cols[3] || '');
+          const vHdl = parseOptionalNumber(cols[5] || '');
+          const vTrig = parseOptionalNumber(cols[7] || '');
+          const vGlu = parseOptionalNumber(cols[9] || '');
+          const uGlu = (cols[10] || '').trim();
+          const vHba1c = parseOptionalNumber(cols[11] || '');
+          const vCa = parseOptionalNumber(cols[13] || '');
+          const uCa = (cols[14] || '').trim();
+          const vVitD = parseOptionalNumber(cols[15] || '');
+          const vAst = parseOptionalNumber(cols[17] || '');
+          const vAlt = parseOptionalNumber(cols[19] || '');
+          const vHb = parseOptionalNumber(cols[21] || '');
+
+          if (vChol !== undefined) {
+            entry.cholesterol = vChol;
+            entry.lipidUnit = uChol === 'mg/dL' || vChol > 25 ? 'mg/dL' : 'mmol/L';
+          }
+          if (vLdl !== undefined) entry.ldlC = vLdl;
+          if (vHdl !== undefined) entry.hdlC = vHdl;
+          if (vTrig !== undefined) entry.triglyceride = vTrig;
+          if (vGlu !== undefined) {
+            entry.glucose = vGlu;
+            entry.glucoseUnit = uGlu === 'mg/dL' || vGlu > 25 ? 'mg/dL' : 'mmol/L';
+          }
+          if (vHba1c !== undefined) entry.hba1c = vHba1c;
+          if (vCa !== undefined) {
+            entry.calcium = vCa;
+            entry.calciumUnit = uCa === 'mg/dL' || vCa > 5 ? 'mg/dL' : 'mmol/L';
+          }
+          if (vVitD !== undefined) entry.vitaminD = vVitD;
+          if (vAst !== undefined) entry.ast = vAst;
+          if (vAlt !== undefined) entry.alt = vAlt;
+          if (vHb !== undefined) entry.hemoglobin = vHb;
+
+          entry.updatedAt = new Date().toISOString();
+          existingByDate.set(targetDate, entry);
+          existingByTimestamp.set(rawTs, entry);
+          touchedDates.add(targetDate);
+        }
+      }
+
+      let importedCount = 0;
+      for (const d of touchedDates) {
+        const entryToSave = existingByDate.get(d);
+        if (entryToSave) {
+          await onSaveLabResult(entryToSave);
+          importedCount++;
+        }
       }
 
       if (importedCount > 0) {
@@ -552,10 +845,11 @@ export default function LabResultsView({
           'success'
         );
         setImportRawText('');
+        setImportBiochemText('');
         setImportModalOpen(false);
       } else {
         showToast(
-          'Không tìm thấy dòng dữ liệu hợp lệ. Hãy copy các dòng từ bảng Google Sheet và dán vào ô.',
+          'Không tìm thấy dòng dữ liệu hợp lệ. Hãy copy từ cột A đến cột cuối trong bảng Google Sheet và dán vào ô.',
           'warn'
         );
       }
@@ -572,6 +866,7 @@ export default function LabResultsView({
       dose: item.levothyroxineDose || '',
       tsh: item.tsh,
       ft4: item.ft4,
+      t3: item.t3,
       ft3: item.ft3,
       tg: item.tg,
       cholesterol: item.cholesterol,
@@ -889,9 +1184,15 @@ export default function LabResultsView({
                   </div>
                 )}
 
+                {latestLab.symptoms && (
+                  <div className="pt-2 border-t border-teal-200/70 text-xs sm:text-sm text-rose-900 font-bold">
+                    ⚠️ Triệu chứng lâm sàng đợt khám: <span className="font-semibold">{latestLab.symptoms}</span>
+                  </div>
+                )}
+
                 {latestLab.doctorAdvice && (
                   <div className="pt-2 border-t border-teal-200/70 text-xs sm:text-sm text-slate-900 font-bold">
-                    🩺 Lời dặn của Bác sĩ: <span className="font-semibold">{latestLab.doctorAdvice}</span>
+                    🩺 Tiền sử / Lời dặn Bác sĩ: <span className="font-semibold">{latestLab.doctorAdvice}</span>
                   </div>
                 )}
               </div>
@@ -911,7 +1212,7 @@ export default function LabResultsView({
 
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {[
-                    { id: 'thyroid', label: '🦋 Tuyến giáp (TSH • FT4 • TG)' },
+                    { id: 'thyroid', label: '🦋 Tuyến giáp (TSH • FT4 • T3 • TG)' },
                     { id: 'lipid', label: '❤️ Bộ Mỡ máu' },
                     { id: 'metabolic', label: '🦴 Đường huyết & Canxi/VitD' },
                     { id: 'liver_kidney', label: '🧪 Men Gan & Thận' },
@@ -969,15 +1270,25 @@ export default function LabResultsView({
                       <Line
                         yAxisId="left"
                         type="monotone"
-                        dataKey="ft4"
-                        name="FT4"
-                        stroke="#2563eb"
+                        dataKey="t3"
+                        name="T3 (nmol/L)"
+                        stroke="#d97706"
                         strokeWidth={2.5}
                         dot={{ r: 4 }}
                         connectNulls
                       />
                       <Line
                         yAxisId="right"
+                        type="monotone"
+                        dataKey="ft4"
+                        name="FT4 (pmol/L)"
+                        stroke="#2563eb"
+                        strokeWidth={2.5}
+                        dot={{ r: 4 }}
+                        connectNulls
+                      />
+                      <Line
+                        yAxisId="left"
                         type="monotone"
                         dataKey="tg"
                         name="TG Marker (ng/mL)"
@@ -1189,6 +1500,11 @@ export default function LabResultsView({
                               💊 Liều giáp: {entry.levothyroxineDose}
                             </span>
                           )}
+                          {entry.symptoms && (
+                            <span className="px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-xs font-bold text-rose-800">
+                              ⚠️ Triệu chứng: {entry.symptoms}
+                            </span>
+                          )}
                         </div>
 
                         {/* Tóm tắt nhanh các chỉ số trong đợt khám */}
@@ -1254,9 +1570,14 @@ export default function LabResultsView({
 
                     {isExpanded && (
                       <div className="p-3.5 pt-2 border-t border-slate-200 bg-white space-y-2 text-xs">
+                        {entry.symptoms && (
+                          <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-950 font-semibold">
+                            ⚠️ <strong>Triệu chứng lâm sàng đợt khám:</strong> {entry.symptoms}
+                          </div>
+                        )}
                         {entry.doctorAdvice && (
                           <div className="p-2.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-950 font-semibold">
-                            🩺 <strong>Lời dặn Bác sĩ:</strong> {entry.doctorAdvice}
+                            🩺 <strong>Tiền sử / Lời dặn Bác sĩ:</strong> {entry.doctorAdvice}
                           </div>
                         )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1486,6 +1807,48 @@ export default function LabResultsView({
                     />
                   </div>
                   <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-extrabold text-slate-700">T3 toàn phần</label>
+                      <select
+                        value={t3Unit}
+                        onChange={(e) => setT3Unit(e.target.value as 'nmol/L' | 'ng/dL')}
+                        className="text-[11px] font-bold bg-white border border-slate-300 rounded px-1"
+                      >
+                        <option value="nmol/L">nmol/L</option>
+                        <option value="ng/dL">ng/dL</option>
+                      </select>
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={t3}
+                      onChange={(e) => setT3(e.target.value)}
+                      placeholder={t3Unit === 'nmol/L' ? 'VD: 1.54' : 'VD: 110'}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-black text-slate-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-extrabold text-slate-700">T4 toàn phần</label>
+                      <select
+                        value={t4Unit}
+                        onChange={(e) => setT4Unit(e.target.value as 'µg/dL' | 'nmol/L')}
+                        className="text-[11px] font-bold bg-white border border-slate-300 rounded px-1"
+                      >
+                        <option value="µg/dL">µg/dL</option>
+                        <option value="nmol/L">nmol/L</option>
+                      </select>
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={t4}
+                      onChange={(e) => setT4(e.target.value)}
+                      placeholder={t4Unit === 'µg/dL' ? 'VD: 8.5' : 'VD: 105'}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-black text-slate-900 bg-white"
+                    />
+                  </div>
+                  <div>
                     <label className="block text-xs font-extrabold text-slate-700 mb-1">
                       TG - Thyroglobulin (ng/mL)
                     </label>
@@ -1500,14 +1863,14 @@ export default function LabResultsView({
                   </div>
                   <div>
                     <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                      Anti-TG (IU/mL)
+                      Anti-TG (U/mL • IU/mL)
                     </label>
                     <input
                       type="text"
                       inputMode="decimal"
                       value={antiTg}
                       onChange={(e) => setAntiTg(e.target.value)}
-                      placeholder="VD: 12.5"
+                      placeholder="VD: 19.44"
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-black text-slate-900 bg-white"
                     />
                   </div>
@@ -1837,18 +2200,32 @@ export default function LabResultsView({
                 ))}
               </div>
 
-              {/* LỜI DẶN BÁC SĨ / GHI CHÚ */}
-              <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                  🩺 Kết luận / Lời dặn của Bác sĩ (Siêu âm tuyến giáp, chỉnh liều thuốc, hẹn tái khám...)
-                </label>
-                <textarea
-                  rows={2}
-                  value={doctorAdvice}
-                  onChange={(e) => setDoctorAdvice(e.target.value)}
-                  placeholder="VD: Hố mổ tuyến giáp sạch, duy trì Berlthyrox 100mcg sáng lúc đói, hẹn khám lại sau 3 tháng..."
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-medium text-slate-900"
-                />
+              {/* TRIỆU CHỨNG LÂM SÀNG & LỜI DẶN BÁC SĨ */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                    ⚠️ Triệu chứng lâm sàng đợt khám (Mệt mỏi, tim đập nhanh, tê tay...)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={symptoms}
+                    onChange={(e) => setSymptoms(e.target.value)}
+                    placeholder="VD: mệt mỏi, tim đập nhanh, đau họng..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-medium text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-700 mb-1">
+                    🩺 Kết luận / Lời dặn của Bác sĩ (Siêu âm, chỉnh liều, hẹn tái khám...)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={doctorAdvice}
+                    onChange={(e) => setDoctorAdvice(e.target.value)}
+                    placeholder="VD: Hố mổ tuyến giáp sạch, duy trì Berlthyrox 100mcg sáng lúc đói..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-medium text-slate-900"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
@@ -1880,16 +2257,17 @@ export default function LabResultsView({
           onClick={() => setImportModalOpen(false)}
         >
           <div
-            className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border-2 border-slate-200"
+            className="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border-2 border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 bg-teal-900 text-white flex items-center justify-between gap-2">
+            <div className="px-5 py-4 bg-teal-900 text-white flex items-center justify-between gap-2 shrink-0">
               <div>
                 <h3 className="text-base sm:text-lg font-black">
-                  📥 Nhập Nhanh Lịch Sử Từ Google Sheet Tuyến Giáp Cũ
+                  📥 Nhập Lịch Sử Từ Google Sheet Tuyến Giáp Cũ ({patientName})
                 </h3>
                 <p className="text-xs text-teal-100">
-                  Copy trực tiếp các dòng từ trang tính <strong>Data</strong> hoặc <strong>BiochemistryData</strong> của Mẹ Bạch Yến rồi dán vào dưới đây
+                  Hỗ trợ chuẩn xác cấu trúc 24 cột Sheet <strong>Data</strong> (A→X) &amp; 23 cột Sheet{' '}
+                  <strong>BiochemistryData</strong> (A→W)
                 </p>
               </div>
               <button
@@ -1902,50 +2280,66 @@ export default function LabResultsView({
             </div>
 
             <div className="p-5 overflow-y-auto space-y-4">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-extrabold text-slate-700">Loại bảng đang dán:</span>
-                <button
-                  type="button"
-                  onClick={() => setImportSheetType('thyroid_data')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border cursor-pointer ${
-                    importSheetType === 'thyroid_data'
-                      ? 'bg-teal-700 text-white border-teal-800'
-                      : 'bg-slate-50 text-slate-700 border-slate-200'
-                  }`}
-                >
-                  1. Sheet &quot;Data&quot; (TSH, FT4, T3, FT3, T4, TG, Anti-TG, Liều thuốc...)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setImportSheetType('biochem_data')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border cursor-pointer ${
-                    importSheetType === 'biochem_data'
-                      ? 'bg-teal-700 text-white border-teal-800'
-                      : 'bg-slate-50 text-slate-700 border-slate-200'
-                  }`}
-                >
-                  2. Sheet &quot;BiochemistryData&quot; (Canxi, Vitamin D, AST, ALT, Mỡ máu...)
-                </button>
-              </div>
+              {/* NÚT 1-CHẠM NẠP NGAY 12 MỐC LỊCH SỬ TỪ SHEET DATA CỦA MẸ BẠCH YẾN */}
+              {profileType === 'thyroid_post_op' && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-teal-50 to-emerald-50 border-2 border-teal-300 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="text-xs sm:text-sm font-black text-teal-950 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-teal-700 shrink-0" />
+                      <span>Cách 1 (Khuyên dùng - 1 chạm): Nạp sẵn 12 đợt khám từ Sheet &quot;Data&quot; của Mẹ Bạch Yến</span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isImporting}
+                      onClick={handleQuickLoadBachYenPresets}
+                      className="px-3.5 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>⚡ Nạp ngay 12 mốc lịch sử (2022–2025)</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-slate-700 leading-relaxed">
+                    Đã trích xuất chuẩn xác toàn bộ 12 mốc khám từ ngày <strong>01/09/2022 → 29/10/2025</strong> (gồm TSH, T3, FT4, TG, Anti-TG, Liều thuốc 100mcg / 100x5 50x2 / 100mcgx6 &amp; Triệu chứng) kèm sẵn mã <code>Timestamp</code> gốc để tự động khớp nếu bạn dán thêm bảng <strong>BiochemistryData</strong> bên dưới.
+                  </p>
+                </div>
+              )}
 
               <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-1">
                 <div className="font-extrabold flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Hướng dẫn 3 giây:</span>
+                  <span>Cách 2: Copy &amp; Paste trực tiếp từ Google Sheet cũ:</span>
                 </div>
                 <p>
-                  Mở file Google Sheet cũ của Mẹ Bạch Yến, bôi đen các dòng dữ liệu (từ cột A đến cột cuối), bấm{' '}
-                  <strong>Ctrl + C</strong> rồi dán (<strong>Ctrl + V</strong>) vào ô bên dưới. Nếu cùng ngày xét nghiệm ở cả 2 sheet, hệ thống sẽ tự động gộp chung vào 1 bản ghi!
+                  Bôi đen các dòng dữ liệu từ <strong>Cột A (Timestamp)</strong> đến cột cuối (có thể copy cả dòng tiêu đề dòng 1), bấm{' '}
+                  <strong>Ctrl + C</strong> rồi dán (<strong>Ctrl + V</strong>) vào ô tương ứng bên dưới. Hệ thống tự động lấy cột E (<code>NgayXetNghiem</code>) làm ngày khám và tự động nối bảng <strong>BiochemistryData</strong> với bảng <strong>Data</strong> qua cột A (<code>Timestamp</code>).
                 </p>
               </div>
 
-              <textarea
-                rows={8}
-                value={importRawText}
-                onChange={(e) => setImportRawText(e.target.value)}
-                placeholder="Dán các dòng dữ liệu đã copy từ Google Sheet vào đây..."
-                className="w-full p-3 rounded-2xl border border-slate-300 text-xs font-mono text-slate-800 focus:outline-none focus:border-teal-600"
-              />
+              <div className="space-y-1.5">
+                <label className="block text-xs font-extrabold text-slate-800">
+                  1️⃣ Ô dán bảng Sheet &quot;Data&quot; (Cột A → Cột X: Timestamp, Tiểu sử, Tình trạng, Bệnh nền, NgayXetNghiem, TSH, T3, T4, FT3, FT4, TG, Anti_TG, Anti_TPO, LieuThuoc, TrieuChung, GhiChu)
+                </label>
+                <textarea
+                  rows={5}
+                  value={importRawText}
+                  onChange={(e) => setImportRawText(e.target.value)}
+                  placeholder="Dán các dòng đã copy từ trang tính Data vào đây..."
+                  className="w-full p-3 rounded-2xl border border-slate-300 text-xs font-mono text-slate-800 focus:outline-none focus:border-teal-600"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-extrabold text-slate-800">
+                  2️⃣ Ô dán bảng Sheet &quot;BiochemistryData&quot; (Tùy chọn • Cột A → Cột W: Timestamp, Cholesterol, LDL_C, HDL_C, Triglyceride, Glucose, HbA1c, Canxi, VitaminD, AST, ALT, Hemoglobin)
+                </label>
+                <textarea
+                  rows={4}
+                  value={importBiochemText}
+                  onChange={(e) => setImportBiochemText(e.target.value)}
+                  placeholder="Nếu có dữ liệu ở sheet BiochemistryData, dán vào đây để hệ thống tự gộp theo Timestamp..."
+                  className="w-full p-3 rounded-2xl border border-slate-300 text-xs font-mono text-slate-800 focus:outline-none focus:border-teal-600"
+                />
+              </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
@@ -1957,13 +2351,13 @@ export default function LabResultsView({
                 </button>
                 <button
                   type="button"
-                  disabled={isImporting || !importRawText.trim()}
+                  disabled={isImporting || (!importRawText.trim() && !importBiochemText.trim())}
                   onClick={handleImportLegacyData}
                   className="px-5 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white text-xs sm:text-sm font-extrabold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>
-                    {isImporting ? 'Đang xử lý & lưu...' : `Nhập vào hồ sơ ${patientName}`}
+                    {isImporting ? 'Đang xử lý & lưu...' : `Nhập dữ liệu đã dán vào hồ sơ ${patientName}`}
                   </span>
                 </button>
               </div>
