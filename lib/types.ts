@@ -94,6 +94,7 @@ export interface HealthProfile {
   relation: string;           // VD: 'Bố', 'Mẹ', 'Bản thân', ...
   avatarEmoji: string;        // VD: '👨', '👩', '👴', '👵', '🧑'
   profileType: HealthProfileType;
+  linkedMemberId?: string;    // ID thành viên liên kết trong Menu Thành viên (FamilyMember.id)
   patientInfo: PatientInfo;
   bpThresholds: BpThresholds;
   appointment: AppointmentInfo;

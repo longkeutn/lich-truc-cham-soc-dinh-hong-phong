@@ -117,6 +117,7 @@ import {
 } from '@/lib/config';
 import {
   saveShiftAction,
+  saveMemberAction,
   saveContactAction,
   deleteContactAction,
   saveReminderAction,
@@ -687,8 +688,70 @@ export default function CareSchedulePage() {
 
   const handleSaveHealthProfile = useCallback(
     async (savedProfile: HealthProfile) => {
+      // Đồng bộ tự động 2 chiều với Menu Thành viên (members)
+      const matchedMember =
+        members.find((m) => savedProfile.linkedMemberId && m.id === savedProfile.linkedMemberId) ||
+        members.find(
+          (m) => m.name.trim().toLowerCase() === savedProfile.name.trim().toLowerCase()
+        );
+
+      let resolvedLinkedMemberId = savedProfile.linkedMemberId;
+      if (matchedMember) {
+        resolvedLinkedMemberId = matchedMember.id;
+        if (
+          matchedMember.name !== savedProfile.name.trim() ||
+          (savedProfile.relation && matchedMember.relation !== savedProfile.relation.trim())
+        ) {
+          const words = savedProfile.name.trim().split(/\s+/);
+          const initials =
+            words.length === 1
+              ? words[0].slice(0, 2).toUpperCase()
+              : (words[0][0] + words[words.length - 1][0]).toUpperCase();
+          const updatedMember: FamilyMember = {
+            ...matchedMember,
+            name: savedProfile.name.trim(),
+            relation: savedProfile.relation.trim() || matchedMember.relation,
+            avatarInitials: initials,
+          };
+          setMembers((prev) => prev.map((m) => (m.id === updatedMember.id ? updatedMember : m)));
+          void saveMemberAction(updatedMember).catch(() => {});
+        }
+      } else if (savedProfile.name.trim()) {
+        const newMemId = savedProfile.linkedMemberId || `mem-${savedProfile.id}`;
+        resolvedLinkedMemberId = newMemId;
+        const words = savedProfile.name.trim().split(/\s+/);
+        const initials =
+          words.length === 1
+            ? words[0].slice(0, 2).toUpperCase()
+            : (words[0][0] + words[words.length - 1][0]).toUpperCase();
+        const isMotherRel = savedProfile.relation.toLowerCase().includes('mẹ');
+        const newMember: FamilyMember = {
+          id: newMemId,
+          name: savedProfile.name.trim(),
+          relation: savedProfile.relation.trim() || 'Thành viên gia đình',
+          phone: 'Chưa cập nhật',
+          badgeColor: isMotherRel ? 'bg-rose-600' : 'bg-teal-600',
+          avatarInitials: initials,
+          bgLight: isMotherRel ? 'bg-rose-50/90' : 'bg-teal-50/90',
+          borderLight: isMotherRel ? 'border-rose-300' : 'border-teal-300',
+          textColor: isMotherRel ? 'text-rose-900' : 'text-teal-900',
+          accentColor: isMotherRel ? 'bg-rose-600 text-white' : 'bg-teal-600 text-white',
+          pillBadge: isMotherRel
+            ? 'bg-rose-100 text-rose-800 border-rose-300 font-bold'
+            : 'bg-teal-100 text-teal-800 border-teal-300 font-bold',
+          isSupporter: false,
+        };
+        setMembers((prev) =>
+          prev.some((m) => m.id === newMember.id)
+            ? prev.map((m) => (m.id === newMember.id ? newMember : m))
+            : [...prev, newMember]
+        );
+        void saveMemberAction(newMember).catch(() => {});
+      }
+
       const cleanProfile: HealthProfile = {
         ...savedProfile,
+        linkedMemberId: resolvedLinkedMemberId,
         patientInfo: {
           ...savedProfile.patientInfo,
           name: savedProfile.name || savedProfile.patientInfo.name,
@@ -755,12 +818,15 @@ export default function CareSchedulePage() {
         `✅ Đã lưu hồ sơ sức khỏe: ${cleanProfile.relation ? `${cleanProfile.relation} • ` : ''}${cleanProfile.name}`
       );
     },
-    [healthProfiles, patientInfo, syncRootPatientInfo]
+    [healthProfiles, members, patientInfo, syncRootPatientInfo]
   );
 
   const handleDeleteHealthProfile = useCallback(
     async (profileId: string) => {
-      if (profileId === DEFAULT_HEALTH_PROFILE_ID) return;
+      if (healthProfiles.length <= 1) {
+        showToast('⚠️ Cần giữ lại ít nhất 1 thành viên trong Sổ Sức Khỏe.', 'warn');
+        return;
+      }
       const target = healthProfiles.find((p) => p.id === profileId);
       const nextAll = healthProfiles
         .filter((p) => p.id !== profileId)
@@ -768,15 +834,22 @@ export default function CareSchedulePage() {
           ...p,
           patientInfo: { ...p.patientInfo, healthProfiles: undefined },
         }));
+      const firstRemaining = nextAll[0];
       const nextRootInfo: PatientInfo = {
         ...patientInfo,
+        ...(profileId === DEFAULT_HEALTH_PROFILE_ID && firstRemaining
+          ? {
+              ...firstRemaining.patientInfo,
+              name: firstRemaining.name,
+            }
+          : {}),
         healthProfiles: nextAll,
       };
-      if (activeProfileId === profileId) {
-        setActiveProfileId(DEFAULT_HEALTH_PROFILE_ID);
+      if (activeProfileId === profileId && firstRemaining) {
+        setActiveProfileId(firstRemaining.id);
         try {
           if (typeof window !== 'undefined') {
-            localStorage.setItem('care_active_profile_id', DEFAULT_HEALTH_PROFILE_ID);
+            localStorage.setItem('care_active_profile_id', firstRemaining.id);
           }
         } catch {
           // ignore
@@ -784,10 +857,10 @@ export default function CareSchedulePage() {
       }
       syncRootPatientInfo(
         nextRootInfo,
-        `🗑️ Đã xóa hồ sơ: ${target?.name || profileId}`
+        `🗑️ Đã xóa thành viên "${target?.name || profileId}" khỏi Sổ Sức Khỏe`
       );
     },
-    [healthProfiles, patientInfo, activeProfileId, syncRootPatientInfo]
+    [healthProfiles, patientInfo, activeProfileId, syncRootPatientInfo, showToast]
   );
 
   // ===== V2.0 HANDLERS (PHẢN HỒI TỨC THÌ 0ms — ĐỒNG BỘ NGẦM LÊN SHEET) =====
@@ -1489,15 +1562,162 @@ export default function CareSchedulePage() {
     [requireAdmin, persistActiveProfilePatientInfo, patientDisplayName]
   );
 
-  // CRUD Members
+  // CRUD Members & Liên kết 2 chiều với Sổ Sức Khỏe Gia Đình
   const handleOpenMembers = useCallback(() => {
-    requireAdmin(() => setMembersModalOpen(true));
-  }, [requireAdmin]);
+    // Tự động đồng bộ các thành viên đang có trong Sổ Sức Khỏe Gia Đình vào Menu Thành viên nếu chưa có
+    setMembers((prev) => {
+      const next = [...prev];
+      let addedAny = false;
+      for (const hp of healthProfiles) {
+        const exists = next.some(
+          (m) =>
+            (hp.linkedMemberId && m.id === hp.linkedMemberId) ||
+            m.name.trim().toLowerCase() === hp.name.trim().toLowerCase()
+        );
+        if (!exists && hp.name.trim()) {
+          const words = hp.name.trim().split(/\s+/);
+          const initials =
+            words.length === 1
+              ? words[0].slice(0, 2).toUpperCase()
+              : (words[0][0] + words[words.length - 1][0]).toUpperCase();
+          const isMotherRel = (hp.relation || '').toLowerCase().includes('mẹ');
+          const syncedMem: FamilyMember = {
+            id: hp.linkedMemberId || `mem-${hp.id}`,
+            name: hp.name.trim(),
+            relation: hp.relation.trim() || 'Thành viên gia đình',
+            phone: hp.patientInfo?.emergencyPhone || 'Chưa cập nhật',
+            badgeColor: isMotherRel ? 'bg-rose-600' : 'bg-teal-600',
+            avatarInitials: initials,
+            bgLight: isMotherRel ? 'bg-rose-50/90' : 'bg-teal-50/90',
+            borderLight: isMotherRel ? 'border-rose-300' : 'border-teal-300',
+            textColor: isMotherRel ? 'text-rose-900' : 'text-teal-900',
+            accentColor: isMotherRel ? 'bg-rose-600 text-white' : 'bg-teal-600 text-white',
+            pillBadge: isMotherRel
+              ? 'bg-rose-100 text-rose-800 border-rose-300 font-bold'
+              : 'bg-teal-100 text-teal-800 border-teal-300 font-bold',
+            isSupporter: false,
+          };
+          next.unshift(syncedMem);
+          addedAny = true;
+          void saveMemberAction(syncedMem).catch(() => {});
+        }
+      }
+      return addedAny ? next : prev;
+    });
+    setMembersModalOpen(true);
+  }, [healthProfiles]);
 
-  const handleMembersUpdated = useCallback((updatedMembers: FamilyMember[]) => {
-    setMembers(updatedMembers);
-    showToast('Đã cập nhật danh sách thành viên gia đình!', 'success');
-  }, [showToast]);
+  const handleMembersUpdated = useCallback(
+    (updatedMembers: FamilyMember[]) => {
+      setMembers(updatedMembers);
+      // Nếu có thành viên đang liên kết với Sổ Sức Khỏe Gia Đình được đổi tên / vai vế -> đồng bộ sang Sổ Sức Khỏe luôn
+      let profileChanged = false;
+      const updatedProfiles = healthProfiles.map((hp) => {
+        const matched = updatedMembers.find(
+          (m) =>
+            (hp.linkedMemberId && m.id === hp.linkedMemberId) ||
+            m.name.trim().toLowerCase() === hp.name.trim().toLowerCase()
+        );
+        if (
+          matched &&
+          (hp.name !== matched.name ||
+            hp.relation !== matched.relation ||
+            hp.linkedMemberId !== matched.id)
+        ) {
+          profileChanged = true;
+          return {
+            ...hp,
+            name: matched.name,
+            relation: matched.relation || hp.relation,
+            linkedMemberId: matched.id,
+            patientInfo: {
+              ...hp.patientInfo,
+              name: matched.name,
+              healthProfiles: undefined,
+            },
+          };
+        }
+        return {
+          ...hp,
+          patientInfo: { ...hp.patientInfo, healthProfiles: undefined },
+        };
+      });
+
+      if (profileChanged) {
+        const primaryUpdated = updatedProfiles.find((p) => p.id === DEFAULT_HEALTH_PROFILE_ID);
+        const nextRootInfo: PatientInfo = {
+          ...patientInfo,
+          name: primaryUpdated?.name || patientInfo.name,
+          healthProfiles: updatedProfiles,
+        };
+        syncRootPatientInfo(nextRootInfo);
+      }
+      showToast('Đã cập nhật danh sách thành viên gia đình!', 'success');
+    },
+    [healthProfiles, patientInfo, syncRootPatientInfo, showToast]
+  );
+
+  const handleToggleMemberHealthProfile = useCallback(
+    (member: FamilyMember, shouldHaveProfile: boolean) => {
+      const existingProfile = healthProfiles.find(
+        (p) =>
+          (p.linkedMemberId && p.linkedMemberId === member.id) ||
+          p.name.trim().toLowerCase() === member.name.trim().toLowerCase()
+      );
+
+      if (shouldHaveProfile) {
+        if (existingProfile) {
+          void handleSaveHealthProfile({
+            ...existingProfile,
+            name: member.name,
+            relation: member.relation || existingProfile.relation,
+            linkedMemberId: member.id,
+          });
+          return;
+        }
+        const lower = `${member.name} ${member.relation}`.toLowerCase();
+        const isThyroid = lower.includes('bạch yến');
+        const emoji =
+          lower.includes('mẹ') || lower.includes('bà')
+            ? '👵'
+            : lower.includes('chị') || lower.includes('cô') || lower.includes('em gái')
+              ? '👩'
+              : lower.includes('bố') || lower.includes('bác') || lower.includes('ông')
+                ? '👴'
+                : '👨';
+        const newProfile: HealthProfile = {
+          id: `member_${Date.now().toString(36)}`,
+          name: member.name.trim(),
+          relation: member.relation.trim() || 'Gia đình',
+          avatarEmoji: emoji,
+          profileType: isThyroid ? 'thyroid_post_op' : 'general_health',
+          linkedMemberId: member.id,
+          patientInfo: {
+            name: member.name.trim(),
+            diagnosis: isThyroid
+              ? 'Đã phẫu thuật cắt toàn bộ tuyến giáp (K giáp thể nhú) • Duy trì hormone Levothyroxine & Kiểm soát Huyết áp, Mỡ máu, Canxi'
+              : 'Theo dõi huyết áp, nhịp tim & chăm sóc sức khỏe hằng ngày',
+            hospital: 'Khám định kỳ',
+            room: 'Tại nhà',
+            notes: 'Đo huyết áp định kỳ sáng/tối, uống đủ nước ấm, nghỉ ngơi hợp lý.',
+            emergencyPhone: member.phone !== 'Chưa cập nhật' ? member.phone : '',
+            statusBadge: 'Theo dõi sức khỏe gia đình',
+            conditionTag: isThyroid ? 'Tuyến giáp • HA • Mỡ máu' : 'Huyết áp & Tim mạch',
+            headerBadge: 'Tại nhà',
+            careMode: 'Hằng ngày',
+            careGoal: 'Duy trì huyết áp & nhịp tim ổn định',
+            customFields: [],
+          },
+          bpThresholds: { ...DEFAULT_BP_THRESHOLDS },
+          appointment: { ...DEFAULT_APPOINTMENT },
+        };
+        void handleSaveHealthProfile(newProfile);
+      } else if (existingProfile) {
+        void handleDeleteHealthProfile(existingProfile.id);
+      }
+    },
+    [healthProfiles, handleSaveHealthProfile, handleDeleteHealthProfile]
+  );
 
   // Mở RoutineManager (cần Admin PIN)
   const handleOpenRoutineManager = useCallback(() => {
@@ -1600,6 +1820,7 @@ export default function CareSchedulePage() {
             onSelectProfile={handleSelectProfile}
             onSaveProfile={handleSaveHealthProfile}
             onDeleteProfile={handleDeleteHealthProfile}
+            onOpenMembers={handleOpenMembers}
           />
         )}
 
@@ -1883,6 +2104,8 @@ export default function CareSchedulePage() {
           onClose={() => setMembersModalOpen(false)}
           members={members}
           onMembersUpdated={handleMembersUpdated}
+          healthProfiles={healthProfiles}
+          onToggleMemberHealthProfile={handleToggleMemberHealthProfile}
         />
       )}
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FamilyMember } from '@/lib/types';
+import { FamilyMember, HealthProfile } from '@/lib/types';
 import { saveMemberAction, deleteMemberAction } from '@/lib/actions';
 
 interface MembersManagementModalProps {
@@ -9,6 +9,8 @@ interface MembersManagementModalProps {
   onClose: () => void;
   members: FamilyMember[];
   onMembersUpdated: (members: FamilyMember[]) => void;
+  healthProfiles?: HealthProfile[];
+  onToggleMemberHealthProfile?: (member: FamilyMember, shouldHaveProfile: boolean) => void;
 }
 
 const COLOR_THEMES = [
@@ -113,6 +115,8 @@ export function MembersManagementModal({
   onClose,
   members,
   onMembersUpdated,
+  healthProfiles = [],
+  onToggleMemberHealthProfile,
 }: MembersManagementModalProps) {
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -123,12 +127,21 @@ export function MembersManagementModal({
   const [phone, setPhone] = useState('');
   const [selectedThemeIndex, setSelectedThemeIndex] = useState(0);
   const [isSupporter, setIsSupporter] = useState(false);
+  const [hasHealthProfile, setHasHealthProfile] = useState(false);
 
   const [isSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const findLinkedHealthProfile = (m: FamilyMember): HealthProfile | undefined => {
+    return healthProfiles.find(
+      (p) =>
+        (p.linkedMemberId && p.linkedMemberId === m.id) ||
+        p.name.trim().toLowerCase() === m.name.trim().toLowerCase()
+    );
+  };
 
   const startAddNew = () => {
     setIsAddingNew(true);
@@ -137,17 +150,20 @@ export function MembersManagementModal({
     setRelation('');
     setPhone('');
     setIsSupporter(false);
-    setSelectedThemeIndex((members.length) % COLOR_THEMES.length);
+    setHasHealthProfile(false);
+    setSelectedThemeIndex(members.length % COLOR_THEMES.length);
     setErrorMsg('');
   };
 
   const startEdit = (m: FamilyMember) => {
+    const linkedProfile = findLinkedHealthProfile(m);
     setIsAddingNew(false);
     setEditingMember(m);
     setName(m.name);
     setRelation(m.relation);
     setPhone(m.phone);
     setIsSupporter(Boolean(m.isSupporter));
+    setHasHealthProfile(Boolean(linkedProfile));
     const themeIdx = COLOR_THEMES.findIndex((t) => t.badgeColor === m.badgeColor);
     setSelectedThemeIndex(themeIdx >= 0 ? themeIdx : 0);
     setErrorMsg('');
@@ -157,6 +173,7 @@ export function MembersManagementModal({
     setIsAddingNew(false);
     setEditingMember(null);
     setIsSupporter(false);
+    setHasHealthProfile(false);
     setErrorMsg('');
   };
 
@@ -193,6 +210,9 @@ export function MembersManagementModal({
 
     // Cập nhật giao diện và đóng form ngay lập tức (0ms)
     onMembersUpdated(updatedList);
+    if (onToggleMemberHealthProfile) {
+      onToggleMemberHealthProfile(memberToSave, hasHealthProfile);
+    }
     cancelForm();
 
     // Đồng bộ ngầm lên Google Sheets
@@ -202,8 +222,15 @@ export function MembersManagementModal({
   };
 
   const handleDelete = async (memberId: string) => {
+    const targetMember = members.find((m) => m.id === memberId);
     const updatedList = members.filter((m) => m.id !== memberId);
     onMembersUpdated(updatedList);
+    if (targetMember && onToggleMemberHealthProfile && healthProfiles.length > 1) {
+      const linked = findLinkedHealthProfile(targetMember);
+      if (linked) {
+        onToggleMemberHealthProfile(targetMember, false);
+      }
+    }
     setConfirmDeleteId(null);
     if (editingMember?.id === memberId) {
       cancelForm();
@@ -231,9 +258,9 @@ export function MembersManagementModal({
               👥
             </span>
             <div>
-              <h3 className="text-lg font-bold">Quản Lý Thành Viên Trực Ca</h3>
+              <h3 className="text-lg font-bold">Quản Lý Thành Viên Gia Đình</h3>
               <p className="text-xs text-emerald-100">
-                Thêm, sửa hoặc xoá người trong ban chăm sóc (Yêu cầu quyền Admin)
+                Liên kết đồng bộ với Sổ Sức Khỏe Gia Đình, người đo chỉ số & lịch chăm sóc
               </p>
             </div>
           </div>
@@ -282,19 +309,19 @@ export function MembersManagementModal({
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="VD: Cháu Quân, Bác Thành..."
+                    placeholder="VD: Đoàn Thị Bạch Yến, Nguyễn Thành Đô..."
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Mối quan hệ / Vai trò
+                    Mối quan hệ / Vai vế
                   </label>
                   <input
                     type="text"
                     value={relation}
                     onChange={(e) => setRelation(e.target.value)}
-                    placeholder="VD: Con trai thứ, Cháu ruột..."
+                    placeholder="VD: Mẹ, Bố, Con trai..."
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -313,10 +340,32 @@ export function MembersManagementModal({
                 />
               </div>
 
+              {/* Liên kết hiển thị trên thanh Sổ Sức Khỏe Gia Đình */}
+              {onToggleMemberHealthProfile && (
+                <div className="bg-teal-50/70 dark:bg-teal-950/30 p-3.5 rounded-xl border border-teal-200 dark:border-teal-800">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hasHealthProfile}
+                      onChange={(e) => setHasHealthProfile(e.target.checked)}
+                      className="mt-1 w-4 h-4 rounded border-teal-300 text-teal-700 focus:ring-teal-500"
+                    />
+                    <div>
+                      <div className="text-xs font-extrabold text-teal-950 dark:text-teal-200">
+                        🩺 Hiển thị thành viên này trên thanh &ldquo;Sổ Sức Khỏe Gia Đình&rdquo;
+                      </div>
+                      <div className="text-[11px] text-teal-800/80 dark:text-teal-300/80">
+                        Khi bật, thành viên này có thẻ riêng ở trang chính để theo dõi Huyết áp, Đơn thuốc, Lịch tái khám & Xét nghiệm.
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              )}
+
               {/* Phân loại thành viên chính vs thành viên phụ hỗ trợ */}
               <div className="bg-white dark:bg-slate-800/80 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Vai trò trong lịch trực gia đình
+                  Vai trò trong gia đình / chăm sóc
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
@@ -331,7 +380,7 @@ export function MembersManagementModal({
                     <span className="text-sm mt-0.5">🛡️</span>
                     <div>
                       <div className="text-xs font-bold">Thành viên chính</div>
-                      <div className="text-[10px] text-slate-500 font-normal">Trực chính, chịu trách nhiệm ca</div>
+                      <div className="text-[10px] text-slate-500 font-normal">Người thân trong gia đình / Trực chính</div>
                     </div>
                   </button>
 
@@ -420,77 +469,111 @@ export function MembersManagementModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {members.map((m) => {
                 const isConfirming = confirmDeleteId === m.id;
+                const linkedProfile = findLinkedHealthProfile(m);
                 return (
                   <div
                     key={m.id}
-                    className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 hover:border-slate-300 dark:hover:border-slate-700 transition"
+                    className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between gap-2.5 hover:border-slate-300 dark:hover:border-slate-700 transition"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-10 h-10 rounded-2xl ${m.badgeColor || 'bg-blue-600'} text-white font-bold text-xs flex items-center justify-center shadow-sm flex-shrink-0`}
-                      >
-                        {m.avatarInitials || getInitials(m.name)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <h5 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
-                            {m.name}
-                          </h5>
-                          {m.isSupporter && (
-                            <span className="px-1.5 py-0.2 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold border border-emerald-300 dark:border-emerald-800">
-                              🤝 Phụ giúp
-                            </span>
-                          )}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`w-10 h-10 rounded-2xl ${m.badgeColor || 'bg-blue-600'} text-white font-bold text-xs flex items-center justify-center shadow-sm flex-shrink-0`}
+                        >
+                          {m.avatarInitials || getInitials(m.name)}
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                          {m.relation}
-                        </p>
-                        <p className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
-                          {m.phone}
-                        </p>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h5 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
+                              {m.name}
+                            </h5>
+                            {m.isSupporter && (
+                              <span className="px-1.5 py-0.2 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold border border-emerald-300 dark:border-emerald-800">
+                                🤝 Phụ giúp
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                            {m.relation}
+                          </p>
+                          <p className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
+                            {m.phone}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {isConfirming ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(m.id)}
+                              disabled={isSaving}
+                              className="px-2 py-1 rounded-lg text-[11px] font-bold bg-rose-600 text-white hover:bg-rose-500 transition cursor-pointer"
+                            >
+                              Xoá!
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="px-2 py-1 rounded-lg text-[11px] text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                            >
+                              Huỷ
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => startEdit(m)}
+                              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center text-xs transition cursor-pointer"
+                              title="Sửa thông tin"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(m.id)}
+                              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-950/40 text-slate-400 flex items-center justify-center text-xs transition cursor-pointer"
+                              title="Xoá thành viên"
+                            >
+                              🗑️
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {isConfirming ? (
-                        <div className="flex items-center gap-1">
+                    {/* Hàng liên kết Sổ Sức Khỏe Gia Đình */}
+                    {onToggleMemberHealthProfile && (
+                      <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between gap-2">
+                        {linkedProfile ? (
+                          <>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-teal-100/90 text-teal-900 border border-teal-200 text-[11px] font-bold">
+                              🩺 Đang có Sổ Sức Khỏe ({linkedProfile.relation})
+                            </span>
+                            {healthProfiles.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => onToggleMemberHealthProfile(m, false)}
+                                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                                title="Ẩn/xóa thẻ của thành viên này khỏi thanh Sổ Sức Khỏe Gia Đình"
+                              >
+                                Gỡ khỏi Sổ SK
+                              </button>
+                            )}
+                          </>
+                        ) : (
                           <button
                             type="button"
-                            onClick={() => handleDelete(m.id)}
-                            disabled={isSaving}
-                            className="px-2 py-1 rounded-lg text-[11px] font-bold bg-rose-600 text-white hover:bg-rose-500 transition"
+                            onClick={() => onToggleMemberHealthProfile(m, true)}
+                            className="w-full py-1 px-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-[11px] font-extrabold flex items-center justify-center gap-1 transition cursor-pointer"
                           >
-                            Xoá!
+                            <span>➕ Đưa vào thanh Sổ Sức Khỏe Gia Đình</span>
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="px-2 py-1 rounded-lg text-[11px] text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
-                          >
-                            Huỷ
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => startEdit(m)}
-                            className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center text-xs transition"
-                            title="Sửa thông tin"
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmDeleteId(m.id)}
-                            className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-950/40 text-slate-400 flex items-center justify-center text-xs transition"
-                            title="Xoá thành viên"
-                          >
-                            🗑️
-                          </button>
-                        </>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -500,11 +583,11 @@ export function MembersManagementModal({
 
         {/* Footer */}
         <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
-          <span>Dữ liệu thành viên dùng để chọn phân công ca trực.</span>
+          <span>Liên kết trực tiếp với Sổ Sức Khỏe Gia Đình & danh sách người ghi chỉ số.</span>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-slate-200 font-semibold text-xs transition"
+            className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-slate-200 font-semibold text-xs transition cursor-pointer"
           >
             Đóng
           </button>

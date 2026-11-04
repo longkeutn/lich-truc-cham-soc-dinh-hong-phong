@@ -24,6 +24,7 @@ import {
   Check,
   X,
   Trash2,
+  Link2,
 } from 'lucide-react';
 
 interface HealthProfileSwitcherProps {
@@ -35,6 +36,7 @@ interface HealthProfileSwitcherProps {
   members?: FamilyMember[];
   onSaveProfile: (profile: HealthProfile) => Promise<void>;
   onDeleteProfile?: (profileId: string) => Promise<void>;
+  onOpenMembers?: () => void;
 }
 
 const AVATAR_OPTIONS = ['👩', '👨', '👵', '👴', '🧑', '👱‍♀️', '👨‍🦳', '👩‍🦳'];
@@ -48,9 +50,11 @@ export default function HealthProfileSwitcher({
   members = [],
   onSaveProfile,
   onDeleteProfile,
+  onOpenMembers,
 }: HealthProfileSwitcherProps) {
   const [modalMode, setModalMode] = useState<'closed' | 'add' | 'edit'>('closed');
   const [editingProfileId, setEditingProfileId] = useState<string>('');
+  const [linkedMemberId, setLinkedMemberId] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [relation, setRelation] = useState<string>('');
   const [avatarEmoji, setAvatarEmoji] = useState<string>('👩');
@@ -85,6 +89,7 @@ export default function HealthProfileSwitcher({
   const openAddModal = () => {
     setModalMode('add');
     setEditingProfileId('');
+    setLinkedMemberId('');
     setName('');
     setRelation('Thành viên gia đình');
     setAvatarEmoji('🧑');
@@ -99,8 +104,14 @@ export default function HealthProfileSwitcher({
   };
 
   const openEditModal = (profile: HealthProfile) => {
+    const matchedMember =
+      members.find((m) => profile.linkedMemberId && m.id === profile.linkedMemberId) ||
+      members.find(
+        (m) => m.name.trim().toLowerCase() === profile.name.trim().toLowerCase()
+      );
     setModalMode('edit');
     setEditingProfileId(profile.id);
+    setLinkedMemberId(matchedMember?.id || profile.linkedMemberId || '');
     setName(profile.name);
     setRelation(profile.relation);
     setAvatarEmoji(profile.avatarEmoji || '👩');
@@ -115,13 +126,24 @@ export default function HealthProfileSwitcher({
   };
 
   const handleQuickPickMember = (m: FamilyMember) => {
+    setLinkedMemberId(m.id);
     setName(m.name);
     setRelation(m.relation || 'Thành viên');
     const lower = `${m.name} ${m.relation}`.toLowerCase();
     if (lower.includes('mẹ') || lower.includes('bà')) setAvatarEmoji('👵');
     else if (lower.includes('chị') || lower.includes('cô') || lower.includes('em gái')) setAvatarEmoji('👩');
-    else if (lower.includes('bác') || lower.includes('ông')) setAvatarEmoji('👴');
+    else if (lower.includes('bố') || lower.includes('bác') || lower.includes('ông')) setAvatarEmoji('👴');
     else setAvatarEmoji('👨');
+
+    if (lower.includes('bạch yến')) {
+      setProfileType('thyroid_post_op');
+      setDiagnosis(
+        'Đã phẫu thuật cắt toàn bộ tuyến giáp (K giáp thể nhú) • Duy trì hormone Levothyroxine & Kiểm soát Huyết áp, Mỡ máu, Canxi'
+      );
+      setNotes(
+        'Uống thuốc hormone tuyến giáp (Levothyroxine) buổi sáng lúc bụng đói (trước ăn 30–60 phút), cách xa Canxi/Sắt ít nhất 4 tiếng. Theo dõi nhịp tim, huyết áp và dấu hiệu tê bì tay chân.'
+      );
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -141,12 +163,17 @@ export default function HealthProfileSwitcher({
       lowDia: Math.max(40, Math.min(90, parseInt(lowDia, 10) || 60)),
     };
 
+    const matchedMember =
+      members.find((m) => linkedMemberId && m.id === linkedMemberId) ||
+      members.find((m) => m.name.trim().toLowerCase() === name.trim().toLowerCase());
+
     const nextProfile: HealthProfile = {
       id,
       name: name.trim(),
       relation: relation.trim() || 'Gia đình',
       avatarEmoji: avatarEmoji || '🧑',
       profileType: profileType || existing?.profileType || 'general_health',
+      linkedMemberId: matchedMember?.id || linkedMemberId || existing?.linkedMemberId,
       patientInfo: {
         ...(existing?.patientInfo || {
           statusBadge: 'Theo dõi sức khỏe gia đình',
@@ -180,21 +207,32 @@ export default function HealthProfileSwitcher({
   };
 
   const handleDelete = async () => {
-    if (
-      !editingProfileId ||
-      editingProfileId === DEFAULT_HEALTH_PROFILE_ID ||
-      !onDeleteProfile
-    ) {
+    if (!editingProfileId || profiles.length <= 1 || !onDeleteProfile) {
       return;
     }
     const confirmed = window.confirm(
-      `Bạn có chắc muốn ẩn/xóa hồ sơ sức khỏe của "${name}" khỏi thanh chọn nhanh?`
+      `Bạn có chắc muốn xóa hồ sơ sức khỏe của "${name}" khỏi Sổ Sức Khỏe Gia Đình?`
     );
     if (!confirmed) return;
     setIsSaving(true);
     try {
       await onDeleteProfile(editingProfileId);
       setModalMode('closed');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDirectDeleteCard = async (profile: HealthProfile, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (profiles.length <= 1 || !onDeleteProfile || isSaving) return;
+    const confirmed = window.confirm(
+      `Bạn có chắc muốn xóa hồ sơ sức khỏe của "${profile.relation ? `${profile.relation} ` : ''}${profile.name}" khỏi thanh chọn nhanh?`
+    );
+    if (!confirmed) return;
+    setIsSaving(true);
+    try {
+      await onDeleteProfile(profile.id);
     } finally {
       setIsSaving(false);
     }
@@ -211,14 +249,27 @@ export default function HealthProfileSwitcher({
             Sổ Sức Khỏe Gia Đình — Chọn người cần xem / ghi chỉ số:
           </span>
         </div>
-        <button
-          type="button"
-          onClick={openAddModal}
-          className="px-2.5 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-extrabold flex items-center gap-1 transition cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Thêm thành viên</span>
-        </button>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {onOpenMembers && (
+            <button
+              type="button"
+              onClick={onOpenMembers}
+              className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-extrabold flex items-center gap-1 transition cursor-pointer"
+              title="Mở Menu Thành viên gia đình để quản lý & liên kết thành viên"
+            >
+              <Link2 className="w-3.5 h-3.5 text-teal-700" />
+              <span>Menu Thành viên ({members.length})</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={openAddModal}
+            className="px-2.5 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-extrabold flex items-center gap-1 transition cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Thêm thành viên</span>
+          </button>
+        </div>
       </div>
 
       {/* Danh sách thẻ Hồ sơ sức khỏe */}
@@ -325,6 +376,20 @@ export default function HealthProfileSwitcher({
                 >
                   <Settings2 className="w-3.5 h-3.5" />
                 </button>
+                {profiles.length > 1 && onDeleteProfile && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleDirectDeleteCard(profile, e)}
+                    title={`Xóa thành viên ${profile.name} khỏi Sổ Sức Khỏe`}
+                    className={`p-1.5 rounded-xl border transition cursor-pointer ${
+                      isActive
+                        ? 'bg-rose-500/20 hover:bg-rose-500/40 text-rose-100 border-rose-300/30'
+                        : 'bg-white hover:bg-rose-50 text-rose-600 border-slate-200 hover:border-rose-200'
+                    }`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -362,33 +427,63 @@ export default function HealthProfileSwitcher({
             </div>
 
             <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
-              {/* Gợi ý chọn nhanh từ danh sách thành viên gia đình */}
-              {modalMode === 'add' && members.length > 0 && (
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-extrabold text-slate-600">
-                    ⚡ Chọn nhanh từ thành viên gia đình:
+              {/* Liên kết & Chọn nhanh từ Menu Thành viên bên trên (hỗ trợ cả Thêm mới và Chỉnh sửa) */}
+              <div className="p-3 rounded-2xl bg-teal-50/70 border border-teal-200 space-y-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <label className="text-xs font-extrabold text-teal-950 flex items-center gap-1">
+                    <Link2 className="w-3.5 h-3.5 text-teal-700" />
+                    <span>Liên kết với Menu Thành viên bên trên:</span>
                   </label>
+                  {onOpenMembers && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModalMode('closed');
+                        onOpenMembers();
+                      }}
+                      className="text-[11px] font-extrabold text-teal-800 hover:text-teal-950 underline cursor-pointer"
+                    >
+                      👥 Mở Menu Thành viên
+                    </button>
+                  )}
+                </div>
+
+                {members.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
-                    {members
-                      .filter(
-                        (m) =>
-                          !profiles.some(
-                            (p) => p.name.toLowerCase() === m.name.toLowerCase()
-                          )
-                      )
-                      .map((m) => (
+                    {members.map((m) => {
+                      const isLinked =
+                        (linkedMemberId && m.id === linkedMemberId) ||
+                        (!linkedMemberId &&
+                          name.trim() !== '' &&
+                          m.name.trim().toLowerCase() === name.trim().toLowerCase());
+                      return (
                         <button
                           key={m.id}
                           type="button"
                           onClick={() => handleQuickPickMember(m)}
-                          className="px-2.5 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 text-xs font-bold cursor-pointer"
+                          className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition cursor-pointer flex items-center gap-1 ${
+                            isLinked
+                              ? 'bg-teal-700 text-white border-teal-800 shadow-2xs'
+                              : 'bg-white hover:bg-teal-100 text-teal-900 border-teal-200'
+                          }`}
                         >
-                          + {m.name} ({m.relation})
+                          <span>{isLinked ? '✓' : '🔗'}</span>
+                          <span>
+                            {m.name} ({m.relation})
+                          </span>
                         </button>
-                      ))}
+                      );
+                    })}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-[11px] text-slate-600">
+                    Khi bạn lưu hồ sơ tại đây, thành viên này sẽ tự động được thêm vào Menu Thành viên bên trên.
+                  </p>
+                )}
+                <p className="text-[11px] text-teal-800/90 font-medium">
+                  💡 Khi bấm Lưu, Họ tên & Vai vế tại đây sẽ tự động đồng bộ 2 chiều với Menu Thành viên bên trên.
+                </p>
+              </div>
 
               {/* Biểu tượng đại diện */}
               <div>
@@ -423,7 +518,7 @@ export default function HealthProfileSwitcher({
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="VD: Mẹ Nguyễn Thị..."
+                    placeholder="VD: Đoàn Thị Bạch Yến..."
                     className="w-full min-h-[42px] px-3 py-2 rounded-xl border border-slate-300 text-sm font-bold text-slate-900 focus:outline-none focus:border-teal-600"
                   />
                 </div>
@@ -435,7 +530,7 @@ export default function HealthProfileSwitcher({
                     type="text"
                     value={relation}
                     onChange={(e) => setRelation(e.target.value)}
-                    placeholder="VD: Mẹ, Bác, Anh, Bản thân..."
+                    placeholder="VD: Mẹ, Bố, Bác, Anh, Bản thân..."
                     className="w-full min-h-[42px] px-3 py-2 rounded-xl border border-slate-300 text-sm font-bold text-slate-900 focus:outline-none focus:border-teal-600"
                   />
                 </div>
@@ -558,10 +653,7 @@ export default function HealthProfileSwitcher({
               </div>
 
               <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
-                {modalMode === 'edit' &&
-                editingProfileId !== DEFAULT_HEALTH_PROFILE_ID &&
-                editingProfileId !== 'mother' &&
-                onDeleteProfile ? (
+                {modalMode === 'edit' && profiles.length > 1 && onDeleteProfile ? (
                   <button
                     type="button"
                     onClick={handleDelete}
@@ -569,8 +661,12 @@ export default function HealthProfileSwitcher({
                     className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-extrabold flex items-center gap-1 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Xóa hồ sơ</span>
+                    <span>Xóa thành viên</span>
                   </button>
+                ) : modalMode === 'edit' ? (
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    Cần giữ tối thiểu 1 hồ sơ
+                  </span>
                 ) : (
                   <div />
                 )}

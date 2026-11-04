@@ -62,99 +62,141 @@ export const PATIENT_INFO: PatientInfo = {
   careGoal: 'Duy trì huyết áp & sức khỏe ổn định',
 };
 
-export const FAMILY_MEMBERS: FamilyMember[] = [
-  {
-    id: 'mem-1',
-    name: 'Bác Thành',
-    relation: 'Bác cả (Trưởng ban điều phối)',
-    phone: '0912 345 678',
-    badgeColor: 'bg-blue-600',
-    avatarInitials: 'BT',
-    bgLight: 'bg-blue-50/90',
-    borderLight: 'border-blue-300',
-    textColor: 'text-blue-900',
-    accentColor: 'bg-blue-600 text-white',
-    pillBadge: 'bg-blue-100 text-blue-800 border-blue-300 font-bold',
-  },
-  {
-    id: 'mem-2',
-    name: 'Cô Lan',
-    relation: 'Cô ruột',
-    phone: '0983 222 111',
-    badgeColor: 'bg-emerald-600',
-    avatarInitials: 'CL',
-    bgLight: 'bg-emerald-50/90',
-    borderLight: 'border-emerald-300',
-    textColor: 'text-emerald-900',
-    accentColor: 'bg-emerald-600 text-white',
-    pillBadge: 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold',
-  },
-  {
-    id: 'mem-3',
-    name: 'Anh Dũng',
-    relation: 'Con trai trưởng',
-    phone: '0977 888 999',
-    badgeColor: 'bg-indigo-600',
-    avatarInitials: 'AD',
-    bgLight: 'bg-indigo-50/90',
-    borderLight: 'border-indigo-300',
-    textColor: 'text-indigo-900',
-    accentColor: 'bg-indigo-600 text-white',
-    pillBadge: 'bg-indigo-100 text-indigo-800 border-indigo-300 font-bold',
-  },
-  {
-    id: 'mem-4',
-    name: 'Chị Mai',
-    relation: 'Con dâu trưởng',
-    phone: '0904 555 444',
-    badgeColor: 'bg-rose-600',
-    avatarInitials: 'CM',
-    bgLight: 'bg-rose-50/90',
-    borderLight: 'border-rose-300',
-    textColor: 'text-rose-900',
-    accentColor: 'bg-rose-600 text-white',
-    pillBadge: 'bg-rose-100 text-rose-800 border-rose-300 font-bold',
-  },
-  {
-    id: 'mem-5',
-    name: 'Anh Hùng',
-    relation: 'Con trai thứ',
-    phone: '0918 666 777',
-    badgeColor: 'bg-amber-600',
-    avatarInitials: 'AH',
-    bgLight: 'bg-amber-50/90',
-    borderLight: 'border-amber-300',
-    textColor: 'text-amber-950',
-    accentColor: 'bg-amber-600 text-white',
-    pillBadge: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
-  },
-  {
-    id: 'mem-6',
-    name: 'Chị Trang',
-    relation: 'Con gái út',
-    phone: '0936 123 456',
-    badgeColor: 'bg-purple-600',
-    avatarInitials: 'CT',
-    bgLight: 'bg-purple-50/90',
-    borderLight: 'border-purple-300',
-    textColor: 'text-purple-900',
-    accentColor: 'bg-purple-600 text-white',
-    pillBadge: 'bg-purple-100 text-purple-800 border-purple-300 font-bold',
-  },
-  {
-    id: 'mem-7',
-    name: 'Cháu Quân',
-    relation: 'Cháu đích tôn',
-    phone: '0988 999 112',
-    badgeColor: 'bg-teal-600',
-    avatarInitials: 'CQ',
-    bgLight: 'bg-teal-50/90',
-    borderLight: 'border-teal-300',
-    textColor: 'text-teal-900',
-    accentColor: 'bg-teal-600 text-white',
-    pillBadge: 'bg-teal-100 text-teal-800 border-teal-300 font-bold',
-  },
-];
+export const FAMILY_MEMBERS: FamilyMember[] = IS_FAMILY_STANDARD_MODE
+  ? [
+      {
+        id: 'mem-mother',
+        name: 'Đoàn Thị Bạch Yến',
+        relation: 'Mẹ',
+        phone: 'Chưa cập nhật',
+        badgeColor: 'bg-rose-600',
+        avatarInitials: 'BY',
+        bgLight: 'bg-rose-50/90',
+        borderLight: 'border-rose-300',
+        textColor: 'text-rose-900',
+        accentColor: 'bg-rose-600 text-white',
+        pillBadge: 'bg-rose-100 text-rose-800 border-rose-300 font-bold',
+      },
+      {
+        id: 'mem-father',
+        name: 'Nguyễn Thành Đô',
+        relation: 'Bố',
+        phone: 'Chưa cập nhật',
+        badgeColor: 'bg-teal-600',
+        avatarInitials: 'TĐ',
+        bgLight: 'bg-teal-50/90',
+        borderLight: 'border-teal-300',
+        textColor: 'text-teal-900',
+        accentColor: 'bg-teal-600 text-white',
+        pillBadge: 'bg-teal-100 text-teal-800 border-teal-300 font-bold',
+      },
+      {
+        id: 'mem-son',
+        name: 'Thanh Long',
+        relation: 'Con trai',
+        phone: 'Chưa cập nhật',
+        badgeColor: 'bg-blue-600',
+        avatarInitials: 'TL',
+        bgLight: 'bg-blue-50/90',
+        borderLight: 'border-blue-300',
+        textColor: 'text-blue-900',
+        accentColor: 'bg-blue-600 text-white',
+        pillBadge: 'bg-blue-100 text-blue-800 border-blue-300 font-bold',
+      },
+    ]
+  : [
+      {
+        id: 'mem-1',
+        name: 'Bác Thành',
+        relation: 'Bác cả (Trưởng ban điều phối)',
+        phone: '0912 345 678',
+        badgeColor: 'bg-blue-600',
+        avatarInitials: 'BT',
+        bgLight: 'bg-blue-50/90',
+        borderLight: 'border-blue-300',
+        textColor: 'text-blue-900',
+        accentColor: 'bg-blue-600 text-white',
+        pillBadge: 'bg-blue-100 text-blue-800 border-blue-300 font-bold',
+      },
+      {
+        id: 'mem-2',
+        name: 'Cô Lan',
+        relation: 'Cô ruột',
+        phone: '0983 222 111',
+        badgeColor: 'bg-emerald-600',
+        avatarInitials: 'CL',
+        bgLight: 'bg-emerald-50/90',
+        borderLight: 'border-emerald-300',
+        textColor: 'text-emerald-900',
+        accentColor: 'bg-emerald-600 text-white',
+        pillBadge: 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold',
+      },
+      {
+        id: 'mem-3',
+        name: 'Anh Dũng',
+        relation: 'Con trai trưởng',
+        phone: '0977 888 999',
+        badgeColor: 'bg-indigo-600',
+        avatarInitials: 'AD',
+        bgLight: 'bg-indigo-50/90',
+        borderLight: 'border-indigo-300',
+        textColor: 'text-indigo-900',
+        accentColor: 'bg-indigo-600 text-white',
+        pillBadge: 'bg-indigo-100 text-indigo-800 border-indigo-300 font-bold',
+      },
+      {
+        id: 'mem-4',
+        name: 'Chị Mai',
+        relation: 'Con dâu trưởng',
+        phone: '0904 555 444',
+        badgeColor: 'bg-rose-600',
+        avatarInitials: 'CM',
+        bgLight: 'bg-rose-50/90',
+        borderLight: 'border-rose-300',
+        textColor: 'text-rose-900',
+        accentColor: 'bg-rose-600 text-white',
+        pillBadge: 'bg-rose-100 text-rose-800 border-rose-300 font-bold',
+      },
+      {
+        id: 'mem-5',
+        name: 'Anh Hùng',
+        relation: 'Con trai thứ',
+        phone: '0918 666 777',
+        badgeColor: 'bg-amber-600',
+        avatarInitials: 'AH',
+        bgLight: 'bg-amber-50/90',
+        borderLight: 'border-amber-300',
+        textColor: 'text-amber-950',
+        accentColor: 'bg-amber-600 text-white',
+        pillBadge: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
+      },
+      {
+        id: 'mem-6',
+        name: 'Chị Trang',
+        relation: 'Con gái út',
+        phone: '0936 123 456',
+        badgeColor: 'bg-purple-600',
+        avatarInitials: 'CT',
+        bgLight: 'bg-purple-50/90',
+        borderLight: 'border-purple-300',
+        textColor: 'text-purple-900',
+        accentColor: 'bg-purple-600 text-white',
+        pillBadge: 'bg-purple-100 text-purple-800 border-purple-300 font-bold',
+      },
+      {
+        id: 'mem-7',
+        name: 'Cháu Quân',
+        relation: 'Cháu đích tôn',
+        phone: '0988 999 112',
+        badgeColor: 'bg-teal-600',
+        avatarInitials: 'CQ',
+        bgLight: 'bg-teal-50/90',
+        borderLight: 'border-teal-300',
+        textColor: 'text-teal-900',
+        accentColor: 'bg-teal-600 text-white',
+        pillBadge: 'bg-teal-100 text-teal-800 border-teal-300 font-bold',
+      },
+    ];
 
 export const PHASE_CONFIGS: Record<'phase1' | 'phase2', PhaseConfig> = {
   phase1: {
@@ -1527,8 +1569,31 @@ export function buildResolvedHealthProfiles(
     ? fatherPatientInfo.healthProfiles
     : [];
 
+  const findLinkedMember = (
+    linkedMemberId: string | undefined,
+    profileName: string
+  ): FamilyMember | undefined => {
+    if (linkedMemberId) {
+      const byId = members.find((m) => m.id === linkedMemberId);
+      if (byId) return byId;
+    }
+    const cleanName = (profileName || '').trim().toLowerCase();
+    if (cleanName) {
+      return members.find((m) => (m.name || '').trim().toLowerCase() === cleanName);
+    }
+    return undefined;
+  };
+
   // Tìm bản lưu tùy chỉnh của Thành viên chính (id: DEFAULT_HEALTH_PROFILE_ID) nếu người dùng đã chỉnh sửa Vai vế / Icon / Nhóm bệnh lý trên web
   const savedPrimary = savedList.find((p) => p && p.id === DEFAULT_HEALTH_PROFILE_ID);
+
+  // Kiểm tra nếu người dùng đã chủ động xóa Thành viên chính (id: 'father') khi có nhiều hơn 1 hồ sơ
+  const isPrimaryExplicitlyDeleted =
+    savedList.length > 0 &&
+    !savedPrimary &&
+    Boolean(fatherPatientInfo.name) &&
+    Boolean(savedList[0]?.name) &&
+    fatherPatientInfo.name.trim().toLowerCase() === savedList[0].name.trim().toLowerCase();
 
   // Chuẩn hoá tên & chẩn đoán mặc định cho Thành viên chính (tôn trọng 100% mọi chỉnh sửa của user trên web)
   const rawFatherName = (savedPrimary?.name || fatherPatientInfo.name || '').trim();
@@ -1549,8 +1614,12 @@ export function buildResolvedHealthProfiles(
         lowerPrimaryName.startsWith('mẹ') ||
         lowerPrimaryName.startsWith('bà')));
 
+  const matchedPrimaryMember = findLinkedMember(savedPrimary?.linkedMemberId, resolvedFatherName);
+
   const primaryRelation =
-    savedPrimary?.relation?.trim() || (isMotherPrimary ? 'Mẹ' : 'Bố');
+    savedPrimary?.relation?.trim() ||
+    matchedPrimaryMember?.relation?.trim() ||
+    (isMotherPrimary ? 'Mẹ' : 'Bố');
 
   const primaryAvatarEmoji =
     savedPrimary?.avatarEmoji?.trim() ||
@@ -1610,6 +1679,7 @@ export function buildResolvedHealthProfiles(
     relation: primaryRelation,
     avatarEmoji: primaryAvatarEmoji,
     profileType: primaryProfileType,
+    linkedMemberId: matchedPrimaryMember?.id || savedPrimary?.linkedMemberId,
     patientInfo: {
       ...fatherPatientInfo,
       ...(savedPrimary?.patientInfo || {}),
@@ -1669,9 +1739,11 @@ export function buildResolvedHealthProfiles(
           ? DEFAULT_MOTHER_NAME
           : p.name || 'Thành viên';
 
+      const matchedMember = findLinkedMember(p.linkedMemberId, resolvedName);
+
       const resolvedRelation = isSecondSlotDefaultFather
         ? 'Bố'
-        : p.relation || (p.id === 'mother' ? 'Mẹ' : 'Gia đình');
+        : p.relation || matchedMember?.relation || (p.id === 'mother' ? 'Mẹ' : 'Gia đình');
 
       const resolvedEmoji = isSecondSlotDefaultFather
         ? '👴'
@@ -1683,6 +1755,7 @@ export function buildResolvedHealthProfiles(
         relation: resolvedRelation,
         avatarEmoji: resolvedEmoji,
         profileType: p.profileType || defaultProfileType,
+        linkedMemberId: matchedMember?.id || p.linkedMemberId,
         patientInfo: {
           name:
             p.patientInfo?.name &&
@@ -1706,7 +1779,11 @@ export function buildResolvedHealthProfiles(
             (isSecondSlotOnStandardWeb && !isSecondSlotDefaultFather
               ? 'Uống Levothyroxine buổi sáng lúc bụng đói (trước ăn 30–60 phút), cách xa Canxi/Sắt ít nhất 4 tiếng. Theo dõi nhịp tim, huyết áp và dấu hiệu tê bì tay chân.'
               : 'Đo huyết áp định kỳ sáng/tối, uống đủ nước ấm, nghỉ ngơi hợp lý.'),
-          emergencyPhone: p.patientInfo?.emergencyPhone || fatherPatientInfo.emergencyPhone || '',
+          emergencyPhone:
+            p.patientInfo?.emergencyPhone ||
+            matchedMember?.phone ||
+            fatherPatientInfo.emergencyPhone ||
+            '',
           statusBadge:
             p.patientInfo?.statusBadge ||
             (isSecondSlotOnStandardWeb && !isSecondSlotDefaultFather
@@ -1733,16 +1810,18 @@ export function buildResolvedHealthProfiles(
       };
     });
 
-  // Nếu chưa có hồ sơ thứ 2 ('mother'), tự động tạo sẵn hồ sơ thứ 2 (Mẹ hoặc Bố nếu hồ sơ 1 đã là Mẹ)
-  if (!otherProfiles.some((p) => p.id === 'mother')) {
+  // Chỉ tự động tạo sẵn hồ sơ thứ 2 ('mother') khi danh sách savedList chưa từng được lưu (savedList.length === 0)
+  // Nếu người dùng đã chỉnh sửa/xóa hồ sơ trên web (savedList.length > 0), tôn trọng 100% danh sách người dùng đã lưu!
+  if (savedList.length === 0 && !otherProfiles.some((p) => p.id === 'mother')) {
     if (IS_FAMILY_STANDARD_MODE && isMotherPrimary) {
-      // Hồ sơ số 1 đã được user đổi thành Mẹ -> Hồ sơ số 2 mặc định là Bố Thành Đô
+      const fatherMember = findLinkedMember(undefined, DEFAULT_MEMBER_NAME);
       otherProfiles.unshift({
         id: 'mother',
         name: DEFAULT_MEMBER_NAME,
         relation: 'Bố',
         avatarEmoji: '👴',
         profileType: 'general_health',
+        linkedMemberId: fatherMember?.id,
         patientInfo: {
           name: DEFAULT_MEMBER_NAME,
           diagnosis: 'Theo dõi huyết áp, tim mạch, mỡ máu & chăm sóc sức khỏe hằng ngày',
@@ -1785,6 +1864,7 @@ export function buildResolvedHealthProfiles(
         relation: 'Mẹ',
         avatarEmoji: IS_FAMILY_STANDARD_MODE ? '👵' : '👩',
         profileType: IS_FAMILY_STANDARD_MODE ? 'thyroid_post_op' : 'general_health',
+        linkedMemberId: motherMember?.id,
         patientInfo: {
           name: motherDisplayName,
           diagnosis: IS_FAMILY_STANDARD_MODE
@@ -1834,6 +1914,10 @@ export function buildResolvedHealthProfiles(
         },
       });
     }
+  }
+
+  if (isPrimaryExplicitlyDeleted && otherProfiles.length > 0) {
+    return otherProfiles;
   }
 
   return [fatherProfile, ...otherProfiles];
