@@ -611,9 +611,8 @@ export default function CareSchedulePage() {
   const profileAppointment = activeProfile.appointment;
 
   const patientDisplayName = useMemo(() => {
-    if (isFatherProfile) return 'Bố';
-    return activeProfile.relation || activeProfile.name || 'thành viên';
-  }, [isFatherProfile, activeProfile.relation, activeProfile.name]);
+    return activeProfile.relation || activeProfile.name || 'Gia đình';
+  }, [activeProfile.relation, activeProfile.name]);
 
   const profileVitalsLog = useMemo(
     () =>
@@ -688,41 +687,72 @@ export default function CareSchedulePage() {
 
   const handleSaveHealthProfile = useCallback(
     async (savedProfile: HealthProfile) => {
-      if (savedProfile.id === DEFAULT_HEALTH_PROFILE_ID) {
-        const extraProfiles = healthProfiles.filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID);
-        const nextFatherInfo: PatientInfo = {
+      const cleanProfile: HealthProfile = {
+        ...savedProfile,
+        patientInfo: {
           ...savedProfile.patientInfo,
-          name: savedProfile.name || savedProfile.patientInfo.name || 'Đinh Hồng Phong',
-          healthProfiles: extraProfiles,
+          name: savedProfile.name || savedProfile.patientInfo.name,
+          healthProfiles: undefined,
+        },
+      };
+
+      if (cleanProfile.id === DEFAULT_HEALTH_PROFILE_ID) {
+        const extraProfiles = healthProfiles
+          .filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID)
+          .map((p) => ({
+            ...p,
+            patientInfo: { ...p.patientInfo, healthProfiles: undefined },
+          }));
+        // Lưu cả cleanProfile (gồm relation: "Mẹ", avatarEmoji, profileType...) vào healthProfiles để giữ nguyên 100% tùy chỉnh của Thành viên chính!
+        const nextFatherInfo: PatientInfo = {
+          ...cleanProfile.patientInfo,
+          name: cleanProfile.name || cleanProfile.patientInfo.name || DEFAULT_MEMBER_NAME,
+          healthProfiles: [cleanProfile, ...extraProfiles],
         };
-        setBpThresholds(savedProfile.bpThresholds);
-        setAppointment(savedProfile.appointment);
-        syncRootPatientInfo(nextFatherInfo, `✅ Đã lưu hồ sơ sức khỏe: ${savedProfile.name}`);
+        setBpThresholds(cleanProfile.bpThresholds);
+        setAppointment(cleanProfile.appointment);
+        syncRootPatientInfo(
+          nextFatherInfo,
+          `✅ Đã lưu hồ sơ sức khỏe: ${cleanProfile.relation ? `${cleanProfile.relation} • ` : ''}${cleanProfile.name}`
+        );
         return;
       }
 
-      const existingExtras = healthProfiles.filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID);
-      const existsIdx = existingExtras.findIndex((p) => p.id === savedProfile.id);
+      const primaryObj = healthProfiles.find((p) => p.id === DEFAULT_HEALTH_PROFILE_ID);
+      const cleanPrimary: HealthProfile | null = primaryObj
+        ? {
+            ...primaryObj,
+            patientInfo: { ...primaryObj.patientInfo, healthProfiles: undefined },
+          }
+        : null;
+
+      const existingExtras = healthProfiles
+        .filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID)
+        .map((p) => ({
+          ...p,
+          patientInfo: { ...p.patientInfo, healthProfiles: undefined },
+        }));
+      const existsIdx = existingExtras.findIndex((p) => p.id === cleanProfile.id);
       const nextExtras =
         existsIdx >= 0
-          ? existingExtras.map((p, idx) => (idx === existsIdx ? savedProfile : p))
-          : [...existingExtras, savedProfile];
+          ? existingExtras.map((p, idx) => (idx === existsIdx ? cleanProfile : p))
+          : [...existingExtras, cleanProfile];
 
       const nextRootInfo: PatientInfo = {
         ...patientInfo,
-        healthProfiles: nextExtras,
+        healthProfiles: cleanPrimary ? [cleanPrimary, ...nextExtras] : nextExtras,
       };
-      setActiveProfileId(savedProfile.id);
+      setActiveProfileId(cleanProfile.id);
       try {
         if (typeof window !== 'undefined') {
-          localStorage.setItem('care_active_profile_id', savedProfile.id);
+          localStorage.setItem('care_active_profile_id', cleanProfile.id);
         }
       } catch {
         // ignore
       }
       syncRootPatientInfo(
         nextRootInfo,
-        `✅ Đã lưu hồ sơ sức khỏe: ${savedProfile.relation ? `${savedProfile.relation} ` : ''}${savedProfile.name}`
+        `✅ Đã lưu hồ sơ sức khỏe: ${cleanProfile.relation ? `${cleanProfile.relation} • ` : ''}${cleanProfile.name}`
       );
     },
     [healthProfiles, patientInfo, syncRootPatientInfo]
@@ -732,12 +762,15 @@ export default function CareSchedulePage() {
     async (profileId: string) => {
       if (profileId === DEFAULT_HEALTH_PROFILE_ID) return;
       const target = healthProfiles.find((p) => p.id === profileId);
-      const nextExtras = healthProfiles.filter(
-        (p) => p.id !== DEFAULT_HEALTH_PROFILE_ID && p.id !== profileId
-      );
+      const nextAll = healthProfiles
+        .filter((p) => p.id !== profileId)
+        .map((p) => ({
+          ...p,
+          patientInfo: { ...p.patientInfo, healthProfiles: undefined },
+        }));
       const nextRootInfo: PatientInfo = {
         ...patientInfo,
-        healthProfiles: nextExtras,
+        healthProfiles: nextAll,
       };
       if (activeProfileId === profileId) {
         setActiveProfileId(DEFAULT_HEALTH_PROFILE_ID);
@@ -1037,10 +1070,19 @@ export default function CareSchedulePage() {
     [labResults, patientDisplayName, showToast]
   );
 
-  // Lưu lịch tái khám — Phản hồi tức thì 0ms (hỗ trợ cả Bố và các hồ sơ thành viên khác)
+  // Lưu lịch tái khám — Phản hồi tức thì 0ms (hỗ trợ cả Thành viên chính và các hồ sơ thành viên khác)
   const handleSaveAppointment = useCallback(async (info: AppointmentInfo) => {
     if (isFatherProfile) {
       setAppointment(info);
+      const updatedAll = healthProfiles.map((p) => ({
+        ...p,
+        appointment: p.id === DEFAULT_HEALTH_PROFILE_ID ? info : p.appointment,
+        patientInfo: { ...p.patientInfo, healthProfiles: undefined },
+      }));
+      setPatientInfo((prev) => ({
+        ...prev,
+        healthProfiles: updatedAll,
+      }));
       showToast(`📅 Đã lưu lịch tái khám của ${patientDisplayName}!`, 'success');
 
       void saveAppointmentAction(info)
@@ -1056,8 +1098,21 @@ export default function CareSchedulePage() {
       const updatedProfile: HealthProfile = {
         ...activeProfile,
         appointment: info,
+        patientInfo: { ...activeProfile.patientInfo, healthProfiles: undefined },
       };
-      const existingExtras = healthProfiles.filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID);
+      const primaryObj = healthProfiles.find((p) => p.id === DEFAULT_HEALTH_PROFILE_ID);
+      const cleanPrimary: HealthProfile | null = primaryObj
+        ? {
+            ...primaryObj,
+            patientInfo: { ...primaryObj.patientInfo, healthProfiles: undefined },
+          }
+        : null;
+      const existingExtras = healthProfiles
+        .filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID)
+        .map((p) => ({
+          ...p,
+          patientInfo: { ...p.patientInfo, healthProfiles: undefined },
+        }));
       const existsIdx = existingExtras.findIndex((p) => p.id === activeProfile.id);
       const nextExtras =
         existsIdx >= 0
@@ -1065,7 +1120,7 @@ export default function CareSchedulePage() {
           : [...existingExtras, updatedProfile];
       const nextRootInfo: PatientInfo = {
         ...patientInfo,
-        healthProfiles: nextExtras,
+        healthProfiles: cleanPrimary ? [cleanPrimary, ...nextExtras] : nextExtras,
       };
       syncRootPatientInfo(nextRootInfo, `📅 Đã lưu lịch tái khám của ${patientDisplayName}!`);
     }
@@ -1366,19 +1421,43 @@ export default function CareSchedulePage() {
   const persistActiveProfilePatientInfo = useCallback(
     (newInfo: PatientInfo, toastMsg: string) => {
       if (isFatherProfile) {
-        const extraProfiles = healthProfiles.filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID);
+        const cleanNewInfo: PatientInfo = { ...newInfo, healthProfiles: undefined };
+        const updatedPrimary: HealthProfile = {
+          ...activeProfile,
+          name: cleanNewInfo.name || activeProfile.name,
+          patientInfo: cleanNewInfo,
+        };
+        const extraProfiles = healthProfiles
+          .filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID)
+          .map((p) => ({
+            ...p,
+            patientInfo: { ...p.patientInfo, healthProfiles: undefined },
+          }));
         const mergedRoot: PatientInfo = {
-          ...newInfo,
-          healthProfiles: extraProfiles,
+          ...cleanNewInfo,
+          healthProfiles: [updatedPrimary, ...extraProfiles],
         };
         syncRootPatientInfo(mergedRoot, toastMsg);
       } else {
+        const cleanNewInfo: PatientInfo = { ...newInfo, healthProfiles: undefined };
         const updatedProfile: HealthProfile = {
           ...activeProfile,
-          name: newInfo.name || activeProfile.name,
-          patientInfo: newInfo,
+          name: cleanNewInfo.name || activeProfile.name,
+          patientInfo: cleanNewInfo,
         };
-        const existingExtras = healthProfiles.filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID);
+        const primaryObj = healthProfiles.find((p) => p.id === DEFAULT_HEALTH_PROFILE_ID);
+        const cleanPrimary: HealthProfile | null = primaryObj
+          ? {
+              ...primaryObj,
+              patientInfo: { ...primaryObj.patientInfo, healthProfiles: undefined },
+            }
+          : null;
+        const existingExtras = healthProfiles
+          .filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID)
+          .map((p) => ({
+            ...p,
+            patientInfo: { ...p.patientInfo, healthProfiles: undefined },
+          }));
         const existsIdx = existingExtras.findIndex((p) => p.id === activeProfile.id);
         const nextExtras =
           existsIdx >= 0
@@ -1386,7 +1465,7 @@ export default function CareSchedulePage() {
             : [...existingExtras, updatedProfile];
         const nextRootInfo: PatientInfo = {
           ...patientInfo,
-          healthProfiles: nextExtras,
+          healthProfiles: cleanPrimary ? [cleanPrimary, ...nextExtras] : nextExtras,
         };
         syncRootPatientInfo(nextRootInfo, toastMsg);
       }

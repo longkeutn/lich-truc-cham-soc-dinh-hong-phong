@@ -447,7 +447,23 @@ export default function HealthProfileSwitcher({
                 </label>
                 <select
                   value={profileType}
-                  onChange={(e) => setProfileType(e.target.value as HealthProfileType)}
+                  onChange={(e) => {
+                    const nextType = e.target.value as HealthProfileType;
+                    setProfileType(nextType);
+                    if (
+                      nextType === 'thyroid_post_op' &&
+                      (!diagnosis ||
+                        diagnosis.includes('Theo dõi huyết áp, tim mạch') ||
+                        diagnosis.includes('nhịp tim & sức khỏe'))
+                    ) {
+                      setDiagnosis(
+                        'Đã phẫu thuật cắt toàn bộ tuyến giáp (K giáp thể nhú) • Duy trì hormone Levothyroxine & Kiểm soát Huyết áp, Mỡ máu, Canxi'
+                      );
+                      setNotes(
+                        'Uống thuốc hormone tuyến giáp (Levothyroxine) buổi sáng lúc bụng đói (trước ăn 30–60 phút), cách xa Canxi/Sắt ít nhất 4 tiếng. Theo dõi nhịp tim, huyết áp và dấu hiệu tê bì tay chân.'
+                      );
+                    }
+                  }}
                   className="w-full min-h-[42px] px-3 py-2 rounded-xl border border-slate-300 text-sm font-bold text-slate-900 bg-white focus:outline-none focus:border-teal-600"
                 >
                   <option value="general_health">

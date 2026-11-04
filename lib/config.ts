@@ -1527,15 +1527,54 @@ export function buildResolvedHealthProfiles(
     ? fatherPatientInfo.healthProfiles
     : [];
 
-  // Chuẩn hoá tên & chẩn đoán mặc định cho Bố khi ở Web Ông Bà Nội (nhưng vẫn tôn trọng 100% nếu user đã sửa trên web)
-  const rawFatherName = (fatherPatientInfo.name || '').trim();
+  // Tìm bản lưu tùy chỉnh của Thành viên chính (id: DEFAULT_HEALTH_PROFILE_ID) nếu người dùng đã chỉnh sửa Vai vế / Icon / Nhóm bệnh lý trên web
+  const savedPrimary = savedList.find((p) => p && p.id === DEFAULT_HEALTH_PROFILE_ID);
+
+  // Chuẩn hoá tên & chẩn đoán mặc định cho Thành viên chính (tôn trọng 100% mọi chỉnh sửa của user trên web)
+  const rawFatherName = (savedPrimary?.name || fatherPatientInfo.name || '').trim();
   const isUneditedLegacyFatherName =
     !rawFatherName ||
     (IS_FAMILY_STANDARD_MODE && (rawFatherName === 'Đinh Hồng Phong' || rawFatherName === 'Bố'));
 
   const resolvedFatherName = isUneditedLegacyFatherName ? DEFAULT_MEMBER_NAME : rawFatherName;
 
-  const rawFatherDiag = (fatherPatientInfo.diagnosis || '').trim();
+  // Nhận diện thông minh nếu người dùng đã đổi Thành viên chính thành Mẹ (VD: "Đoàn Thị Bạch Yến", "Mẹ Bạch Yến", hoặc chọn Vai vế = "Mẹ")
+  const lowerPrimaryName = resolvedFatherName.toLowerCase();
+  const lowerSavedRelation = (savedPrimary?.relation || '').trim().toLowerCase();
+  const isMotherPrimary =
+    lowerSavedRelation === 'mẹ' ||
+    lowerSavedRelation === 'bà' ||
+    (!savedPrimary?.relation &&
+      (lowerPrimaryName.includes('bạch yến') ||
+        lowerPrimaryName.startsWith('mẹ') ||
+        lowerPrimaryName.startsWith('bà')));
+
+  const primaryRelation =
+    savedPrimary?.relation?.trim() || (isMotherPrimary ? 'Mẹ' : 'Bố');
+
+  const primaryAvatarEmoji =
+    savedPrimary?.avatarEmoji?.trim() ||
+    (isMotherPrimary
+      ? IS_FAMILY_STANDARD_MODE
+        ? '👵'
+        : '👩'
+      : IS_FAMILY_STANDARD_MODE
+        ? '👴'
+        : '👨');
+
+  const primaryProfileType: HealthProfileType =
+    savedPrimary?.profileType ||
+    (isMotherPrimary && IS_FAMILY_STANDARD_MODE
+      ? 'thyroid_post_op'
+      : IS_FAMILY_STANDARD_MODE
+        ? 'general_health'
+        : 'post_stroke_cranioplasty');
+
+  const rawFatherDiag = (
+    savedPrimary?.patientInfo?.diagnosis ||
+    fatherPatientInfo.diagnosis ||
+    ''
+  ).trim();
   const isUneditedLegacyFatherDiag =
     !rawFatherDiag ||
     (IS_FAMILY_STANDARD_MODE &&
@@ -1544,32 +1583,36 @@ export function buildResolvedHealthProfiles(
 
   const resolvedFatherDiag = isUneditedLegacyFatherDiag
     ? IS_FAMILY_STANDARD_MODE
-      ? 'Theo dõi huyết áp, tim mạch, mỡ máu & chăm sóc sức khỏe hằng ngày'
+      ? isMotherPrimary
+        ? 'Đã phẫu thuật cắt toàn bộ tuyến giáp (K giáp thể nhú) • Duy trì hormone Levothyroxine & Kiểm soát Huyết áp, Mỡ máu, Canxi'
+        : 'Theo dõi huyết áp, tim mạch, mỡ máu & chăm sóc sức khỏe hằng ngày'
       : 'Đang phục hồi chức năng sau đột quỵ (tai biến mạch máu não)'
     : rawFatherDiag;
 
+  const rawHospital = savedPrimary?.patientInfo?.hospital || fatherPatientInfo.hospital || '';
   const resolvedFatherHospital =
     IS_FAMILY_STANDARD_MODE &&
-    (!fatherPatientInfo.hospital ||
-      fatherPatientInfo.hospital.toLowerCase().includes('bạch mai'))
+    (!rawHospital || rawHospital.toLowerCase().includes('bạch mai'))
       ? 'Khám & kiểm tra sức khỏe định kỳ'
-      : fatherPatientInfo.hospital || 'Khám & kiểm tra định kỳ';
+      : rawHospital || 'Khám & kiểm tra định kỳ';
 
+  const rawNotes = savedPrimary?.patientInfo?.notes || fatherPatientInfo.notes || '';
   const resolvedFatherNotes =
-    IS_FAMILY_STANDARD_MODE && !fatherPatientInfo.notes
+    IS_FAMILY_STANDARD_MODE && !rawNotes
       ? 'Đo huyết áp sáng/tối, uống thuốc đúng giờ, tập vận động nhẹ nhàng và ăn nhạt giảm mỡ.'
-      : fatherPatientInfo.notes ||
+      : rawNotes ||
         'Đo huyết áp hàng ngày, uống thuốc đúng giờ, tập vận động và nghỉ ngơi đều đặn.';
 
-  // 1. Hồ sơ mặc định của thành viên chính (Bố)
+  // 1. Hồ sơ của Thành viên chính (mặc định id: 'father', hỗ trợ đổi sang Mẹ hoặc bất kỳ vai vế/icon nào)
   const fatherProfile: HealthProfile = {
     id: DEFAULT_HEALTH_PROFILE_ID,
     name: resolvedFatherName,
-    relation: 'Bố',
-    avatarEmoji: IS_FAMILY_STANDARD_MODE ? '👴' : '👨',
-    profileType: IS_FAMILY_STANDARD_MODE ? 'general_health' : 'post_stroke_cranioplasty',
+    relation: primaryRelation,
+    avatarEmoji: primaryAvatarEmoji,
+    profileType: primaryProfileType,
     patientInfo: {
       ...fatherPatientInfo,
+      ...(savedPrimary?.patientInfo || {}),
       name: resolvedFatherName,
       diagnosis: resolvedFatherDiag,
       hospital: resolvedFatherHospital,
@@ -1584,7 +1627,9 @@ export function buildResolvedHealthProfiles(
         IS_FAMILY_STANDARD_MODE &&
         (!fatherPatientInfo.conditionTag ||
           fatherPatientInfo.conditionTag.includes('Tai biến'))
-          ? 'Huyết áp & Tim mạch'
+          ? primaryProfileType === 'thyroid_post_op'
+            ? 'Tuyến giáp • HA • Mỡ máu'
+            : 'Huyết áp & Tim mạch'
           : fatherPatientInfo.conditionTag || 'Phục hồi tại nhà',
       careMode:
         IS_FAMILY_STANDARD_MODE && fatherPatientInfo.careMode === 'Liên tục 24/7'
@@ -1597,56 +1642,86 @@ export function buildResolvedHealthProfiles(
           : fatherPatientInfo.careGoal || 'Duy trì huyết áp & sức khỏe ổn định',
       healthProfiles: undefined,
     },
-    bpThresholds: fatherThresholds || DEFAULT_BP_THRESHOLDS,
-    appointment: fatherAppointment || DEFAULT_APPOINTMENT,
+    bpThresholds: savedPrimary?.bpThresholds || fatherThresholds || DEFAULT_BP_THRESHOLDS,
+    appointment: savedPrimary?.appointment || fatherAppointment || DEFAULT_APPOINTMENT,
   };
 
   // 2. Các hồ sơ thành viên khác đã lưu
   const otherProfiles: HealthProfile[] = savedList
     .filter((p) => p && p.id && p.id !== DEFAULT_HEALTH_PROFILE_ID)
     .map((p) => {
-      const isMotherOnStandardWeb = IS_FAMILY_STANDARD_MODE && p.id === 'mother';
-      const defaultProfileType: HealthProfileType = isMotherOnStandardWeb
-        ? 'thyroid_post_op'
+      const isSecondSlotOnStandardWeb = IS_FAMILY_STANDARD_MODE && p.id === 'mother';
+      // Nếu Thành viên chính (số 1) đã được người dùng đổi thành Mẹ, và hồ sơ số 2 chưa chỉnh sửa -> hồ sơ số 2 mặc định là Bố Thành Đô
+      const isSecondSlotDefaultFather =
+        isSecondSlotOnStandardWeb &&
+        isMotherPrimary &&
+        (!p.name || p.name === 'Mẹ' || p.name === DEFAULT_MOTHER_NAME);
+
+      const defaultProfileType: HealthProfileType = isSecondSlotOnStandardWeb
+        ? isSecondSlotDefaultFather
+          ? 'general_health'
+          : 'thyroid_post_op'
         : 'general_health';
-      const resolvedName =
-        isMotherOnStandardWeb && (!p.name || p.name === 'Mẹ')
+
+      const resolvedName = isSecondSlotDefaultFather
+        ? DEFAULT_MEMBER_NAME
+        : isSecondSlotOnStandardWeb && (!p.name || p.name === 'Mẹ')
           ? DEFAULT_MOTHER_NAME
           : p.name || 'Thành viên';
+
+      const resolvedRelation = isSecondSlotDefaultFather
+        ? 'Bố'
+        : p.relation || (p.id === 'mother' ? 'Mẹ' : 'Gia đình');
+
+      const resolvedEmoji = isSecondSlotDefaultFather
+        ? '👴'
+        : p.avatarEmoji || (isSecondSlotOnStandardWeb ? '👵' : '👩');
+
       return {
         id: p.id,
         name: resolvedName,
-        relation: p.relation || (p.id === 'mother' ? 'Mẹ' : 'Gia đình'),
-        avatarEmoji: p.avatarEmoji || (isMotherOnStandardWeb ? '👵' : '👩'),
+        relation: resolvedRelation,
+        avatarEmoji: resolvedEmoji,
         profileType: p.profileType || defaultProfileType,
         patientInfo: {
-          name: p.patientInfo?.name && p.patientInfo.name !== 'Mẹ' ? p.patientInfo.name : resolvedName,
+          name:
+            p.patientInfo?.name &&
+            p.patientInfo.name !== 'Mẹ' &&
+            !isSecondSlotDefaultFather
+              ? p.patientInfo.name
+              : resolvedName,
           diagnosis:
             p.patientInfo?.diagnosis ??
-            (isMotherOnStandardWeb
+            (isSecondSlotOnStandardWeb && !isSecondSlotDefaultFather
               ? 'Đã phẫu thuật cắt toàn bộ tuyến giáp (K giáp thể nhú) • Duy trì hormone Levothyroxine & Kiểm soát Huyết áp, Mỡ máu, Canxi'
               : 'Theo dõi huyết áp, nhịp tim & sức khỏe định kỳ'),
           hospital:
             p.patientInfo?.hospital ??
-            (isMotherOnStandardWeb ? 'Khám chuyên khoa Nội tiết & Tim mạch định kỳ' : 'Khám định kỳ'),
+            (isSecondSlotOnStandardWeb && !isSecondSlotDefaultFather
+              ? 'Khám chuyên khoa Nội tiết & Tim mạch định kỳ'
+              : 'Khám định kỳ'),
           room: p.patientInfo?.room ?? 'Tại nhà',
           notes:
             p.patientInfo?.notes ??
-            (isMotherOnStandardWeb
+            (isSecondSlotOnStandardWeb && !isSecondSlotDefaultFather
               ? 'Uống Levothyroxine buổi sáng lúc bụng đói (trước ăn 30–60 phút), cách xa Canxi/Sắt ít nhất 4 tiếng. Theo dõi nhịp tim, huyết áp và dấu hiệu tê bì tay chân.'
               : 'Đo huyết áp định kỳ sáng/tối, uống đủ nước ấm, nghỉ ngơi hợp lý.'),
           emergencyPhone: p.patientInfo?.emergencyPhone || fatherPatientInfo.emergencyPhone || '',
           statusBadge:
             p.patientInfo?.statusBadge ||
-            (isMotherOnStandardWeb ? 'Theo dõi Tuyến giáp & Tim mạch' : 'Theo dõi sức khỏe gia đình'),
+            (isSecondSlotOnStandardWeb && !isSecondSlotDefaultFather
+              ? 'Theo dõi Tuyến giáp & Tim mạch'
+              : 'Theo dõi sức khỏe gia đình'),
           conditionTag:
             p.patientInfo?.conditionTag ||
-            (isMotherOnStandardWeb ? 'Tuyến giáp • HA • Mỡ máu' : 'Huyết áp & Tim mạch'),
+            (isSecondSlotOnStandardWeb && !isSecondSlotDefaultFather
+              ? 'Tuyến giáp • HA • Mỡ máu'
+              : 'Huyết áp & Tim mạch'),
           headerBadge: p.patientInfo?.headerBadge || 'Tại nhà',
           careMode: p.patientInfo?.careMode || 'Hằng ngày',
           careGoal:
             p.patientInfo?.careGoal ||
-            (isMotherOnStandardWeb
+            (isSecondSlotOnStandardWeb && !isSecondSlotDefaultFather
               ? 'Ức chế TSH mục tiêu • Ổn định HA, Mạch & Canxi'
               : 'Duy trì huyết áp & nhịp tim ổn định'),
           customFields: Array.isArray(p.patientInfo?.customFields)
@@ -1658,74 +1733,107 @@ export function buildResolvedHealthProfiles(
       };
     });
 
-  // Nếu chưa có hồ sơ của Mẹ ('mother'), tự động tạo sẵn hồ sơ Mẹ để gia đình bấm chuyển sang dùng được ngay!
+  // Nếu chưa có hồ sơ thứ 2 ('mother'), tự động tạo sẵn hồ sơ thứ 2 (Mẹ hoặc Bố nếu hồ sơ 1 đã là Mẹ)
   if (!otherProfiles.some((p) => p.id === 'mother')) {
-    const motherMember = members.find(
-      (m) =>
-        m.name.toLowerCase().includes('mẹ') ||
-        m.relation.toLowerCase().includes('mẹ') ||
-        m.relation.toLowerCase().includes('vợ')
-    );
-    const motherDisplayName = IS_FAMILY_STANDARD_MODE
-      ? DEFAULT_MOTHER_NAME
-      : motherMember
-        ? motherMember.name
-        : 'Mẹ';
+    if (IS_FAMILY_STANDARD_MODE && isMotherPrimary) {
+      // Hồ sơ số 1 đã được user đổi thành Mẹ -> Hồ sơ số 2 mặc định là Bố Thành Đô
+      otherProfiles.unshift({
+        id: 'mother',
+        name: DEFAULT_MEMBER_NAME,
+        relation: 'Bố',
+        avatarEmoji: '👴',
+        profileType: 'general_health',
+        patientInfo: {
+          name: DEFAULT_MEMBER_NAME,
+          diagnosis: 'Theo dõi huyết áp, tim mạch, mỡ máu & chăm sóc sức khỏe hằng ngày',
+          hospital: 'Khám định kỳ',
+          room: 'Tại nhà',
+          notes: 'Đo huyết áp định kỳ sáng/tối, uống thuốc đúng giờ, tập vận động nhẹ nhàng.',
+          emergencyPhone: fatherPatientInfo.emergencyPhone || '',
+          statusBadge: 'Sức khỏe gia đình',
+          conditionTag: 'Huyết áp & Tim mạch',
+          headerBadge: 'Tại nhà',
+          careMode: 'Hằng ngày',
+          careGoal: 'Duy trì huyết áp & nhịp tim ổn định',
+          customFields: [],
+        },
+        bpThresholds: { ...DEFAULT_BP_THRESHOLDS },
+        appointment: {
+          nextDate: '',
+          nextNote: '',
+          nextWho: '',
+          lastDate: '',
+          lastNote: '',
+        },
+      });
+    } else {
+      const motherMember = members.find(
+        (m) =>
+          m.name.toLowerCase().includes('mẹ') ||
+          m.relation.toLowerCase().includes('mẹ') ||
+          m.relation.toLowerCase().includes('vợ')
+      );
+      const motherDisplayName = IS_FAMILY_STANDARD_MODE
+        ? DEFAULT_MOTHER_NAME
+        : motherMember
+          ? motherMember.name
+          : 'Mẹ';
 
-    otherProfiles.unshift({
-      id: 'mother',
-      name: motherDisplayName,
-      relation: 'Mẹ',
-      avatarEmoji: IS_FAMILY_STANDARD_MODE ? '👵' : '👩',
-      profileType: IS_FAMILY_STANDARD_MODE ? 'thyroid_post_op' : 'general_health',
-      patientInfo: {
+      otherProfiles.unshift({
+        id: 'mother',
         name: motherDisplayName,
-        diagnosis: IS_FAMILY_STANDARD_MODE
-          ? 'Đã phẫu thuật cắt toàn bộ tuyến giáp (K giáp thể nhú) • Duy trì hormone Levothyroxine & Kiểm soát Huyết áp, Mỡ máu, Canxi'
-          : 'Theo dõi huyết áp, tim mạch & chăm sóc sức khỏe hằng ngày',
-        hospital: IS_FAMILY_STANDARD_MODE
-          ? 'Khám chuyên khoa Nội tiết & Tim mạch định kỳ'
-          : 'Khám định kỳ',
-        room: 'Tại nhà',
-        notes: IS_FAMILY_STANDARD_MODE
-          ? 'Uống thuốc hormone tuyến giáp (Levothyroxine) buổi sáng lúc bụng đói (trước ăn 30–60 phút), cách xa Canxi/Sắt ít nhất 4 tiếng. Theo dõi nhịp tim, huyết áp và dấu hiệu tê bì tay chân.'
-          : 'Chú ý đo huyết áp khi thấy mỏi gáy, hoa mắt hoặc mất ngủ; uống thuốc và nghỉ ngơi đúng giờ.',
-        emergencyPhone: motherMember?.phone || fatherPatientInfo.emergencyPhone || '',
-        statusBadge: IS_FAMILY_STANDARD_MODE ? 'Theo dõi Tuyến giáp & Tim mạch' : 'Sức khỏe gia đình',
-        conditionTag: IS_FAMILY_STANDARD_MODE ? 'Tuyến giáp • HA • Mỡ máu' : 'Huyết áp & Tim mạch',
-        headerBadge: 'Tại nhà',
-        careMode: 'Hằng ngày',
-        careGoal: IS_FAMILY_STANDARD_MODE
-          ? 'Ức chế TSH mục tiêu • Ổn định HA, Mạch & Canxi'
-          : 'Duy trì huyết áp & giấc ngủ ổn định',
-        customFields: [
-          ...(IS_FAMILY_STANDARD_MODE
-            ? [
-                {
-                  id: 'cf-thyroid-1',
-                  label: 'Phác đồ Tuyến giáp',
-                  value: 'Đã cắt toàn bộ tuyến giáp — Uống Levothyroxine hằng ngày lúc đói (Mục tiêu ức chế TSH)',
-                  section: 'profile' as const,
-                },
-                {
-                  id: 'cf-thyroid-2',
-                  label: 'Bệnh lý phối hợp',
-                  value: 'Theo dõi Mỡ máu (Cholesterol, LDL-C, Triglyceride), Huyết áp, Đường huyết & Canxi máu',
-                  section: 'care' as const,
-                },
-              ]
-            : []),
-        ],
-      },
-      bpThresholds: { ...DEFAULT_BP_THRESHOLDS },
-      appointment: {
-        nextDate: '',
-        nextNote: '',
-        nextWho: '',
-        lastDate: '',
-        lastNote: '',
-      },
-    });
+        relation: 'Mẹ',
+        avatarEmoji: IS_FAMILY_STANDARD_MODE ? '👵' : '👩',
+        profileType: IS_FAMILY_STANDARD_MODE ? 'thyroid_post_op' : 'general_health',
+        patientInfo: {
+          name: motherDisplayName,
+          diagnosis: IS_FAMILY_STANDARD_MODE
+            ? 'Đã phẫu thuật cắt toàn bộ tuyến giáp (K giáp thể nhú) • Duy trì hormone Levothyroxine & Kiểm soát Huyết áp, Mỡ máu, Canxi'
+            : 'Theo dõi huyết áp, tim mạch & chăm sóc sức khỏe hằng ngày',
+          hospital: IS_FAMILY_STANDARD_MODE
+            ? 'Khám chuyên khoa Nội tiết & Tim mạch định kỳ'
+            : 'Khám định kỳ',
+          room: 'Tại nhà',
+          notes: IS_FAMILY_STANDARD_MODE
+            ? 'Uống thuốc hormone tuyến giáp (Levothyroxine) buổi sáng lúc bụng đói (trước ăn 30–60 phút), cách xa Canxi/Sắt ít nhất 4 tiếng. Theo dõi nhịp tim, huyết áp và dấu hiệu tê bì tay chân.'
+            : 'Chú ý đo huyết áp khi thấy mỏi gáy, hoa mắt hoặc mất ngủ; uống thuốc và nghỉ ngơi đúng giờ.',
+          emergencyPhone: motherMember?.phone || fatherPatientInfo.emergencyPhone || '',
+          statusBadge: IS_FAMILY_STANDARD_MODE ? 'Theo dõi Tuyến giáp & Tim mạch' : 'Sức khỏe gia đình',
+          conditionTag: IS_FAMILY_STANDARD_MODE ? 'Tuyến giáp • HA • Mỡ máu' : 'Huyết áp & Tim mạch',
+          headerBadge: 'Tại nhà',
+          careMode: 'Hằng ngày',
+          careGoal: IS_FAMILY_STANDARD_MODE
+            ? 'Ức chế TSH mục tiêu • Ổn định HA, Mạch & Canxi'
+            : 'Duy trì huyết áp & giấc ngủ ổn định',
+          customFields: [
+            ...(IS_FAMILY_STANDARD_MODE
+              ? [
+                  {
+                    id: 'cf-thyroid-1',
+                    label: 'Phác đồ Tuyến giáp',
+                    value: 'Đã cắt toàn bộ tuyến giáp — Uống Levothyroxine hằng ngày lúc đói (Mục tiêu ức chế TSH)',
+                    section: 'profile' as const,
+                  },
+                  {
+                    id: 'cf-thyroid-2',
+                    label: 'Bệnh lý phối hợp',
+                    value: 'Theo dõi Mỡ máu (Cholesterol, LDL-C, Triglyceride), Huyết áp, Đường huyết & Canxi máu',
+                    section: 'care' as const,
+                  },
+                ]
+              : []),
+          ],
+        },
+        bpThresholds: { ...DEFAULT_BP_THRESHOLDS },
+        appointment: {
+          nextDate: '',
+          nextNote: '',
+          nextWho: '',
+          lastDate: '',
+          lastNote: '',
+        },
+      });
+    }
   }
 
   return [fatherProfile, ...otherProfiles];
