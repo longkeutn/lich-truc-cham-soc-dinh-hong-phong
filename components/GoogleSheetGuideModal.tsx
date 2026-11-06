@@ -21,11 +21,11 @@ interface GoogleSheetGuideModalProps {
 }
 
 const APPS_SCRIPT_5_SHEETS_CODE = `/**
- * GOOGLE APPS SCRIPT WEB APP — ${APP_TITLE.toUpperCase()} v2.2
- * Tự động tạo và quản lý 9 Bảng Tính:
+ * GOOGLE APPS SCRIPT WEB APP - ${APP_TITLE.toUpperCase()} v2.3
+ * Tự động tạo và quản lý 10 Bảng Tính:
  *   5 Bảng gốc: Shifts, Members, Settings, Contacts, Reminders
- *   4 Bảng mới: VitalsLog, CareRoutines, DailyLogs, Expenses (Sổ Thu Chi)
- * Hỗ trợ API CRUD 2 chiều thời gian thực (Zero Hardcode).
+ *   5 Bảng mới: VitalsLog, CareRoutines, DailyLogs, Expenses (Sổ Thu Chi), LabResults (Xét nghiệm & Hóa sinh)
+ * Hỗ trợ API CRUD 2 chiều thời gian thực (Zero Hardcode) + ScriptCache 50ms.
  */
 
 function doGet(e) {
@@ -269,8 +269,9 @@ function doPost(e) {
       saveLabResult(ss, postData.labResult);
       return jsonResponse({ success: true, message: 'Đã lưu kết quả xét nghiệm' });
     }
-    if (action === 'deleteLabResult' && postData.labResultId) {
-      deleteRowById(ss, 'LabResults', postData.labResultId);
+    const targetLabId = postData.labId || postData.labResultId;
+    if (action === 'deleteLabResult' && targetLabId) {
+      deleteRowById(ss, 'LabResults', targetLabId);
       return jsonResponse({ success: true, message: 'Đã xoá kết quả xét nghiệm' });
     }
 
@@ -1285,7 +1286,7 @@ function deleteRowById(ss, sheetName, id) {
   if (!sheet) return;
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === id) {
+    if (String(data[i][0]) === String(id)) {
       sheet.deleteRow(i + 1);
       return;
     }
