@@ -147,7 +147,7 @@ export function VitalsVoiceController({
                       onSetSpeakingBack
                     );
                   }}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-teal-700 hover:bg-teal-800 text-white flex items-center gap-1 cursor-pointer min-h-[44px]"
+                  className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-teal-700 hover:bg-teal-800 text-white flex items-center gap-1.5 cursor-pointer min-h-[48px] min-w-[48px]"
                 >
                   <Volume2 className="w-4 h-4 shrink-0" />
                   <span>Nghe lại</span>
@@ -163,7 +163,7 @@ export function VitalsVoiceController({
                   }
                   onToggleTts();
                 }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border cursor-pointer min-h-[44px] ${
+                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 border cursor-pointer min-h-[48px] min-w-[48px] ${
                   ttsEnabled
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                     : 'bg-slate-100 text-slate-700 border-slate-200'
@@ -181,7 +181,7 @@ export function VitalsVoiceController({
                 type="button"
                 onClick={onClosePanel}
                 aria-label="Thu gọn bảng giọng nói"
-                className="min-h-[44px] min-w-[44px] rounded-xl text-slate-600 hover:text-slate-900 bg-white border border-slate-200 flex items-center justify-center cursor-pointer"
+                className="min-h-[48px] min-w-[48px] rounded-xl text-slate-600 hover:text-slate-900 bg-white border border-slate-200 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -195,14 +195,14 @@ export function VitalsVoiceController({
               value={voiceTranscript}
               onChange={(e) => onTranscriptChange(e.target.value)}
               placeholder='VD: "135 85 mạch 78 buổi sáng"'
-              className="w-full min-h-[48px] px-3.5 py-2.5 pr-10 rounded-xl bg-white border border-slate-300 focus:border-teal-600 focus:outline-none text-sm sm:text-base font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal"
+              className="w-full min-h-[48px] px-3.5 py-2.5 pr-12 rounded-xl bg-white border border-slate-300 focus:border-teal-600 focus:outline-none text-sm sm:text-base font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal"
             />
             {voiceTranscript && (
               <button
                 type="button"
                 onClick={onClearTranscript}
                 aria-label="Xoá văn bản giọng nói"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[40px] min-w-[40px] text-slate-500 hover:text-slate-800 flex items-center justify-center cursor-pointer"
+                className="absolute right-1 top-1/2 -translate-y-1/2 min-h-[48px] min-w-[48px] text-slate-500 hover:text-slate-800 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -252,7 +252,7 @@ export function VitalsVoiceController({
                 key={sample}
                 type="button"
                 onClick={() => onSampleClick(sample)}
-                className="min-h-[44px] px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer transition-colors"
+                className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-white hover:bg-teal-50 border border-slate-200 text-xs sm:text-sm font-bold text-slate-700 cursor-pointer transition-colors"
               >
                 &ldquo;{sample}&rdquo;
               </button>

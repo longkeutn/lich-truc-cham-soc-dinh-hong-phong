@@ -38,7 +38,7 @@ export default function ClinicalDistributionPanels({
               type="button"
               onClick={() => onSelectMilestone(m.id)}
               disabled={m.count === 0}
-              className={`min-h-[48px] px-3 py-1.5 rounded-xl text-xs font-extrabold border transition shrink-0 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
+              className={`min-h-[48px] min-w-[48px] px-3 py-1.5 rounded-xl text-xs font-extrabold border transition shrink-0 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
                 isSelected
                   ? 'bg-teal-700 text-white border-teal-800 shadow-xs'
                   : 'bg-slate-50 hover:bg-teal-50 text-slate-700 border-slate-200'

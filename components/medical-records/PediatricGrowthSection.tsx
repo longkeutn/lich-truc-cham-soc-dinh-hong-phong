@@ -279,7 +279,7 @@ export function PediatricGrowthSection({
             <button
               type="button"
               onClick={resetForm}
-              className="min-h-[44px] px-3 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer"
+              className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-xs sm:text-sm font-bold text-slate-700 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
               <span>Huỷ sửa</span>

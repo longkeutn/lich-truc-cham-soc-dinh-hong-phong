@@ -205,7 +205,7 @@ export function VitalsDisplayInputs({
                   key={p}
                   type="button"
                   onClick={() => onChangePeriod(p)}
-                  className={`min-h-[48px] rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer border px-1 flex items-center justify-center gap-1 ${
+                  className={`min-h-[48px] min-w-[48px] rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer border px-1 flex items-center justify-center gap-1 ${
                     isActive
                       ? 'bg-teal-700 text-white border-teal-800 shadow-2xs'
                       : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200/70'

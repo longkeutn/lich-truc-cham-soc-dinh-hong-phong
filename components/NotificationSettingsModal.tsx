@@ -167,7 +167,7 @@ export default function NotificationSettingsModal({
               <h3 className="text-base sm:text-lg font-black text-slate-900">
                 Cài Đặt Thông Báo & Giờ Nhắc
               </h3>
-              <p className="text-xs text-slate-500 font-medium">
+              <p className="text-xs text-slate-600 font-medium">
                 Kết hợp Thông báo đẩy PWA & Hộp nhắc âm thanh trong App
               </p>
             </div>
@@ -175,7 +175,8 @@ export default function NotificationSettingsModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer shrink-0"
+            aria-label="Đóng cài đặt thông báo"
+            className="min-h-[48px] min-w-[48px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -220,7 +221,7 @@ export default function NotificationSettingsModal({
                     onClose();
                     onOpenInstallPwa();
                   }}
-                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs cursor-pointer transition"
+                  className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs cursor-pointer transition"
                 >
                   Xem hướng dẫn Thêm vào MH chính
                 </button>
@@ -232,7 +233,7 @@ export default function NotificationSettingsModal({
             <button
               type="button"
               onClick={handleRequestPermission}
-              className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs cursor-pointer transition"
+              className="w-full min-h-[48px] py-2.5 px-4 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs cursor-pointer transition"
             >
               <Bell className="w-4 h-4" />
               <span>BẬT THÔNG BÁO TRÊN THIẾT BỊ NÀY</span>
@@ -251,7 +252,7 @@ export default function NotificationSettingsModal({
               type="button"
               disabled={testingPush}
               onClick={handleTestNotification}
-              className="min-h-[40px] px-3 py-2 rounded-xl bg-white hover:bg-teal-50 text-teal-900 border border-teal-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition shadow-2xs"
+              className="min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl bg-white hover:bg-teal-50 text-teal-900 border border-teal-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition shadow-2xs"
             >
               <Send className="w-3.5 h-3.5 text-teal-700 shrink-0" />
               <span>Gửi thử thông báo & Chuông</span>
@@ -260,7 +261,7 @@ export default function NotificationSettingsModal({
             <button
               type="button"
               onClick={handleTestVoice}
-              className="min-h-[40px] px-3 py-2 rounded-xl bg-white hover:bg-teal-50 text-slate-800 border border-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition shadow-2xs"
+              className="min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl bg-white hover:bg-teal-50 text-slate-800 border border-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition shadow-2xs"
             >
               <Volume2 className="w-3.5 h-3.5 text-teal-700 shrink-0" />
               <span>Nghe thử giọng đọc TV</span>
@@ -278,14 +279,14 @@ export default function NotificationSettingsModal({
             <button
               type="button"
               onClick={handleResetDefaultTimes}
-              className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-teal-700 cursor-pointer"
+              className="min-h-[48px] min-w-[48px] inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-600 hover:text-teal-700 cursor-pointer rounded-xl hover:bg-white border border-transparent hover:border-slate-200 transition"
               title="Đặt lại giờ mặc định"
             >
-              <RotateCcw className="w-3 h-3" />
+              <RotateCcw className="w-3.5 h-3.5" />
               <span>Mặc định</span>
             </button>
           </div>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-xs text-slate-600">
             Đến giờ này mà buổi đó chưa đo huyết áp hoặc chưa tích đủ thuốc/bài tập, hệ thống sẽ phát chuông và bắn thông báo nhắc.
           </p>
 
@@ -431,14 +432,14 @@ export default function NotificationSettingsModal({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[42px] px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm cursor-pointer transition"
+            className="min-h-[48px] min-w-[48px] px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm cursor-pointer transition flex items-center justify-center"
           >
             Đóng
           </button>
           <button
             type="button"
             onClick={handleSave}
-            className="min-h-[42px] px-5 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-xs sm:text-sm cursor-pointer transition shadow-2xs"
+            className="min-h-[48px] min-w-[48px] px-6 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-xs sm:text-sm cursor-pointer transition shadow-2xs flex items-center justify-center"
           >
             Lưu cài đặt
           </button>

@@ -55,7 +55,7 @@ export default function ShiftChecklistAndHandoverSection({
             <ClipboardList className="w-4 h-4 text-indigo-600" />
             Checklist công việc trong ca
           </span>
-          <span className="text-[11px] text-slate-500 font-medium">
+          <span className="text-[11px] text-slate-600 font-medium">
             Đánh dấu các việc đã hoàn thành
           </span>
         </div>
@@ -66,7 +66,7 @@ export default function ShiftChecklistAndHandoverSection({
               key={item.key}
               type="button"
               onClick={() => void onToggleChecklist(shift, item.key, !item.done)}
-              className={`p-2.5 sm:p-3 rounded-2xl border-2 text-left flex items-center justify-between gap-2 transition cursor-pointer shadow-2xs ${
+              className={`min-h-[48px] min-w-[48px] p-2.5 sm:p-3 rounded-2xl border-2 text-left flex items-center justify-between gap-2 transition cursor-pointer shadow-2xs ${
                 item.done
                   ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 font-bold'
                   : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
@@ -93,7 +93,7 @@ export default function ShiftChecklistAndHandoverSection({
             <Activity className="w-4 h-4 text-rose-600" />
             Chỉ số sinh hiệu theo dõi
           </span>
-          <span className="text-[11px] text-slate-500 font-medium">Báo BS nếu chỉ số bất thường</span>
+          <span className="text-[11px] text-slate-600 font-medium">Báo BS nếu chỉ số bất thường</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -188,7 +188,7 @@ export default function ShiftChecklistAndHandoverSection({
             type="button"
             onClick={onSaveHandover}
             disabled={isSavingHandover}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-sm transition active:scale-95 cursor-pointer flex items-center gap-1.5 min-h-[44px]"
+            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-sm transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 min-h-[48px] min-w-[48px]"
           >
             {isSavingHandover ? (
               <>

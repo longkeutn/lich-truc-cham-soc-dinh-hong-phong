@@ -51,7 +51,7 @@ export default function RoutineCategoryGroups({
         <button
           type="button"
           onClick={onStartAddNew}
-          className="px-3.5 py-2 rounded-xl text-xs font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 border border-violet-200 dark:border-violet-800 transition flex items-center gap-1.5 min-h-[48px]"
+          className="px-3.5 py-2 rounded-xl text-xs font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 border border-violet-200 dark:border-violet-800 transition flex items-center gap-1.5 min-h-[48px] min-w-[48px]"
         >
           <Plus size={14} /> Thêm mới
         </button>
@@ -102,7 +102,8 @@ export default function RoutineCategoryGroups({
                                   description: routine.description,
                                 })
                               }
-                              className="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 bg-slate-100 hover:ring-2 hover:ring-violet-400 transition"
+                              aria-label={`Xem ảnh lớn của ${routine.title}`}
+                              className="min-h-[48px] min-w-[48px] w-12 h-12 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 bg-slate-100 hover:ring-2 hover:ring-violet-400 transition"
                               title="Bấm để xem ảnh lớn"
                             >
                               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -161,10 +162,11 @@ export default function RoutineCategoryGroups({
                             <button
                               type="button"
                               onClick={() => onToggleActive(routine)}
-                              className={`min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center text-xs transition ${
+                              aria-label={routine.isActive ? `Tạm ngưng ${routine.title}` : `Kích hoạt lại ${routine.title}`}
+                              className={`min-h-[48px] min-w-[48px] rounded-xl flex items-center justify-center text-xs transition ${
                                 routine.isActive
                                   ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                               }`}
                               title={routine.isActive ? 'Tạm ngưng' : 'Kích hoạt lại'}
                             >
@@ -173,7 +175,8 @@ export default function RoutineCategoryGroups({
                             <button
                               type="button"
                               onClick={() => onStartEdit(routine)}
-                              className="min-h-[44px] min-w-[44px] rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center text-xs transition"
+                              aria-label={`Sửa ${routine.title}`}
+                              className="min-h-[48px] min-w-[48px] rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center text-xs transition"
                               title="Sửa"
                             >
                               ✏️
@@ -181,7 +184,8 @@ export default function RoutineCategoryGroups({
                             <button
                               type="button"
                               onClick={() => onSetConfirmDeleteId(routine.id)}
-                              className="min-h-[44px] min-w-[44px] rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-950/40 text-slate-500 flex items-center justify-center text-xs transition"
+                              aria-label={`Xoá ${routine.title}`}
+                              className="min-h-[48px] min-w-[48px] rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-950/40 text-slate-600 flex items-center justify-center text-xs transition"
                               title="Xoá"
                             >
                               <Trash2 size={14} />
@@ -205,7 +209,7 @@ export default function RoutineCategoryGroups({
                             type="button"
                             onClick={() => onDelete(routine.id)}
                             disabled={isSaving}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 transition min-h-[44px]"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 transition min-h-[48px] min-w-[48px]"
                           >
                             Xoá hẳn!
                           </button>
@@ -213,14 +217,14 @@ export default function RoutineCategoryGroups({
                             type="button"
                             onClick={() => onSoftDelete(routine)}
                             disabled={isSaving}
-                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white hover:bg-amber-400 transition min-h-[44px]"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white hover:bg-amber-400 transition min-h-[48px] min-w-[48px]"
                           >
                             Tạm ngưng
                           </button>
                           <button
                             type="button"
                             onClick={() => onSetConfirmDeleteId(null)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 min-h-[44px]"
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 min-h-[48px] min-w-[48px]"
                           >
                             Huỷ
                           </button>

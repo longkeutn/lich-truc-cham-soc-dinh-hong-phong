@@ -48,6 +48,7 @@ export default function HealthProfileSwitcher({
           setEditingTarget(null);
           setModalMode('list');
         }}
+        aria-label="Chọn hồ sơ sức khỏe"
         className="min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl bg-medical-surface hover:bg-teal-100/70 text-text-main border border-medical-border text-sm sm:text-base font-extrabold inline-flex items-center gap-2 transition cursor-pointer"
       >
         <span aria-hidden="true" className="text-lg">

@@ -170,7 +170,8 @@ export function MembersManagementModal({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition"
+            aria-label="Đóng quản lý thành viên"
+            className="min-h-[48px] min-w-[48px] rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition cursor-pointer"
           >
             ✕
           </button>
@@ -215,7 +216,7 @@ export function MembersManagementModal({
                 <button
                   type="button"
                   onClick={startAddNew}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 transition flex items-center gap-1.5 min-h-[44px]"
+                  className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 transition flex items-center justify-center gap-1.5 min-h-[48px] min-w-[48px] cursor-pointer"
                 >
                   ➕ Thêm người mới
                 </button>
@@ -258,21 +259,21 @@ export function MembersManagementModal({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1 flex-shrink-0">
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
                         {isConfirming ? (
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5">
                             <button
                               type="button"
                               onClick={() => handleDelete(m.id)}
                               disabled={isSaving}
-                              className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-rose-600 text-white hover:bg-rose-500 transition cursor-pointer min-h-[40px]"
+                              className="px-3 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 transition cursor-pointer min-h-[48px] min-w-[48px] flex items-center justify-center"
                             >
                               Xoá!
                             </button>
                             <button
                               type="button"
                               onClick={() => setConfirmDeleteId(null)}
-                              className="px-2.5 py-1.5 rounded-lg text-[11px] text-slate-600 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer min-h-[40px]"
+                              className="px-3 py-2 rounded-xl text-xs text-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer min-h-[48px] min-w-[48px] flex items-center justify-center"
                             >
                               Huỷ
                             </button>
@@ -282,7 +283,8 @@ export function MembersManagementModal({
                             <button
                               type="button"
                               onClick={() => startEdit(m)}
-                              className="min-h-[40px] min-w-[40px] rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center text-xs transition cursor-pointer"
+                              aria-label={`Sửa thông tin ${m.name}`}
+                              className="min-h-[48px] min-w-[48px] rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center text-sm transition cursor-pointer"
                               title="Sửa thông tin"
                             >
                               ✏️
@@ -290,7 +292,8 @@ export function MembersManagementModal({
                             <button
                               type="button"
                               onClick={() => setConfirmDeleteId(m.id)}
-                              className="min-h-[40px] min-w-[40px] rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-950/40 text-slate-500 flex items-center justify-center text-xs transition cursor-pointer"
+                              aria-label={`Xoá thành viên ${m.name}`}
+                              className="min-h-[48px] min-w-[48px] rounded-xl bg-slate-100 dark:bg-slate-700/60 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-950/40 text-slate-600 flex items-center justify-center text-sm transition cursor-pointer"
                               title="Xoá thành viên"
                             >
                               🗑️
@@ -304,14 +307,14 @@ export function MembersManagementModal({
                       <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between gap-2">
                         {linkedProfile ? (
                           <>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-teal-100/90 text-teal-900 border border-teal-200 text-[11px] font-bold">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-100/90 text-teal-900 border border-teal-200 text-xs font-bold">
                               🩺 Đang có Sổ Sức Khỏe ({linkedProfile.relation})
                             </span>
                             {healthProfiles.length > 1 && (
                               <button
                                 type="button"
                                 onClick={() => onToggleMemberHealthProfile(m, false)}
-                                className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                                className="min-h-[48px] min-w-[48px] px-2 py-1 text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer inline-flex items-center"
                                 title="Ẩn/xóa thẻ của thành viên này khỏi thanh Sổ Sức Khỏe Gia Đình"
                               >
                                 Gỡ khỏi Sổ SK
@@ -322,7 +325,7 @@ export function MembersManagementModal({
                           <button
                             type="button"
                             onClick={() => onToggleMemberHealthProfile(m, true)}
-                            className="w-full py-1.5 px-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-[11px] font-extrabold flex items-center justify-center gap-1 transition cursor-pointer min-h-[40px]"
+                            className="w-full py-2 px-3 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[48px]"
                           >
                             <span>➕ Đưa vào thanh Sổ Sức Khỏe Gia Đình</span>
                           </button>
@@ -341,7 +344,7 @@ export function MembersManagementModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-slate-200 font-semibold text-xs transition cursor-pointer min-h-[44px]"
+            className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-slate-200 font-semibold text-xs transition cursor-pointer min-h-[48px] min-w-[48px]"
           >
             Đóng
           </button>

@@ -99,7 +99,7 @@ export default function ExpenseSecurityWrapper({
               <button
                 type="button"
                 onClick={onBackToHealth}
-                className="min-h-[48px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold transition cursor-pointer"
+                className="min-h-[48px] min-w-[48px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold transition cursor-pointer"
                 title="Quay lại giao diện Sổ Sức Khỏe chính"
               >
                 <span>← Sổ Sức Khỏe</span>
@@ -109,7 +109,7 @@ export default function ExpenseSecurityWrapper({
             <button
               type="button"
               onClick={() => setReportModalOpen(true)}
-              className="min-h-[48px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer"
+              className="min-h-[48px] min-w-[48px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-bold shadow-2xs transition cursor-pointer"
             >
               <Share2 className="w-4 h-4" />
               <span>Tổng hợp &amp; Báo cáo</span>
@@ -118,7 +118,7 @@ export default function ExpenseSecurityWrapper({
             <button
               type="button"
               onClick={() => setChangePinModalOpen(true)}
-              className="min-h-[48px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold transition cursor-pointer"
+              className="min-h-[48px] min-w-[48px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold transition cursor-pointer"
               title="Đổi mã PIN riêng của Sổ Thu Chi"
             >
               <KeyRound className="w-3.5 h-3.5 text-slate-600" />
@@ -131,7 +131,7 @@ export default function ExpenseSecurityWrapper({
                 onLock();
                 onBackToHealth?.();
               }}
-              className="min-h-[48px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition cursor-pointer"
+              className="min-h-[48px] min-w-[48px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition cursor-pointer"
               title="Khóa sổ lại ngay và quay về màn hình sức khỏe"
             >
               <Lock className="w-3.5 h-3.5 text-amber-700" />

@@ -123,17 +123,17 @@ export function PatientInfoSummaryPanel({
                     type="button"
                     onClick={() => handleStartEditField(field)}
                     aria-label={`Sửa ${field.label}`}
-                    className="min-h-[44px] min-w-[44px] rounded-lg hover:bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer"
+                    className="min-h-[48px] min-w-[48px] rounded-xl hover:bg-slate-100 text-slate-700 flex items-center justify-center cursor-pointer transition"
                   >
-                    <Edit2 className="w-3.5 h-3.5" />
+                    <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDeleteCustomField(field.id)}
                     aria-label={`Xoá ${field.label}`}
-                    className="min-h-[44px] min-w-[44px] rounded-lg hover:bg-rose-50 text-rose-600 flex items-center justify-center cursor-pointer"
+                    className="min-h-[48px] min-w-[48px] rounded-xl hover:bg-rose-50 text-rose-600 flex items-center justify-center cursor-pointer transition"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               )}
@@ -152,7 +152,8 @@ export function PatientInfoSummaryPanel({
             <button
               type="button"
               onClick={resetCustomForm}
-              className="min-h-[44px] min-w-[44px] rounded-lg text-slate-600 flex items-center justify-center cursor-pointer"
+              aria-label="Đóng thêm thông tin bệnh án"
+              className="min-h-[48px] min-w-[48px] rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 flex items-center justify-center cursor-pointer transition"
             >
               <X className="w-4 h-4" />
             </button>

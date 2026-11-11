@@ -246,6 +246,7 @@ export default function EmergencyContactsModal({
             <button
               type="button"
               onClick={onClose}
+              aria-label="Đóng danh bạ khẩn cấp"
               className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-600 transition min-h-[48px] min-w-[48px] flex items-center justify-center cursor-pointer"
             >
               <X className="w-5 h-5" />

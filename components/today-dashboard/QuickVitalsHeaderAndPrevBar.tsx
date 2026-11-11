@@ -133,6 +133,24 @@ export function QuickVitalsHeaderAndPrevBar({
         </div>
       </div>
 
+      {(!lastEntry || lastEntry.date !== (todayStr || getVietnamDateStr())) && !hasBothValues && !editingEntry && (
+        <div className="rounded-xl border border-dashed border-teal-300 bg-teal-50/50 px-3.5 py-2.5 flex items-center justify-between gap-2 flex-wrap">
+          <div className="text-xs sm:text-sm font-bold text-teal-950">
+            🩺 Hôm nay chưa ghi nhận chỉ số huyết áp mới cho {patientDisplayName}.
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const firstInput = document.querySelector<HTMLInputElement>('input[inputmode="numeric"]');
+              firstInput?.focus();
+            }}
+            className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-extrabold transition cursor-pointer"
+          >
+            + Đo Huyết Áp Ngay
+          </button>
+        </div>
+      )}
+
       {lastEntry && lastEntryEval && (
         <div
           className={`rounded-xl border px-3.5 py-2.5 flex items-center justify-between gap-2 flex-wrap ${

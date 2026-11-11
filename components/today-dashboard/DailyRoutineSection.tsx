@@ -326,7 +326,7 @@ export function DailyRoutineSection({
                 key={item.date}
                 type="button"
                 onClick={() => handleSelectDate(item.date)}
-                className={`min-h-[48px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold border transition cursor-pointer ${
+                className={`min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold border transition cursor-pointer ${
                   selectedDateStr === item.date
                     ? 'bg-teal-700 text-white border-teal-800'
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
@@ -345,7 +345,7 @@ export function DailyRoutineSection({
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              <label className="inline-flex items-center gap-1.5 px-2 text-xs font-bold text-slate-700 min-h-[48px]">
+              <label className="inline-flex items-center gap-1.5 px-2 text-xs font-bold text-slate-700 min-h-[48px] min-w-[48px]">
                 <Calendar className="w-4 h-4 text-teal-700" />
                 <input
                   type="date"

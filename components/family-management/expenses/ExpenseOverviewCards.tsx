@@ -44,7 +44,7 @@ export default function ExpenseOverviewCards({
               <button
                 type="button"
                 onClick={() => setActiveCardInfo(activeCardInfo === 1 ? null : 1)}
-                className="p-1.5 rounded-full text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer shrink-0"
+                className="min-h-[48px] min-w-[48px] -my-2 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer shrink-0 flex items-center justify-center"
                 aria-label="Giải thích Ô 1"
               >
                 <Info className="w-4 h-4" />
@@ -77,7 +77,7 @@ export default function ExpenseOverviewCards({
               <button
                 type="button"
                 onClick={() => setActiveCardInfo(activeCardInfo === 2 ? null : 2)}
-                className="p-1.5 rounded-full text-slate-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer shrink-0"
+                className="min-h-[48px] min-w-[48px] -my-2 rounded-xl text-slate-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer shrink-0 flex items-center justify-center"
                 aria-label="Giải thích Ô 2"
               >
                 <Info className="w-4 h-4" />
@@ -115,7 +115,7 @@ export default function ExpenseOverviewCards({
               <button
                 type="button"
                 onClick={() => setActiveCardInfo(activeCardInfo === 3 ? null : 3)}
-                className="p-1.5 rounded-full text-slate-600 hover:text-amber-800 hover:bg-amber-50 cursor-pointer shrink-0"
+                className="min-h-[48px] min-w-[48px] -my-2 rounded-xl text-slate-600 hover:text-amber-800 hover:bg-amber-50 cursor-pointer shrink-0 flex items-center justify-center"
                 aria-label="Giải thích Ô 3"
               >
                 <Info className="w-4 h-4" />
@@ -166,7 +166,7 @@ export default function ExpenseOverviewCards({
               <button
                 type="button"
                 onClick={() => setActiveCardInfo(activeCardInfo === 4 ? null : 4)}
-                className="p-1.5 rounded-full text-slate-600 hover:text-slate-800 hover:bg-slate-100 cursor-pointer shrink-0"
+                className="min-h-[48px] min-w-[48px] -my-2 rounded-xl text-slate-600 hover:text-slate-800 hover:bg-slate-100 cursor-pointer shrink-0 flex items-center justify-center"
                 aria-label="Giải thích Ô 4"
               >
                 <Info className="w-4 h-4" />
@@ -187,7 +187,7 @@ export default function ExpenseOverviewCards({
                   key={p.name}
                   type="button"
                   onClick={() => onSelectPersonFilter(p.name)}
-                  className="w-full text-left hover:bg-slate-50 rounded-lg px-1.5 py-1 cursor-pointer"
+                  className="w-full min-h-[48px] text-left hover:bg-slate-50 rounded-xl px-2 py-1.5 cursor-pointer"
                   title="Bấm để xem các khoản này"
                 >
                   <span className="text-sm font-extrabold text-slate-900">

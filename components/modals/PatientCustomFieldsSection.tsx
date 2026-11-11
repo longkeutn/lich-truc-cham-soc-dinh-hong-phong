@@ -48,7 +48,7 @@ export default function PatientCustomFieldsSection({
         <button
           type="button"
           onClick={() => onAddField('', '', 'profile')}
-          className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer min-h-[44px]"
+          className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer min-h-[48px] min-w-[48px]"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Thêm mục mới</span>
@@ -66,7 +66,7 @@ export default function PatientCustomFieldsSection({
               key={tpl.label}
               type="button"
               onClick={() => onAddField(tpl.label, '', tpl.section)}
-              className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-[11px] font-semibold transition cursor-pointer"
+              className="min-h-[48px] min-w-[48px] px-2.5 py-1.5 rounded-lg bg-white hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-[11px] font-semibold transition cursor-pointer"
             >
               + {tpl.label}
             </button>
@@ -90,14 +90,14 @@ export default function PatientCustomFieldsSection({
                 value={field.label}
                 onChange={(e) => onUpdateField(field.id, { label: e.target.value })}
                 placeholder={`Tên mục ${index + 1} (VD: Nhóm máu)`}
-                className="sm:w-44 px-2.5 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[40px]"
+                className="sm:w-44 px-2.5 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[48px] min-w-[48px]"
               />
               <input
                 type="text"
                 value={field.value}
                 onChange={(e) => onUpdateField(field.id, { value: e.target.value })}
                 placeholder="Nội dung chi tiết..."
-                className="flex-1 px-2.5 py-2 rounded-lg border border-slate-300 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[40px]"
+                className="flex-1 px-2.5 py-2 rounded-lg border border-slate-300 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[48px]"
               />
               <div className="flex items-center gap-1.5 justify-between sm:justify-end">
                 <select
@@ -108,7 +108,7 @@ export default function PatientCustomFieldsSection({
                     })
                   }
                   aria-label="Vị trí hiển thị"
-                  className="px-2 py-2 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 min-h-[40px]"
+                  className="px-2 py-2 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700 min-h-[48px] min-w-[48px]"
                 >
                   <option value="profile">Cột Hồ sơ (Trái)</option>
                   <option value="care">Hộp Chăm sóc (Phải)</option>
@@ -117,7 +117,8 @@ export default function PatientCustomFieldsSection({
                   type="button"
                   onClick={() => onDeleteField(field.id)}
                   title="Xoá mục thông tin này"
-                  className="min-h-[40px] min-w-[40px] rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition cursor-pointer flex items-center justify-center"
+                  aria-label="Xoá mục thông tin này"
+                  className="min-h-[48px] min-w-[48px] rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition cursor-pointer flex items-center justify-center"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>

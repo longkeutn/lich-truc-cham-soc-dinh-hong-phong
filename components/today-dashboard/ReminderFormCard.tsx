@@ -92,7 +92,7 @@ export function ReminderFormCard({
                   onChangeContent(p.content);
                   onChangeUrgent(p.isUrgent);
                 }}
-                className="min-h-[44px] px-3 py-1.5 rounded-xl bg-white hover:bg-teal-100/70 border border-teal-200 text-xs font-bold text-slate-800 cursor-pointer text-left"
+                className="min-h-[48px] min-w-[48px] px-3 py-1.5 rounded-xl bg-white hover:bg-teal-100/70 border border-teal-200 text-xs font-bold text-slate-800 cursor-pointer text-left"
               >
                 + {p.title}
               </button>
@@ -164,7 +164,7 @@ export function ReminderFormCard({
       {error && <p className="text-xs font-bold text-rose-700">⚠️ {error}</p>}
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <label className="inline-flex items-center gap-2 min-h-[48px] cursor-pointer text-xs sm:text-sm font-bold text-rose-800">
+        <label className="inline-flex items-center gap-2 min-h-[48px] min-w-[48px] cursor-pointer text-xs sm:text-sm font-bold text-rose-800">
           <input
             type="checkbox"
             checked={isUrgent}

@@ -197,22 +197,16 @@ export function EditPatientModal({
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
                   placeholder="VD: Đinh Hồng Phong"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Nhãn tình trạng (cạnh tên)
-                  </label>
+                  <label className="block text-xs font-bold text-slate-700">Nhãn tình trạng (cạnh tên)</label>
                   {formData.conditionTag && (
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, conditionTag: '' })}
-                      className="text-[11px] text-rose-600 hover:underline flex items-center gap-0.5 cursor-pointer"
-                    >
+                    <button type="button" onClick={() => setFormData({ ...formData, conditionTag: '' })} className="min-h-[48px] min-w-[48px] px-2 text-xs font-semibold text-rose-600 hover:underline flex items-center gap-0.5 cursor-pointer">
                       <Eraser className="w-3 h-3" /> Xoá nhãn
                     </button>
                   )}
@@ -221,7 +215,7 @@ export function EditPatientModal({
                   type="text"
                   value={formData.conditionTag || ''}
                   onChange={(e) => setFormData({ ...formData, conditionTag: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
                   placeholder="VD: Huyết áp & Tim mạch / Phục hồi tại nhà"
                 />
               </div>
@@ -230,15 +224,9 @@ export function EditPatientModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Nhãn tiêu đề đầu thẻ hồ sơ
-                  </label>
+                  <label className="block text-xs font-bold text-slate-700">Nhãn tiêu đề đầu thẻ hồ sơ</label>
                   {formData.statusBadge && (
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, statusBadge: '' })}
-                      className="text-[11px] text-rose-600 hover:underline flex items-center gap-0.5 cursor-pointer"
-                    >
+                    <button type="button" onClick={() => setFormData({ ...formData, statusBadge: '' })} className="min-h-[48px] min-w-[48px] px-2 text-xs font-semibold text-rose-600 hover:underline flex items-center gap-0.5 cursor-pointer">
                       <Eraser className="w-3 h-3" /> Xoá nhãn
                     </button>
                   )}
@@ -247,22 +235,16 @@ export function EditPatientModal({
                   type="text"
                   value={formData.statusBadge || ''}
                   onChange={(e) => setFormData({ ...formData, statusBadge: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
                   placeholder="VD: Theo dõi sức khỏe gia đình"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Nhãn vị trí trên thanh Header
-                  </label>
+                  <label className="block text-xs font-bold text-slate-700">Nhãn vị trí trên thanh Header</label>
                   {formData.headerBadge && (
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, headerBadge: '' })}
-                      className="text-[11px] text-rose-600 hover:underline flex items-center gap-0.5 cursor-pointer"
-                    >
+                    <button type="button" onClick={() => setFormData({ ...formData, headerBadge: '' })} className="min-h-[48px] min-w-[48px] px-2 text-xs font-semibold text-rose-600 hover:underline flex items-center gap-0.5 cursor-pointer">
                       <Eraser className="w-3 h-3" /> Xoá nhãn
                     </button>
                   )}
@@ -271,7 +253,7 @@ export function EditPatientModal({
                   type="text"
                   value={formData.headerBadge || ''}
                   onChange={(e) => setFormData({ ...formData, headerBadge: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
                   placeholder="VD: Tại nhà / Tại viện"
                 />
               </div>
@@ -287,15 +269,9 @@ export function EditPatientModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Bệnh viện / Cơ sở y tế điều trị
-                  </label>
+                  <label className="block text-xs font-bold text-slate-700">Bệnh viện / Cơ sở y tế điều trị</label>
                   {formData.hospital && (
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, hospital: '' })}
-                      className="text-[11px] text-rose-600 hover:underline cursor-pointer"
-                    >
+                    <button type="button" onClick={() => setFormData({ ...formData, hospital: '' })} className="min-h-[48px] min-w-[48px] px-2 text-xs font-semibold text-rose-600 hover:underline flex items-center cursor-pointer">
                       Xoá
                     </button>
                   )}
@@ -304,22 +280,16 @@ export function EditPatientModal({
                   type="text"
                   value={formData.hospital}
                   onChange={(e) => setFormData({ ...formData, hospital: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
                   placeholder="VD: Bệnh viện Đại học Y - Hà Nội"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Vị trí / Khoa phòng / Nơi chăm sóc
-                  </label>
+                  <label className="block text-xs font-bold text-slate-700">Vị trí / Khoa phòng / Nơi chăm sóc</label>
                   {formData.room && (
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, room: '' })}
-                      className="text-[11px] text-rose-600 hover:underline cursor-pointer"
-                    >
+                    <button type="button" onClick={() => setFormData({ ...formData, room: '' })} className="min-h-[48px] min-w-[48px] px-2 text-xs font-semibold text-rose-600 hover:underline flex items-center cursor-pointer">
                       Xoá
                     </button>
                   )}
@@ -328,7 +298,7 @@ export function EditPatientModal({
                   type="text"
                   value={formData.room}
                   onChange={(e) => setFormData({ ...formData, room: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
                   placeholder="VD: Phục hồi tại nhà / Trung tâm cấp cứu & HSTC"
                 />
               </div>
@@ -337,15 +307,9 @@ export function EditPatientModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Chế độ chăm sóc (Khối bên phải)
-                  </label>
+                  <label className="block text-xs font-bold text-slate-700">Chế độ chăm sóc (Khối bên phải)</label>
                   {formData.careMode && (
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, careMode: '' })}
-                      className="text-[11px] text-rose-600 hover:underline cursor-pointer"
-                    >
+                    <button type="button" onClick={() => setFormData({ ...formData, careMode: '' })} className="min-h-[48px] min-w-[48px] px-2 text-xs font-semibold text-rose-600 hover:underline flex items-center cursor-pointer">
                       Xoá
                     </button>
                   )}
@@ -354,22 +318,16 @@ export function EditPatientModal({
                   type="text"
                   value={formData.careMode || ''}
                   onChange={(e) => setFormData({ ...formData, careMode: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
                   placeholder="VD: Liên tục 24/7 / Theo dõi hàng ngày"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Mục tiêu chăm sóc (Khối bên phải)
-                  </label>
+                  <label className="block text-xs font-bold text-slate-700">Mục tiêu chăm sóc (Khối bên phải)</label>
                   {formData.careGoal && (
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, careGoal: '' })}
-                      className="text-[11px] text-rose-600 hover:underline cursor-pointer"
-                    >
+                    <button type="button" onClick={() => setFormData({ ...formData, careGoal: '' })} className="min-h-[48px] min-w-[48px] px-2 text-xs font-semibold text-rose-600 hover:underline flex items-center cursor-pointer">
                       Xoá
                     </button>
                   )}
@@ -378,7 +336,7 @@ export function EditPatientModal({
                   type="text"
                   value={formData.careGoal || ''}
                   onChange={(e) => setFormData({ ...formData, careGoal: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
                   placeholder="VD: Kiểm soát HA & Phục hồi vận động"
                 />
               </div>
@@ -386,15 +344,9 @@ export function EditPatientModal({
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-slate-700">
-                  Chẩn đoán y khoa
-                </label>
+                <label className="block text-xs font-bold text-slate-700">Chẩn đoán y khoa</label>
                 {formData.diagnosis && (
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, diagnosis: '' })}
-                    className="text-[11px] text-rose-600 hover:underline cursor-pointer"
-                  >
+                  <button type="button" onClick={() => setFormData({ ...formData, diagnosis: '' })} className="min-h-[48px] min-w-[48px] px-2 text-xs font-semibold text-rose-600 hover:underline flex items-center cursor-pointer">
                     Xoá nội dung
                   </button>
                 )}
@@ -403,22 +355,16 @@ export function EditPatientModal({
                 type="text"
                 value={formData.diagnosis}
                 onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
                 placeholder="VD: Phục hồi chức năng sau tai biến mạch máu não..."
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-slate-700">
-                  Chỉ định chính / Lưu ý chăm sóc đặc biệt
-                </label>
+                <label className="block text-xs font-bold text-slate-700">Chỉ định chính / Lưu ý chăm sóc đặc biệt</label>
                 {formData.notes && (
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, notes: '' })}
-                    className="text-[11px] text-rose-600 hover:underline cursor-pointer"
-                  >
+                  <button type="button" onClick={() => setFormData({ ...formData, notes: '' })} className="min-h-[48px] min-w-[48px] px-2 text-xs font-semibold text-rose-600 hover:underline flex items-center cursor-pointer">
                     Xoá nội dung
                   </button>
                 )}
@@ -434,15 +380,9 @@ export function EditPatientModal({
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-slate-700">
-                  Bác sĩ điều trị / Số điện thoại liên hệ khẩn cấp
-                </label>
+                <label className="block text-xs font-bold text-slate-700">Bác sĩ điều trị / Số điện thoại liên hệ khẩn cấp</label>
                 {formData.emergencyPhone && (
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, emergencyPhone: '' })}
-                    className="text-[11px] text-rose-600 hover:underline cursor-pointer"
-                  >
+                  <button type="button" onClick={() => setFormData({ ...formData, emergencyPhone: '' })} className="min-h-[48px] min-w-[48px] px-2 text-xs font-semibold text-rose-600 hover:underline flex items-center cursor-pointer">
                     Xoá
                   </button>
                 )}
@@ -451,7 +391,7 @@ export function EditPatientModal({
                 type="text"
                 value={formData.emergencyPhone || ''}
                 onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
                 placeholder="VD: 0913 218 765 (BS. Hùng)"
               />
             </div>

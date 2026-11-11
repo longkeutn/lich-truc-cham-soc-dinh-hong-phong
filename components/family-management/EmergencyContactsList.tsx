@@ -115,7 +115,8 @@ export default function EmergencyContactsList({
             <button
               type="button"
               onClick={() => onChangeSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white"
+              aria-label="Xoá từ khoá tìm kiếm"
+              className="absolute right-1 top-1/2 -translate-y-1/2 min-h-[48px] min-w-[48px] text-slate-400 hover:text-white flex items-center justify-center cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -127,7 +128,7 @@ export default function EmergencyContactsList({
           <button
             type="button"
             onClick={() => onSelectCategory('all')}
-            className={`px-3.5 py-2 rounded-xl whitespace-nowrap font-bold border-2 transition min-h-[48px] cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl whitespace-nowrap font-bold border-2 transition min-h-[48px] min-w-[48px] cursor-pointer ${
               selectedCategory === 'all'
                 ? 'bg-rose-600 text-white border-rose-400 shadow'
                 : 'bg-slate-800 text-slate-200 border-slate-700 hover:text-white'
@@ -142,7 +143,7 @@ export default function EmergencyContactsList({
                 key={cat}
                 type="button"
                 onClick={() => onSelectCategory(cat)}
-                className={`px-3.5 py-2 rounded-xl whitespace-nowrap font-bold border-2 transition min-h-[48px] cursor-pointer ${
+                className={`px-3.5 py-2 rounded-xl whitespace-nowrap font-bold border-2 transition min-h-[48px] min-w-[48px] cursor-pointer ${
                   selectedCategory === cat
                     ? 'bg-rose-600 text-white border-rose-400 shadow'
                     : 'bg-slate-800 text-slate-200 border-slate-700 hover:text-white'
@@ -171,7 +172,8 @@ export default function EmergencyContactsList({
             <button
               type="button"
               onClick={onCloseForm}
-              className="p-1.5 text-slate-400 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="Đóng biểu mẫu liên hệ"
+              className="p-2 text-slate-400 hover:text-white min-h-[48px] min-w-[48px] flex items-center justify-center cursor-pointer rounded-xl hover:bg-slate-800 transition"
             >
               <X className="w-5 h-5" />
             </button>
@@ -266,14 +268,14 @@ export default function EmergencyContactsList({
             <button
               type="button"
               onClick={onCloseForm}
-              className="px-4 py-2 rounded-xl bg-slate-800 text-slate-200 text-xs sm:text-sm font-bold hover:bg-slate-700 transition min-h-[48px]"
+              className="px-4 py-2 rounded-xl bg-slate-800 text-slate-200 text-xs sm:text-sm font-bold hover:bg-slate-700 transition min-h-[48px] min-w-[48px]"
             >
               Huỷ bỏ
             </button>
 
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-bold transition min-h-[48px] shadow"
+              className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-bold transition min-h-[48px] min-w-[48px] shadow"
             >
               {editingContactId ? 'Cập nhật số điện thoại' : 'Lưu vào Google Sheet'}
             </button>
@@ -284,7 +286,7 @@ export default function EmergencyContactsList({
           <button
             type="button"
             onClick={onOpenAddForm}
-            className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white border-2 border-rose-400 text-xs sm:text-sm font-bold flex items-center gap-2 transition min-h-[48px] cursor-pointer shadow"
+            className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white border-2 border-rose-400 text-xs sm:text-sm font-bold flex items-center gap-2 transition min-h-[48px] min-w-[48px] cursor-pointer shadow"
           >
             <Plus className="w-5 h-5" />
             <span>Thêm số khẩn cấp mới</span>
@@ -306,7 +308,7 @@ export default function EmergencyContactsList({
               <button
                 type="button"
                 onClick={onOpenAddForm}
-                className="min-h-[48px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold inline-flex items-center gap-1.5 transition cursor-pointer"
+                className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold inline-flex items-center gap-1.5 transition cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Thêm số bác sĩ / cấp cứu ngay</span>
@@ -370,6 +372,7 @@ export default function EmergencyContactsList({
                     <button
                       type="button"
                       onClick={() => onSpeakContact(contact)}
+                      aria-label={`Đọc to số điện thoại ${contact.name}`}
                       className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white border-2 border-slate-600 transition min-h-[48px] min-w-[48px] flex items-center justify-center cursor-pointer"
                       title="Đọc to số điện thoại này"
                     >
@@ -379,7 +382,7 @@ export default function EmergencyContactsList({
 
                   <a
                     href={`tel:${cleanPhone}`}
-                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 transition active:scale-95 shadow min-h-[48px]"
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 transition active:scale-95 shadow min-h-[48px] min-w-[48px]"
                   >
                     <PhoneCall className="w-4 h-4" />
                     <span>Gọi ngay</span>
@@ -388,6 +391,7 @@ export default function EmergencyContactsList({
                   <button
                     type="button"
                     onClick={() => onCopyPhone(contact.id, contact.phone)}
+                    aria-label={`Sao chép số điện thoại ${contact.name}`}
                     className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border-2 border-slate-600 transition min-h-[48px] min-w-[48px] flex items-center justify-center cursor-pointer"
                     title="Sao chép số điện thoại"
                   >
@@ -401,6 +405,7 @@ export default function EmergencyContactsList({
                   <button
                     type="button"
                     onClick={() => onOpenEditForm(contact)}
+                    aria-label={`Sửa liên hệ ${contact.name}`}
                     className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-2 border-slate-600 transition min-h-[48px] min-w-[48px] flex items-center justify-center cursor-pointer"
                     title="Chỉnh sửa thông tin"
                   >
@@ -410,6 +415,7 @@ export default function EmergencyContactsList({
                   <button
                     type="button"
                     onClick={() => onDeleteContact(contact.id, contact.name)}
+                    aria-label={`Xoá liên hệ ${contact.name}`}
                     className="p-2.5 rounded-xl bg-slate-800 hover:bg-rose-950 text-slate-300 hover:text-rose-400 border-2 border-slate-600 hover:border-rose-700 transition min-h-[48px] min-w-[48px] flex items-center justify-center cursor-pointer"
                     title="Xoá khỏi danh bạ"
                   >

@@ -40,7 +40,7 @@ export default function ShiftCardHandoverDrawer({
       <button
         type="button"
         onClick={onToggleShowHandover}
-        className="w-full p-3 flex items-center justify-between text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 transition cursor-pointer min-h-[44px]"
+        className="w-full p-3 flex items-center justify-between text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 transition cursor-pointer min-h-[48px]"
       >
         <div className="flex items-center gap-2">
           <MessageSquare className="w-4 h-4 text-amber-500" />
@@ -55,7 +55,7 @@ export default function ShiftCardHandoverDrawer({
               Bởi: {shift.handover.author}
             </span>
           )}
-          {showHandover ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+          {showHandover ? <ChevronUp className="w-4 h-4 text-slate-600" /> : <ChevronDown className="w-4 h-4 text-slate-600" />}
         </div>
       </button>
 
@@ -71,7 +71,7 @@ export default function ShiftCardHandoverDrawer({
                 placeholder="120/80"
                 value={vitals.bp || ''}
                 onChange={(e) => onChangeVitals({ ...vitals, bp: e.target.value })}
-                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 text-xs font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none min-h-[40px]"
+                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 text-xs font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none min-h-[48px]"
               />
             </div>
 
@@ -84,7 +84,7 @@ export default function ShiftCardHandoverDrawer({
                 placeholder="97%"
                 value={vitals.spo2 || ''}
                 onChange={(e) => onChangeVitals({ ...vitals, spo2: e.target.value })}
-                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 text-xs font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none min-h-[40px]"
+                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 text-xs font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none min-h-[48px]"
               />
             </div>
 
@@ -97,7 +97,7 @@ export default function ShiftCardHandoverDrawer({
                 placeholder="78"
                 value={vitals.pulse || ''}
                 onChange={(e) => onChangeVitals({ ...vitals, pulse: e.target.value })}
-                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 text-xs font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none min-h-[40px]"
+                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 text-xs font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none min-h-[48px]"
               />
             </div>
 
@@ -110,7 +110,7 @@ export default function ShiftCardHandoverDrawer({
                 placeholder="36.8"
                 value={vitals.temp || ''}
                 onChange={(e) => onChangeVitals({ ...vitals, temp: e.target.value })}
-                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 text-xs font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none min-h-[40px]"
+                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 text-xs font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none min-h-[48px]"
               />
             </div>
           </div>
@@ -139,7 +139,7 @@ export default function ShiftCardHandoverDrawer({
               type="button"
               onClick={onSaveHandover}
               disabled={isSavingHandover}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 transition min-h-[44px] cursor-pointer shadow-sm active:scale-95"
+              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition min-h-[48px] min-w-[48px] cursor-pointer shadow-sm active:scale-95"
             >
               {saveFeedback ? (
                 <>

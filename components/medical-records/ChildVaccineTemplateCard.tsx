@@ -164,7 +164,7 @@ export function ChildVaccineTemplateCard({
                 type="date"
                 value={dateInput}
                 onChange={(e) => onChangeDate(e.target.value)}
-                className="w-full min-h-[44px] px-2.5 rounded-xl bg-white border border-slate-300 text-sm font-bold text-slate-900"
+                className="w-full min-h-[48px] px-2.5 rounded-xl bg-white border border-slate-300 text-sm font-bold text-slate-900"
               />
             </label>
             <label className="block">
@@ -174,7 +174,7 @@ export function ChildVaccineTemplateCard({
                 list="vaccine-facilities"
                 value={facilityInput}
                 onChange={(e) => onChangeFacility(e.target.value)}
-                className="w-full min-h-[44px] px-2.5 rounded-xl bg-white border border-slate-300 text-sm font-bold text-slate-900"
+                className="w-full min-h-[48px] px-2.5 rounded-xl bg-white border border-slate-300 text-sm font-bold text-slate-900"
               />
             </label>
             <label className="block">
@@ -185,7 +185,7 @@ export function ChildVaccineTemplateCard({
                 type="date"
                 value={nextDueInput}
                 onChange={(e) => onChangeNextDue(e.target.value)}
-                className="w-full min-h-[44px] px-2.5 rounded-xl bg-white border border-slate-300 text-sm font-bold text-slate-900"
+                className="w-full min-h-[48px] px-2.5 rounded-xl bg-white border border-slate-300 text-sm font-bold text-slate-900"
               />
             </label>
           </div>

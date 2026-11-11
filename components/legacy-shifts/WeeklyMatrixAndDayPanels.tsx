@@ -151,7 +151,7 @@ export default function WeeklyMatrixAndDayPanels({
                                     key={slotIdx}
                                     type="button"
                                     onClick={() => onSelectShiftForDetail(shift)}
-                                    className={`w-full p-1.5 rounded-xl border text-left flex items-center justify-between gap-1.5 transition cursor-pointer shadow-2xs hover:scale-[1.02] ${
+                                    className={`w-full min-h-[48px] p-1.5 rounded-xl border text-left flex items-center justify-between gap-1.5 transition cursor-pointer shadow-2xs hover:scale-[1.02] ${
                                       member?.bgLight || 'bg-blue-50'
                                     } ${member?.borderLight || 'border-blue-200'}`}
                                     title="Bấm để xem dặn dò hoặc bàn giao"
@@ -182,7 +182,7 @@ export default function WeeklyMatrixAndDayPanels({
                                   key={slotIdx}
                                   type="button"
                                   onClick={() => onSlotClick(shift, slotIdx)}
-                                  className="w-full py-1.5 px-2 rounded-xl border-2 border-dashed border-rose-300 hover:border-rose-400 bg-white hover:bg-rose-50/80 text-rose-700 text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95 shadow-2xs group"
+                                  className="w-full min-h-[48px] py-1.5 px-2 rounded-xl border-2 border-dashed border-rose-300 hover:border-rose-400 bg-white hover:bg-rose-50/80 text-rose-700 text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer active:scale-95 shadow-2xs group"
                                   title="Chạm để nhận ca trực này"
                                 >
                                   <UserPlus className="w-3 h-3 text-rose-500 group-hover:scale-110 transition" />
@@ -195,7 +195,7 @@ export default function WeeklyMatrixAndDayPanels({
                               <button
                                 type="button"
                                 onClick={() => onSelectShiftForDetail(shift)}
-                                className="w-full text-left text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-lg border border-emerald-200 truncate cursor-pointer hover:bg-emerald-100 transition"
+                                className="w-full min-h-[48px] text-left text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-lg border border-emerald-200 truncate cursor-pointer hover:bg-emerald-100 transition flex items-center"
                                 title={`Người hỗ trợ: ${shift.supporters.join(', ')}`}
                               >
                                 🤝 +{shift.supporters.join(', ')}
@@ -226,7 +226,7 @@ export default function WeeklyMatrixAndDayPanels({
               key={day.dateStr}
               type="button"
               onClick={() => onSelectDayDateStr(day.dateStr)}
-              className={`min-w-[68px] sm:min-w-[80px] p-2 rounded-2xl border text-center transition cursor-pointer shrink-0 ${
+              className={`min-h-[48px] min-w-[68px] sm:min-w-[80px] p-2 rounded-2xl border text-center transition cursor-pointer shrink-0 ${
                 isSelected
                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                   : day.isToday
@@ -317,7 +317,7 @@ export default function WeeklyMatrixAndDayPanels({
                       key={slotIdx}
                       type="button"
                       onClick={() => onSlotClick(shift, slotIdx)}
-                      className="w-full py-2 px-3 rounded-xl border-2 border-dashed border-rose-300 hover:bg-rose-50 text-rose-700 text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                      className="w-full min-h-[48px] py-2 px-3 rounded-xl border-2 border-dashed border-rose-300 hover:bg-rose-50 text-rose-700 text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
                       <span>Chưa có người - Bấm nhận ca</span>
@@ -340,7 +340,7 @@ export default function WeeklyMatrixAndDayPanels({
               <button
                 type="button"
                 onClick={() => onSelectShiftForDetail(shift)}
-                className="w-full py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition cursor-pointer"
+                className="w-full min-h-[48px] py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition cursor-pointer"
               >
                 Bàn giao &amp; Checklist ca trực
               </button>

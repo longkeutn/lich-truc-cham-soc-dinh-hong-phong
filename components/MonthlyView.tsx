@@ -105,7 +105,8 @@ export default function MonthlyView({
         <button
           type="button"
           onClick={handlePrevMonth}
-          className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 transition min-h-[44px] cursor-pointer"
+          aria-label="Tháng trước"
+          className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 transition min-h-[48px] min-w-[48px] flex items-center justify-center cursor-pointer"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -115,7 +116,7 @@ export default function MonthlyView({
             <CalendarIcon className="w-5 h-5 text-indigo-600" />
             <span>Tháng {month + 1}, {year}</span>
           </h3>
-          <p className="text-xs text-slate-500 font-medium">
+          <p className="text-xs text-slate-600 font-medium">
             Chạm vào một ngày để xem và điều phối các ca trực
           </p>
         </div>
@@ -123,7 +124,8 @@ export default function MonthlyView({
         <button
           type="button"
           onClick={handleNextMonth}
-          className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 transition min-h-[44px] cursor-pointer"
+          aria-label="Tháng sau"
+          className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 transition min-h-[48px] min-w-[48px] flex items-center justify-center cursor-pointer"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -132,7 +134,7 @@ export default function MonthlyView({
       {/* Grid lịch tháng */}
       <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-sm">
         {/* Tiêu đề thứ trong tuần */}
-        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2 text-center text-[11px] sm:text-xs font-bold text-slate-500 uppercase">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2 text-center text-[11px] sm:text-xs font-bold text-slate-600 uppercase">
           <div>T2</div>
           <div>T3</div>
           <div>T4</div>

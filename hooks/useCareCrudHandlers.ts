@@ -487,14 +487,8 @@ export function useCareCrudHandlers({
   );
 
   return {
-    handleSaveVitals,
-    handleDeleteVitals,
-    handleToggleDailyLog,
-    handleSaveRoutine,
-    handleDeleteRoutine,
-    handleApplyPresetRoutines,
-    handleSaveLabResult,
-    handleDeleteLabResult,
-    ...familyCrud,
+    handleSaveVitals, handleDeleteVitals, handleToggleDailyLog,
+    handleSaveRoutine, handleDeleteRoutine, handleApplyPresetRoutines,
+    handleSaveLabResult, handleDeleteLabResult, ...familyCrud,
   };
 }

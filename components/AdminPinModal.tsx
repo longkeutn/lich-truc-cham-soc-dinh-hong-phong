@@ -293,12 +293,8 @@ export function AdminPinModal({
         <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-1">
           <button
             type="button"
-            onClick={() => {
-              setMode('unlock');
-              setPin('');
-              setErrorMsg('');
-            }}
-            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer min-h-[44px] ${
+            onClick={() => { setMode('unlock'); setPin(''); setErrorMsg(''); }}
+            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer min-h-[48px] ${
               mode === 'unlock'
                 ? 'bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-400 shadow-sm'
                 : 'text-slate-600 hover:text-slate-800 dark:text-slate-400'
@@ -316,7 +312,7 @@ export function AdminPinModal({
               setConfirmPin('');
               setErrorMsg('');
             }}
-            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer min-h-[44px] ${
+            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer min-h-[48px] ${
               mode === 'change'
                 ? 'bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-400 shadow-sm'
                 : 'text-slate-600 hover:text-slate-800 dark:text-slate-400'
@@ -345,11 +341,8 @@ export function AdminPinModal({
               {onLockAdmin && (
                 <button
                   type="button"
-                  onClick={() => {
-                    onLockAdmin();
-                    onClose();
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold transition cursor-pointer shrink-0 min-h-[36px]"
+                  onClick={() => { onLockAdmin(); onClose(); }}
+                  className="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition cursor-pointer shrink-0 min-h-[48px] min-w-[48px]"
                 >
                   🔒 Khóa lại
                 </button>
@@ -361,11 +354,8 @@ export function AdminPinModal({
                 {onOpenExpenses && (
                   <button
                     type="button"
-                    onClick={() => {
-                      onOpenExpenses();
-                      onClose();
-                    }}
-                    className="px-3 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs min-h-[44px]"
+                    onClick={() => { onOpenExpenses(); onClose(); }}
+                    className="px-3 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs min-h-[48px] min-w-[48px]"
                   >
                     <span>💰</span>
                     <span>Sổ Thu Chi</span>
@@ -374,11 +364,8 @@ export function AdminPinModal({
                 {onOpenGuide && (
                   <button
                     type="button"
-                    onClick={() => {
-                      onOpenGuide();
-                      onClose();
-                    }}
-                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs min-h-[44px]"
+                    onClick={() => { onOpenGuide(); onClose(); }}
+                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs min-h-[48px] min-w-[48px]"
                   >
                     <span>📋</span>
                     <span>Code.gs &amp; Sheet</span>
@@ -386,7 +373,7 @@ export function AdminPinModal({
                 )}
               </div>
             ) : (
-              <p className="text-[11px] text-slate-600 leading-snug">
+              <p className="text-xs text-slate-600 leading-snug">
                 Bạn đang có quyền thêm/sửa danh mục. Nhập mã PIN Quản trị viên bên dưới nếu cần mở <strong>Sổ Thu Chi</strong> hoặc <strong>Cấu hình Code.gs</strong>.
               </p>
             )}
@@ -406,7 +393,7 @@ export function AdminPinModal({
                   setConfirmPin('');
                   setErrorMsg('');
                 }}
-                className={`py-2 px-2 rounded-lg text-[11px] font-bold transition cursor-pointer min-h-[40px] ${
+                className={`py-2 px-2 rounded-lg text-xs font-bold transition cursor-pointer min-h-[48px] min-w-[48px] ${
                   pinTarget === 'super_admin'
                     ? 'bg-teal-700 text-white shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -424,7 +411,7 @@ export function AdminPinModal({
                   setConfirmPin('');
                   setErrorMsg('');
                 }}
-                className={`py-2 px-2 rounded-lg text-[11px] font-bold transition cursor-pointer min-h-[40px] ${
+                className={`py-2 px-2 rounded-lg text-xs font-bold transition cursor-pointer min-h-[48px] min-w-[48px] ${
                   pinTarget === 'category'
                     ? 'bg-amber-600 text-white shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'

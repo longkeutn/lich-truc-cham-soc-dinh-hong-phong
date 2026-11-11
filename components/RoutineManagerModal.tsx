@@ -237,7 +237,8 @@ export function RoutineManagerModal({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition"
+            aria-label="Đóng quản lý đơn thuốc và bài tập"
+            className="min-h-[48px] min-w-[48px] rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -253,7 +254,7 @@ export function RoutineManagerModal({
                   setSelectedStageId(stage.id);
                   cancelForm();
                 }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition min-h-[44px] ${
+                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition min-h-[48px] min-w-[48px] cursor-pointer ${
                   selectedStageId === stage.id
                     ? 'bg-violet-100 text-violet-800 border-2 border-violet-300'
                     : 'bg-slate-100 text-slate-600 border-2 border-transparent hover:bg-slate-200'
@@ -311,7 +312,7 @@ export function RoutineManagerModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-slate-200 font-semibold text-xs transition min-h-[44px]"
+            className="px-5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm transition min-h-[48px] min-w-[48px] cursor-pointer flex items-center justify-center"
           >
             Đóng
           </button>
@@ -340,9 +341,10 @@ export function RoutineManagerModal({
               <button
                 type="button"
                 onClick={() => setPreviewLightbox(null)}
-                className="absolute top-3 right-3 min-h-[44px] min-w-[44px] rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center"
+                aria-label="Đóng xem trước hình ảnh thuốc"
+                className="absolute top-3 right-3 min-h-[48px] min-w-[48px] rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center cursor-pointer transition"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
             <div className="p-4 text-center overflow-y-auto">

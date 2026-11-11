@@ -152,7 +152,7 @@ export function MemberEditorForm({
         <button
           type="button"
           onClick={onCancel}
-          className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 font-semibold"
+          className="min-h-[48px] min-w-[48px] px-3 rounded-xl text-xs text-slate-600 hover:text-slate-800 dark:hover:text-slate-200 font-semibold"
         >
           Huỷ
         </button>
@@ -228,7 +228,7 @@ export function MemberEditorForm({
           <button
             type="button"
             onClick={() => onChangeIsSupporter(false)}
-            className={`p-2.5 rounded-xl border-2 text-left flex items-start gap-2 transition cursor-pointer min-h-[48px] ${
+            className={`p-2.5 rounded-xl border-2 text-left flex items-start gap-2 transition cursor-pointer min-h-[48px] min-w-[48px] ${
               !isSupporter
                 ? 'border-indigo-500 bg-indigo-50/70 text-indigo-950 font-bold'
                 : 'border-slate-200 bg-white dark:bg-slate-900/40 text-slate-600'
@@ -244,7 +244,7 @@ export function MemberEditorForm({
           <button
             type="button"
             onClick={() => onChangeIsSupporter(true)}
-            className={`p-2.5 rounded-xl border-2 text-left flex items-start gap-2 transition cursor-pointer min-h-[48px] ${
+            className={`p-2.5 rounded-xl border-2 text-left flex items-start gap-2 transition cursor-pointer min-h-[48px] min-w-[48px] ${
               isSupporter
                 ? 'border-emerald-500 bg-emerald-50/70 text-emerald-950 font-bold'
                 : 'border-slate-200 bg-white dark:bg-slate-900/40 text-slate-600'
@@ -271,9 +271,10 @@ export function MemberEditorForm({
                 key={theme.id}
                 type="button"
                 onClick={() => onSelectThemeIndex(idx)}
-                className={`w-9 h-9 rounded-full ${theme.previewBg} flex items-center justify-center text-white text-xs font-bold transition transform active:scale-90 ${
+                aria-label={`Chọn màu ${theme.label}`}
+                className={`min-h-[48px] min-w-[48px] w-12 h-12 rounded-full ${theme.previewBg} flex items-center justify-center text-white text-xs font-bold transition transform active:scale-90 ${
                   isSelected
-                    ? 'ring-4 ring-emerald-400 ring-offset-2 scale-110 shadow-md'
+                    ? 'ring-4 ring-emerald-400 ring-offset-2 scale-105 shadow-md'
                     : 'opacity-80 hover:opacity-100'
                 }`}
                 title={theme.label}
@@ -290,14 +291,14 @@ export function MemberEditorForm({
           type="button"
           onClick={onCancel}
           disabled={isSaving}
-          className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/60 dark:hover:bg-slate-700 min-h-[48px]"
+          className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/60 dark:hover:bg-slate-700 min-h-[48px] min-w-[48px]"
         >
           Đóng
         </button>
         <button
           type="submit"
           disabled={isSaving}
-          className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition shadow-md shadow-emerald-600/20 disabled:opacity-50 min-h-[48px]"
+          className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition shadow-md shadow-emerald-600/20 disabled:opacity-50 min-h-[48px] min-w-[48px]"
         >
           {isSaving ? 'Đang lưu...' : '💾 Lưu thành viên'}
         </button>

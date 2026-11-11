@@ -1,5 +1,5 @@
 /**
- * GOOGLE APPS SCRIPT WEB APP - SỔ SỨC KHỎE ÔNG BÀ NỘI v2.3
+ * GOOGLE APPS SCRIPT WEB APP - LỊCH TRỰC CHĂM SÓC ĐINH HỒNG PHONG v2.3
  * Tự động tạo và quản lý 10 Bảng Tính:
  *   5 Bảng gốc: Shifts, Members, Settings, Contacts, Reminders
  *   5 Bảng mới: VitalsLog, CareRoutines, DailyLogs, Expenses (Sổ Thu Chi), LabResults (Xét nghiệm & Hóa sinh)
@@ -319,7 +319,7 @@ function ensureSheetsSetup(ss) {
   // Sheet 3: Settings (Thông tin hồ sơ sức khỏe & cấu hình V1 + V2.2)
   let sheetSettings = ss.getSheetByName('Settings');
   const requiredSettings = [
-    ['patient_name', 'Đoàn Thị Bạch Yến', 'Họ và tên người thân chính'],
+    ['patient_name', 'Đinh Hồng Phong', 'Họ và tên người thân chính'],
     ['patient_diagnosis', 'Theo dõi huyết áp, tim mạch & chăm sóc sức khỏe hằng ngày', 'Tình trạng sức khỏe / Theo dõi chính'],
     ['patient_hospital', 'Khám & kiểm tra định kỳ', 'Cơ sở y tế theo dõi'],
     ['patient_room', 'Tại nhà', 'Vị trí chăm sóc hiện tại'],
@@ -641,7 +641,7 @@ function readMembers(ss) {
 function readPatientInfo(ss) {
   const sheet = ss.getSheetByName('Settings');
   const info = {
-    name: 'Đoàn Thị Bạch Yến',
+    name: 'Đinh Hồng Phong',
     diagnosis: 'Theo dõi huyết áp, tim mạch & chăm sóc sức khỏe hằng ngày',
     hospital: 'Khám & kiểm tra định kỳ',
     room: 'Tại nhà',

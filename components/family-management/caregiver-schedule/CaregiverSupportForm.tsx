@@ -73,6 +73,7 @@ export default function CaregiverSupportForm({
         <button
           type="button"
           onClick={onClose}
+          aria-label="Đóng biểu mẫu đăng ký lịch phụ"
           className="min-h-[48px] min-w-[48px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
         >
           <X className="w-5 h-5" />
@@ -134,7 +135,7 @@ export default function CaregiverSupportForm({
                 key={qd.label}
                 type="button"
                 onClick={() => onSelectDate(qd.dateStr)}
-                className={`min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                className={`min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold border transition cursor-pointer flex items-center justify-center ${
                   selectedDate === qd.dateStr
                     ? 'bg-emerald-600 text-white border-emerald-600'
                     : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
@@ -196,7 +197,7 @@ export default function CaregiverSupportForm({
               key={preset}
               type="button"
               onClick={() => onChangeTaskNote(preset)}
-              className={`min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+              className={`min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold border transition cursor-pointer flex items-center justify-center ${
                 taskNote === preset
                   ? 'bg-emerald-100 border-emerald-400 text-emerald-950'
                   : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
@@ -230,7 +231,7 @@ export default function CaregiverSupportForm({
                   key={m.id}
                   type="button"
                   onClick={() => onToggleSupporter(m.name)}
-                  className={`min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
+                  className={`min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold border transition flex items-center gap-1.5 cursor-pointer ${
                     checked
                       ? 'bg-emerald-600 text-white border-emerald-600'
                       : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
@@ -248,14 +249,14 @@ export default function CaregiverSupportForm({
         <button
           type="button"
           onClick={onClose}
-          className="min-h-[48px] px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm cursor-pointer"
+          className="min-h-[48px] min-w-[48px] px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm cursor-pointer"
         >
           Đóng
         </button>
         <button
           type="submit"
           disabled={isSubmitting}
-          className="min-h-[48px] px-6 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base shadow-md active:scale-95 transition flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+          className="min-h-[48px] min-w-[48px] px-6 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base shadow-md active:scale-95 transition flex items-center gap-2 disabled:opacity-50 cursor-pointer"
         >
           <Check className="w-5 h-5" />
           <span>{isSubmitting ? 'Đang lưu...' : 'Lưu lịch phụ Mẹ'}</span>

@@ -59,15 +59,20 @@ export default function RoutineItemForm({
       {/* Form header */}
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
         <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-          <button type="button" onClick={onCancel} className="hover:text-violet-600 transition">
-            <ChevronLeft size={18} />
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Quay lại danh sách đầu việc"
+            className="min-h-[48px] min-w-[48px] rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-700 flex items-center justify-center hover:text-violet-600 transition cursor-pointer"
+          >
+            <ChevronLeft size={20} />
           </button>
-          {isAddingNew ? '➕ Thêm đầu việc mới' : `✏️ Sửa: ${editingTitle || ''}`}
+          <span>{isAddingNew ? '➕ Thêm đầu việc mới' : `✏️ Sửa: ${editingTitle || ''}`}</span>
         </h4>
         <button
           type="button"
           onClick={onCancel}
-          className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 font-semibold"
+          className="min-h-[48px] min-w-[48px] px-3 py-1.5 text-xs sm:text-sm text-slate-600 hover:text-slate-900 dark:hover:text-slate-200 font-semibold cursor-pointer inline-flex items-center justify-center rounded-xl hover:bg-slate-200/60 transition"
         >
           Huỷ
         </button>
@@ -85,7 +90,7 @@ export default function RoutineItemForm({
                 key={cat}
                 type="button"
                 onClick={() => onUpdateField('category', cat)}
-                className={`p-3 rounded-xl border-2 text-center transition min-h-[48px] ${
+                className={`p-3 rounded-xl border-2 text-center transition min-h-[48px] min-w-[48px] ${
                   formData.category === cat
                     ? `${cfg.pillClass} border-current font-bold`
                     : 'border-slate-200 bg-white dark:bg-slate-800 text-slate-600 hover:border-slate-300'
@@ -109,7 +114,7 @@ export default function RoutineItemForm({
             <button
               type="button"
               onClick={() => onUpdateField('medType', 'scheduled')}
-              className={`p-3 rounded-xl border-2 text-center transition min-h-[48px] ${
+              className={`p-3 rounded-xl border-2 text-center transition min-h-[48px] min-w-[48px] ${
                 formData.medType === 'scheduled'
                   ? 'border-blue-400 bg-blue-50 text-blue-800 font-bold'
                   : 'border-slate-200 bg-white dark:bg-slate-800 text-slate-600'
@@ -121,7 +126,7 @@ export default function RoutineItemForm({
             <button
               type="button"
               onClick={() => onUpdateField('medType', 'as_needed')}
-              className={`p-3 rounded-xl border-2 text-center transition min-h-[48px] ${
+              className={`p-3 rounded-xl border-2 text-center transition min-h-[48px] min-w-[48px] ${
                 formData.medType === 'as_needed'
                   ? 'border-amber-400 bg-amber-50 text-amber-800 font-bold'
                   : 'border-slate-200 bg-white dark:bg-slate-800 text-slate-600'
@@ -206,7 +211,7 @@ export default function RoutineItemForm({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isCompressingImg}
-              className="px-3.5 py-2.5 rounded-xl border-2 border-dashed border-violet-300 dark:border-violet-700 bg-violet-50/70 dark:bg-violet-950/30 hover:bg-violet-100 text-violet-700 dark:text-violet-300 text-xs font-bold flex items-center justify-center gap-2 transition min-h-[48px] flex-shrink-0"
+              className="px-3.5 py-2.5 rounded-xl border-2 border-dashed border-violet-300 dark:border-violet-700 bg-violet-50/70 dark:bg-violet-950/30 hover:bg-violet-100 text-violet-700 dark:text-violet-300 text-xs font-bold flex items-center justify-center gap-2 transition min-h-[48px] min-w-[48px] flex-shrink-0"
             >
               <Camera size={16} />
               {isCompressingImg ? 'Đang xử lý ảnh...' : '📷 Chụp / Chọn ảnh từ máy'}
@@ -242,7 +247,8 @@ export default function RoutineItemForm({
                     description: formData.description,
                   })
                 }
-                className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 bg-slate-100 group"
+                aria-label="Phóng to hình ảnh đính kèm"
+                className="relative min-h-[48px] min-w-[48px] w-16 h-16 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 bg-slate-100 group"
                 title="Bấm để phóng to"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -263,7 +269,7 @@ export default function RoutineItemForm({
               <button
                 type="button"
                 onClick={() => onUpdateField('imageUrl', '')}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition min-h-[44px]"
+                className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition min-h-[48px] min-w-[48px]"
               >
                 Xoá ảnh
               </button>
@@ -287,7 +293,7 @@ export default function RoutineItemForm({
                   key={slot}
                   type="button"
                   onClick={() => onToggleTimeSlot(slot)}
-                  className={`p-2.5 rounded-xl border-2 text-center transition min-h-[48px] ${
+                  className={`p-2.5 rounded-xl border-2 text-center transition min-h-[48px] min-w-[48px] ${
                     isSelected
                       ? `${TIME_SLOT_PILL_COLORS[slot]} border-current font-bold`
                       : 'border-slate-200 bg-white dark:bg-slate-800 text-slate-600 hover:border-slate-300'
@@ -386,14 +392,14 @@ export default function RoutineItemForm({
           type="button"
           onClick={onCancel}
           disabled={isSaving}
-          className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/60 dark:hover:bg-slate-700 min-h-[48px]"
+          className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/60 dark:hover:bg-slate-700 min-h-[48px] min-w-[48px]"
         >
           Đóng
         </button>
         <button
           type="submit"
           disabled={isSaving}
-          className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-violet-600 hover:bg-violet-500 active:scale-95 transition shadow-md shadow-violet-600/20 disabled:opacity-50 min-h-[48px] flex items-center gap-2"
+          className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-violet-600 hover:bg-violet-500 active:scale-95 transition shadow-md shadow-violet-600/20 disabled:opacity-50 min-h-[48px] min-w-[48px] flex items-center gap-2"
         >
           <Save size={14} />
           {isSaving ? 'Đang lưu...' : '💾 Lưu đầu việc'}

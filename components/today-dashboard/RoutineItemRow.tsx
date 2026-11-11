@@ -80,6 +80,7 @@ export function RoutineItemRow({
             type="button"
             onClick={() => onPreviewPhoto(routine)}
             title="Bấm phóng to ảnh thuốc"
+            aria-label={`Xem ảnh thuốc ${routine.title}`}
             className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-50 cursor-pointer group"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}

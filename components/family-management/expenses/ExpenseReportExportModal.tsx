@@ -128,6 +128,7 @@ export default function ExpenseReportExportModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Đóng xuất báo cáo thu chi"
             className="min-h-[48px] min-w-[48px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -142,7 +143,7 @@ export default function ExpenseReportExportModal({
             <select
               value={reportStageFilter}
               onChange={(e) => setReportStageFilter(e.target.value as 'all' | ExpenseStage)}
-              className="min-h-[44px] px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800"
+              className="min-h-[48px] min-w-[48px] px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800"
             >
               <option value="all">Toàn bộ quá trình (Từ ngày đầu cấp cứu)</option>
               <option value="emergency">🚑 Chỉ riêng Giai đoạn Cấp cứu &amp; Nằm viện</option>
@@ -362,7 +363,7 @@ export default function ExpenseReportExportModal({
           <button
             type="button"
             onClick={handleCopyZaloReport}
-            className="min-h-[48px] py-3 px-4 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+            className="min-h-[48px] min-w-[48px] py-3 px-4 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer"
           >
             {copiedZalo ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
             <span>{copiedZalo ? 'Đã Copy!' : 'Copy gửi Zalo'}</span>
@@ -372,7 +373,7 @@ export default function ExpenseReportExportModal({
             type="button"
             onClick={handleExportReportImage}
             disabled={isExportingImage}
-            className="min-h-[48px] py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+            className="min-h-[48px] min-w-[48px] py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer"
           >
             <Download className="w-4 h-4" />
             <span>{isExportingImage ? 'Đang tạo ảnh...' : 'Tải Ảnh Báo Cáo'}</span>
@@ -382,7 +383,7 @@ export default function ExpenseReportExportModal({
             type="button"
             onClick={handleExportReportPdf}
             disabled={isExportingPdf}
-            className="min-h-[48px] py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+            className="min-h-[48px] min-w-[48px] py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer"
           >
             <FileText className="w-4 h-4" />
             <span>{isExportingPdf ? 'Đang tạo PDF...' : 'Xuất File PDF'}</span>

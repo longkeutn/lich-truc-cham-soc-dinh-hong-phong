@@ -233,7 +233,7 @@ export default function FamilyCaregiverSchedule({
         <button
           type="button"
           onClick={() => setSubTab('schedule')}
-          className={`min-h-[48px] px-2 sm:px-3 py-2.5 rounded-xl text-xs sm:text-base font-black flex items-center justify-center gap-1.5 sm:gap-2 text-center leading-tight transition cursor-pointer ${
+          className={`min-h-[48px] min-w-[48px] px-2 sm:px-3 py-2.5 rounded-xl text-xs sm:text-base font-black flex items-center justify-center gap-1.5 sm:gap-2 text-center leading-tight transition cursor-pointer ${
             subTab === 'schedule'
               ? 'bg-white text-emerald-900 shadow-sm border border-emerald-200'
               : 'text-slate-600 hover:text-slate-900'
@@ -246,7 +246,7 @@ export default function FamilyCaregiverSchedule({
         <button
           type="button"
           onClick={() => setSubTab('history')}
-          className={`min-h-[48px] px-2 sm:px-3 py-2.5 rounded-xl text-xs sm:text-base font-black flex items-center justify-center gap-1.5 sm:gap-2 text-center leading-tight transition cursor-pointer ${
+          className={`min-h-[48px] min-w-[48px] px-2 sm:px-3 py-2.5 rounded-xl text-xs sm:text-base font-black flex items-center justify-center gap-1.5 sm:gap-2 text-center leading-tight transition cursor-pointer ${
             subTab === 'history'
               ? 'bg-white text-indigo-900 shadow-sm border border-indigo-200'
               : 'text-slate-600 hover:text-slate-900'

@@ -93,7 +93,7 @@ export default function PwaInstallModal({ isOpen, onClose }: PwaInstallModalProp
               <h3 className="text-lg font-black text-slate-900">
                 Cài Ứng Dụng Lên Điện Thoại
               </h3>
-              <p className="text-xs text-slate-500 font-medium">
+              <p className="text-xs text-slate-600 font-medium">
                 Mở nhanh 1 chạm từ màn hình chính như ứng dụng thật
               </p>
             </div>
@@ -101,7 +101,8 @@ export default function PwaInstallModal({ isOpen, onClose }: PwaInstallModalProp
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer shrink-0"
+            aria-label="Đóng cửa sổ cài đặt ứng dụng"
+            className="min-h-[48px] min-w-[48px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -137,7 +138,7 @@ export default function PwaInstallModal({ isOpen, onClose }: PwaInstallModalProp
           <button
             type="button"
             onClick={() => setActiveDeviceTab('ios')}
-            className={`min-h-[42px] py-2 px-3 rounded-xl text-xs sm:text-sm font-black transition cursor-pointer ${
+            className={`min-h-[48px] min-w-[48px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
               activeDeviceTab === 'ios'
                 ? 'bg-white text-slate-900 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -148,7 +149,7 @@ export default function PwaInstallModal({ isOpen, onClose }: PwaInstallModalProp
           <button
             type="button"
             onClick={() => setActiveDeviceTab('android')}
-            className={`min-h-[42px] py-2 px-3 rounded-xl text-xs sm:text-sm font-black transition cursor-pointer ${
+            className={`min-h-[48px] min-w-[48px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black transition cursor-pointer flex items-center justify-center gap-1.5 ${
               activeDeviceTab === 'android'
                 ? 'bg-white text-slate-900 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -248,7 +249,7 @@ export default function PwaInstallModal({ isOpen, onClose }: PwaInstallModalProp
                   <p className="font-bold text-slate-900">
                     Bấm &ldquo;Cài đặt&rdquo; để hoàn tất
                   </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-600 mt-0.5">
                     Ứng dụng <strong>❤️ Sức Khỏe Bố</strong> sẽ xuất hiện trên màn hình chính điện thoại như một App độc lập.
                   </p>
                 </div>
@@ -260,7 +261,7 @@ export default function PwaInstallModal({ isOpen, onClose }: PwaInstallModalProp
         <button
           type="button"
           onClick={onClose}
-          className="w-full min-h-[46px] py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm cursor-pointer transition"
+          className="w-full min-h-[48px] py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm cursor-pointer transition"
         >
           Đã hiểu
         </button>

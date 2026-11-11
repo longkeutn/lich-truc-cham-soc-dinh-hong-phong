@@ -357,21 +357,21 @@ export function LabFormPanels({ values, onChangeField }: LabFormPanelsProps) {
                   placeholder="Tên chỉ số (VD: Kali)"
                   value={row.name}
                   onChange={(e) => handleUpdateCustomRow(idx, 'name', e.target.value)}
-                  className="col-span-2 sm:col-span-4 min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
+                  className="col-span-2 sm:col-span-4 min-h-[48px] min-w-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
                 />
                 <input
                   type="text"
                   placeholder="Kết quả"
                   value={row.value}
                   onChange={(e) => handleUpdateCustomRow(idx, 'value', e.target.value)}
-                  className="col-span-1 sm:col-span-3 min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
+                  className="col-span-1 sm:col-span-3 min-h-[48px] min-w-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
                 />
                 <input
                   type="text"
                   placeholder="Đơn vị"
                   value={row.unit || ''}
                   onChange={(e) => handleUpdateCustomRow(idx, 'unit', e.target.value)}
-                  className="col-span-1 sm:col-span-2 min-h-[48px] px-3 rounded-xl border border-border-card text-base text-text-main bg-surface-card"
+                  className="col-span-1 sm:col-span-2 min-h-[48px] min-w-[48px] px-3 rounded-xl border border-border-card text-base text-text-main bg-surface-card"
                 />
                 <div className="col-span-2 sm:col-span-3 flex items-center gap-2">
                   <input

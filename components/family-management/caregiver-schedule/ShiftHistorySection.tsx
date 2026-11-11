@@ -211,7 +211,7 @@ export default function ShiftHistorySection({ shifts, members }: ShiftHistoryVie
 
         <div className="flex items-center justify-between pt-2 border-t border-slate-100 flex-wrap gap-3">
           <div className="flex flex-wrap items-center gap-4">
-            <label className="inline-flex items-center gap-2 min-h-[44px] cursor-pointer select-none">
+            <label className="inline-flex items-center gap-2 min-h-[48px] min-w-[48px] cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={onlyIcuHistory}
@@ -223,7 +223,7 @@ export default function ShiftHistorySection({ shifts, members }: ShiftHistoryVie
               </span>
             </label>
 
-            <label className="inline-flex items-center gap-2 min-h-[44px] cursor-pointer select-none">
+            <label className="inline-flex items-center gap-2 min-h-[48px] min-w-[48px] cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={onlyWithNotes}
@@ -267,7 +267,7 @@ export default function ShiftHistorySection({ shifts, members }: ShiftHistoryVie
                 setOnlyWithNotes(false);
                 setOnlyIcuHistory(false);
               }}
-              className="min-h-[48px] px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+              className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
             >
               Xoá tất cả bộ lọc
             </button>

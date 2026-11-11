@@ -124,7 +124,8 @@ export default function ShiftCard({
               <button
                 type="button"
                 onClick={() => setPickingSlotIndex(null)}
-                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition"
+                aria-label="Đóng chọn người trực"
+                className="min-h-[48px] min-w-[48px] p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition flex items-center justify-center cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -161,7 +162,7 @@ export default function ShiftCard({
             <button
               type="button"
               onClick={() => setPickingSlotIndex(null)}
-              className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 cursor-pointer"
+              className="w-full min-h-[48px] py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 cursor-pointer"
             >
               Huỷ bỏ
             </button>
@@ -337,7 +338,7 @@ export default function ShiftCard({
               key={item.key}
               type="button"
               onClick={() => void onToggleChecklist(shift, item.key, !item.done)}
-              className={`p-2.5 rounded-xl border flex items-center justify-between gap-1.5 text-xs font-bold min-h-[48px] transition cursor-pointer active:scale-95 ${
+              className={`p-2.5 rounded-xl border flex items-center justify-between gap-1.5 text-xs font-bold min-h-[48px] min-w-[48px] transition cursor-pointer active:scale-95 ${
                 item.done
                   ? 'bg-emerald-50 border-emerald-400 text-emerald-900 shadow-xs'
                   : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50'

@@ -130,7 +130,7 @@ export function PediatricGrowthChartCard({
             <button
               type="button"
               onClick={() => onChangeMaxChartMonth(60)}
-              className={`min-h-[44px] px-3 rounded-lg text-xs font-extrabold cursor-pointer ${
+              className={`min-h-[48px] min-w-[48px] px-3 rounded-lg text-xs font-extrabold cursor-pointer ${
                 maxChartMonth === 60 ? 'bg-slate-800 text-white' : 'text-slate-700'
               }`}
             >
@@ -139,7 +139,7 @@ export function PediatricGrowthChartCard({
             <button
               type="button"
               onClick={() => onChangeMaxChartMonth(180)}
-              className={`min-h-[44px] px-3 rounded-lg text-xs font-extrabold cursor-pointer ${
+              className={`min-h-[48px] min-w-[48px] px-3 rounded-lg text-xs font-extrabold cursor-pointer ${
                 maxChartMonth === 180 ? 'bg-slate-800 text-white' : 'text-slate-700'
               }`}
             >

@@ -157,7 +157,7 @@ export default function ClinicalVitalsReportContainer({
             <button
               type="button"
               onClick={onOpenDoctorReport}
-              className="min-h-[48px] px-3 py-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 border border-emerald-200 text-xs font-extrabold flex items-center gap-1 shadow-xs transition cursor-pointer"
+              className="min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 border border-emerald-200 text-xs font-extrabold flex items-center gap-1 shadow-xs transition cursor-pointer"
               title="Mở Phiếu Tóm Tắt Chỉ Số Trình Bác Sĩ (Xem toàn màn hình / In A4 / Xuất PDF / Copy gửi Zalo)"
             >
               <span>📄 Phiếu trình Bác sĩ / In PDF</span>
@@ -167,7 +167,7 @@ export default function ClinicalVitalsReportContainer({
           <button
             type="button"
             onClick={handleSpeakClinicalReport}
-            className={`min-h-[48px] px-3 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer ${
+            className={`min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer ${
               isSpeakingReport
                 ? 'bg-rose-500 text-white animate-pulse'
                 : 'bg-white/15 hover:bg-white/25 text-white border border-white/20'
@@ -185,7 +185,7 @@ export default function ClinicalVitalsReportContainer({
           <button
             type="button"
             onClick={() => setShowMedicalGuide((prev) => !prev)}
-            className={`min-h-[48px] px-3 py-2 rounded-xl border text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition ${
+            className={`min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl border text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition ${
               showMedicalGuide
                 ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-xs'
                 : 'bg-white/15 hover:bg-white/25 text-white border-white/20'
@@ -199,6 +199,7 @@ export default function ClinicalVitalsReportContainer({
           <button
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}
+            aria-label={isExpanded ? 'Thu gọn báo cáo đánh giá' : 'Mở rộng báo cáo đánh giá'}
             className="min-h-[48px] min-w-[48px] p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer"
             title={isExpanded ? 'Thu gọn' : 'Mở rộng'}
           >

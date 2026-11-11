@@ -246,7 +246,7 @@ export default function ExportWeekModal({
               id="btn-copy-schedule-image"
               onClick={() => void handleCopyImage()}
               disabled={isExporting}
-              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50 min-h-[48px]"
+              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50 min-h-[48px] min-w-[48px]"
             >
               {isExporting ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -263,7 +263,7 @@ export default function ExportWeekModal({
               id="btn-download-schedule-image"
               onClick={() => void handleDownloadImage()}
               disabled={isExporting}
-              className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 text-xs font-bold transition flex items-center gap-1.5 shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
+              className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 text-xs font-bold transition flex items-center gap-1.5 shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5 text-slate-600" />
               <span>Tải ảnh PNG</span>
@@ -274,7 +274,7 @@ export default function ExportWeekModal({
               id="btn-share-mobile"
               onClick={() => void handleShareMobile()}
               disabled={isExporting}
-              className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
+              className="min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
             >
               <Share2 className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Gửi qua Zalo</span>
@@ -286,7 +286,7 @@ export default function ExportWeekModal({
               id="btn-export-pdf"
               onClick={() => void handleExportPDF()}
               disabled={isExporting}
-              className="px-3 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold transition flex items-center gap-1.5 shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
+              className="min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs active:scale-95 cursor-pointer disabled:opacity-50"
             >
               <FileText className="w-3.5 h-3.5 text-rose-600" />
               <span>PDF</span>
@@ -296,7 +296,7 @@ export default function ExportWeekModal({
               href="https://chat.zalo.me/"
               target="_blank"
               rel="noopener noreferrer"
-              className="p-2 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-bold transition flex items-center gap-1 shadow-xs"
+              className="min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-bold transition flex items-center gap-1 shadow-xs"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Mở Zalo</span>
@@ -333,7 +333,7 @@ export default function ExportWeekModal({
               type="button"
               onClick={() => void handleCopyImage()}
               disabled={isExporting}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50 min-h-[48px]"
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50 min-h-[48px] min-w-[48px]"
             >
               <Copy className="w-4 h-4" />
               <span>{copyStatus === 'copied' ? 'Đã sao chép!' : 'Sao chép ảnh Zalo'}</span>

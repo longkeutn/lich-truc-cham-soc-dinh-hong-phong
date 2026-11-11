@@ -104,7 +104,7 @@ export function ExpensePinLockScreen({
           <button
             type="button"
             onClick={onBackToHealth}
-            className="min-h-[48px] inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+            className="min-h-[48px] min-w-[48px] inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
           >
             <span>← Quay lại Sổ Sức Khỏe</span>
           </button>
@@ -176,6 +176,7 @@ export function ExpenseChangePinModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Đóng đổi mã PIN"
             className="min-h-[48px] min-w-[48px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -231,14 +232,14 @@ export function ExpenseChangePinModal({
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[48px] px-4 py-2 rounded-xl bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"
+              className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={isChangingPin}
-              className="min-h-[48px] px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-extrabold cursor-pointer"
+              className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-extrabold cursor-pointer"
             >
               {isChangingPin ? 'Đang lưu...' : 'Lưu mã PIN mới'}
             </button>

@@ -66,6 +66,7 @@ export function VitalsMetricSummaryCards({
           <button
             type="button"
             onClick={() => toggleCard(1)}
+            aria-label="Xem giải thích lần đo gần nhất"
             className={`min-h-[48px] min-w-[48px] -my-2 -mr-2 rounded-xl flex items-center justify-center transition cursor-pointer shrink-0 ${
               activeCardInfo === 1
                 ? 'bg-teal-100 text-medical-dark'
@@ -143,6 +144,7 @@ export function VitalsMetricSummaryCards({
           <button
             type="button"
             onClick={() => toggleCard(2)}
+            aria-label="Xem giải thích huyết áp trung bình"
             className={`min-h-[48px] min-w-[48px] -my-2 -mr-2 rounded-xl flex items-center justify-center transition cursor-pointer shrink-0 ${
               activeCardInfo === 2
                 ? 'bg-teal-100 text-medical-dark'
@@ -218,6 +220,7 @@ export function VitalsMetricSummaryCards({
           <button
             type="button"
             onClick={() => toggleCard(3)}
+            aria-label="Xem giải thích Nhịp tim"
             className={`min-h-[48px] min-w-[48px] -my-2 -mr-2 rounded-xl flex items-center justify-center transition cursor-pointer shrink-0 ${
               activeCardInfo === 3
                 ? 'bg-amber-100 text-amber-900'
@@ -316,6 +319,7 @@ export function VitalsMetricSummaryCards({
           <button
             type="button"
             onClick={() => toggleCard(4)}
+            aria-label="Xem cách tính tuân thủ thuốc và tập"
             className={`min-h-[48px] min-w-[48px] -my-2 -mr-2 rounded-xl flex items-center justify-center transition cursor-pointer shrink-0 ${
               activeCardInfo === 4
                 ? 'bg-emerald-100 text-emerald-800'

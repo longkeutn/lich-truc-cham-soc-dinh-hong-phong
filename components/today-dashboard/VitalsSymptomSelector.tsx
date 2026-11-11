@@ -92,7 +92,7 @@ export function VitalsSymptomSelector({
           <button
             type="button"
             onClick={() => onChangeNote('')}
-            className="min-h-[44px] px-2.5 rounded-lg text-xs font-bold text-slate-600 hover:text-rose-700 cursor-pointer"
+            className="min-h-[48px] min-w-[48px] px-2.5 rounded-lg text-xs font-bold text-slate-600 hover:text-rose-700 cursor-pointer"
           >
             Xóa ghi chú ✕
           </button>
