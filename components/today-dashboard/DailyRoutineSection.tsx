@@ -326,7 +326,7 @@ export function DailyRoutineSection({
                 key={item.date}
                 type="button"
                 onClick={() => handleSelectDate(item.date)}
-                className={`min-h-[44px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold border transition cursor-pointer ${
+                className={`min-h-[48px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold border transition cursor-pointer ${
                   selectedDateStr === item.date
                     ? 'bg-teal-700 text-white border-teal-800'
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
@@ -341,18 +341,18 @@ export function DailyRoutineSection({
                 type="button"
                 onClick={() => handleSelectDate(stepDateStr(selectedDateStr, -1))}
                 aria-label="Lùi 1 ngày"
-                className="min-h-[40px] min-w-[40px] rounded-lg hover:bg-white flex items-center justify-center text-slate-700 cursor-pointer"
+                className="min-h-[48px] min-w-[48px] rounded-lg hover:bg-white flex items-center justify-center text-slate-700 cursor-pointer"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-5 h-5" />
               </button>
-              <label className="inline-flex items-center gap-1 px-1.5 text-xs font-bold text-slate-700">
-                <Calendar className="w-3.5 h-3.5 text-teal-700" />
+              <label className="inline-flex items-center gap-1.5 px-2 text-xs font-bold text-slate-700 min-h-[48px]">
+                <Calendar className="w-4 h-4 text-teal-700" />
                 <input
                   type="date"
                   max={todayStr}
                   value={selectedDateStr}
                   onChange={(e) => handleSelectDate(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none"
+                  className="bg-transparent text-xs sm:text-sm font-bold text-slate-900 focus:outline-none"
                 />
               </label>
               <button
@@ -360,9 +360,9 @@ export function DailyRoutineSection({
                 disabled={selectedDateStr >= todayStr}
                 onClick={() => handleSelectDate(stepDateStr(selectedDateStr, 1))}
                 aria-label="Tiến 1 ngày"
-                className="min-h-[40px] min-w-[40px] rounded-lg hover:bg-white disabled:opacity-40 flex items-center justify-center text-slate-700 cursor-pointer"
+                className="min-h-[48px] min-w-[48px] rounded-lg hover:bg-white disabled:opacity-40 flex items-center justify-center text-slate-700 cursor-pointer"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-5 h-5" />
               </button>
             </div>
           </div>

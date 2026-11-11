@@ -178,7 +178,7 @@ function doPost(e) {
     }
 
     // ==========================================
-    // V2.0 — SỔ SỨC KHỎE BỐ — ACTIONS MỚI
+    // V2.0 - SỔ SỨC KHỎE BỐ - ACTIONS MỚI
     // ==========================================
 
     // 7. Lưu / Xoá Huyết Áp & Sinh Hiệu (VitalsLog)
@@ -396,7 +396,7 @@ function ensureSheetsSetup(ss) {
   }
 
   // ==========================================
-  // V2.0 — 3 SHEETS MỚI: VitalsLog, CareRoutines, DailyLogs
+  // V2.0 - 3 SHEETS MỚI: VitalsLog, CareRoutines, DailyLogs
   // ==========================================
 
   // Sheet 6: VitalsLog (Nhật ký huyết áp & sinh hiệu - 14 cột)
@@ -429,25 +429,25 @@ function ensureSheetsSetup(ss) {
       .setFontWeight('bold').setBackground('#DBEAFE');
     sheetRoutines.setFrozenRows(1);
 
-    // DỮ LIỆU MẪU — Đơn thuốc giai đoạn 1 (Mẹ thấy ngay khi mở app)
+    // DỮ LIỆU MẪU - Đơn thuốc giai đoạn 1 (Mẹ thấy ngay khi mở app)
     const now = new Date().toISOString();
     const sampleRoutines = [
-      ['routine-med-01', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'meds', 'scheduled',
+      ['routine-med-01', 'stage-1', 'Mới về nhà - Chăm sóc tích cực', 'meds', 'scheduled',
        'Amlodipine (Amlor) 5mg', '1 viên', '["morning","evening"]',
        'Uống sau ăn 30 phút. Đo HA trước khi uống.', 'Nếu HA tâm thu < 110: hoãn uống, gọi BS',
-       'TRUE', 1, now, now, 'Thuốc hạ huyết áp — Viên nang cứng màu vàng-trắng (hoặc viên nén trắng)', ''],
-      ['routine-med-02', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'meds', 'scheduled',
+       'TRUE', 1, now, now, 'Thuốc hạ huyết áp - Viên nang cứng màu vàng-trắng (hoặc viên nén trắng)', ''],
+      ['routine-med-02', 'stage-1', 'Mới về nhà - Chăm sóc tích cực', 'meds', 'scheduled',
        'Aspirin 81mg', '1 viên', '["morning"]',
        'Uống sau ăn sáng, không uống khi đói.', '',
-       'TRUE', 2, now, now, 'Thuốc chống đông máu, ngừa tái phát đột quỵ — Viên nén nhỏ bao phim', ''],
-      ['routine-med-03', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'meds', 'scheduled',
+       'TRUE', 2, now, now, 'Thuốc chống đông máu, ngừa tái phát đột quỵ - Viên nén nhỏ bao phim', ''],
+      ['routine-med-03', 'stage-1', 'Mới về nhà - Chăm sóc tích cực', 'meds', 'scheduled',
        'Atorvastatin 20mg', '1 viên', '["evening"]',
        'Uống buổi tối trước khi ngủ.', '',
-       'TRUE', 3, now, now, 'Thuốc hạ mỡ máu, ổn định thành mạch — Viên nén dài màu trắng', ''],
-      ['routine-med-04', 'stage-1', 'Mới về nhà — Chăm sóc tích cực', 'meds', 'as_needed',
+       'TRUE', 3, now, now, 'Thuốc hạ mỡ máu, ổn định thành mạch - Viên nén dài màu trắng', ''],
+      ['routine-med-04', 'stage-1', 'Mới về nhà - Chăm sóc tích cực', 'meds', 'as_needed',
        'Paracetamol 500mg', '1 viên', '[]',
        'Khi đau đầu hoặc sốt ≥ 38°C. Cách ít nhất 6 giờ giữa 2 lần.', 'Tối đa 3 viên/ngày',
-       'TRUE', 10, now, now, 'Thuốc giảm đau, hạ sốt — Viên nén dài màu trắng (hoặc sủi)', ''],
+       'TRUE', 10, now, now, 'Thuốc giảm đau, hạ sốt - Viên nén dài màu trắng (hoặc sủi)', ''],
       ['routine-rehab-01', 'stage-1', 'Chăm sóc & Theo dõi tại nhà', 'rehab', '',
        'Đi bộ / tập vận động nhẹ nhàng', '15–20 phút', '["morning","afternoon"]',
        'Tập vừa sức, nghỉ ngơi ngay nếu thấy mỏi hoặc chóng mặt.', '',
@@ -881,7 +881,7 @@ function saveAdminPin(ss, pin) {
 }
 
 // ==========================================
-// V2.0 — ĐỌC DỮ LIỆU MỚI (VitalsLog, CareRoutines, DailyLogs)
+// V2.0 - ĐỌC DỮ LIỆU MỚI (VitalsLog, CareRoutines, DailyLogs)
 // ==========================================
 
 function formatRowTime(val) {
@@ -1035,7 +1035,7 @@ function readBpThresholds(ss) {
 }
 
 // ==========================================
-// V2.0 — GHI DỮ LIỆU MỚI
+// V2.0 - GHI DỮ LIỆU MỚI
 // ==========================================
 
 function saveVitalsLog(ss, v) {

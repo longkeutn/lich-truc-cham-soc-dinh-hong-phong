@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { AlertTriangle, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, ArrowLeft, RefreshCw } from 'lucide-react';
 import PatientBanner from '@/components/PatientBanner';
 import QuickVitalsForm from '@/components/QuickVitalsForm';
 import DailyRoutineView from '@/components/DailyRoutineView';
@@ -68,22 +68,14 @@ export default function CareSchedulePage() {
   const [doctorReportOpen, setDoctorReportOpen] = useState<boolean>(false);
 
   const profilesMgr = useHealthProfileManager({
-    patientInfo: sync.patientInfo,
-    setPatientInfo: sync.setPatientInfo,
-    bpThresholds: sync.bpThresholds,
-    setBpThresholds: sync.setBpThresholds,
-    appointment: sync.appointment,
-    setAppointment: sync.setAppointment,
-    members: sync.members,
-    setMembers: sync.setMembers,
-    vitalsLog: sync.vitalsLog,
-    careRoutines: sync.careRoutines,
-    dailyLogs: sync.dailyLogs,
-    reminders: sync.reminders,
-    labResults: sync.labResults,
-    activeStageId: sync.activeStageId,
-    todayStr: sync.todayStr,
-    setSyncStatus: sync.setSyncStatus,
+    patientInfo: sync.patientInfo, setPatientInfo: sync.setPatientInfo,
+    bpThresholds: sync.bpThresholds, setBpThresholds: sync.setBpThresholds,
+    appointment: sync.appointment, setAppointment: sync.setAppointment,
+    members: sync.members, setMembers: sync.setMembers,
+    vitalsLog: sync.vitalsLog, careRoutines: sync.careRoutines,
+    dailyLogs: sync.dailyLogs, reminders: sync.reminders,
+    labResults: sync.labResults, activeStageId: sync.activeStageId,
+    todayStr: sync.todayStr, setSyncStatus: sync.setSyncStatus,
     showToast: ui.showToast,
   });
 
@@ -91,31 +83,20 @@ export default function CareSchedulePage() {
     activeProfile: profilesMgr.activeProfile,
     isFatherProfile: profilesMgr.isFatherProfile,
     healthProfiles: profilesMgr.healthProfiles,
-    patientInfo: sync.patientInfo,
-    setPatientInfo: sync.setPatientInfo,
+    patientInfo: sync.patientInfo, setPatientInfo: sync.setPatientInfo,
     profileBpThresholds: profilesMgr.profileBpThresholds,
     patientDisplayName: profilesMgr.patientDisplayName,
-    vitalsLog: sync.vitalsLog,
-    setVitalsLog: sync.setVitalsLog,
-    careRoutines: sync.careRoutines,
-    setCareRoutines: sync.setCareRoutines,
-    setDailyLogs: sync.setDailyLogs,
-    stages: sync.stages,
+    vitalsLog: sync.vitalsLog, setVitalsLog: sync.setVitalsLog,
+    careRoutines: sync.careRoutines, setCareRoutines: sync.setCareRoutines,
+    setDailyLogs: sync.setDailyLogs, stages: sync.stages,
     activeStageId: sync.activeStageId,
-    labResults: sync.labResults,
-    setLabResults: sync.setLabResults,
-    setAppointment: sync.setAppointment,
-    setReminders: sync.setReminders,
-    setContacts: sync.setContacts,
-    setExpenses: sync.setExpenses,
-    setShifts: sync.setShifts,
-    todayStrRef: sync.todayStrRef,
-    setTodayStr: sync.setTodayStr,
-    notificationPrefs: ui.notificationPrefs,
-    requireAdmin: ui.requireAdmin,
-    syncRootPatientInfo: profilesMgr.syncRootPatientInfo,
-    setSyncStatus: sync.setSyncStatus,
-    showToast: ui.showToast,
+    labResults: sync.labResults, setLabResults: sync.setLabResults,
+    setAppointment: sync.setAppointment, setReminders: sync.setReminders,
+    setContacts: sync.setContacts, setExpenses: sync.setExpenses,
+    setShifts: sync.setShifts, todayStrRef: sync.todayStrRef,
+    setTodayStr: sync.setTodayStr, notificationPrefs: ui.notificationPrefs,
+    requireAdmin: ui.requireAdmin, syncRootPatientInfo: profilesMgr.syncRootPatientInfo,
+    setSyncStatus: sync.setSyncStatus, showToast: ui.showToast,
   });
 
   const handleOpenEditPatient = useCallback(() => {
@@ -195,6 +176,33 @@ export default function CareSchedulePage() {
             rows={3}
             label="Đang đồng bộ dữ liệu thực tế từ Google Sheets..."
           />
+        )}
+
+        {sync.syncStatus === 'error' && (
+          <div
+            role="alert"
+            className="rounded-2xl border-2 border-rose-300 bg-vital-danger-bg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+          >
+            <div className="flex items-center gap-2.5 text-rose-950">
+              <AlertTriangle className="w-5 h-5 text-vital-danger shrink-0" />
+              <div>
+                <div className="text-sm font-black">
+                  Chưa thể kết nối tới Google Sheets
+                </div>
+                <div className="text-xs font-semibold text-rose-800">
+                  Dữ liệu đang được lưu an toàn trên máy. Vui lòng kiểm tra mạng hoặc bấm thử lại.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void sync.loadAllData(true)}
+              className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-900 border border-rose-300 text-xs sm:text-sm font-extrabold transition cursor-pointer shrink-0 inline-flex items-center justify-center gap-1.5 shadow-2xs"
+            >
+              <RefreshCw className="w-4 h-4 shrink-0" />
+              <span>Thử kết nối lại</span>
+            </button>
+          </div>
         )}
 
         {/* TAB 1: HÔM NAY (Chế độ thích ứng theo Profile -> Nhắc việc -> Đo HA -> Checklist -> Tái khám) */}

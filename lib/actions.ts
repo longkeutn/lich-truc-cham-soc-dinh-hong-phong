@@ -414,7 +414,7 @@ export async function changeAdminPinAction(
 
 
 // ==========================================
-// V2.0 — SỔ SỨC KHỎE BỐ — Server Actions mới
+// V2.0 - SỔ SỨC KHỎE BỐ - Server Actions mới
 // ==========================================
 
 // --- V2.0: Vitals Log (Nhật ký Huyết áp & Sinh hiệu) ---

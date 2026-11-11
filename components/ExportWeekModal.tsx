@@ -223,7 +223,8 @@ export default function ExportWeekModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition cursor-pointer"
+            aria-label="Đóng cửa sổ xuất lịch"
+            className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition cursor-pointer min-h-[48px] min-w-[48px] flex items-center justify-center"
             title="Đóng cửa sổ"
           >
             <X className="w-5 h-5" />
@@ -231,10 +232,10 @@ export default function ExportWeekModal({
         </div>
 
         <div className="px-5 py-3 bg-indigo-50/70 border-b border-indigo-100 flex flex-wrap items-center justify-between gap-2.5">
-          <div className="text-xs text-indigo-900 font-bold flex items-center gap-1.5">
+          <div className="text-xs sm:text-sm text-indigo-900 font-bold flex items-center gap-1.5">
             <span>Tuần: {dateRangeStr}</span>
             <span className="hidden sm:inline">·</span>
-            <span className="hidden sm:inline font-medium text-indigo-700">
+            <span className="hidden sm:inline font-medium text-indigo-800">
               {totalUnderstaffed > 0 ? `Thiếu ${totalUnderstaffed} ca` : 'Đã đủ người trực'}
             </span>
           </div>
@@ -245,7 +246,7 @@ export default function ExportWeekModal({
               id="btn-copy-schedule-image"
               onClick={() => void handleCopyImage()}
               disabled={isExporting}
-              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50 min-h-[48px]"
             >
               {isExporting ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -324,7 +325,7 @@ export default function ExportWeekModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold transition cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs sm:text-sm font-bold transition cursor-pointer min-h-[48px] min-w-[48px]"
             >
               Đóng
             </button>
@@ -332,9 +333,9 @@ export default function ExportWeekModal({
               type="button"
               onClick={() => void handleCopyImage()}
               disabled={isExporting}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer disabled:opacity-50 min-h-[48px]"
             >
-              <Copy className="w-3.5 h-3.5" />
+              <Copy className="w-4 h-4" />
               <span>{copyStatus === 'copied' ? 'Đã sao chép!' : 'Sao chép ảnh Zalo'}</span>
             </button>
           </div>

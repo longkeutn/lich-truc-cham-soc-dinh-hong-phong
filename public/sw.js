@@ -1,4 +1,4 @@
-// Service Worker cho PWA "Sổ Sức Khỏe Bố" (v6 — Tương thích tuyệt đối 100% iOS Safari / iPhone PWA)
+// Service Worker cho PWA "Sổ Sức Khỏe Bố" (v6 - Tương thích tuyệt đối 100% iOS Safari / iPhone PWA)
 // Lưu ý quan trọng:
 // - TUYỆT ĐỐI KHÔNG đăng ký sự kiện 'fetch' / event.respondWith() để ngăn chặn triệt để 100% lỗi
 //   "FetchEvent.respondWith received an error: Returned response is null" trên iPhone (iOS Safari / WebKit).

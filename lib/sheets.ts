@@ -137,7 +137,7 @@ class MemoryShiftStore {
   private adminPin: string = '1234';
   private expensePin: string = '2468';
 
-  // --- V2.0: Sổ Sức Khỏe Bố — Private fields ---
+  // --- V2.0: Sổ Sức Khỏe Bố - Private fields ---
   private vitalsLog: VitalsLogEntry[] = [];
   private careRoutines: CareRoutine[] = [];
   private dailyLogs: DailyLog[] = [];
@@ -147,7 +147,7 @@ class MemoryShiftStore {
   private expenses: ExpenseEntry[] = []; private labResults: LabResultEntry[] = [];
 
   constructor() {
-    // Khởi tạo rỗng 100% — chỉ hiển thị dữ liệu thực tế từ Google Sheets
+    // Khởi tạo rỗng 100% - chỉ hiển thị dữ liệu thực tế từ Google Sheets
   }
 
   public isSynced(): boolean {
@@ -406,7 +406,7 @@ class MemoryShiftStore {
   }
 
   // =============================================
-  // V2.0 — SỔ SỨC KHỎE BỐ — Methods mới
+  // V2.0 - SỔ SỨC KHỎE BỐ - Methods mới
   // =============================================
 
   // --- VitalsLog (Nhật ký Huyết áp & Sinh hiệu) ---
@@ -1244,7 +1244,7 @@ export async function changeAdminPinStorage(
 
 
 // ==========================================
-// V2.0 — SỔ SỨC KHỎE BỐ — CRUD Storage Functions
+// V2.0 - SỔ SỨC KHỎE BỐ - CRUD Storage Functions
 // ==========================================
 
 // --- VitalsLog (Nhật ký Huyết áp & Sinh hiệu) ---
@@ -1334,7 +1334,7 @@ export async function saveAppointmentToStorage(info: AppointmentInfo): Promise<A
 }
 
 // ==========================================
-// EXPENSE MODULE — SỔ THEO DÕI THU CHI & MÃ PIN RIÊNG
+// EXPENSE MODULE - SỔ THEO DÕI THU CHI & MÃ PIN RIÊNG
 // ==========================================
 
 export async function verifyExpensePinStorage(pin: string): Promise<boolean> {
@@ -1486,7 +1486,7 @@ export async function deleteExpenseFromStorage(expenseId: string): Promise<Expen
 }
 
 // ==========================================
-// LAB RESULTS MODULE — SỔ THEO DÕI XÉT NGHIỆM & HÓA SINH
+// LAB RESULTS MODULE - SỔ THEO DÕI XÉT NGHIỆM & HÓA SINH
 // ==========================================
 
 export async function saveLabResultToStorage(entry: LabResultEntry): Promise<LabResultEntry[]> {

@@ -99,7 +99,7 @@ export default function NotificationSettingsModal({
         }
       }
       const sent = await sendPwaNotification({
-        title: '🔔 Thông Báo Thử Nghiệm — Sổ Sức Khỏe Gia Đình',
+        title: '🔔 Thông Báo Thử Nghiệm - Sổ Sức Khỏe Gia Đình',
         body: 'Hộp thông báo đẩy PWA và âm báo chuông đang hoạt động tốt trên thiết bị này!',
         tag: `test-notif-${Date.now()}`,
         url: '/#section-routine',

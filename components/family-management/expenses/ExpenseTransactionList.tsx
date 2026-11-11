@@ -23,6 +23,7 @@ import {
   formatVND,
   STAGE_CONFIG,
 } from './expenseTrackerUtils';
+import { MedicalEmptyState } from '@/components/ui-kit';
 
 interface ExpenseTransactionListProps {
   expenses: ExpenseEntry[];
@@ -52,6 +53,16 @@ export default function ExpenseTransactionList({
 
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
   const [deletingEntry, setDeletingEntry] = useState<ExpenseEntry | null>(null);
+
+  const hasActiveFilters = Boolean(
+    filterType !== 'all' ||
+      filterPerson !== 'all' ||
+      filterStage !== 'all' ||
+      filterCategory !== 'all' ||
+      searchQuery ||
+      dateFrom ||
+      dateTo
+  );
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter((item) => {
@@ -196,13 +207,7 @@ export default function ExpenseTransactionList({
             onChange={(e) => setDateTo(e.target.value)}
             className="min-h-[44px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700"
           />
-          {(filterType !== 'all' ||
-            filterPerson !== 'all' ||
-            filterStage !== 'all' ||
-            filterCategory !== 'all' ||
-            searchQuery ||
-            dateFrom ||
-            dateTo) && (
+          {hasActiveFilters && (
             <button
               type="button"
               onClick={() => {
@@ -214,7 +219,7 @@ export default function ExpenseTransactionList({
                 setDateFrom('');
                 setDateTo('');
               }}
-              className="min-h-[44px] px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 cursor-pointer"
+              className="min-h-[48px] px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs sm:text-sm font-bold text-slate-700 cursor-pointer"
             >
               Xóa bộ lọc
             </button>
@@ -223,16 +228,29 @@ export default function ExpenseTransactionList({
 
         {/* Danh sách các khoản Thu / Chi */}
         {filteredExpenses.length === 0 ? (
-          <div className="text-center py-10 px-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
-            <Wallet className="w-10 h-10 text-slate-400 mx-auto mb-2" />
-            <p className="text-sm font-bold text-slate-700">
-              Chưa có khoản thu/chi nào trong danh sách
-            </p>
-            <p className="text-xs text-slate-600 mt-1 max-w-md mx-auto">
-              Bạn có thể bấm nút <strong>&quot;Ghi Khoản Chi Điều Trị&quot;</strong> hoặc{' '}
-              <strong>&quot;Ghi Khoản Thu Vào Quỹ&quot;</strong> ở trên (hỗ trợ chọn lùi ngày về những ngày đầu cấp cứu).
-            </p>
-          </div>
+          <MedicalEmptyState
+            icon={<Wallet className="w-8 h-8" />}
+            badge="Sổ Thu Chi Điều Trị"
+            title="Chưa có khoản thu hoặc chi nào trong danh sách"
+            description="Bạn có thể bấm nút Ghi Khoản Chi Điều Trị hoặc Ghi Khoản Thu Vào Quỹ ở thanh công cụ phía trên (hỗ trợ chọn lùi ngày về những ngày đầu cấp cứu)."
+            tone="warning"
+            secondaryAction={
+              hasActiveFilters
+                ? {
+                    label: 'Xóa toàn bộ bộ lọc',
+                    onClick: () => {
+                      setFilterType('all');
+                      setFilterStage('all');
+                      setFilterCategory('all');
+                      onChangeFilterPerson('all');
+                      setSearchQuery('');
+                      setDateFrom('');
+                      setDateTo('');
+                    },
+                  }
+                : undefined
+            }
+          />
         ) : (
           <div className="space-y-2.5">
             {filteredExpenses.map((item) => {

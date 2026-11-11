@@ -157,10 +157,10 @@ export interface AllAppData {
 }
 
 // =============================================
-// V2.0 — SỔ SỨC KHỎE BỐ (Chăm sóc tại nhà)
+// V2.0 - SỔ SỨC KHỎE BỐ (Chăm sóc tại nhà)
 // =============================================
 
-// ===== VITALS LOG — Nhật ký Huyết áp & Sinh hiệu =====
+// ===== VITALS LOG - Nhật ký Huyết áp & Sinh hiệu =====
 export type VitalsPeriod = 'morning' | 'noon' | 'afternoon' | 'evening';
 export type AlertLevel = 'normal' | 'warning' | 'critical';
 
@@ -181,7 +181,7 @@ export interface VitalsLogEntry {
   createdAt: string;      // ISO timestamp
 }
 
-// ===== CARE ROUTINES — Đơn thuốc & Bài tập phục hồi =====
+// ===== CARE ROUTINES - Đơn thuốc & Bài tập phục hồi =====
 export type RoutineCategory = 'meds' | 'rehab' | 'care';
 export type MedType = 'scheduled' | 'as_needed';
 export type TimeSlot = 'morning' | 'noon' | 'afternoon' | 'evening';
@@ -205,7 +205,7 @@ export interface CareRoutine {
   updatedAt: string;
 }
 
-// ===== DAILY LOGS — Tích hoàn thành hàng ngày =====
+// ===== DAILY LOGS - Tích hoàn thành hàng ngày =====
 export interface DailyLog {
   id: string;               // `dl-${date}-${routineId}-${timeSlot}`
   date: string;             // YYYY-MM-DD
@@ -217,14 +217,14 @@ export interface DailyLog {
   note?: string;            // Ghi chú khi tích
 }
 
-// ===== REHAB STAGE — Giai đoạn phục hồi =====
+// ===== REHAB STAGE - Giai đoạn phục hồi =====
 export interface RehabStage {
   id: string;               // VD: 'stage-1'
-  name: string;             // VD: 'Mới về nhà — Chăm sóc tích cực'
+  name: string;             // VD: 'Mới về nhà - Chăm sóc tích cực'
   isActive: boolean;
 }
 
-// ===== APPOINTMENT — Lịch tái khám =====
+// ===== APPOINTMENT - Lịch tái khám =====
 export interface AppointmentInfo {
   nextDate?: string;        // Ngày tái khám tiếp theo (YYYY-MM-DD)
   nextNote?: string;        // BV nào, BS nào
@@ -233,7 +233,7 @@ export interface AppointmentInfo {
   lastNote?: string;        // BS nói gì lần khám gần nhất
 }
 
-// ===== BP THRESHOLDS — Ngưỡng cảnh báo HA (Admin cấu hình) =====
+// ===== BP THRESHOLDS - Ngưỡng cảnh báo HA (Admin cấu hình) =====
 export interface BpThresholds {
   highSys: number;          // Mặc định 140
   highDia: number;          // Mặc định 90
@@ -244,7 +244,7 @@ export interface BpThresholds {
 // ===== APP MODE =====
 export type AppMode = 'home_care' | 'icu';
 
-// ===== EXPENSE TRACKER — Sổ Theo Dõi Thu Chi Điều Trị (Mã PIN riêng biệt) =====
+// ===== EXPENSE TRACKER - Sổ Theo Dõi Thu Chi Điều Trị (Mã PIN riêng biệt) =====
 export type ExpenseType = 'out' | 'in';
 
 export type ExpenseStage = 'emergency' | 'rehab_hospital' | 'home_care';
@@ -282,7 +282,7 @@ export interface ExpenseEntry {
   updatedAt?: string;
 }
 
-// ===== LAB RESULTS & BIOCHEMISTRY — Sổ Theo Dõi Xét Nghiệm & Hóa Sinh (Dùng chung Đa Hồ Sơ) =====
+// ===== LAB RESULTS & BIOCHEMISTRY - Sổ Theo Dõi Xét Nghiệm & Hóa Sinh (Dùng chung Đa Hồ Sơ) =====
 export type TshTargetLevel = 'high_risk' | 'moderate_risk' | 'normal';
 
 export interface CustomLabItem {
@@ -320,7 +320,7 @@ export interface LabResultEntry {
   antiTg?: number;              // Anti-TG (IU/mL)
   antiTpo?: number;             // Anti-TPO (IU/mL)
 
-  // Nhóm 3: Bộ Mỡ máu — Tim mạch (Lipid Panel)
+  // Nhóm 3: Bộ Mỡ máu - Tim mạch (Lipid Panel)
   lipidUnit?: 'mmol/L' | 'mg/dL';
   cholesterol?: number;         // Cholesterol toàn phần
   triglyceride?: number;        // Triglyceride

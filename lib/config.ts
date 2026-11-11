@@ -393,7 +393,7 @@ export const DEFAULT_PATIENT_REMINDERS: PatientDailyReminder[] = [
 ];
 
 // =============================================
-// V2.0 — SỔ SỨC KHỎE BỐ — Constants mới
+// V2.0 - SỔ SỨC KHỎE BỐ - Constants mới
 // =============================================
 
 /** Cấu hình hiển thị 4 buổi trong ngày */
@@ -438,7 +438,7 @@ export const DEFAULT_BP_THRESHOLDS: BpThresholds = {
 
 /** Giai đoạn phục hồi mặc định */
 export const DEFAULT_REHAB_STAGES: RehabStage[] = [
-  { id: 'stage-1', name: 'Mới về nhà — Chăm sóc tích cực', isActive: true },
+  { id: 'stage-1', name: 'Mới về nhà - Chăm sóc tích cực', isActive: true },
 ];
 
 /** Lịch tái khám mặc định (trống) */
@@ -458,12 +458,12 @@ export const DEFAULT_CARE_ROUTINES: CareRoutine[] = [
   {
     id: 'routine-med-01',
     stageId: 'stage-1',
-    stageName: 'Mới về nhà — Chăm sóc tích cực',
+    stageName: 'Mới về nhà - Chăm sóc tích cực',
     category: 'meds',
     medType: 'scheduled',
     title: 'Amlodipine (Amlor) 5mg',
     dosage: '1 viên',
-    description: 'Thuốc hạ huyết áp — Viên nang cứng màu vàng-trắng (hoặc viên nén trắng)',
+    description: 'Thuốc hạ huyết áp - Viên nang cứng màu vàng-trắng (hoặc viên nén trắng)',
     imageUrl: '',
     timeSlots: ['morning', 'evening'],
     instructions: 'Uống sau ăn 30 phút. Đo HA trước khi uống.',
@@ -476,12 +476,12 @@ export const DEFAULT_CARE_ROUTINES: CareRoutine[] = [
   {
     id: 'routine-med-02',
     stageId: 'stage-1',
-    stageName: 'Mới về nhà — Chăm sóc tích cực',
+    stageName: 'Mới về nhà - Chăm sóc tích cực',
     category: 'meds',
     medType: 'scheduled',
     title: 'Aspirin 81mg',
     dosage: '1 viên',
-    description: 'Thuốc chống đông máu, ngừa tái phát đột quỵ — Viên nén nhỏ bao phim',
+    description: 'Thuốc chống đông máu, ngừa tái phát đột quỵ - Viên nén nhỏ bao phim',
     imageUrl: '',
     timeSlots: ['morning'],
     instructions: 'Uống sau ăn sáng, không uống khi đói.',
@@ -494,12 +494,12 @@ export const DEFAULT_CARE_ROUTINES: CareRoutine[] = [
   {
     id: 'routine-med-03',
     stageId: 'stage-1',
-    stageName: 'Mới về nhà — Chăm sóc tích cực',
+    stageName: 'Mới về nhà - Chăm sóc tích cực',
     category: 'meds',
     medType: 'scheduled',
     title: 'Atorvastatin 20mg',
     dosage: '1 viên',
-    description: 'Thuốc hạ mỡ máu, ổn định thành mạch — Viên nén dài màu trắng',
+    description: 'Thuốc hạ mỡ máu, ổn định thành mạch - Viên nén dài màu trắng',
     imageUrl: '',
     timeSlots: ['evening'],
     instructions: 'Uống buổi tối trước khi ngủ.',
@@ -512,12 +512,12 @@ export const DEFAULT_CARE_ROUTINES: CareRoutine[] = [
   {
     id: 'routine-med-04',
     stageId: 'stage-1',
-    stageName: 'Mới về nhà — Chăm sóc tích cực',
+    stageName: 'Mới về nhà - Chăm sóc tích cực',
     category: 'meds',
     medType: 'as_needed',
     title: 'Paracetamol 500mg',
     dosage: '1 viên',
-    description: 'Thuốc giảm đau, hạ sốt — Viên nén dài màu trắng (hoặc sủi)',
+    description: 'Thuốc giảm đau, hạ sốt - Viên nén dài màu trắng (hoặc sủi)',
     imageUrl: '',
     timeSlots: [],
     instructions: 'Khi đau đầu hoặc sốt ≥ 38°C. Cách ít nhất 6 giờ giữa 2 lần.',
@@ -817,7 +817,7 @@ export function classifyClinicalBp(
   subjectName: string = 'Bố'
 ): ClinicalBpResult {
   const who = (subjectName || 'Bố').trim();
-  // 1. Huyết áp thấp (Hạ áp — Nguy cơ giảm máu nuôi não)
+  // 1. Huyết áp thấp (Hạ áp - Nguy cơ giảm máu nuôi não)
   if (sys <= thresholds.lowSys || dia <= thresholds.lowDia) {
     const isCriticalLow = sys <= 90 || dia <= 50;
     return {
@@ -844,7 +844,7 @@ export function classifyClinicalBp(
       category: 'stage2',
       alertLevel: 'critical',
       label: isCrisis
-        ? `Huyết áp rất cao — Nguy hiểm (≥180/110 mmHg)`
+        ? `Huyết áp rất cao - Nguy hiểm (≥180/110 mmHg)`
         : `Huyết áp cao vượt mức (≥160/100 mmHg)`,
       shortLabel: isCrisis ? 'Cao nguy hiểm' : 'Cao vượt mức',
       badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
@@ -917,7 +917,7 @@ export function classifyClinicalPulse(
       category: 'none',
       alertLevel: 'normal',
       label: 'Chưa ghi mạch',
-      shortLabel: '—',
+      shortLabel: '-',
       badgeClass: 'bg-slate-100 text-slate-500 border-slate-200',
       dotColor: '#94a3b8',
       barColor: 'bg-slate-300',
@@ -1512,7 +1512,7 @@ export function getQuickNoteTagsForProfile(
 }
 
 // =============================================
-// MULTI-PROFILE — HỆ THỐNG ĐA HỒ SƠ SỨC KHỎE GIA ĐÌNH (100% TƯƠNG THÍCH NGƯỢC)
+// MULTI-PROFILE - HỆ THỐNG ĐA HỒ SƠ SỨC KHỎE GIA ĐÌNH (100% TƯƠNG THÍCH NGƯỢC)
 // =============================================
 
 export const DEFAULT_HEALTH_PROFILE_ID = 'father';
@@ -1561,7 +1561,7 @@ export function ensureRecordProfilePrefix(
 /**
  * Tổng hợp danh sách Hồ sơ Sức khỏe của gia đình:
  * 1. Hồ sơ số 1 luôn là Bố (`id: 'father'`) lấy từ dữ liệu gốc (hoặc Bố Thành Đô trên web Ông Bà Nội).
- * 2. Tự động khởi tạo sẵn hồ sơ số 2 cho Mẹ (`id: 'mother'` — Mẹ Bạch Yến trên web Ông Bà Nội) nếu chưa có để gia đình dùng ngay.
+ * 2. Tự động khởi tạo sẵn hồ sơ số 2 cho Mẹ (`id: 'mother'` - Mẹ Bạch Yến trên web Ông Bà Nội) nếu chưa có để gia đình dùng ngay.
  * 3. Kết hợp thêm các hồ sơ thành viên khác đã lưu trong `patientInfo.healthProfiles` (hỗ trợ CRUD 100% trên web).
  */
 export function buildResolvedHealthProfiles(
@@ -1896,7 +1896,7 @@ export function buildResolvedHealthProfiles(
                   {
                     id: 'cf-thyroid-1',
                     label: 'Phác đồ Tuyến giáp',
-                    value: 'Đã cắt toàn bộ tuyến giáp — Uống Levothyroxine hằng ngày lúc đói (Mục tiêu ức chế TSH)',
+                    value: 'Đã cắt toàn bộ tuyến giáp - Uống Levothyroxine hằng ngày lúc đói (Mục tiêu ức chế TSH)',
                     section: 'profile' as const,
                   },
                   {
@@ -2578,7 +2578,7 @@ export function evaluateLabEntry(
     });
   }
 
-  // 7. Bộ Mỡ máu (Lipid Panel) — Hỗ trợ cả mmol/L và mg/dL
+  // 7. Bộ Mỡ máu (Lipid Panel) - Hỗ trợ cả mmol/L và mg/dL
   // Quy đổi chuẩn: Cholesterol/LDL/HDL: 1 mmol/L = 38.67 mg/dL; Triglyceride: 1 mmol/L = 88.57 mg/dL
   if (typeof entry.cholesterol === 'number' && !isNaN(entry.cholesterol)) {
     const unit = entry.lipidUnit || (entry.cholesterol > 25 ? 'mg/dL' : 'mmol/L');
@@ -2781,7 +2781,7 @@ export function evaluateLabEntry(
     });
     if (isLow) {
       summaryPoints.push(
-        'Canxi máu đang thấp (<2.15 mmol/L hay <8.6 mg/dL) — cần chú ý bổ sung Canxi + Vitamin D3 đầy đủ.'
+        'Canxi máu đang thấp (<2.15 mmol/L hay <8.6 mg/dL) - cần chú ý bổ sung Canxi + Vitamin D3 đầy đủ.'
       );
     }
   }

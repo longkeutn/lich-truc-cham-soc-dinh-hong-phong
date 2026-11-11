@@ -162,9 +162,10 @@ export function EditPatientModal({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition cursor-pointer"
+            aria-label="Đóng cửa sổ chỉnh sửa hồ sơ"
+            className="min-h-[48px] min-w-[48px] rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -468,13 +469,13 @@ export function EditPatientModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer min-h-[44px]"
+              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer min-h-[48px] min-w-[48px]"
             >
               Huỷ bỏ
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-blue-600 hover:bg-blue-500 active:scale-95 transition shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer min-h-[44px]"
+              className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black text-white bg-blue-600 hover:bg-blue-500 active:scale-95 transition shadow-md shadow-blue-500/20 flex items-center justify-center gap-1.5 cursor-pointer min-h-[48px] min-w-[48px]"
             >
               <Save className="w-4 h-4" />
               <span>Lưu toàn bộ hồ sơ</span>

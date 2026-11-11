@@ -295,8 +295,23 @@ export default function EmergencyContactsList({
       {/* Danh sách các số điện thoại */}
       <div className="space-y-3">
         {filteredContacts.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 text-xs sm:text-sm border-2 border-dashed border-slate-700 rounded-2xl">
-            Không tìm thấy số liên lạc nào phù hợp với từ khoá tìm kiếm.
+          <div className="p-8 text-center text-slate-300 text-xs sm:text-sm border-2 border-dashed border-slate-700 rounded-2xl space-y-3">
+            <PhoneCall className="w-10 h-10 text-slate-500 mx-auto" />
+            <p className="font-bold text-slate-200">
+              {localContacts.length === 0
+                ? 'Chưa có số liên lạc khẩn cấp nào trong danh bạ.'
+                : 'Không tìm thấy số liên lạc nào phù hợp với từ khoá tìm kiếm.'}
+            </p>
+            {localContacts.length === 0 && !isFormOpen && (
+              <button
+                type="button"
+                onClick={onOpenAddForm}
+                className="min-h-[48px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold inline-flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Thêm số bác sĩ / cấp cứu ngay</span>
+              </button>
+            )}
           </div>
         ) : (
           filteredContacts.map((contact) => {

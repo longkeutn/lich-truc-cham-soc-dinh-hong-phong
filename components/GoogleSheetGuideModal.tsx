@@ -66,7 +66,8 @@ export default function GoogleSheetGuideModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+            aria-label="Đóng hướng dẫn Google Sheet"
+            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition min-h-[48px] min-w-[48px] flex items-center justify-center cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -86,13 +87,13 @@ export default function GoogleSheetGuideModal({
               <div className="text-xs sm:text-sm">
                 <span className="font-bold block">
                   {isSheetsConnected
-                    ? 'Đã kết nối toàn bộ 9 Bảng Tính Google Sheets V2.2 thành công!'
+                    ? 'Đã kết nối toàn bộ 10 Bảng Tính Google Sheets V2.3 thành công!'
                     : 'Đang hoạt động với Bộ lưu trữ dự phòng (In-Memory Fallback)'}
                 </span>
                 <span className="text-[11px] opacity-80">
                   {isSheetsConnected
-                    ? 'Mọi dữ liệu huyết áp, đơn thuốc, tích hoàn thành, lịch tái khám & Sổ Thu Chi được lưu vào Google Sheets thời gian thực.'
-                    : 'Chỉ cần cập nhật mã Google Apps Script V2.2 bên dưới là bảng Expenses (Sổ Thu Chi) sẽ tự động khởi tạo mà không mất dữ liệu cũ!'}
+                    ? 'Mọi dữ liệu huyết áp, đơn thuốc, tích hoàn thành, lịch tái khám, xét nghiệm & Sổ Thu Chi được lưu vào Google Sheets thời gian thực.'
+                    : 'Chỉ cần cập nhật mã Google Apps Script V2.3 bên dưới là bảng Expenses & LabResults sẽ tự động khởi tạo mà không mất dữ liệu cũ!'}
                 </span>
               </div>
             </div>
@@ -110,40 +111,40 @@ export default function GoogleSheetGuideModal({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="px-4 sm:px-6 pt-3 flex items-center gap-2 border-b border-slate-800 shrink-0">
+        <div className="px-4 sm:px-6 pt-3 flex items-center gap-2 border-b border-slate-800 shrink-0 flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab('appscript')}
-            className={`pb-2.5 px-3 text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+            className={`pb-2.5 px-3 min-h-[48px] text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'appscript'
                 ? 'border-emerald-500 text-emerald-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                : 'border-transparent text-slate-300 hover:text-slate-100'
             }`}
           >
             <Sparkles className="w-4 h-4" />
-            <span>Mã Apps Script V2.2 (9 Bảng)</span>
+            <span>Mã Apps Script V2.3 (10 Bảng)</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('structure')}
-            className={`pb-2.5 px-3 text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+            className={`pb-2.5 px-3 min-h-[48px] text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'structure'
                 ? 'border-amber-500 text-amber-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                : 'border-transparent text-slate-300 hover:text-slate-100'
             }`}
           >
             <Table className="w-4 h-4" />
-            <span>Cấu Trúc 9 Bảng Tính</span>
+            <span>Cấu Trúc 10 Bảng Tính</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('vercel')}
-            className={`pb-2.5 px-3 text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
+            className={`pb-2.5 px-3 min-h-[48px] text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'vercel'
                 ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                : 'border-transparent text-slate-300 hover:text-slate-100'
             }`}
           >
             <Layers className="w-4 h-4" />

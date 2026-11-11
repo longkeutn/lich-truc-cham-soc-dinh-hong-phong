@@ -216,7 +216,8 @@ export default function ShiftDetailModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-white border border-transparent hover:border-slate-200 transition cursor-pointer"
+            aria-label="Đóng chi tiết ca trực"
+            className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200 transition cursor-pointer min-h-[48px] min-w-[48px] flex items-center justify-center"
           >
             <X className="w-5 h-5" />
           </button>
@@ -240,8 +241,9 @@ export default function ShiftDetailModal({
                   type="button"
                   disabled={reqPax <= 1}
                   onClick={() => void handlePaxChange(-1)}
-                  className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center font-bold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center font-bold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer min-h-[44px] min-w-[44px]"
                   title="Giảm 1 người"
+                  aria-label="Giảm 1 người trực"
                 >
                   -
                 </button>
@@ -252,8 +254,9 @@ export default function ShiftDetailModal({
                   type="button"
                   disabled={reqPax >= 5}
                   onClick={() => void handlePaxChange(1)}
-                  className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center font-bold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center font-bold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer min-h-[44px] min-w-[44px]"
                   title="Tăng 1 người"
+                  aria-label="Tăng 1 người trực"
                 >
                   +
                 </button>
@@ -421,7 +424,7 @@ export default function ShiftDetailModal({
                 <button
                   type="button"
                   onClick={() => void handleAddCustomSupporter()}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold transition cursor-pointer min-h-[48px]"
                 >
                   Thêm hỗ trợ
                 </button>
@@ -429,18 +432,19 @@ export default function ShiftDetailModal({
 
               {currentSupporters.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[11px] font-bold text-slate-600">Đang có mặt hỗ trợ:</span>
+                  <span className="text-[11px] font-bold text-slate-700">Đang có mặt hỗ trợ:</span>
                   {currentSupporters.map((s) => (
                     <span
                       key={s}
-                      className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold flex items-center gap-1"
+                      className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-950 border border-emerald-300 text-xs font-bold flex items-center gap-1 min-h-[36px]"
                     >
                       <span>🤝 {s}</span>
                       <button
                         type="button"
                         onClick={() => void handleToggleSupporter(s)}
-                        className="text-emerald-700 hover:text-emerald-950 font-black cursor-pointer"
+                        className="text-emerald-700 hover:text-emerald-950 font-black cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
                         title="Bỏ người hỗ trợ này"
+                        aria-label={`Bỏ người hỗ trợ ${s}`}
                       >
                         ×
                       </button>
@@ -468,7 +472,7 @@ export default function ShiftDetailModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-bold border border-slate-200 transition cursor-pointer"
+            className="px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 text-xs sm:text-sm font-bold border border-slate-200 transition cursor-pointer min-h-[48px] min-w-[48px]"
           >
             Đóng hộp thoại
           </button>

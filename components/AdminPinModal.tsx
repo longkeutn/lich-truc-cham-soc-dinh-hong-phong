@@ -267,7 +267,8 @@ export function AdminPinModal({
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-3 right-3 min-h-[44px] min-w-[44px] rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition cursor-pointer"
+            aria-label="Đóng cửa sổ mã PIN"
+            className="absolute top-3 right-3 min-h-[48px] min-w-[48px] rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition cursor-pointer"
             title="Đóng"
           >
             ✕
