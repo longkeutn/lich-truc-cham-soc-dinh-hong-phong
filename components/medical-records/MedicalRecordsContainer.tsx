@@ -13,6 +13,7 @@ import {
 import { ThyroidTrackerSection } from './ThyroidTrackerSection';
 import { BiochemistryTrackerSection } from './BiochemistryTrackerSection';
 import { ClinicalAppointmentSection } from './ClinicalAppointmentSection';
+import { AppointmentSection } from '@/components/AppointmentSection';
 import { LabResultFormModal } from './LabResultFormModal';
 import { LegacySheetImportModal } from './LegacySheetImportModal';
 
@@ -133,29 +134,40 @@ export function MedicalRecordsContainer({
       </div>
 
       {sortedLabsDesc.length === 0 ? (
-        <MedicalEmptyState
-          icon={<FlaskConical className="w-8 h-8" />}
-          badge="Hồ sơ Xét nghiệm & Cận lâm sàng"
-          title={`Chưa có kết quả xét nghiệm nào của ${patientDisplayName} (${patientName})`}
-          description={
-            <>
-              Bạn có thể bấm <strong>Nhập Kết Quả Xét Nghiệm</strong> để lưu các chỉ số mới đi khám
-              về, hoặc bấm <strong>Nhập từ Sheet cũ</strong> để dán nhanh toàn bộ lịch sử từ bảng
-              Google Sheet trước đây.
-            </>
-          }
-          tone={profileType === 'thyroid_post_op' ? 'thyroid' : 'medical'}
-          primaryAction={{
-            label: 'Nhập kết quả xét nghiệm đầu tiên',
-            onClick: openAddModal,
-            icon: <Plus className="w-4 h-4" />,
-          }}
-          secondaryAction={{
-            label: 'Dán lịch sử từ Google Sheet cũ',
-            onClick: () => setImportModalOpen(true),
-            icon: <FileSpreadsheet className="w-4 h-4" />,
-          }}
-        />
+        <div className="space-y-4">
+          <MedicalEmptyState
+            icon={<FlaskConical className="w-8 h-8" />}
+            badge="Hồ sơ Xét nghiệm & Cận lâm sàng"
+            title={`Chưa có kết quả xét nghiệm nào của ${patientDisplayName} (${patientName})`}
+            description={
+              <>
+                Bạn có thể bấm <strong>Nhập Kết Quả Xét Nghiệm</strong> để lưu các chỉ số mới đi khám
+                về, hoặc bấm <strong>Nhập từ Sheet cũ</strong> để dán nhanh toàn bộ lịch sử từ bảng
+                Google Sheet trước đây.
+              </>
+            }
+            tone={profileType === 'thyroid_post_op' ? 'thyroid' : 'medical'}
+            primaryAction={{
+              label: 'Nhập kết quả xét nghiệm đầu tiên',
+              onClick: openAddModal,
+              icon: <Plus className="w-4 h-4" />,
+            }}
+            secondaryAction={{
+              label: 'Dán lịch sử từ Google Sheet cũ',
+              onClick: () => setImportModalOpen(true),
+              icon: <FileSpreadsheet className="w-4 h-4" />,
+            }}
+          />
+          {appointment && onSaveAppointment && (
+            <AppointmentSection
+              appointment={appointment}
+              onSave={onSaveAppointment}
+              isAdmin={isAdmin}
+              todayStr={todayStr}
+              patientDisplayName={patientDisplayName}
+            />
+          )}
+        </div>
       ) : (
         <>
           {/* Thanh chuyển đổi phân khu Xét nghiệm */}

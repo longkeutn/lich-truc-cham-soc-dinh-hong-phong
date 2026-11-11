@@ -1,2125 +1,443 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import HeaderBar, { AppView } from '@/components/HeaderBar';
+import { AlertTriangle, ShieldCheck, ArrowLeft } from 'lucide-react';
 import PatientBanner from '@/components/PatientBanner';
-import HealthProfileSwitcher from '@/components/HealthProfileSwitcher';
 import QuickVitalsForm from '@/components/QuickVitalsForm';
 import DailyRoutineView from '@/components/DailyRoutineView';
 import { AppointmentSection } from '@/components/AppointmentSection';
 import SmartReminderBanner from '@/components/SmartReminderBanner';
-import SectionBanner, { SECTION_THEME } from '@/components/SectionBanner';
-import SectionNavBar from '@/components/SectionNavBar';
 import {
-  NotificationPreferences,
-  DEFAULT_NOTIFICATION_PREFS,
-  loadNotificationPrefs,
-  saveNotificationPrefs,
-  speakVietnameseReminder,
-} from '@/lib/notifications';
+  AppHeaderBar,
+  MobileBottomNav,
+  TabViewPanel,
+  AppModalsHost,
+} from '@/components/navigation';
+import { FamilyManagementHub } from '@/components/family-management/FamilyManagementHub';
+import { MedicalSkeletonLoader } from '@/components/ui-kit';
+import type { PatientInfo } from '@/lib/types';
+import { APP_SHORT_TITLE } from '@/lib/config';
+import { verifyExpensePinAction, changeExpensePinAction } from '@/lib/actions';
+import { useCareDataSync } from '@/hooks/useCareDataSync';
+import { useHealthProfileManager } from '@/hooks/useHealthProfileManager';
+import { useCareCrudHandlers } from '@/hooks/useCareCrudHandlers';
+import { useCareUiController } from '@/hooks/useCareUiController';
 
-// Lazy-load các Tab phụ & Modal nặng để trang chính tải tức thì trên điện thoại
 const VitalsChartView = dynamic(
   () => import('@/components/VitalsChartView').then((m) => m.VitalsChartView),
   {
     loading: () => (
-      <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500 animate-pulse">
-        Đang mở biểu đồ huyết áp...
-      </div>
+      <MedicalSkeletonLoader
+        variant="full-analytics"
+        label="Đang mở biểu đồ xu hướng huyết áp..."
+      />
     ),
   }
 );
 
-const FamilySupportView = dynamic(() => import('@/components/FamilySupportView'), {
+const LabResultsView = dynamic(() => import('@/components/LabResultsView'), {
   loading: () => (
-    <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500 animate-pulse">
-      Đang mở lịch gia đình đồng hành...
-    </div>
+    <MedicalSkeletonLoader
+      variant="lab-grid"
+      label="Đang mở Sổ Xét Nghiệm và Hóa Sinh..."
+    />
   ),
 });
 
 const ExpenseTrackerView = dynamic(() => import('@/components/ExpenseTrackerView'), {
   loading: () => (
-    <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500 animate-pulse">
-      Đang mở Sổ Theo Dõi Thu Chi...
-    </div>
+    <MedicalSkeletonLoader
+      variant="checklist"
+      rows={4}
+      label="Đang mở Sổ Thu Chi Y Tế..."
+    />
   ),
 });
-
-const LabResultsView = dynamic(() => import('@/components/LabResultsView'), {
-  loading: () => (
-    <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500 animate-pulse">
-      Đang mở Sổ Xét Nghiệm & Hóa Sinh...
-    </div>
-  ),
-});
-
-const RoutineManagerModal = dynamic(() =>
-  import('@/components/RoutineManagerModal').then((m) => m.RoutineManagerModal)
-);
-const GoogleSheetGuideModal = dynamic(() => import('@/components/GoogleSheetGuideModal'));
-const EmergencyContactsModal = dynamic(() => import('@/components/EmergencyContactsModal'));
-const AdminPinModal = dynamic(() =>
-  import('@/components/AdminPinModal').then((m) => m.AdminPinModal)
-);
-const EditPatientModal = dynamic(() =>
-  import('@/components/EditPatientModal').then((m) => m.EditPatientModal)
-);
-const MembersManagementModal = dynamic(() =>
-  import('@/components/MembersManagementModal').then((m) => m.MembersManagementModal)
-);
-const PwaInstallModal = dynamic(() => import('@/components/PwaInstallModal'));
-const NotificationSettingsModal = dynamic(
-  () => import('@/components/NotificationSettingsModal')
-);
-
-import {
-  CarePhase,
-  FamilyMember,
-  ShiftRecord,
-  SystemSettings,
-  PatientInfo,
-  EmergencyContact,
-  PatientDailyReminder,
-  VitalsLogEntry,
-  CareRoutine,
-  DailyLog,
-  RehabStage,
-  AppointmentInfo,
-  BpThresholds,
-  ExpenseEntry,
-  HealthProfile,
-  LabResultEntry,
-} from '@/lib/types';
-import {
-  DEFAULT_BP_THRESHOLDS,
-  DEFAULT_APPOINTMENT,
-  DEFAULT_REHAB_STAGES,
-  DEFAULT_RECORDER,
-  DEFAULT_HEALTH_PROFILE_ID,
-  DEFAULT_MEMBER_NAME,
-  IS_FAMILY_STANDARD_MODE,
-  ENABLE_FAMILY_SHIFT_TAB,
-  APP_SHORT_TITLE,
-  extractRecordProfileId,
-  ensureRecordProfilePrefix,
-  buildResolvedHealthProfiles,
-  buildPresetCareRoutinesForProfile,
-  getVietnamDateStr,
-  getVietnamDateOffsetStr,
-  formatVietnamDateFull,
-  compareVitalsDesc,
-  normalizeDateStr,
-  normalizeTimeStr,
-  computeAlertLevel,
-  evaluateVitalReading,
-} from '@/lib/config';
-import {
-  saveShiftAction,
-  saveMemberAction,
-  saveContactAction,
-  deleteContactAction,
-  saveReminderAction,
-  deleteReminderAction,
-  savePatientInfoAction,
-  // V2.0 actions
-  saveVitalsAction,
-  deleteVitalsAction,
-  saveRoutineAction,
-  deleteRoutineAction,
-  toggleDailyLogAction,
-  saveAppointmentAction,
-  verifyExpensePinAction,
-  changeExpensePinAction,
-  saveExpenseAction,
-  deleteExpenseAction,
-  saveLabResultAction,
-  deleteLabResultAction,
-  fetchAllAppDataV2Action,
-} from '@/lib/actions';
-
-import {
-  AlertTriangle,
-  ShieldCheck,
-  RefreshCw,
-} from 'lucide-react';
-
-const EMPTY_PATIENT_INFO: PatientInfo = {
-  name: DEFAULT_MEMBER_NAME,
-  diagnosis: '',
-  hospital: '',
-  room: '',
-  notes: '',
-  emergencyPhone: '',
-  statusBadge: 'Theo dõi sức khỏe gia đình',
-  conditionTag: IS_FAMILY_STANDARD_MODE ? 'Huyết áp & Tim mạch' : 'Phục hồi tại nhà',
-  headerBadge: 'Tại nhà',
-  careMode: 'Chăm sóc tại nhà',
-  careGoal: IS_FAMILY_STANDARD_MODE ? 'Huyết áp ổn định & uống thuốc đều' : 'Phục hồi vận động & huyết áp ổn định',
-  customFields: [],
-};
 
 export default function CareSchedulePage() {
-  // ===== Dữ liệu khởi tạo RỖNG 100% — Chỉ hiển thị dữ liệu thực từ Google Sheets =====
-  const [members, setMembers] = useState<FamilyMember[]>([]);
-  const [patientInfo, setPatientInfo] = useState<PatientInfo>(EMPTY_PATIENT_INFO);
-  const [contacts, setContacts] = useState<EmergencyContact[]>([]);
-  const [reminders, setReminders] = useState<PatientDailyReminder[]>([]);
-  const [shifts, setShifts] = useState<ShiftRecord[]>([]);
-  const [settings, setSettings] = useState<SystemSettings | null>(null);
+  const ui = useCareUiController();
+  const sync = useCareDataSync({ showToast: ui.showToast });
 
-  // ===== Dữ liệu V2.0 mới =====
-  const [vitalsLog, setVitalsLog] = useState<VitalsLogEntry[]>([]);
-  const [careRoutines, setCareRoutines] = useState<CareRoutine[]>([]);
-  const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
-  const [stages, setStages] = useState<RehabStage[]>(DEFAULT_REHAB_STAGES);
-  const [appointment, setAppointment] = useState<AppointmentInfo>(DEFAULT_APPOINTMENT);
-  const [bpThresholds, setBpThresholds] = useState<BpThresholds>(DEFAULT_BP_THRESHOLDS);
-  const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
-  const [labResults, setLabResults] = useState<LabResultEntry[]>([]);
-
-  // V2.0: Phase cố định là 'phase2' (tại nhà), không cho user chuyển nữa
-  const activePhase: CarePhase = 'phase2';
-
-  // V2.2: 4 tab mới + lưu các tab đã mở để chuyển qua lại tức thì (0ms) không phải render lại từ đầu
-  const [activeView, setActiveView] = useState<AppView>('today');
-  const [visitedViews, setVisitedViews] = useState<Record<AppView, boolean>>({
-    today: true,
-    charts: false,
-    labs: false,
-    family: false,
-    expenses: false,
+  const profilesMgr = useHealthProfileManager({
+    patientInfo: sync.patientInfo,
+    setPatientInfo: sync.setPatientInfo,
+    bpThresholds: sync.bpThresholds,
+    setBpThresholds: sync.setBpThresholds,
+    appointment: sync.appointment,
+    setAppointment: sync.setAppointment,
+    members: sync.members,
+    setMembers: sync.setMembers,
+    vitalsLog: sync.vitalsLog,
+    careRoutines: sync.careRoutines,
+    dailyLogs: sync.dailyLogs,
+    reminders: sync.reminders,
+    labResults: sync.labResults,
+    activeStageId: sync.activeStageId,
+    todayStr: sync.todayStr,
+    setSyncStatus: sync.setSyncStatus,
+    showToast: ui.showToast,
   });
 
-  const handleChangeView = useCallback((view: AppView) => {
-    setActiveView(view);
-    setVisitedViews((prev) => (prev[view] ? prev : { ...prev, [view]: true }));
-  }, []);
+  const crud = useCareCrudHandlers({
+    activeProfile: profilesMgr.activeProfile,
+    isFatherProfile: profilesMgr.isFatherProfile,
+    healthProfiles: profilesMgr.healthProfiles,
+    patientInfo: sync.patientInfo,
+    setPatientInfo: sync.setPatientInfo,
+    profileBpThresholds: profilesMgr.profileBpThresholds,
+    patientDisplayName: profilesMgr.patientDisplayName,
+    vitalsLog: sync.vitalsLog,
+    setVitalsLog: sync.setVitalsLog,
+    careRoutines: sync.careRoutines,
+    setCareRoutines: sync.setCareRoutines,
+    setDailyLogs: sync.setDailyLogs,
+    stages: sync.stages,
+    activeStageId: sync.activeStageId,
+    labResults: sync.labResults,
+    setLabResults: sync.setLabResults,
+    setAppointment: sync.setAppointment,
+    setReminders: sync.setReminders,
+    setContacts: sync.setContacts,
+    setExpenses: sync.setExpenses,
+    setShifts: sync.setShifts,
+    todayStrRef: sync.todayStrRef,
+    setTodayStr: sync.setTodayStr,
+    notificationPrefs: ui.notificationPrefs,
+    requireAdmin: ui.requireAdmin,
+    syncRootPatientInfo: profilesMgr.syncRootPatientInfo,
+    setSyncStatus: sync.setSyncStatus,
+    showToast: ui.showToast,
+  });
 
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [hasInitialLoaded, setHasInitialLoaded] = useState<boolean>(false);
-  const [guideModalOpen, setGuideModalOpen] = useState<boolean>(false);
-  const [emergencyModalOpen, setEmergencyModalOpen] = useState<boolean>(false);
-  const [installPwaModalOpen, setInstallPwaModalOpen] = useState<boolean>(false);
-  const [notifSettingsModalOpen, setNotifSettingsModalOpen] = useState<boolean>(false);
-  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(
-    DEFAULT_NOTIFICATION_PREFS
-  );
-  const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'warn' } | null>(null);
-
-  // Admin Security & Management Modals State
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [isExpenseUnlocked, setIsExpenseUnlocked] = useState<boolean>(false);
-  const [adminPinModalOpen, setAdminPinModalOpen] = useState<boolean>(false);
-  const [adminPinModalMode, setAdminPinModalMode] = useState<'unlock' | 'change'>('unlock');
-  const [editPatientModalOpen, setEditPatientModalOpen] = useState<boolean>(false);
-  const [membersModalOpen, setMembersModalOpen] = useState<boolean>(false);
-  const [pendingAdminAction, setPendingAdminAction] = useState<(() => void) | null>(null);
-
-  // V2.0: RoutineManager Modal & Hồ sơ sức khỏe gia đình đang chọn
-  const [routineManagerOpen, setRoutineManagerOpen] = useState<boolean>(false);
-  const [activeStageId, setActiveStageId] = useState<string>('stage-1');
-  const [activeProfileId, setActiveProfileId] = useState<string>(DEFAULT_HEALTH_PROFILE_ID);
-
-  // Dọn dẹp bộ nhớ trình duyệt cũ (localStorage) & tải ngầm trước các tab phụ sau khi trang chính đã lên
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('care_app_member_id');
-        const savedProfileId = localStorage.getItem('care_active_profile_id');
-        if (savedProfileId) {
-          setActiveProfileId(savedProfileId);
-        }
-        setNotificationPrefs(loadNotificationPrefs());
-        if (sessionStorage.getItem('care_admin_auth') === 'true') {
-          setIsAdmin(true);
-        }
-        if (sessionStorage.getItem('care_expense_auth') === 'true') {
-          setIsExpenseUnlocked(true);
-          setIsAdmin(true);
-        }
-      }
-    } catch {
-      // ignore
-    }
-
-    // Tải ngầm trước JS của các tab phụ sau 1.2s để bấm chuyển tab phản hồi 0ms
-    const preloadTimer = setTimeout(() => {
-      import('@/components/VitalsChartView').catch(() => {});
-      import('@/components/LabResultsView').catch(() => {});
-      import('@/components/FamilySupportView').catch(() => {});
-      import('@/components/ExpenseTrackerView').catch(() => {});
-    }, 1200);
-
-    return () => clearTimeout(preloadTimer);
-  }, []);
-
-  const showToast = useCallback((message: string, type: 'info' | 'success' | 'warn' = 'info') => {
-    setNotification({ message, type });
-    setTimeout(() => {
-      setNotification(null);
-    }, 3000);
-  }, []);
-
-  const handleSaveNotificationPrefs = useCallback((nextPrefs: NotificationPreferences) => {
-    setNotificationPrefs(nextPrefs);
-    saveNotificationPrefs(nextPrefs);
-  }, []);
-
-  // ===== Ngày hiện tại theo đúng Múi Giờ Việt Nam (UTC+7) — Tự động nhảy ngày khi treo PWA qua đêm =====
-  const [todayStr, setTodayStr] = useState<string>(() => getVietnamDateStr());
-  const todayStrRef = useRef<string>(todayStr);
-  useEffect(() => {
-    todayStrRef.current = todayStr;
-  }, [todayStr]);
-
-  const isFetchingRef = useRef<boolean>(false);
-  const lastSyncTimestampRef = useRef<number>(0);
-
-  // V2.0: Tải toàn bộ dữ liệu V2 từ Google Sheets (hỗ trợ chế độ silent khi tự động đồng bộ nền trên PWA)
-  const loadAllData = useCallback(
-    async (forceRefresh = false, silent = false) => {
-      if (isFetchingRef.current) return;
-      isFetchingRef.current = true;
-
-      if (!silent) {
-        setIsLoading(true);
-      }
-      if (forceRefresh && !silent) {
-        showToast('Đang làm mới dữ liệu từ Google Sheets...', 'info');
-      }
-
-      try {
-        // Lấy khoảng ngày theo đúng múi giờ Việt Nam: 30 ngày trước → 7 ngày sau (đủ cho biểu đồ HA)
-        const qStart = getVietnamDateOffsetStr(-30);
-        const qEnd = getVietnamDateOffsetStr(7);
-
-        const appData = await fetchAllAppDataV2Action(qStart, qEnd, activePhase, forceRefresh);
-
-        if (appData) {
-          lastSyncTimestampRef.current = Date.now();
-          // Luôn cập nhật đúng danh sách từ Google Sheets (kể cả khi bảng trên Sheet đang trống)
-          if (Array.isArray(appData.shifts)) setShifts(appData.shifts);
-          if (Array.isArray(appData.members)) setMembers(appData.members);
-          if (appData.patientInfo && appData.patientInfo.name) setPatientInfo(appData.patientInfo);
-          if (Array.isArray(appData.contacts)) setContacts(appData.contacts);
-          if (Array.isArray(appData.reminders)) setReminders(appData.reminders);
-          if (appData.settings) setSettings(appData.settings);
-
-          // V2 data
-          const resolvedThresholds = appData.bpThresholds || DEFAULT_BP_THRESHOLDS;
-          if (Array.isArray(appData.vitalsLog)) {
-            const cleanedVitals = appData.vitalsLog
-              .map((v) => ({
-                ...v,
-                date: normalizeDateStr(v.date),
-                time: normalizeTimeStr(v.time),
-                alertLevel: computeAlertLevel(v.sys, v.dia, resolvedThresholds, v.pulse),
-              }))
-              .sort(compareVitalsDesc);
-            setVitalsLog(cleanedVitals);
-          }
-          if (Array.isArray(appData.careRoutines)) setCareRoutines(appData.careRoutines);
-          if (Array.isArray(appData.dailyLogs)) setDailyLogs(appData.dailyLogs);
-          if (Array.isArray(appData.stages) && appData.stages.length > 0) {
-            setStages(appData.stages);
-            const firstActive = appData.stages.find((s) => s.isActive);
-            if (firstActive) setActiveStageId(firstActive.id);
-          }
-          if (appData.appointment) setAppointment(appData.appointment);
-          if (appData.bpThresholds) setBpThresholds(appData.bpThresholds);
-          if (Array.isArray(appData.expenses)) setExpenses(appData.expenses);
-          if (Array.isArray(appData.labResults)) setLabResults(appData.labResults);
-
-          if (forceRefresh && !silent) {
-            showToast('Đã đồng bộ dữ liệu mới nhất từ Google Sheets!', 'success');
-          }
-        }
-      } catch (err) {
-        console.error('Lỗi khi tải dữ liệu:', err);
-        if (!silent) {
-          showToast('Không thể kết nối máy chủ để tải dữ liệu.', 'warn');
-        }
-      } finally {
-        isFetchingRef.current = false;
-        setIsLoading(false);
-        setHasInitialLoaded(true);
-      }
-    },
-    [activePhase, showToast]
-  );
-
-  useEffect(() => {
-    // Đảm bảo ngay khi mount trên điện thoại lấy đúng ngày giờ Việt Nam hiện tại
-    const currentVnDate = getVietnamDateStr();
-    if (currentVnDate !== todayStrRef.current) {
-      todayStrRef.current = currentVnDate;
-      setTodayStr(currentVnDate);
-    }
-
-    // 1. STALE-WHILE-REVALIDATE: Đọc ngay bản chụp dữ liệu gần nhất từ máy (0ms) để giao diện hiện tức thì
-    let restoredFromSnapshot = false;
-    try {
-      const rawSnap = localStorage.getItem('care_app_snapshot_v2');
-      if (rawSnap) {
-        const snap = JSON.parse(rawSnap);
-        if (snap && typeof snap === 'object') {
-          if (Array.isArray(snap.shifts)) setShifts(snap.shifts);
-          if (Array.isArray(snap.members)) setMembers(snap.members);
-          if (snap.patientInfo && snap.patientInfo.name) setPatientInfo(snap.patientInfo);
-          if (Array.isArray(snap.contacts)) setContacts(snap.contacts);
-          if (Array.isArray(snap.reminders)) setReminders(snap.reminders);
-          if (snap.settings) setSettings(snap.settings);
-          const snapThresholds = snap.bpThresholds || DEFAULT_BP_THRESHOLDS;
-          if (Array.isArray(snap.vitalsLog)) {
-            setVitalsLog(
-              snap.vitalsLog.map((v: VitalsLogEntry) => ({
-                ...v,
-                date: normalizeDateStr(v.date),
-                time: normalizeTimeStr(v.time),
-                alertLevel: computeAlertLevel(v.sys, v.dia, snapThresholds, v.pulse),
-              }))
-            );
-          }
-          if (Array.isArray(snap.careRoutines)) setCareRoutines(snap.careRoutines);
-          if (Array.isArray(snap.dailyLogs)) setDailyLogs(snap.dailyLogs);
-          if (Array.isArray(snap.stages) && snap.stages.length > 0) setStages(snap.stages);
-          if (snap.appointment) setAppointment(snap.appointment);
-          if (snap.bpThresholds) setBpThresholds(snap.bpThresholds);
-          if (Array.isArray(snap.expenses)) setExpenses(snap.expenses);
-          if (Array.isArray(snap.labResults)) setLabResults(snap.labResults);
-          setHasInitialLoaded(true);
-          setIsLoading(false);
-          restoredFromSnapshot = true;
-        }
-      }
-    } catch {
-      // ignore snapshot parse errors
-    }
-
-    // 2. Nếu đã hiển thị tức thì từ bản chụp -> đồng bộ ngầm (silent = true) để lấy dữ liệu mới nhất từ Google Sheets
-    void loadAllData(false, restoredFromSnapshot);
-  }, [loadAllData]);
-
-  // Lưu tự động bản chụp dữ liệu mới nhất vào localStorage (debounce 350ms, chống vượt Quota)
-  useEffect(() => {
-    if (!hasInitialLoaded || typeof window === 'undefined') return;
-    const timer = setTimeout(() => {
-      const snapshotPayload = {
-        savedAt: Date.now(),
-        shifts,
-        members,
-        patientInfo,
-        contacts,
-        reminders,
-        settings,
-        vitalsLog,
-        careRoutines,
-        dailyLogs,
-        stages,
-        appointment,
-        bpThresholds,
-        expenses,
-        labResults,
-      };
-      try {
-        localStorage.setItem('care_app_snapshot_v2', JSON.stringify(snapshotPayload));
-      } catch {
-        // Nếu ảnh thuốc Base64 quá nặng làm đầy localStorage -> lưu bản rút gọn ảnh lớn
-        try {
-          const compactPayload = {
-            ...snapshotPayload,
-            careRoutines: careRoutines.map((r) => ({
-              ...r,
-              imageUrl: r.imageUrl && r.imageUrl.length > 20000 ? '' : r.imageUrl,
-            })),
-          };
-          localStorage.setItem('care_app_snapshot_v2', JSON.stringify(compactPayload));
-        } catch {
-          // ignore
-        }
-      }
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [
-    hasInitialLoaded,
-    shifts,
-    members,
-    patientInfo,
-    contacts,
-    reminders,
-    settings,
-    vitalsLog,
-    careRoutines,
-    dailyLogs,
-    stages,
-    appointment,
-    bpThresholds,
-    expenses,
-    labResults,
-  ]);
-
-  // ===== CƠ CHẾ TỰ ĐỘNG NHẢY NGÀY & TỰ ĐỘNG LÀM MỚI DỮ LIỆU & TỰ ĐỘNG CẬP NHẬT MÃ NGUỒN PWA =====
-  // Khắc phục triệt để việc cài PWA trên điện thoại và không tắt app qua nhiều ngày
-  const clientBuildIdRef = useRef<string>('');
-  const isUpdatingCodeRef = useRef<boolean>(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    // Kiểm tra phiên bản mã nguồn mới nhất trên máy chủ (qua /api/version)
-    // Thiết kế an toàn 100%, có cơ chế chống reload loop (tối đa 1 lần/bản build)
-    const checkForNewCodeVersion = async () => {
-      if (isUpdatingCodeRef.current) return;
-      try {
-        const res = await fetch(`/api/version?t=${Date.now()}`, {
-          cache: 'no-store',
-          headers: { Pragma: 'no-cache', 'Cache-Control': 'no-cache' },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        const serverBuildId = data?.buildId ? String(data.buildId).trim() : '';
-        if (!serverBuildId) return;
-
-        // Lần đầu trang mount: chỉ ghi nhận version máy chủ làm mốc cơ sở, không reload
-        if (!clientBuildIdRef.current) {
-          clientBuildIdRef.current = serverBuildId;
-          return;
-        }
-
-        // Đang chạy đúng bản build mới nhất của server -> Không cần làm gì
-        if (serverBuildId === clientBuildIdRef.current) {
-          return;
-        }
-
-        // BẢO VỆ CHỐNG RELOAD LOOP:
-        // Kiểm tra sessionStorage xem đã reload cho bản build này gần đây chưa
-        const lastReloadVersion = sessionStorage.getItem('app_last_reloaded_version');
-        const lastReloadTime = Number(sessionStorage.getItem('app_last_reloaded_time') || '0');
-        const elapsedSinceReload = Date.now() - lastReloadTime;
-
-        if (lastReloadVersion === serverBuildId && elapsedSinceReload < 10 * 60 * 1000) {
-          clientBuildIdRef.current = serverBuildId;
-          return;
-        }
-
-        // Đánh dấu và reload đúng 1 lần duy nhất
-        isUpdatingCodeRef.current = true;
-        clientBuildIdRef.current = serverBuildId;
-        sessionStorage.setItem('app_last_reloaded_version', serverBuildId);
-        sessionStorage.setItem('app_last_reloaded_time', String(Date.now()));
-
-        showToast('✨ Ứng dụng đã có cập nhật mới, đang tải lại...', 'info');
-        setTimeout(() => {
-          window.location.reload();
-        }, 1200);
-      } catch {
-        // Bỏ qua lỗi mạng ngầm
-      }
-    };
-
-    const checkDateAndRefreshOnWakeUp = (source: 'wakeup' | 'interval') => {
-      const currentVnDate = getVietnamDateStr();
-      const dateChanged = currentVnDate !== todayStrRef.current;
-
-      if (dateChanged) {
-        todayStrRef.current = currentVnDate;
-        setTodayStr(currentVnDate);
-        showToast(`🌅 Đã chuyển sang ${formatVietnamDateFull(currentVnDate)}`, 'info');
-        void loadAllData(true, true);
-        void checkForNewCodeVersion();
-        return;
-      }
-
-      // Khi người dùng mở lại app PWA sau hơn 45 giây ở chế độ nền: tự động đồng bộ Google Sheets & kiểm tra code mới
-      const elapsedSinceLastSync = Date.now() - lastSyncTimestampRef.current;
-      if (source === 'wakeup' && elapsedSinceLastSync > 45 * 1000) {
-        void loadAllData(true, true);
-        void checkForNewCodeVersion();
-      } else if (
-        source === 'interval' &&
-        document.visibilityState === 'visible' &&
-        elapsedSinceLastSync > 180 * 1000
-      ) {
-        // Khi đang xem app liên tục: làm mới dữ liệu sau 3 phút
-        void loadAllData(true, true);
-        void checkForNewCodeVersion();
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        checkDateAndRefreshOnWakeUp('wakeup');
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistration().then((reg) => reg?.update()).catch(() => {});
-        }
-      }
-    };
-    const handleFocus = () => checkDateAndRefreshOnWakeUp('wakeup');
-    const handlePageShow = () => checkDateAndRefreshOnWakeUp('wakeup');
-    const handleOnline = () => checkDateAndRefreshOnWakeUp('wakeup');
-
-    // Đăng ký Service Worker cho PWA (ép trình duyệt không cache file /sw.js trên iOS Safari)
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js', { updateViaCache: 'none' })
-        .then((reg) => {
-          reg.update().catch(() => {});
-        })
-        .catch(() => {});
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('pageshow', handlePageShow);
-    window.addEventListener('online', handleOnline);
-
-    // Kiểm tra định kỳ mỗi 30 giây để tự nhảy ngày nếu treo app qua nửa đêm
-    const intervalId = setInterval(() => {
-      checkDateAndRefreshOnWakeUp('interval');
-    }, 30 * 1000);
-
-    // Lấy version mốc sau 2 giây sau khi app mount xong
-    const initialVersionTimer = setTimeout(() => {
-      void checkForNewCodeVersion();
-    }, 2000);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('pageshow', handlePageShow);
-      window.removeEventListener('online', handleOnline);
-      clearInterval(intervalId);
-      clearTimeout(initialVersionTimer);
-    };
-  }, [loadAllData, showToast]);
-
-  // ===== ĐA HỒ SƠ SỨC KHỎE GIA ĐÌNH (MULTI-PROFILE: BỐ + MẸ & CÁC THÀNH VIÊN KHÁC) =====
-  const healthProfiles = useMemo(
-    () => buildResolvedHealthProfiles(patientInfo, bpThresholds, appointment, members),
-    [patientInfo, bpThresholds, appointment, members]
-  );
-
-  const activeProfile = useMemo(
-    () => healthProfiles.find((p) => p.id === activeProfileId) || healthProfiles[0],
-    [healthProfiles, activeProfileId]
-  );
-
-  const isFatherProfile = activeProfile.id === DEFAULT_HEALTH_PROFILE_ID;
-  const profilePatientInfo = activeProfile.patientInfo;
-  const profileBpThresholds = activeProfile.bpThresholds;
-  const profileAppointment = activeProfile.appointment;
-
-  const patientDisplayName = useMemo(() => {
-    return activeProfile.relation || activeProfile.name || 'Gia đình';
-  }, [activeProfile.relation, activeProfile.name]);
-
-  const profileVitalsLog = useMemo(
-    () =>
-      vitalsLog
-        .filter((v) => extractRecordProfileId(v.id) === activeProfile.id)
-        .map((v) => ({
-          ...v,
-          alertLevel: computeAlertLevel(v.sys, v.dia, profileBpThresholds, v.pulse),
-        })),
-    [vitalsLog, activeProfile.id, profileBpThresholds]
-  );
-
-  const profileCareRoutines = useMemo(
-    () => careRoutines.filter((r) => extractRecordProfileId(r.id) === activeProfile.id),
-    [careRoutines, activeProfile.id]
-  );
-
-  const profileDailyLogs = useMemo(
-    () => dailyLogs.filter((l) => extractRecordProfileId(l.routineId || l.id) === activeProfile.id),
-    [dailyLogs, activeProfile.id]
-  );
-
-  const profileReminders = useMemo(
-    () => reminders.filter((rem) => extractRecordProfileId(rem.id) === activeProfile.id),
-    [reminders, activeProfile.id]
-  );
-
-  const profileLabResults = useMemo(
-    () => labResults.filter((lab) => extractRecordProfileId(lab.id) === activeProfile.id),
-    [labResults, activeProfile.id]
-  );
-
-  const handleSelectProfile = useCallback(
-    (profileId: string) => {
-      setActiveProfileId(profileId);
-      try {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('care_active_profile_id', profileId);
-        }
-      } catch {
-        // ignore
-      }
-      const target = healthProfiles.find((p) => p.id === profileId);
-      if (target) {
-        showToast(
-          `👤 Đang xem sổ sức khỏe: ${target.relation ? `${target.relation} • ` : ''}${target.name}`,
-          'info'
-        );
-      }
-    },
-    [healthProfiles, showToast]
-  );
-
-  const syncRootPatientInfo = useCallback(
-    (nextInfo: PatientInfo, toastMsg?: string) => {
-      setPatientInfo(nextInfo);
-      if (toastMsg) {
-        showToast(toastMsg, 'success');
-      }
-      void savePatientInfoAction(nextInfo)
-        .then((res) => {
-          if (!res.success) {
-            showToast('Cảnh báo: Chưa đồng bộ được hồ sơ lên Sheet.', 'warn');
-          }
-        })
-        .catch(() => {
-          showToast('Lỗi đồng bộ hồ sơ sức khỏe lên Google Sheets.', 'warn');
-        });
-    },
-    [showToast]
-  );
-
-  const handleSaveHealthProfile = useCallback(
-    async (savedProfile: HealthProfile) => {
-      // Đồng bộ tự động 2 chiều với Menu Thành viên (members)
-      const matchedMember =
-        members.find((m) => savedProfile.linkedMemberId && m.id === savedProfile.linkedMemberId) ||
-        members.find(
-          (m) => m.name.trim().toLowerCase() === savedProfile.name.trim().toLowerCase()
-        );
-
-      let resolvedLinkedMemberId = savedProfile.linkedMemberId;
-      if (matchedMember) {
-        resolvedLinkedMemberId = matchedMember.id;
-        if (
-          matchedMember.name !== savedProfile.name.trim() ||
-          (savedProfile.relation && matchedMember.relation !== savedProfile.relation.trim())
-        ) {
-          const words = savedProfile.name.trim().split(/\s+/);
-          const initials =
-            words.length === 1
-              ? words[0].slice(0, 2).toUpperCase()
-              : (words[0][0] + words[words.length - 1][0]).toUpperCase();
-          const updatedMember: FamilyMember = {
-            ...matchedMember,
-            name: savedProfile.name.trim(),
-            relation: savedProfile.relation.trim() || matchedMember.relation,
-            avatarInitials: initials,
-          };
-          setMembers((prev) => prev.map((m) => (m.id === updatedMember.id ? updatedMember : m)));
-          void saveMemberAction(updatedMember).catch(() => {});
-        }
-      } else if (savedProfile.name.trim()) {
-        const newMemId = savedProfile.linkedMemberId || `mem-${savedProfile.id}`;
-        resolvedLinkedMemberId = newMemId;
-        const words = savedProfile.name.trim().split(/\s+/);
-        const initials =
-          words.length === 1
-            ? words[0].slice(0, 2).toUpperCase()
-            : (words[0][0] + words[words.length - 1][0]).toUpperCase();
-        const isMotherRel = savedProfile.relation.toLowerCase().includes('mẹ');
-        const newMember: FamilyMember = {
-          id: newMemId,
-          name: savedProfile.name.trim(),
-          relation: savedProfile.relation.trim() || 'Thành viên gia đình',
-          phone: 'Chưa cập nhật',
-          badgeColor: isMotherRel ? 'bg-rose-600' : 'bg-teal-600',
-          avatarInitials: initials,
-          bgLight: isMotherRel ? 'bg-rose-50/90' : 'bg-teal-50/90',
-          borderLight: isMotherRel ? 'border-rose-300' : 'border-teal-300',
-          textColor: isMotherRel ? 'text-rose-900' : 'text-teal-900',
-          accentColor: isMotherRel ? 'bg-rose-600 text-white' : 'bg-teal-600 text-white',
-          pillBadge: isMotherRel
-            ? 'bg-rose-100 text-rose-800 border-rose-300 font-bold'
-            : 'bg-teal-100 text-teal-800 border-teal-300 font-bold',
-          isSupporter: false,
-        };
-        setMembers((prev) =>
-          prev.some((m) => m.id === newMember.id)
-            ? prev.map((m) => (m.id === newMember.id ? newMember : m))
-            : [...prev, newMember]
-        );
-        void saveMemberAction(newMember).catch(() => {});
-      }
-
-      const cleanProfile: HealthProfile = {
-        ...savedProfile,
-        linkedMemberId: resolvedLinkedMemberId,
-        patientInfo: {
-          ...savedProfile.patientInfo,
-          name: savedProfile.name || savedProfile.patientInfo.name,
-          healthProfiles: undefined,
-        },
-      };
-
-      if (cleanProfile.id === DEFAULT_HEALTH_PROFILE_ID) {
-        const extraProfiles = healthProfiles
-          .filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID)
-          .map((p) => ({
-            ...p,
-            patientInfo: { ...p.patientInfo, healthProfiles: undefined },
-          }));
-        // Lưu cả cleanProfile (gồm relation: "Mẹ", avatarEmoji, profileType...) vào healthProfiles để giữ nguyên 100% tùy chỉnh của Thành viên chính!
-        const nextFatherInfo: PatientInfo = {
-          ...cleanProfile.patientInfo,
-          name: cleanProfile.name || cleanProfile.patientInfo.name || DEFAULT_MEMBER_NAME,
-          healthProfiles: [cleanProfile, ...extraProfiles],
-        };
-        setBpThresholds(cleanProfile.bpThresholds);
-        setAppointment(cleanProfile.appointment);
-        syncRootPatientInfo(
-          nextFatherInfo,
-          `✅ Đã lưu hồ sơ sức khỏe: ${cleanProfile.relation ? `${cleanProfile.relation} • ` : ''}${cleanProfile.name}`
-        );
-        return;
-      }
-
-      const primaryObj = healthProfiles.find((p) => p.id === DEFAULT_HEALTH_PROFILE_ID);
-      const cleanPrimary: HealthProfile | null = primaryObj
-        ? {
-            ...primaryObj,
-            patientInfo: { ...primaryObj.patientInfo, healthProfiles: undefined },
-          }
-        : null;
-
-      const existingExtras = healthProfiles
-        .filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID)
-        .map((p) => ({
-          ...p,
-          patientInfo: { ...p.patientInfo, healthProfiles: undefined },
-        }));
-      const existsIdx = existingExtras.findIndex((p) => p.id === cleanProfile.id);
-      const nextExtras =
-        existsIdx >= 0
-          ? existingExtras.map((p, idx) => (idx === existsIdx ? cleanProfile : p))
-          : [...existingExtras, cleanProfile];
-
-      const nextRootInfo: PatientInfo = {
-        ...patientInfo,
-        healthProfiles: cleanPrimary ? [cleanPrimary, ...nextExtras] : nextExtras,
-      };
-      setActiveProfileId(cleanProfile.id);
-      try {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('care_active_profile_id', cleanProfile.id);
-        }
-      } catch {
-        // ignore
-      }
-      syncRootPatientInfo(
-        nextRootInfo,
-        `✅ Đã lưu hồ sơ sức khỏe: ${cleanProfile.relation ? `${cleanProfile.relation} • ` : ''}${cleanProfile.name}`
-      );
-    },
-    [healthProfiles, members, patientInfo, syncRootPatientInfo]
-  );
-
-  const handleDeleteHealthProfile = useCallback(
-    async (profileId: string) => {
-      if (healthProfiles.length <= 1) {
-        showToast('⚠️ Cần giữ lại ít nhất 1 thành viên trong Sổ Sức Khỏe.', 'warn');
-        return;
-      }
-      const target = healthProfiles.find((p) => p.id === profileId);
-      const nextAll = healthProfiles
-        .filter((p) => p.id !== profileId)
-        .map((p) => ({
-          ...p,
-          patientInfo: { ...p.patientInfo, healthProfiles: undefined },
-        }));
-      const firstRemaining = nextAll[0];
-      const nextRootInfo: PatientInfo = {
-        ...patientInfo,
-        ...(profileId === DEFAULT_HEALTH_PROFILE_ID && firstRemaining
-          ? {
-              ...firstRemaining.patientInfo,
-              name: firstRemaining.name,
-            }
-          : {}),
-        healthProfiles: nextAll,
-      };
-      if (activeProfileId === profileId && firstRemaining) {
-        setActiveProfileId(firstRemaining.id);
-        try {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('care_active_profile_id', firstRemaining.id);
-          }
-        } catch {
-          // ignore
-        }
-      }
-      syncRootPatientInfo(
-        nextRootInfo,
-        `🗑️ Đã xóa thành viên "${target?.name || profileId}" khỏi Sổ Sức Khỏe`
-      );
-    },
-    [healthProfiles, patientInfo, activeProfileId, syncRootPatientInfo, showToast]
-  );
-
-  // ===== V2.0 HANDLERS (PHẢN HỒI TỨC THÌ 0ms — ĐỒNG BỘ NGẦM LÊN SHEET) =====
-
-  // Lưu huyết áp — Cập nhật giao diện ngay lập tức, đồng bộ Google Sheets ở chế độ nền
-  const handleSaveVitals = useCallback(async (entry: VitalsLogEntry) => {
-    const scopedId = ensureRecordProfilePrefix(entry.id, activeProfile.id);
-    const cleanEntry: VitalsLogEntry = {
-      ...entry,
-      id: scopedId,
-      date: normalizeDateStr(entry.date),
-      time: normalizeTimeStr(entry.time),
-      alertLevel: computeAlertLevel(entry.sys, entry.dia, profileBpThresholds, entry.pulse),
-    };
-    setVitalsLog((prev) => {
-      const exists = prev.findIndex((v) => v.id === cleanEntry.id);
-      let next: VitalsLogEntry[];
-      if (exists >= 0) {
-        next = [...prev];
-        next[exists] = cleanEntry;
-      } else {
-        next = [cleanEntry, ...prev];
-      }
-      return next.sort(compareVitalsDesc);
-    });
-    const recorderInfo = cleanEntry.recordedBy ? ` • Người đo: ${cleanEntry.recordedBy}` : '';
-    showToast(
-      `💓 Đã lưu huyết áp của ${patientDisplayName}: ${cleanEntry.sys}/${cleanEntry.dia} mmHg${recorderInfo}!`,
-      'success'
-    );
-
-    // Nếu người dùng bật "🗣️ Tự đọc giọng Tiếng Việt", tự động đọc kết quả + nhận xét ngay khi lưu
-    if (notificationPrefs.enabled && notificationPrefs.autoVoiceEnabled) {
-      const evalRes = evaluateVitalReading(cleanEntry, profileBpThresholds, patientDisplayName);
-      const pulseText = cleanEntry.pulse ? `, nhịp tim ${cleanEntry.pulse}` : '';
-      const statusText =
-        evalRes.overallAlertLevel === 'normal'
-          ? `Chỉ số huyết áp và nhịp tim của ${patientDisplayName} ổn định.`
-          : `${evalRes.reasons.join('. ')}. ${evalRes.clinicalAdvice}`;
-      speakVietnameseReminder(
-        `Đã lưu huyết áp của ${patientDisplayName}: ${cleanEntry.sys} trên ${cleanEntry.dia}${pulseText}. ${statusText}`
-      );
-    }
-
-    // Đồng bộ ngầm không chặn giao diện
-    void saveVitalsAction(cleanEntry)
-      .then((res) => {
-        if (res.success && res.entry) {
-          const savedClean: VitalsLogEntry = {
-            ...res.entry,
-            date: normalizeDateStr(res.entry.date),
-            time: normalizeTimeStr(res.entry.time),
-            alertLevel: computeAlertLevel(
-              res.entry.sys,
-              res.entry.dia,
-              profileBpThresholds,
-              res.entry.pulse
-            ),
-          };
-          setVitalsLog((prev) =>
-            prev.map((v) => (v.id === cleanEntry.id ? savedClean : v)).sort(compareVitalsDesc)
-          );
-        } else if (!res.success) {
-          showToast('Cảnh báo: Chưa đồng bộ được huyết áp lên Sheet.', 'warn');
-        }
-      })
-      .catch(() => {
-        showToast('Lỗi kết nối khi đồng bộ huyết áp lên Sheet.', 'warn');
-      });
-  }, [
-    activeProfile.id,
-    profileBpThresholds,
-    patientDisplayName,
-    showToast,
-    notificationPrefs.enabled,
-    notificationPrefs.autoVoiceEnabled,
-  ]);
-
-  // Xóa huyết áp — Xóa tức thì trên giao diện, đồng bộ ngầm lên Sheet
-  const handleDeleteVitals = useCallback(async (id: string) => {
-    const backup = vitalsLog;
-    setVitalsLog((prev) => prev.filter((v) => v.id !== id));
-    showToast(`🗑️ Đã xóa bản ghi huyết áp của ${patientDisplayName}.`, 'info');
-
-    void deleteVitalsAction(id)
-      .then((res) => {
-        if (!res.success) {
-          setVitalsLog(backup);
-          showToast('Lỗi xóa bản ghi trên Sheet.', 'warn');
-        }
-      })
-      .catch(() => {
-        setVitalsLog(backup);
-        showToast('Lỗi xóa bản ghi trên Sheet.', 'warn');
-      });
-  }, [vitalsLog, patientDisplayName, showToast]);
-
-  // Toggle checklist thuốc/tập — Phản hồi 0ms khi bấm tích, hỗ trợ cả ngày hiện tại và tích bù ngày quá khứ
-  const handleToggleDailyLog = useCallback(async (log: DailyLog) => {
-    const currentVnDate = getVietnamDateStr();
-    const prevToday = todayStrRef.current;
-    let normalizedLog = {
-      ...log,
-      date: normalizeDateStr(log.date) || currentVnDate,
-    };
-
-    if (currentVnDate !== prevToday) {
-      todayStrRef.current = currentVnDate;
-      setTodayStr(currentVnDate);
-      // Nếu app để treo qua đêm và người dùng đang tích ở màn hình "Hôm nay" cũ -> tự chuyển sang ngày mới
-      if (log.date === prevToday) {
-        normalizedLog = {
-          ...log,
-          id: log.id.replace(`dl-${log.date}-`, `dl-${currentVnDate}-`),
-          date: currentVnDate,
-        };
-      }
-    }
-
-    setDailyLogs((prev) => {
-      const exists = prev.findIndex((l) => l.id === normalizedLog.id);
-      if (exists >= 0) {
-        const updated = [...prev];
-        updated[exists] = normalizedLog;
-        return updated;
-      }
-      return [...prev, normalizedLog];
-    });
-
-    const routineItem = careRoutines.find((r) => r.id === normalizedLog.routineId);
-    if (routineItem) {
-      if (normalizedLog.isDone) {
-        const actor = normalizedLog.doneBy ? `${normalizedLog.doneBy} đã tích` : 'Đã tích';
-        showToast(`✅ ${actor} hoàn thành "${routineItem.title}" (${patientDisplayName})`, 'success');
-      } else {
-        showToast(`↩️ Đã bỏ tích "${routineItem.title}" (${patientDisplayName})`, 'info');
-      }
-    }
-
-    void toggleDailyLogAction(normalizedLog)
-      .then((res) => {
-        if (res.success && res.log) {
-          setDailyLogs((prev) =>
-            prev.map((l) => (l.id === normalizedLog.id ? res.log! : l))
-          );
-        }
-      })
-      .catch(() => {
-        showToast('Lỗi đồng bộ trạng thái checklist lên Sheet.', 'warn');
-      });
-  }, [careRoutines, patientDisplayName, showToast]);
-
-  // Lưu routine (thuốc/bài tập) — Phản hồi tức thì 0ms, đóng form ngay
-  const handleSaveRoutine = useCallback(async (routine: CareRoutine) => {
-    const scopedRoutine: CareRoutine = {
-      ...routine,
-      id: ensureRecordProfilePrefix(routine.id, activeProfile.id),
-      stageId: routine.stageId || activeStageId,
-    };
-    setCareRoutines((prev) => {
-      const idx = prev.findIndex((r) => r.id === scopedRoutine.id);
-      if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = scopedRoutine;
-        return copy;
-      }
-      return [...prev, scopedRoutine];
-    });
-    showToast(`✅ Đã lưu cho ${patientDisplayName}: ${scopedRoutine.title}`, 'success');
-
-    void saveRoutineAction(scopedRoutine)
-      .then((res) => {
-        if (!res.success) {
-          showToast('Lỗi đồng bộ đơn thuốc/bài tập lên Sheet.', 'warn');
-        }
-      })
-      .catch(() => {
-        showToast('Lỗi đồng bộ đơn thuốc/bài tập lên Sheet.', 'warn');
-      });
-  }, [activeProfile.id, activeStageId, patientDisplayName, showToast]);
-
-  // Xóa routine — Xoá tức thì trên giao diện, đồng bộ ngầm lên Sheet
-  const handleDeleteRoutine = useCallback(async (id: string) => {
-    setCareRoutines((prev) => prev.filter((r) => r.id !== id));
-    showToast(`🗑️ Đã xoá đầu việc chăm sóc của ${patientDisplayName}.`, 'info');
-
-    void deleteRoutineAction(id)
-      .then((res) => {
-        if (!res.success) {
-          showToast('Lỗi xoá đơn thuốc/bài tập trên Sheet.', 'warn');
-        }
-      })
-      .catch(() => {
-        showToast('Lỗi xoá đơn thuốc/bài tập trên Sheet.', 'warn');
-      });
-  }, [patientDisplayName, showToast]);
-
-  // Khởi tạo nhanh danh sách thuốc & lịch chăm sóc mẫu theo chế độ bệnh lý của thành viên
-  const handleApplyPresetRoutines = useCallback(async () => {
-    const activeStageObj = stages.find((s) => s.id === activeStageId);
-    const presets = buildPresetCareRoutinesForProfile(
-      activeProfile.id,
-      activeProfile.profileType,
-      activeStageId,
-      activeStageObj?.name || 'Tại nhà'
-    );
-    if (presets.length === 0) return;
-
-    setCareRoutines((prev) => {
-      const existingIds = new Set(prev.map((r) => r.id));
-      const newItems = presets.filter((p) => !existingIds.has(p.id));
-      return [...prev, ...newItems];
-    });
-    showToast(
-      `✨ Đã khởi tạo ${presets.length} đầu việc thuốc & chăm sóc mẫu cho ${patientDisplayName}!`,
-      'success'
-    );
-
-    for (const preset of presets) {
-      void saveRoutineAction(preset).catch(() => {});
-    }
-  }, [stages, activeStageId, activeProfile.id, activeProfile.profileType, patientDisplayName, showToast]);
-
-  // Lưu phiếu xét nghiệm & hóa sinh (Phản hồi tức thì 0ms, đồng bộ ngầm lên Sheet)
-  const handleSaveLabResult = useCallback(
-    async (entry: LabResultEntry) => {
-      const scopedEntry: LabResultEntry = {
-        ...entry,
-        id: ensureRecordProfilePrefix(entry.id, activeProfile.id),
-        date: normalizeDateStr(entry.date),
-      };
-      setLabResults((prev) => {
-        const idx = prev.findIndex((l) => l.id === scopedEntry.id);
-        let next: LabResultEntry[];
-        if (idx >= 0) {
-          next = [...prev];
-          next[idx] = scopedEntry;
-        } else {
-          next = [scopedEntry, ...prev];
-        }
-        return next.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-      });
-      showToast(
-        `🔬 Đã lưu phiếu xét nghiệm ngày ${scopedEntry.date} của ${patientDisplayName}!`,
-        'success'
-      );
-
-      void saveLabResultAction(scopedEntry)
-        .then((res) => {
-          if (!res.success) {
-            showToast('Cảnh báo: Chưa đồng bộ được phiếu xét nghiệm lên Sheet.', 'warn');
-          }
-        })
-        .catch(() => {
-          showToast('Lỗi đồng bộ phiếu xét nghiệm lên Google Sheets.', 'warn');
-        });
-    },
-    [activeProfile.id, patientDisplayName, showToast]
-  );
-
-  // Xóa phiếu xét nghiệm
-  const handleDeleteLabResult = useCallback(
-    async (id: string) => {
-      const backup = labResults;
-      setLabResults((prev) => prev.filter((l) => l.id !== id));
-      showToast(`🗑️ Đã xóa phiếu xét nghiệm của ${patientDisplayName}.`, 'info');
-
-      void deleteLabResultAction(id)
-        .then((res) => {
-          if (!res.success) {
-            setLabResults(backup);
-            showToast('Lỗi xóa phiếu xét nghiệm trên Sheet.', 'warn');
-          }
-        })
-        .catch(() => {
-          setLabResults(backup);
-          showToast('Lỗi xóa phiếu xét nghiệm trên Sheet.', 'warn');
-        });
-    },
-    [labResults, patientDisplayName, showToast]
-  );
-
-  // Lưu lịch tái khám — Phản hồi tức thì 0ms (hỗ trợ cả Thành viên chính và các hồ sơ thành viên khác)
-  const handleSaveAppointment = useCallback(async (info: AppointmentInfo) => {
-    if (isFatherProfile) {
-      setAppointment(info);
-      const updatedAll = healthProfiles.map((p) => ({
-        ...p,
-        appointment: p.id === DEFAULT_HEALTH_PROFILE_ID ? info : p.appointment,
-        patientInfo: { ...p.patientInfo, healthProfiles: undefined },
-      }));
-      setPatientInfo((prev) => ({
-        ...prev,
-        healthProfiles: updatedAll,
-      }));
-      showToast(`📅 Đã lưu lịch tái khám của ${patientDisplayName}!`, 'success');
-
-      void saveAppointmentAction(info)
-        .then((res) => {
-          if (res.success && res.appointment) {
-            setAppointment(res.appointment);
-          }
-        })
-        .catch(() => {
-          showToast('Lỗi lưu lịch tái khám lên Sheet.', 'warn');
-        });
-    } else {
-      const updatedProfile: HealthProfile = {
-        ...activeProfile,
-        appointment: info,
-        patientInfo: { ...activeProfile.patientInfo, healthProfiles: undefined },
-      };
-      const primaryObj = healthProfiles.find((p) => p.id === DEFAULT_HEALTH_PROFILE_ID);
-      const cleanPrimary: HealthProfile | null = primaryObj
-        ? {
-            ...primaryObj,
-            patientInfo: { ...primaryObj.patientInfo, healthProfiles: undefined },
-          }
-        : null;
-      const existingExtras = healthProfiles
-        .filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID)
-        .map((p) => ({
-          ...p,
-          patientInfo: { ...p.patientInfo, healthProfiles: undefined },
-        }));
-      const existsIdx = existingExtras.findIndex((p) => p.id === activeProfile.id);
-      const nextExtras =
-        existsIdx >= 0
-          ? existingExtras.map((p, idx) => (idx === existsIdx ? updatedProfile : p))
-          : [...existingExtras, updatedProfile];
-      const nextRootInfo: PatientInfo = {
-        ...patientInfo,
-        healthProfiles: cleanPrimary ? [cleanPrimary, ...nextExtras] : nextExtras,
-      };
-      syncRootPatientInfo(nextRootInfo, `📅 Đã lưu lịch tái khám của ${patientDisplayName}!`);
-    }
-  }, [
-    isFatherProfile,
-    activeProfile,
-    healthProfiles,
-    patientInfo,
-    patientDisplayName,
-    syncRootPatientInfo,
-    showToast,
-  ]);
-
-  // ===== V2.2: QUYỀN ADMIN THỰC SỰ (PIN 2468) — MỞ TOÀN QUYỀN + SỔ THU CHI + CODE.GS =====
-  const handleUnlockExpenseSuccess = useCallback(() => {
-    setIsExpenseUnlocked(true);
-    setIsAdmin(true);
-    try {
-      sessionStorage.setItem('care_expense_auth', 'true');
-      sessionStorage.setItem('care_admin_auth', 'true');
-    } catch {
-      // ignore
-    }
-    showToast('👑 Đã mở quyền Quản trị viên (Toàn quyền hệ thống & Sổ nội bộ)!', 'success');
-    if (pendingAdminAction) {
-      const action = pendingAdminAction;
-      setPendingAdminAction(null);
-      setTimeout(() => action(), 50);
-    }
-  }, [pendingAdminAction, showToast]);
-
-  const handleLockExpense = useCallback(() => {
-    setIsExpenseUnlocked(false);
-    setGuideModalOpen(false);
-    try {
-      sessionStorage.removeItem('care_expense_auth');
-    } catch {
-      // ignore
-    }
-    showToast('🔒 Đã khóa quyền Quản trị cao cấp & Sổ Thu Chi.', 'info');
-  }, [showToast]);
-
-  const handleSaveExpense = useCallback(async (entry: ExpenseEntry) => {
-    setExpenses((prev) => {
-      const idx = prev.findIndex((e) => e.id === entry.id);
-      let next: ExpenseEntry[];
-      if (idx >= 0) {
-        next = [...prev];
-        next[idx] = entry;
-      } else {
-        next = [entry, ...prev];
-      }
-      return next.sort((a, b) => {
-        const dCmp = (b.date || '').localeCompare(a.date || '');
-        if (dCmp !== 0) return dCmp;
-        return (b.createdAt || '').localeCompare(a.createdAt || '');
-      });
-    });
-
-    void saveExpenseAction(entry)
-      .then((res) => {
-        if (res.success && Array.isArray(res.expenses) && res.expenses.length > 0) {
-          setExpenses(res.expenses);
-        } else if (!res.success) {
-          showToast('Lỗi đồng bộ khoản thu/chi lên Google Sheets.', 'warn');
-        }
-      })
-      .catch(() => {
-        showToast('Lỗi đồng bộ khoản thu/chi lên Google Sheets.', 'warn');
-      });
-  }, [showToast]);
-
-  const handleDeleteExpense = useCallback(async (expenseId: string) => {
-    setExpenses((prev) => prev.filter((e) => e.id !== expenseId));
-
-    void deleteExpenseAction(expenseId)
-      .then((res) => {
-        if (!res.success) {
-          showToast('Lỗi xóa khoản thu/chi trên Google Sheets.', 'warn');
-        }
-      })
-      .catch(() => {
-        showToast('Lỗi xóa khoản thu/chi trên Google Sheets.', 'warn');
-      });
-  }, [showToast]);
-
-  // ===== Lấy các routines đang hoạt động cho stage & hồ sơ hiện tại =====
-  const activeRoutines = useMemo(() => {
-    return profileCareRoutines.filter(
-      (r) => r.isActive && (!r.stageId || r.stageId === activeStageId)
-    );
-  }, [profileCareRoutines, activeStageId]);
-
-  // ===== Lấy daily logs cho hôm nay của hồ sơ hiện tại =====
-  const todayDailyLogs = useMemo(() => {
-    return profileDailyLogs.filter((l) => l.date === todayStr);
-  }, [profileDailyLogs, todayStr]);
-
-  // ===== Vitals gần nhất của hồ sơ hiện tại (Luôn sắp xếp chuẩn theo thời gian thực tế) =====
-  const lastVitalsEntry = useMemo(() => {
-    if (profileVitalsLog.length === 0) return null;
-    const sorted = [...profileVitalsLog].sort(compareVitalsDesc);
-    return sorted[0] || null;
-  }, [profileVitalsLog]);
-
-  // ===== Trạng thái nhanh hiển thị trên biển hiệu & thanh điều hướng 3 phần =====
-  const vitalsTodayCount = useMemo(
-    () => profileVitalsLog.filter((v) => normalizeDateStr(v.date) === todayStr).length,
-    [profileVitalsLog, todayStr]
-  );
-
-  const routineTotalToday = useMemo(
-    () =>
-      activeRoutines
-        .filter((r) => r.medType !== 'as_needed')
-        .reduce((sum, r) => sum + (Array.isArray(r.timeSlots) ? r.timeSlots.length : 0), 0),
-    [activeRoutines]
-  );
-
-  const routineDoneToday = useMemo(() => {
-    const ids = new Set(
-      activeRoutines.filter((r) => r.medType !== 'as_needed').map((r) => r.id)
-    );
-    return Math.min(
-      routineTotalToday,
-      todayDailyLogs.filter((l) => l.isDone && ids.has(l.routineId)).length
-    );
-  }, [activeRoutines, todayDailyLogs, routineTotalToday]);
-
-  const apptStatusText = useMemo(() => {
-    const next = normalizeDateStr(profileAppointment.nextDate);
-    if (!next) return 'Chưa có lịch hẹn';
-    const diff = Math.round(
-      (Date.parse(`${next}T12:00:00Z`) - Date.parse(`${todayStr}T12:00:00Z`)) / 86400000
-    );
-    if (isNaN(diff)) return 'Xem lịch hẹn';
-    if (diff < 0) return 'Đã quá hẹn';
-    if (diff === 0) return 'Khám hôm nay';
-    if (diff === 1) return 'Khám ngày mai';
-    return `Còn ${diff} ngày`;
-  }, [profileAppointment.nextDate, todayStr]);
-
-  const sectionNavHints = useMemo(
-    () => ({
-      vitals: lastVitalsEntry
-        ? `${lastVitalsEntry.sys}/${lastVitalsEntry.dia}${lastVitalsEntry.pulse ? ` • ♥${lastVitalsEntry.pulse}` : ''}`
-        : 'Đo ngay',
-      routine: routineTotalToday > 0 ? `${routineDoneToday}/${routineTotalToday} xong` : 'Xem việc',
-      appointment: apptStatusText,
-    }),
-    [lastVitalsEntry, routineDoneToday, routineTotalToday, apptStatusText]
-  );
-
-  // ===== Tên người ghi mặc định tự động khớp theo thành viên đang chọn hoặc Mẹ Phương =====
-  const recorderName = useMemo(() => {
-    if (members.length === 0) return DEFAULT_RECORDER;
-    if (!isFatherProfile) {
-      const matchedSelf = members.find(
-        (m) =>
-          m.name.toLowerCase() === activeProfile.name.toLowerCase() ||
-          (activeProfile.relation &&
-            m.relation.toLowerCase() === activeProfile.relation.toLowerCase())
-      );
-      if (matchedSelf) return matchedSelf.name;
-    }
-    const motherMember = members.find(
-      (m) =>
-        m.name.toLowerCase().includes('mẹ') ||
-        m.relation.toLowerCase().includes('vợ') ||
-        m.relation.toLowerCase().includes('mẹ')
-    );
-    return motherMember ? motherMember.name : members[0].name;
-  }, [members, isFatherProfile, activeProfile.name, activeProfile.relation]);
-
-  // ===== CRUD Reminders (Phản hồi tức thì 0ms, tự động gắn tiền tố hồ sơ hiện tại) =====
-  const handleAddReminder = useCallback(async (newReminder: PatientDailyReminder) => {
-    const scopedReminder: PatientDailyReminder = {
-      ...newReminder,
-      id: ensureRecordProfilePrefix(newReminder.id, activeProfile.id),
-    };
-    setReminders((prev) => {
-      const idx = prev.findIndex((r) => r.id === scopedReminder.id);
-      if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = scopedReminder;
-        return copy;
-      }
-      return [scopedReminder, ...prev];
-    });
-    showToast(`🔔 Đã lưu nhắc nhở cho ${patientDisplayName}!`, 'success');
-
-    void saveReminderAction(scopedReminder).catch((err) => {
-      console.error('Lỗi lưu nhắc nhở:', err);
-      showToast('Không thể đồng bộ nhắc nhở lên Sheet.', 'warn');
-    });
-  }, [activeProfile.id, patientDisplayName, showToast]);
-
-  const handleDeleteReminder = useCallback(async (reminderId: string, title: string) => {
-    setReminders((prev) => prev.filter((r) => r.id !== reminderId));
-    showToast(`🗑️ Đã xoá nhắc nhở "${title}" của ${patientDisplayName}`, 'info');
-
-    void deleteReminderAction(reminderId).catch((err) => {
-      console.error('Lỗi xoá nhắc nhở:', err);
-    });
-  }, [patientDisplayName, showToast]);
-
-  // --- Admin Security Helpers (2 cấp: isAdmin = Sửa danh mục [1234], isExpenseUnlocked = Admin thực sự [2468]) ---
-  const requireAdmin = useCallback((action: () => void) => {
-    if (isAdmin || isExpenseUnlocked) {
-      action();
-    } else {
-      setPendingAdminAction(() => action);
-      setAdminPinModalMode('unlock');
-      setAdminPinModalOpen(true);
-    }
-  }, [isAdmin, isExpenseUnlocked]);
-
-  const handleOpenGuide = useCallback(() => {
-    if (isExpenseUnlocked) {
-      setGuideModalOpen(true);
-    } else {
-      setPendingAdminAction(() => () => setGuideModalOpen(true));
-      setAdminPinModalMode('unlock');
-      setAdminPinModalOpen(true);
-    }
-  }, [isExpenseUnlocked]);
-
-  const handleAdminPinSuccess = useCallback(() => {
-    setIsAdmin(true);
-    try {
-      sessionStorage.setItem('care_admin_auth', 'true');
-    } catch {
-      // ignore
-    }
-    showToast('✏️ Đã mở quyền Chỉnh sửa danh mục!', 'success');
-    if (pendingAdminAction) {
-      const action = pendingAdminAction;
-      setPendingAdminAction(null);
-      setTimeout(() => action(), 50);
-    }
-  }, [pendingAdminAction, showToast]);
-
-  const handleLockAdmin = useCallback(() => {
-    setIsAdmin(false);
-    setIsExpenseUnlocked(false);
-    setGuideModalOpen(false);
-    try {
-      sessionStorage.removeItem('care_admin_auth');
-      sessionStorage.removeItem('care_expense_auth');
-    } catch {
-      // ignore
-    }
-    showToast('🔒 Đã khóa lại toàn bộ quyền chỉnh sửa & quản trị', 'info');
-  }, [showToast]);
-
-  const handleToggleAdmin = useCallback(() => {
-    setAdminPinModalMode('unlock');
-    setAdminPinModalOpen(true);
-  }, []);
-
-  // CRUD Contacts (Bảo vệ bằng Admin PIN — Phản hồi tức thì 0ms)
-  const handleSaveContact = useCallback(async (contact: EmergencyContact) => {
-    requireAdmin(() => {
-      setContacts((prev) => {
-        const idx = prev.findIndex((c) => c.id === contact.id);
-        if (idx >= 0) {
-          const copy = [...prev];
-          copy[idx] = contact;
-          return copy;
-        }
-        return [contact, ...prev];
-      });
-      showToast(`Đã lưu liên hệ ${contact.name}!`, 'success');
-
-      void saveContactAction(contact).catch((err) => {
-        console.error('Lỗi lưu liên hệ:', err);
-        showToast('Không thể lưu liên hệ lên Sheet.', 'warn');
-      });
-    });
-  }, [requireAdmin, showToast]);
-
-  const handleDeleteContact = useCallback(async (contactId: string, name: string) => {
-    requireAdmin(() => {
-      setContacts((prev) => prev.filter((c) => c.id !== contactId));
-      showToast(`Đã xoá liên hệ "${name}"`, 'info');
-
-      void deleteContactAction(contactId).catch((err) => {
-        console.error('Lỗi xoá liên hệ:', err);
-      });
-    });
-  }, [requireAdmin, showToast]);
-
-  // CRUD Patient Details (Tự động định tuyến đúng hồ sơ Bố hoặc hồ sơ thành viên đang chọn)
   const handleOpenEditPatient = useCallback(() => {
-    requireAdmin(() => setEditPatientModalOpen(true));
-  }, [requireAdmin]);
-
-  const persistActiveProfilePatientInfo = useCallback(
-    (newInfo: PatientInfo, toastMsg: string) => {
-      if (isFatherProfile) {
-        const cleanNewInfo: PatientInfo = { ...newInfo, healthProfiles: undefined };
-        const updatedPrimary: HealthProfile = {
-          ...activeProfile,
-          name: cleanNewInfo.name || activeProfile.name,
-          patientInfo: cleanNewInfo,
-        };
-        const extraProfiles = healthProfiles
-          .filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID)
-          .map((p) => ({
-            ...p,
-            patientInfo: { ...p.patientInfo, healthProfiles: undefined },
-          }));
-        const mergedRoot: PatientInfo = {
-          ...cleanNewInfo,
-          healthProfiles: [updatedPrimary, ...extraProfiles],
-        };
-        syncRootPatientInfo(mergedRoot, toastMsg);
-      } else {
-        const cleanNewInfo: PatientInfo = { ...newInfo, healthProfiles: undefined };
-        const updatedProfile: HealthProfile = {
-          ...activeProfile,
-          name: cleanNewInfo.name || activeProfile.name,
-          patientInfo: cleanNewInfo,
-        };
-        const primaryObj = healthProfiles.find((p) => p.id === DEFAULT_HEALTH_PROFILE_ID);
-        const cleanPrimary: HealthProfile | null = primaryObj
-          ? {
-              ...primaryObj,
-              patientInfo: { ...primaryObj.patientInfo, healthProfiles: undefined },
-            }
-          : null;
-        const existingExtras = healthProfiles
-          .filter((p) => p.id !== DEFAULT_HEALTH_PROFILE_ID)
-          .map((p) => ({
-            ...p,
-            patientInfo: { ...p.patientInfo, healthProfiles: undefined },
-          }));
-        const existsIdx = existingExtras.findIndex((p) => p.id === activeProfile.id);
-        const nextExtras =
-          existsIdx >= 0
-            ? existingExtras.map((p, idx) => (idx === existsIdx ? updatedProfile : p))
-            : [...existingExtras, updatedProfile];
-        const nextRootInfo: PatientInfo = {
-          ...patientInfo,
-          healthProfiles: cleanPrimary ? [cleanPrimary, ...nextExtras] : nextExtras,
-        };
-        syncRootPatientInfo(nextRootInfo, toastMsg);
-      }
-    },
-    [isFatherProfile, healthProfiles, activeProfile, patientInfo, syncRootPatientInfo]
-  );
+    ui.requireAdmin(() => ui.setEditPatientModalOpen(true));
+  }, [ui]);
 
   const handlePatientUpdated = useCallback(
     (newInfo: PatientInfo) => {
-      persistActiveProfilePatientInfo(newInfo, `Đã cập nhật hồ sơ ${patientDisplayName}!`);
+      profilesMgr.persistActiveProfilePatientInfo(
+        newInfo,
+        `Đã cập nhật hồ sơ ${profilesMgr.patientDisplayName}!`
+      );
     },
-    [persistActiveProfilePatientInfo, patientDisplayName]
+    [profilesMgr]
   );
 
   const handleInlineSavePatient = useCallback(
     (newInfo: PatientInfo) => {
-      requireAdmin(() => {
-        persistActiveProfilePatientInfo(newInfo, `Đã lưu thông tin ${patientDisplayName}!`);
+      ui.requireAdmin(() => {
+        profilesMgr.persistActiveProfilePatientInfo(
+          newInfo,
+          `Đã lưu thông tin ${profilesMgr.patientDisplayName}!`
+        );
       });
     },
-    [requireAdmin, persistActiveProfilePatientInfo, patientDisplayName]
+    [ui, profilesMgr]
   );
 
-  // CRUD Members & Liên kết 2 chiều với Sổ Sức Khỏe Gia Đình
   const handleOpenMembers = useCallback(() => {
-    // Tự động đồng bộ các thành viên đang có trong Sổ Sức Khỏe Gia Đình vào Menu Thành viên nếu chưa có
-    setMembers((prev) => {
-      const next = [...prev];
-      let addedAny = false;
-      for (const hp of healthProfiles) {
-        const exists = next.some(
-          (m) =>
-            (hp.linkedMemberId && m.id === hp.linkedMemberId) ||
-            m.name.trim().toLowerCase() === hp.name.trim().toLowerCase()
-        );
-        if (!exists && hp.name.trim()) {
-          const words = hp.name.trim().split(/\s+/);
-          const initials =
-            words.length === 1
-              ? words[0].slice(0, 2).toUpperCase()
-              : (words[0][0] + words[words.length - 1][0]).toUpperCase();
-          const isMotherRel = (hp.relation || '').toLowerCase().includes('mẹ');
-          const syncedMem: FamilyMember = {
-            id: hp.linkedMemberId || `mem-${hp.id}`,
-            name: hp.name.trim(),
-            relation: hp.relation.trim() || 'Thành viên gia đình',
-            phone: hp.patientInfo?.emergencyPhone || 'Chưa cập nhật',
-            badgeColor: isMotherRel ? 'bg-rose-600' : 'bg-teal-600',
-            avatarInitials: initials,
-            bgLight: isMotherRel ? 'bg-rose-50/90' : 'bg-teal-50/90',
-            borderLight: isMotherRel ? 'border-rose-300' : 'border-teal-300',
-            textColor: isMotherRel ? 'text-rose-900' : 'text-teal-900',
-            accentColor: isMotherRel ? 'bg-rose-600 text-white' : 'bg-teal-600 text-white',
-            pillBadge: isMotherRel
-              ? 'bg-rose-100 text-rose-800 border-rose-300 font-bold'
-              : 'bg-teal-100 text-teal-800 border-teal-300 font-bold',
-            isSupporter: false,
-          };
-          next.unshift(syncedMem);
-          addedAny = true;
-          void saveMemberAction(syncedMem).catch(() => {});
-        }
-      }
-      return addedAny ? next : prev;
-    });
-    setMembersModalOpen(true);
-  }, [healthProfiles]);
+    profilesMgr.syncProfilesIntoMembersList();
+    ui.setMembersModalOpen(true);
+  }, [profilesMgr, ui]);
 
-  const handleMembersUpdated = useCallback(
-    (updatedMembers: FamilyMember[]) => {
-      setMembers(updatedMembers);
-      // Nếu có thành viên đang liên kết với Sổ Sức Khỏe Gia Đình được đổi tên / vai vế -> đồng bộ sang Sổ Sức Khỏe luôn
-      let profileChanged = false;
-      const updatedProfiles = healthProfiles.map((hp) => {
-        const matched = updatedMembers.find(
-          (m) =>
-            (hp.linkedMemberId && m.id === hp.linkedMemberId) ||
-            m.name.trim().toLowerCase() === hp.name.trim().toLowerCase()
-        );
-        if (
-          matched &&
-          (hp.name !== matched.name ||
-            hp.relation !== matched.relation ||
-            hp.linkedMemberId !== matched.id)
-        ) {
-          profileChanged = true;
-          return {
-            ...hp,
-            name: matched.name,
-            relation: matched.relation || hp.relation,
-            linkedMemberId: matched.id,
-            patientInfo: {
-              ...hp.patientInfo,
-              name: matched.name,
-              healthProfiles: undefined,
-            },
-          };
-        }
-        return {
-          ...hp,
-          patientInfo: { ...hp.patientInfo, healthProfiles: undefined },
-        };
-      });
-
-      if (profileChanged) {
-        const primaryUpdated = updatedProfiles.find((p) => p.id === DEFAULT_HEALTH_PROFILE_ID);
-        const nextRootInfo: PatientInfo = {
-          ...patientInfo,
-          name: primaryUpdated?.name || patientInfo.name,
-          healthProfiles: updatedProfiles,
-        };
-        syncRootPatientInfo(nextRootInfo);
-      }
-      showToast('Đã cập nhật danh sách thành viên gia đình!', 'success');
-    },
-    [healthProfiles, patientInfo, syncRootPatientInfo, showToast]
-  );
-
-  const handleToggleMemberHealthProfile = useCallback(
-    (member: FamilyMember, shouldHaveProfile: boolean) => {
-      const existingProfile = healthProfiles.find(
-        (p) =>
-          (p.linkedMemberId && p.linkedMemberId === member.id) ||
-          p.name.trim().toLowerCase() === member.name.trim().toLowerCase()
-      );
-
-      if (shouldHaveProfile) {
-        if (existingProfile) {
-          void handleSaveHealthProfile({
-            ...existingProfile,
-            name: member.name,
-            relation: member.relation || existingProfile.relation,
-            linkedMemberId: member.id,
-          });
-          return;
-        }
-        const lower = `${member.name} ${member.relation}`.toLowerCase();
-        const isThyroid = lower.includes('bạch yến');
-        const emoji =
-          lower.includes('mẹ') || lower.includes('bà')
-            ? '👵'
-            : lower.includes('chị') || lower.includes('cô') || lower.includes('em gái')
-              ? '👩'
-              : lower.includes('bố') || lower.includes('bác') || lower.includes('ông')
-                ? '👴'
-                : '👨';
-        const newProfile: HealthProfile = {
-          id: `member_${Date.now().toString(36)}`,
-          name: member.name.trim(),
-          relation: member.relation.trim() || 'Gia đình',
-          avatarEmoji: emoji,
-          profileType: isThyroid ? 'thyroid_post_op' : 'general_health',
-          linkedMemberId: member.id,
-          patientInfo: {
-            name: member.name.trim(),
-            diagnosis: isThyroid
-              ? 'Đã phẫu thuật cắt toàn bộ tuyến giáp (K giáp thể nhú) • Duy trì hormone Levothyroxine & Kiểm soát Huyết áp, Mỡ máu, Canxi'
-              : 'Theo dõi huyết áp, nhịp tim & chăm sóc sức khỏe hằng ngày',
-            hospital: 'Khám định kỳ',
-            room: 'Tại nhà',
-            notes: 'Đo huyết áp định kỳ sáng/tối, uống đủ nước ấm, nghỉ ngơi hợp lý.',
-            emergencyPhone: member.phone !== 'Chưa cập nhật' ? member.phone : '',
-            statusBadge: 'Theo dõi sức khỏe gia đình',
-            conditionTag: isThyroid ? 'Tuyến giáp • HA • Mỡ máu' : 'Huyết áp & Tim mạch',
-            headerBadge: 'Tại nhà',
-            careMode: 'Hằng ngày',
-            careGoal: 'Duy trì huyết áp & nhịp tim ổn định',
-            customFields: [],
-          },
-          bpThresholds: { ...DEFAULT_BP_THRESHOLDS },
-          appointment: { ...DEFAULT_APPOINTMENT },
-        };
-        void handleSaveHealthProfile(newProfile);
-      } else if (existingProfile) {
-        void handleDeleteHealthProfile(existingProfile.id);
-      }
-    },
-    [healthProfiles, handleSaveHealthProfile, handleDeleteHealthProfile]
-  );
-
-  // Mở RoutineManager (cần Admin PIN)
   const handleOpenRoutineManager = useCallback(() => {
-    requireAdmin(() => setRoutineManagerOpen(true));
-  }, [requireAdmin]);
-
-  // Lưu / Huỷ lịch đăng ký qua phụ Mẹ (Đợt C — FamilySupportView, phản hồi 0ms)
-  const handleSaveShift = useCallback(async (shift: ShiftRecord) => {
-    const isClearing =
-      (shift.assignees || []).filter(Boolean).length === 0 &&
-      (shift.supporters || []).filter(Boolean).length === 0 &&
-      !shift.handover?.note?.trim();
-
-    // Optimistic update tức thì
-    setShifts((prev) => {
-      if (isClearing) {
-        return prev.filter((s) => s.id !== shift.id);
-      }
-      const idx = prev.findIndex((s) => s.id === shift.id);
-      if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = shift;
-        return updated;
-      }
-      return [shift, ...prev];
-    });
-
-    if (isClearing) {
-      showToast('Đã huỷ lịch qua phụ Mẹ.', 'info');
-    } else {
-      showToast('🤝 Đã lưu lịch qua phụ Mẹ!', 'success');
-    }
-
-    // Đồng bộ ngầm lên Google Sheets
-    void saveShiftAction(shift)
-      .then((res) => {
-        if (res.success && res.updatedShift && !isClearing) {
-          setShifts((prev) =>
-            prev.map((s) => (s.id === shift.id ? res.updatedShift! : s))
-          );
-        } else if (!res.success) {
-          showToast(res.message || 'Cảnh báo: Chưa đồng bộ được lịch lên Sheet.', 'warn');
-        }
-      })
-      .catch(() => {
-        showToast('Lỗi khi đồng bộ lịch gia đình lên Google Sheets.', 'warn');
-      });
-  }, [showToast]);
+    ui.requireAdmin(() => ui.setRoutineManagerOpen(true));
+  }, [ui]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-teal-600 selection:text-white">
-      {/* Toast Notification (nâng cao hơn trên mobile để không đè lên thanh điều hướng đáy, hiển thị êm ái không giật) */}
-      {notification && (
-        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-white border border-slate-300 shadow-2xl text-slate-900 text-xs sm:text-sm font-bold flex items-center gap-2 max-w-[92vw] transition-all duration-300">
-          {notification.type === 'warn' ? (
-            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+    <div className="min-h-screen bg-surface-bg text-text-main flex flex-col selection:bg-medical-primary selection:text-white">
+      {ui.notification && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-2xl bg-surface-card border border-slate-300 shadow-2xl text-text-main text-sm font-extrabold flex items-center gap-2.5 max-w-[92vw] transition-all duration-300"
+        >
+          {ui.notification.type === 'warn' ? (
+            <AlertTriangle className="w-5 h-5 text-vital-warning shrink-0" />
           ) : (
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <ShieldCheck className="w-5 h-5 text-vital-safe shrink-0" />
           )}
-          <span className="truncate">{notification.message}</span>
+          <span className="truncate">{ui.notification.message}</span>
         </div>
       )}
 
-      {/* Header điều khiển cố định */}
-      <HeaderBar
-        activeView={activeView}
-        onChangeView={handleChangeView}
-        onOpenGuide={handleOpenGuide}
-        onOpenEmergencyContacts={() => setEmergencyModalOpen(true)}
-        onOpenInstallApp={() => setInstallPwaModalOpen(true)}
-        onOpenNotificationSettings={() => setNotifSettingsModalOpen(true)}
-        patientInfo={profilePatientInfo}
-        isAdmin={isAdmin}
-        isExpenseUnlocked={isExpenseUnlocked}
-        onOpenAdminPin={handleToggleAdmin}
+      {/* Top App Bar cố định tối giản với Dropdown đổi Hồ sơ nhanh */}
+      <AppHeaderBar
+        activeView={ui.activeView}
+        onChangeView={ui.handleChangeView}
+        profiles={profilesMgr.healthProfiles}
+        activeProfileId={profilesMgr.activeProfile.id}
+        onSelectProfile={profilesMgr.handleSelectProfile}
+        onOpenAddProfile={() => ui.openProfileModal('add', null)}
+        onOpenEditProfile={(prof) => ui.openProfileModal('edit', prof)}
+        onOpenProfileList={() => ui.openProfileModal('list', null)}
         onOpenMembers={handleOpenMembers}
-        onEditPatient={handleOpenEditPatient}
+        onOpenEmergencyContacts={() => ui.setEmergencyModalOpen(true)}
+        patientInfo={profilesMgr.profilePatientInfo}
+        allVitalsLog={sync.vitalsLog}
+        todayStr={sync.todayStr}
+        syncStatus={sync.syncStatus}
+        onRefreshData={() => void sync.loadAllData(true)}
       />
 
-      {/* Thân ứng dụng */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-2.5 sm:p-4 space-y-3.5">
-        {!hasInitialLoaded && isLoading && (
-          <div className="bg-teal-50 border border-teal-200 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3 text-teal-900 shadow-2xs">
-            <div className="flex items-center gap-2.5 text-sm font-bold">
-              <RefreshCw className="w-4 h-4 text-teal-600 animate-spin shrink-0" />
-              <span>Đang tải dữ liệu thực tế từ Google Sheets...</span>
-            </div>
-            <span className="text-xs text-teal-700 font-semibold hidden sm:inline">Vui lòng đợi giây lát</span>
-          </div>
-        )}
-
-        {/* Thanh chuyển đổi Hồ Sơ Sức Khỏe Gia Đình (Bố + Mẹ & các thành viên) */}
-        {(activeView === 'today' || activeView === 'charts' || activeView === 'labs') && (
-          <HealthProfileSwitcher
-            profiles={healthProfiles}
-            activeProfileId={activeProfile.id}
-            allVitalsLog={vitalsLog}
-            todayStr={todayStr}
-            members={members}
-            onSelectProfile={handleSelectProfile}
-            onSaveProfile={handleSaveHealthProfile}
-            onDeleteProfile={handleDeleteHealthProfile}
-            onOpenMembers={handleOpenMembers}
+      {/* Khung cuộn nội dung chính tối ưu 1 cột Mobile-First */}
+      <main className="flex-1 max-w-5xl w-full mx-auto px-3 pt-3 pb-28 md:pb-8 sm:px-5 sm:pt-4 space-y-4">
+        {!sync.hasInitialLoaded && sync.isLoading && (
+          <MedicalSkeletonLoader
+            variant="checklist"
+            rows={3}
+            label="Đang đồng bộ dữ liệu thực tế từ Google Sheets..."
           />
         )}
 
-        {/* Banner mini tóm tắt bệnh nhân & Nhắc nhở (Bấm mở rộng chi tiết) */}
-        <PatientBanner
-          patientInfo={profilePatientInfo}
-          reminders={profileReminders}
-          members={members}
-          onAddReminder={handleAddReminder}
-          onDeleteReminder={handleDeleteReminder}
-          onEditPatient={handleOpenEditPatient}
-          onSavePatient={handleInlineSavePatient}
-          onRefresh={() => loadAllData(true)}
-          isLoading={isLoading}
-        />
+        {/* TAB 1: HÔM NAY (Nhắc việc -> Đo HA 5 giây -> Checklist -> Tái khám & Hồ sơ) */}
+        <TabViewPanel isActive={ui.activeView === 'today'} className="space-y-4">
+          <SmartReminderBanner
+            vitalsLog={profilesMgr.profileVitalsLog}
+            bpThresholds={profilesMgr.profileBpThresholds}
+            activeRoutines={profilesMgr.activeRoutines}
+            dailyLogs={profilesMgr.profileDailyLogs}
+            appointment={profilesMgr.profileAppointment}
+            todayStr={sync.todayStr}
+            defaultRecorder={profilesMgr.recorderName}
+            prefs={ui.notificationPrefs}
+            hasInitialLoaded={sync.hasInitialLoaded}
+            patientDisplayName={profilesMgr.patientDisplayName}
+            onToggleDailyLog={crud.handleToggleDailyLog}
+            onOpenSettings={() => ui.setNotifSettingsModalOpen(true)}
+            showToast={ui.showToast}
+          />
 
-        {/* ===== NỘI DUNG THEO TAB (Giữ DOM sau khi mở để chuyển tab phản hồi 0ms) ===== */}
-        <div className={activeView === 'today' ? 'space-y-6' : 'hidden'}>
-          {/* ===== NHÓM TỔNG QUAN: nhắc việc thông minh ===== */}
-          <div className="space-y-2.5">
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full bg-slate-700 text-white text-sm font-black tracking-wide">
-                📋 TỔNG QUAN • {activeProfile.avatarEmoji} {patientDisplayName.toUpperCase()}
-              </span>
-              <span className="flex-1 h-0.5 bg-slate-300 rounded-full" />
-            </div>
-            {/* Hộp Nhắc Việc Thông Minh theo Khung Giờ & Phát Âm Báo / Giọng Nói Tiếng Việt + Thông Báo Đẩy PWA */}
-            <SmartReminderBanner
-              vitalsLog={profileVitalsLog}
-              bpThresholds={profileBpThresholds}
-              activeRoutines={activeRoutines}
-              dailyLogs={profileDailyLogs}
-              appointment={profileAppointment}
-              todayStr={todayStr}
-              defaultRecorder={recorderName}
-              prefs={notificationPrefs}
-              hasInitialLoaded={hasInitialLoaded}
-              patientDisplayName={patientDisplayName}
-              onToggleDailyLog={handleToggleDailyLog}
-              onOpenSettings={() => setNotifSettingsModalOpen(true)}
-              showToast={showToast}
+          <section id="section-vitals" aria-label="Đo huyết áp và sinh hiệu nhanh">
+            <QuickVitalsForm
+              onSave={crud.handleSaveVitals}
+              lastEntry={profilesMgr.lastVitalsEntry}
+              bpThresholds={profilesMgr.profileBpThresholds}
+              defaultRecorder={profilesMgr.recorderName}
+              members={sync.members}
+              todayStr={sync.todayStr}
+              profileType={profilesMgr.activeProfile.profileType}
+              patientDisplayName={profilesMgr.patientDisplayName}
             />
-          </div>
+          </section>
 
-          {/* Thanh 3 nút lớn dính trên cùng khi cuộn: luôn biết đang ở phần nào */}
-          <SectionNavBar enabled={activeView === 'today'} hints={sectionNavHints} />
-
-          {/* ===== PHẦN 1: ĐO HUYẾT ÁP (màu hồng) ===== */}
-          <div id="section-vitals" className="scroll-mt-32 space-y-2.5">
-            <SectionBanner
-              section="vitals"
-              subtitle={`Đo xong cho ${patientDisplayName}, ghi 3 số vào đây`}
-              status={vitalsTodayCount > 0 ? `Hôm nay đã đo ${vitalsTodayCount} lần` : 'Hôm nay chưa đo'}
+          <section id="section-routine" aria-label="Danh sách thuốc và bài tập hôm nay">
+            <DailyRoutineView
+              routines={profilesMgr.activeRoutines}
+              dailyLogs={profilesMgr.profileDailyLogs}
+              todayStr={sync.todayStr}
+              onToggle={crud.handleToggleDailyLog}
+              onOpenManager={handleOpenRoutineManager}
+              onApplyPresetRoutines={crud.handleApplyPresetRoutines}
+              defaultRecorder={profilesMgr.recorderName}
+              patientDisplayName={profilesMgr.patientDisplayName}
             />
-            <div className={`rounded-2xl ${SECTION_THEME.vitals.cardBorder} ${SECTION_THEME.vitals.cardBg} p-1.5 sm:p-2`}>
-              <QuickVitalsForm
-                onSave={handleSaveVitals}
-                lastEntry={lastVitalsEntry}
-                bpThresholds={profileBpThresholds}
-                defaultRecorder={recorderName}
-                members={members}
-                todayStr={todayStr}
-                profileType={activeProfile.profileType}
-                patientDisplayName={patientDisplayName}
-              />
-            </div>
-          </div>
+          </section>
 
-          {/* ===== PHẦN 2: UỐNG THUỐC & TẬP (màu xanh lá) ===== */}
-          <div id="section-routine" className="scroll-mt-32 space-y-2.5">
-            <SectionBanner
-              section="routine"
-              subtitle={`Bấm vào từng việc của ${patientDisplayName} để tích đã làm`}
-              status={routineTotalToday > 0 ? `Xong ${routineDoneToday}/${routineTotalToday} việc` : undefined}
+          <section id="section-appointment" aria-label="Lịch tái khám và lời dặn bác sĩ">
+            <AppointmentSection
+              appointment={profilesMgr.profileAppointment}
+              onSave={crud.handleSaveAppointment}
+              isAdmin={ui.isAdmin}
+              todayStr={sync.todayStr}
+              patientDisplayName={profilesMgr.patientDisplayName}
             />
-            <div className={`rounded-2xl ${SECTION_THEME.routine.cardBorder} ${SECTION_THEME.routine.cardBg} p-1.5 sm:p-2`}>
-              <DailyRoutineView
-                routines={activeRoutines}
-                dailyLogs={profileDailyLogs}
-                todayStr={todayStr}
-                onToggle={handleToggleDailyLog}
-                onOpenManager={handleOpenRoutineManager}
-                onApplyPresetRoutines={handleApplyPresetRoutines}
-                defaultRecorder={recorderName}
-                patientDisplayName={patientDisplayName}
-              />
-            </div>
-          </div>
+          </section>
 
-          {/* ===== PHẦN 3: TÁI KHÁM & LỜI DẶN BÁC SĨ (màu xanh dương) ===== */}
-          <div id="section-appointment" className="scroll-mt-32 space-y-2.5">
-            <SectionBanner
-              section="appointment"
-              subtitle={`Ngày khám tiếp theo & lời dặn cho ${patientDisplayName}`}
-              status={apptStatusText}
-            />
-            <div className={`rounded-2xl ${SECTION_THEME.appointment.cardBorder} ${SECTION_THEME.appointment.cardBg} p-1.5 sm:p-2`}>
-              <AppointmentSection
-                appointment={profileAppointment}
-                onSave={handleSaveAppointment}
-                isAdmin={isAdmin}
-                todayStr={todayStr}
-                patientDisplayName={patientDisplayName}
-              />
-            </div>
-          </div>
+          <PatientBanner
+            patientInfo={profilesMgr.profilePatientInfo}
+            reminders={profilesMgr.profileReminders}
+            members={sync.members}
+            onAddReminder={crud.handleAddReminder}
+            onDeleteReminder={crud.handleDeleteReminder}
+            onEditPatient={handleOpenEditPatient}
+            onSavePatient={handleInlineSavePatient}
+            onRefresh={() => void sync.loadAllData(true)}
+            isLoading={sync.isLoading}
+          />
+        </TabViewPanel>
 
-          <p className="text-center text-sm font-bold text-slate-500 pb-2">
-            ✅ Hết trang — đã xem đủ 3 phần ({patientDisplayName})
-          </p>
-        </div>
-
-        {visitedViews.charts && (
-          <div className={activeView === 'charts' ? 'block' : 'hidden'}>
-            {/* ===== TAB BIỂU ĐỒ — Đợt B ===== */}
+        {/* TAB 2: XU HƯỚNG */}
+        {ui.visitedViews.charts && (
+          <TabViewPanel isActive={ui.activeView === 'charts'}>
             <VitalsChartView
-              vitalsLog={profileVitalsLog}
-              bpThresholds={profileBpThresholds}
-              dailyLogs={profileDailyLogs}
-              careRoutines={profileCareRoutines}
-              isAdmin={isAdmin}
-              members={members}
-              patientName={profilePatientInfo.name}
-              patientDiagnosis={profilePatientInfo.diagnosis}
-              profileType={activeProfile.profileType}
-              showToast={showToast}
-              onDeleteVitals={handleDeleteVitals}
-              onSaveVitals={handleSaveVitals}
-              onToggleDailyLog={handleToggleDailyLog}
-              defaultRecorder={recorderName}
+              vitalsLog={profilesMgr.profileVitalsLog}
+              bpThresholds={profilesMgr.profileBpThresholds}
+              dailyLogs={profilesMgr.profileDailyLogs}
+              careRoutines={profilesMgr.profileCareRoutines}
+              isAdmin={ui.isAdmin}
+              members={sync.members}
+              patientName={profilesMgr.profilePatientInfo.name}
+              patientDiagnosis={profilesMgr.profilePatientInfo.diagnosis}
+              profileType={profilesMgr.activeProfile.profileType}
+              showToast={ui.showToast}
+              onDeleteVitals={crud.handleDeleteVitals}
+              onSaveVitals={crud.handleSaveVitals}
+              onToggleDailyLog={crud.handleToggleDailyLog}
+              defaultRecorder={profilesMgr.recorderName}
             />
-          </div>
+          </TabViewPanel>
         )}
 
-        {visitedViews.labs && (
-          <div className={activeView === 'labs' ? 'block' : 'hidden'}>
-            {/* ===== TAB XÉT NGHIỆM & HÓA SINH — Dùng chung cho cả 2 gia đình ===== */}
+        {/* TAB 3: XÉT NGHIỆM & HỒ SƠ Y TẾ */}
+        {ui.visitedViews.labs && (
+          <TabViewPanel isActive={ui.activeView === 'labs'}>
             <LabResultsView
-              labResults={profileLabResults}
-              vitalsLog={profileVitalsLog}
-              profileId={activeProfile.id}
-              profileType={activeProfile.profileType}
-              patientName={profilePatientInfo.name}
-              patientDisplayName={patientDisplayName}
-              patientDiagnosis={profilePatientInfo.diagnosis}
-              todayStr={todayStr}
-              defaultRecorder={recorderName}
-              members={members}
-              onSaveLabResult={handleSaveLabResult}
-              onDeleteLabResult={handleDeleteLabResult}
-              showToast={showToast}
+              labResults={profilesMgr.profileLabResults}
+              vitalsLog={profilesMgr.profileVitalsLog}
+              profileId={profilesMgr.activeProfile.id}
+              profileType={profilesMgr.activeProfile.profileType}
+              patientName={profilesMgr.profilePatientInfo.name}
+              patientDisplayName={profilesMgr.patientDisplayName}
+              patientDiagnosis={profilesMgr.profilePatientInfo.diagnosis}
+              todayStr={sync.todayStr}
+              defaultRecorder={profilesMgr.recorderName}
+              members={sync.members}
+              onSaveLabResult={crud.handleSaveLabResult}
+              onDeleteLabResult={crud.handleDeleteLabResult}
+              showToast={ui.showToast}
+              appointment={profilesMgr.profileAppointment}
+              onSaveAppointment={crud.handleSaveAppointment}
+              isAdmin={ui.isAdmin}
             />
-          </div>
+          </TabViewPanel>
         )}
 
-        {ENABLE_FAMILY_SHIFT_TAB && visitedViews.family && (
-          <div className={activeView === 'family' ? 'block' : 'hidden'}>
-            {/* ===== TAB GIA ĐÌNH ĐỒNG HÀNH — Đợt C ===== */}
-            <FamilySupportView
-              shifts={shifts}
-              members={members}
-              isAdmin={isAdmin}
-              todayStr={todayStr}
-              onSaveShift={handleSaveShift}
+        {/* TAB 4: GIA ĐÌNH & QUẢN TRỊ */}
+        {ui.visitedViews.family && (
+          <TabViewPanel isActive={ui.activeView === 'family'}>
+            <FamilyManagementHub
+              profiles={profilesMgr.healthProfiles}
+              activeProfile={profilesMgr.activeProfile}
+              members={sync.members}
+              contacts={sync.contacts}
+              shifts={sync.shifts}
+              expensesCount={sync.expenses.length}
+              todayStr={sync.todayStr}
+              isLoading={sync.isLoading}
+              isAdmin={ui.isAdmin}
+              isExpenseUnlocked={ui.isExpenseUnlocked}
+              onSelectProfile={profilesMgr.handleSelectProfile}
+              onOpenProfileList={() => ui.openProfileModal('list', null)}
+              onOpenAddProfile={() => ui.openProfileModal('add', null)}
               onOpenMembers={handleOpenMembers}
+              onEditPatient={handleOpenEditPatient}
+              onOpenRoutineManager={handleOpenRoutineManager}
+              onOpenExpenses={() => ui.handleChangeView('expenses')}
+              onOpenEmergencyContacts={() => ui.setEmergencyModalOpen(true)}
+              onOpenNotificationSettings={() => ui.setNotifSettingsModalOpen(true)}
+              onOpenInstallApp={() => ui.setInstallPwaModalOpen(true)}
+              onOpenAdminPin={ui.openAdminPinUnlock}
+              onOpenGuide={ui.handleOpenGuide}
+              onRefreshData={() => void sync.loadAllData(true)}
+              onSaveShift={crud.handleSaveShift}
             />
-          </div>
+          </TabViewPanel>
         )}
 
-        {visitedViews.expenses && (
-          <div className={activeView === 'expenses' ? 'block' : 'hidden'}>
-            {/* ===== TAB SỔ THEO DÕI THU CHI ĐIỀU TRỊ — Đợt D (Mã PIN riêng) ===== */}
+        {/* PHÂN KHU CON: SỔ THU CHI Y TẾ (Truy cập từ Tab Gia Đình, bảo vệ bằng mã PIN riêng) */}
+        {ui.visitedViews.expenses && (
+          <TabViewPanel isActive={ui.activeView === 'expenses'} className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => ui.handleChangeView('family')}
+                className="min-h-[48px] min-w-[48px] px-4 py-2 rounded-xl bg-surface-card hover:bg-slate-100 text-text-body border border-border-card text-sm font-extrabold inline-flex items-center gap-2 shadow-2xs transition cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4 shrink-0" />
+                <span>Quay lại Tab Gia Đình</span>
+              </button>
+            </div>
             <ExpenseTrackerView
-              expenses={expenses}
-              members={members}
-              patientName={patientInfo.name}
-              isUnlocked={isExpenseUnlocked}
-              onUnlockSuccess={handleUnlockExpenseSuccess}
-              onLock={handleLockExpense}
+              expenses={sync.expenses}
+              members={sync.members}
+              patientName={sync.patientInfo.name}
+              isUnlocked={ui.isExpenseUnlocked}
+              onUnlockSuccess={ui.handleUnlockExpenseSuccess}
+              onLock={ui.handleLockExpense}
               onVerifyPin={verifyExpensePinAction}
               onChangePin={changeExpensePinAction}
-              onSaveExpense={handleSaveExpense}
-              onDeleteExpense={handleDeleteExpense}
-              showToast={showToast}
-              onBackToHealth={() => handleChangeView('today')}
+              onSaveExpense={crud.handleSaveExpense}
+              onDeleteExpense={crud.handleDeleteExpense}
+              showToast={ui.showToast}
+              onBackToHealth={() => ui.handleChangeView('family')}
             />
-          </div>
+          </TabViewPanel>
         )}
       </main>
 
-      {/* Footer (thêm pb-24 trên mobile để không bị thanh điều hướng đáy che khuất) */}
-      <footer className="border-t border-slate-200 bg-white pt-4 px-4 pb-24 md:pb-4 mt-8 text-center text-xs text-slate-600">
-        <div className="max-w-md mx-auto space-y-1">
-          <p className="text-slate-800 font-bold">
-            {APP_SHORT_TITLE} • Đang xem: {activeProfile.avatarEmoji} {profilePatientInfo.name}
-          </p>
-          <p className="text-[11px] text-slate-500">
-            Theo dõi huyết áp, thuốc & chăm sóc sức khỏe cả gia đình — Đồng bộ Google Sheets
-            {' • '}
-            <button
-              type="button"
-              onClick={() => handleChangeView('expenses')}
-              className="text-slate-400 hover:text-teal-700 underline decoration-slate-300 underline-offset-2 transition cursor-pointer"
-              title="Mở Sổ ghi chép nội bộ (Yêu cầu mã PIN riêng)"
-            >
-              Sổ nội bộ
-            </button>
-          </p>
-        </div>
+      <footer className="hidden md:block border-t border-border-card bg-surface-card py-4 px-4 text-center text-xs text-text-muted">
+        <p className="font-bold text-text-body">
+          {APP_SHORT_TITLE} · Đang xem: {profilesMgr.activeProfile.avatarEmoji}{' '}
+          {profilesMgr.profilePatientInfo.name} · Đồng bộ Google Sheets an toàn
+        </p>
       </footer>
 
-      {/* ===== MODALS (Chỉ mount khi đang mở để tối ưu tốc độ render) ===== */}
+      {/* Thanh Điều Hướng Cố Định Dưới Đáy 4 Tab Chuẩn Mobile-First */}
+      <MobileBottomNav
+        activeView={ui.activeView}
+        onChangeView={ui.handleChangeView}
+        todayPendingCount={profilesMgr.routinePendingTodayCount}
+        isAdminUnlocked={ui.isAdmin || ui.isExpenseUnlocked}
+      />
 
-      {installPwaModalOpen && (
-        <PwaInstallModal
-          isOpen={installPwaModalOpen}
-          onClose={() => setInstallPwaModalOpen(false)}
-        />
-      )}
-
-      {notifSettingsModalOpen && (
-        <NotificationSettingsModal
-          isOpen={notifSettingsModalOpen}
-          onClose={() => setNotifSettingsModalOpen(false)}
-          prefs={notificationPrefs}
-          onSavePrefs={handleSaveNotificationPrefs}
-          onOpenInstallPwa={() => setInstallPwaModalOpen(true)}
-          showToast={showToast}
-        />
-      )}
-
-      {guideModalOpen && isExpenseUnlocked && (
-        <GoogleSheetGuideModal
-          isOpen={guideModalOpen}
-          onClose={() => setGuideModalOpen(false)}
-          isSheetsConnected={Boolean(settings?.googleSheetsConnected)}
-        />
-      )}
-
-      {emergencyModalOpen && (
-        <EmergencyContactsModal
-          isOpen={emergencyModalOpen}
-          onClose={() => setEmergencyModalOpen(false)}
-          contacts={contacts}
-          patientInfo={profilePatientInfo}
-          onSaveContact={handleSaveContact}
-          onDeleteContact={handleDeleteContact}
-        />
-      )}
-
-      {adminPinModalOpen && (
-        <AdminPinModal
-          isOpen={adminPinModalOpen}
-          onClose={() => {
-            setAdminPinModalOpen(false);
-            setPendingAdminAction(null);
-          }}
-          onSuccess={handleAdminPinSuccess}
-          onExpenseSuccess={handleUnlockExpenseSuccess}
-          isAdmin={isAdmin}
-          isSuperAdmin={isExpenseUnlocked}
-          onLockAdmin={handleLockAdmin}
-          onOpenExpenses={() => handleChangeView('expenses')}
-          onOpenGuide={() => setGuideModalOpen(true)}
-          initialMode={adminPinModalMode}
-        />
-      )}
-
-      {editPatientModalOpen && (
-        <EditPatientModal
-          isOpen={editPatientModalOpen}
-          onClose={() => setEditPatientModalOpen(false)}
-          patient={profilePatientInfo}
-          onUpdated={handlePatientUpdated}
-        />
-      )}
-
-      {membersModalOpen && (
-        <MembersManagementModal
-          isOpen={membersModalOpen}
-          onClose={() => setMembersModalOpen(false)}
-          members={members}
-          onMembersUpdated={handleMembersUpdated}
-          healthProfiles={healthProfiles}
-          onToggleMemberHealthProfile={handleToggleMemberHealthProfile}
-        />
-      )}
-
-      {routineManagerOpen && (
-        <RoutineManagerModal
-          isOpen={routineManagerOpen}
-          onClose={() => setRoutineManagerOpen(false)}
-          routines={profileCareRoutines}
-          stages={stages}
-          activeStageId={activeStageId}
-          onSaveRoutine={handleSaveRoutine}
-          onDeleteRoutine={handleDeleteRoutine}
-        />
-      )}
+      {/* Toàn bộ cửa sổ Modal lazy-loaded */}
+      <AppModalsHost
+        profileModalMode={ui.profileModalMode}
+        editingProfileTarget={ui.editingProfileTarget}
+        onCloseProfileModal={() => ui.openProfileModal('closed', null)}
+        healthProfiles={profilesMgr.healthProfiles}
+        activeProfileId={profilesMgr.activeProfile.id}
+        vitalsLog={sync.vitalsLog}
+        todayStr={sync.todayStr}
+        members={sync.members}
+        onSelectProfile={profilesMgr.handleSelectProfile}
+        onSaveProfile={profilesMgr.handleSaveHealthProfile}
+        onDeleteProfile={profilesMgr.handleDeleteHealthProfile}
+        installPwaModalOpen={ui.installPwaModalOpen}
+        onCloseInstallPwa={() => ui.setInstallPwaModalOpen(false)}
+        onOpenInstallPwa={() => ui.setInstallPwaModalOpen(true)}
+        notifSettingsModalOpen={ui.notifSettingsModalOpen}
+        onCloseNotifSettings={() => ui.setNotifSettingsModalOpen(false)}
+        notificationPrefs={ui.notificationPrefs}
+        onSaveNotificationPrefs={ui.handleSaveNotificationPrefs}
+        guideModalOpen={ui.guideModalOpen}
+        onCloseGuide={() => ui.setGuideModalOpen(false)}
+        onOpenGuideDirect={() => ui.setGuideModalOpen(true)}
+        isSheetsConnected={Boolean(sync.settings?.googleSheetsConnected)}
+        emergencyModalOpen={ui.emergencyModalOpen}
+        onCloseEmergency={() => ui.setEmergencyModalOpen(false)}
+        contacts={sync.contacts}
+        profilePatientInfo={profilesMgr.profilePatientInfo}
+        onSaveContact={crud.handleSaveContact}
+        onDeleteContact={crud.handleDeleteContact}
+        adminPinModalOpen={ui.adminPinModalOpen}
+        adminPinModalMode={ui.adminPinModalMode}
+        onCloseAdminPin={ui.closeAdminPinModal}
+        onAdminPinSuccess={ui.handleAdminPinSuccess}
+        onUnlockExpenseSuccess={ui.handleUnlockExpenseSuccess}
+        isAdmin={ui.isAdmin}
+        isExpenseUnlocked={ui.isExpenseUnlocked}
+        onLockAdmin={ui.handleLockAdmin}
+        onOpenExpensesView={() => ui.handleChangeView('expenses')}
+        editPatientModalOpen={ui.editPatientModalOpen}
+        onCloseEditPatient={() => ui.setEditPatientModalOpen(false)}
+        onPatientUpdated={handlePatientUpdated}
+        membersModalOpen={ui.membersModalOpen}
+        onOpenMembers={handleOpenMembers}
+        onCloseMembers={() => ui.setMembersModalOpen(false)}
+        onMembersUpdated={profilesMgr.handleMembersUpdated}
+        onToggleMemberHealthProfile={profilesMgr.handleToggleMemberHealthProfile}
+        routineManagerOpen={ui.routineManagerOpen}
+        onCloseRoutineManager={() => ui.setRoutineManagerOpen(false)}
+        profileCareRoutines={profilesMgr.profileCareRoutines}
+        stages={sync.stages}
+        activeStageId={sync.activeStageId}
+        onSaveRoutine={crud.handleSaveRoutine}
+        onDeleteRoutine={crud.handleDeleteRoutine}
+        showToast={ui.showToast}
+      />
     </div>
   );
 }
