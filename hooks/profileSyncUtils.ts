@@ -42,8 +42,15 @@ export function createFamilyMemberFromProfile(
 export function buildNewHealthProfileFromMember(member: FamilyMember): HealthProfile {
   const lower = `${member.name} ${member.relation}`.toLowerCase();
   const isThyroid = lower.includes('bạch yến');
-  const emoji =
-    lower.includes('mẹ') || lower.includes('bà')
+  const isPediatric =
+    lower.includes('con') ||
+    lower.includes('bé') ||
+    lower.includes('cháu');
+  const emoji = isPediatric
+    ? lower.includes('gái')
+      ? '👧'
+      : '👶'
+    : lower.includes('mẹ') || lower.includes('bà')
       ? '👵'
       : lower.includes('chị') || lower.includes('cô') || lower.includes('em gái')
         ? '👩'
@@ -51,30 +58,49 @@ export function buildNewHealthProfileFromMember(member: FamilyMember): HealthPro
           ? '👴'
           : '👨';
 
+  const resolvedType = isThyroid
+    ? 'thyroid_post_op'
+    : isPediatric
+      ? 'pediatric'
+      : 'general_health';
+
   return {
     id: `member_${Date.now().toString(36)}`,
     name: member.name.trim(),
     relation: member.relation.trim() || 'Gia đình',
     avatarEmoji: emoji,
-    profileType: isThyroid ? 'thyroid_post_op' : 'general_health',
+    profileType: resolvedType,
     linkedMemberId: member.id,
     patientInfo: {
       name: member.name.trim(),
       diagnosis: isThyroid
         ? 'Đã phẫu thuật cắt toàn bộ tuyến giáp (K giáp thể nhú) - Duy trì hormone Levothyroxine và Kiểm soát Huyết áp, Mỡ máu, Canxi'
-        : 'Theo dõi huyết áp, nhịp tim và chăm sóc sức khỏe hằng ngày',
+        : isPediatric
+          ? 'Theo dõi biểu đồ tăng trưởng chiều cao, cân nặng chuẩn WHO, lịch tiêm chủng và thân nhiệt'
+          : 'Theo dõi huyết áp, nhịp tim và chăm sóc sức khỏe hằng ngày',
       hospital: 'Khám định kỳ',
       room: 'Tại nhà',
-      notes: 'Đo huyết áp định kỳ sáng/tối, uống đủ nước ấm, nghỉ ngơi hợp lý.',
+      notes: isPediatric
+        ? 'Theo dõi cân nặng, chiều cao hàng tháng, lịch tiêm vắc xin và bổ sung Vitamin D3.'
+        : 'Đo huyết áp định kỳ sáng/tối, uống đủ nước ấm, nghỉ ngơi hợp lý.',
       emergencyPhone: member.phone !== 'Chưa cập nhật' ? member.phone : '',
-      statusBadge: 'Theo dõi sức khỏe gia đình',
-      conditionTag: isThyroid ? 'Tuyến giáp · HA · Mỡ máu' : 'Huyết áp & Tim mạch',
+      statusBadge: isPediatric ? 'Sổ Nhi khoa & Tăng trưởng' : 'Theo dõi sức khỏe gia đình',
+      conditionTag: isThyroid
+        ? 'Tuyến giáp · HA · Mỡ máu'
+        : isPediatric
+          ? 'Tăng trưởng WHO · Tiêm chủng'
+          : 'Huyết áp & Tim mạch',
       headerBadge: 'Tại nhà',
       careMode: 'Hằng ngày',
-      careGoal: 'Duy trì huyết áp & nhịp tim ổn định',
+      careGoal: isPediatric
+        ? 'Phát triển chiều cao, cân nặng chuẩn WHO & tiêm chủng đầy đủ'
+        : 'Duy trì huyết áp & nhịp tim ổn định',
+      gender: lower.includes('gái') ? 'female' : isPediatric ? 'male' : undefined,
       customFields: [],
     },
-    bpThresholds: { ...DEFAULT_BP_THRESHOLDS },
+    bpThresholds: isPediatric
+      ? { highSys: 120, highDia: 80, lowSys: 80, lowDia: 50 }
+      : { ...DEFAULT_BP_THRESHOLDS },
     appointment: { ...DEFAULT_APPOINTMENT },
   };
 }

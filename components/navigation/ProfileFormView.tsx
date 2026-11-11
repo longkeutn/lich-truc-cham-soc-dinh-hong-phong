@@ -4,7 +4,19 @@ import React from 'react';
 import { Check, Link2, Trash2 } from 'lucide-react';
 import type { FamilyMember, HealthProfileType } from '@/lib/types';
 
-const AVATAR_OPTIONS = ['👩', '👨', '👵', '👴', '🧑', '👱‍♀️', '👨‍🦳', '👩‍🦳'];
+const AVATAR_OPTIONS = [
+  '👩',
+  '👨',
+  '👵',
+  '👴',
+  '👶',
+  '🧒',
+  '👧',
+  '👦',
+  '🧑',
+  '👨‍🦳',
+  '👩‍🦳',
+];
 
 export interface ProfileFormViewProps {
   viewMode: 'add' | 'edit';
@@ -16,6 +28,8 @@ export interface ProfileFormViewProps {
   relation: string;
   avatarEmoji: string;
   profileType: HealthProfileType;
+  birthDate: string;
+  gender: 'male' | 'female';
   diagnosis: string;
   notes: string;
   highSys: string;
@@ -27,6 +41,8 @@ export interface ProfileFormViewProps {
   onChangeName: (val: string) => void;
   onChangeRelation: (val: string) => void;
   onChangeProfileType: (val: HealthProfileType) => void;
+  onChangeBirthDate: (val: string) => void;
+  onChangeGender: (val: 'male' | 'female') => void;
   onChangeDiagnosis: (val: string) => void;
   onChangeNotes: (val: string) => void;
   onChangeHighSys: (val: string) => void;
@@ -52,6 +68,8 @@ export function ProfileFormView({
   relation,
   avatarEmoji,
   profileType,
+  birthDate,
+  gender,
   diagnosis,
   notes,
   highSys,
@@ -63,6 +81,8 @@ export function ProfileFormView({
   onChangeName,
   onChangeRelation,
   onChangeProfileType,
+  onChangeBirthDate,
+  onChangeGender,
   onChangeDiagnosis,
   onChangeNotes,
   onChangeHighSys,
@@ -191,10 +211,44 @@ export function ProfileFormView({
           <option value="thyroid_post_op">
             🦋 Hậu phẫu Tuyến giáp (Levothyroxine, TSH, Canxi)
           </option>
+          <option value="pediatric">
+            👶 Nhi khoa - Tăng trưởng WHO và Sổ tiêm chủng
+          </option>
           <option value="post_stroke_cranioplasty">
             🧠 Phục hồi sau đột quỵ và Theo dõi ghép sọ
           </option>
         </select>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-extrabold text-text-body mb-1">
+            Ngày sinh {profileType === 'pediatric' ? '(tính tháng tuổi WHO)' : '(tuỳ chọn)'}
+          </label>
+          <input
+            type="date"
+            value={birthDate}
+            onChange={(e) => onChangeBirthDate(e.target.value)}
+            className="w-full min-h-[48px] px-3.5 py-2.5 rounded-xl border border-slate-300 text-base font-bold text-text-main bg-surface-card"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-extrabold text-text-body mb-1">
+            Giới tính {profileType === 'pediatric' ? '(chuẩn Bé trai / Bé gái)' : ''}
+          </label>
+          <select
+            value={gender}
+            onChange={(e) => onChangeGender(e.target.value as 'male' | 'female')}
+            className="w-full min-h-[48px] px-3.5 py-2.5 rounded-xl border border-slate-300 text-base font-bold text-text-main bg-surface-card"
+          >
+            <option value="male">
+              {profileType === 'pediatric' ? '👦 Bé trai' : '👨 Nam'}
+            </option>
+            <option value="female">
+              {profileType === 'pediatric' ? '👧 Bé gái' : '👩 Nữ'}
+            </option>
+          </select>
+        </div>
       </div>
 
       <div>

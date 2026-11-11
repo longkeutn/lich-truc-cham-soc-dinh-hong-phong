@@ -21,6 +21,10 @@ import {
   computeAlertLevel,
   extractRecordProfileId,
 } from '@/lib/config';
+import {
+  isSeniorFriendlyProfile,
+  syncSeniorTextModeForProfile,
+} from '@/lib/adaptiveProfileConfig';
 import { saveMemberAction, savePatientInfoAction } from '@/lib/actions';
 import type { SyncStateKind } from '@/components/ui-kit';
 import {
@@ -99,6 +103,10 @@ export function useHealthProfileManager({
     () => healthProfiles.find((p) => p.id === activeProfileId) || healthProfiles[0],
     [healthProfiles, activeProfileId]
   );
+
+  useEffect(() => {
+    syncSeniorTextModeForProfile(isSeniorFriendlyProfile(activeProfile));
+  }, [activeProfile]);
 
   const isFatherProfile = activeProfile.id === DEFAULT_HEALTH_PROFILE_ID;
   const profilePatientInfo = activeProfile.patientInfo;

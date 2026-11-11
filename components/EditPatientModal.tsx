@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { PatientInfo, PatientCustomField } from '@/lib/types';
 import { DEFAULT_MEMBER_NAME } from '@/lib/config';
-import { Plus, Trash2, X, Save, Sparkles, Eraser } from 'lucide-react';
+import { X, Save, Eraser } from 'lucide-react';
+import PatientCustomFieldsSection from './modals/PatientCustomFieldsSection';
 
 interface EditPatientModalProps {
   isOpen: boolean;
@@ -11,16 +12,6 @@ interface EditPatientModalProps {
   patient: PatientInfo;
   onUpdated: (newInfo: PatientInfo) => void;
 }
-
-const QUICK_FIELD_TEMPLATES: { label: string; placeholder: string; section: 'profile' | 'care' }[] = [
-  { label: 'Năm sinh / Tuổi', placeholder: 'VD: 1958 (68 tuổi)', section: 'profile' },
-  { label: 'Nhóm máu', placeholder: 'VD: Nhóm máu O+', section: 'profile' },
-  { label: 'Tiền sử bệnh nền', placeholder: 'VD: Tăng huyết áp, tiểu đường tuýp 2', section: 'profile' },
-  { label: 'Dị ứng thuốc / thức ăn', placeholder: 'VD: Không có dị ứng ghi nhận', section: 'profile' },
-  { label: 'Số thẻ BHYT', placeholder: 'VD: DN4010123456789', section: 'profile' },
-  { label: 'Chế độ dinh dưỡng', placeholder: 'VD: Ăn mềm, giảm muối, chia 4 bữa/ngày', section: 'care' },
-  { label: 'Thiết bị y tế tại nhà', placeholder: 'VD: Máy đo HA bắp tay, máy đo SpO2', section: 'care' },
-];
 
 export function EditPatientModal({
   isOpen,
@@ -40,6 +31,8 @@ export function EditPatientModal({
     headerBadge: patient.headerBadge ?? 'Tại nhà',
     careMode: patient.careMode ?? 'Hằng ngày',
     careGoal: patient.careGoal ?? 'Duy trì huyết áp & sức khỏe ổn định',
+    birthDate: patient.birthDate,
+    gender: patient.gender,
     customFields: Array.isArray(patient.customFields) ? patient.customFields : [],
   });
   const [errorMsg, setErrorMsg] = useState('');
@@ -58,6 +51,8 @@ export function EditPatientModal({
         headerBadge: patient.headerBadge ?? 'Tại nhà',
         careMode: patient.careMode ?? 'Hằng ngày',
         careGoal: patient.careGoal ?? 'Duy trì huyết áp & sức khỏe ổn định',
+        birthDate: patient.birthDate,
+        gender: patient.gender,
         customFields: Array.isArray(patient.customFields)
           ? patient.customFields.map((f) => ({ ...f }))
           : [],
@@ -120,6 +115,7 @@ export function EditPatientModal({
       .filter((f) => f.label && f.value);
 
     const finalInfo: PatientInfo = {
+      ...patient,
       ...formData,
       name: formData.name.trim(),
       hospital: formData.hospital.trim(),
@@ -136,7 +132,6 @@ export function EditPatientModal({
       healthProfiles: patient.healthProfiles,
     };
 
-    // Cập nhật giao diện, đóng hộp thoại tức thì (0ms) và đồng bộ qua callback onUpdated
     onUpdated(finalInfo);
     onClose();
   };
@@ -150,7 +145,6 @@ export function EditPatientModal({
         className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 text-white p-4 sm:p-5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <span className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center text-xl backdrop-blur-sm">
@@ -161,20 +155,19 @@ export function EditPatientModal({
                 Quản Lý Toàn Bộ Thông Tin Hồ Sơ Sức Khỏe
               </h3>
               <p className="text-xs text-blue-100">
-                Thêm, sửa, xoá từng mục hồ sơ, nhãn trạng thái & chế độ chăm sóc — Đồng bộ Google Sheets
+                Thêm, sửa, xoá từng mục hồ sơ, nhãn trạng thái &amp; chế độ chăm sóc - Đồng bộ Google Sheets
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition cursor-pointer"
+            className="min-h-[44px] min-w-[44px] rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
           {errorMsg && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
@@ -186,9 +179,9 @@ export function EditPatientModal({
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-black uppercase tracking-wider text-indigo-900">
-                1. Định danh & Nhãn trạng thái hiển thị
+                1. Định danh &amp; Nhãn trạng thái hiển thị
               </h4>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[11px] text-slate-600">
                 Xoá trống ô nhãn nếu muốn ẩn nhãn đó trên giao diện
               </span>
             </div>
@@ -203,7 +196,7 @@ export function EditPatientModal({
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                   placeholder="VD: Đinh Hồng Phong"
                 />
               </div>
@@ -227,7 +220,7 @@ export function EditPatientModal({
                   type="text"
                   value={formData.conditionTag || ''}
                   onChange={(e) => setFormData({ ...formData, conditionTag: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                   placeholder="VD: Huyết áp & Tim mạch / Phục hồi tại nhà"
                 />
               </div>
@@ -253,7 +246,7 @@ export function EditPatientModal({
                   type="text"
                   value={formData.statusBadge || ''}
                   onChange={(e) => setFormData({ ...formData, statusBadge: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                   placeholder="VD: Theo dõi sức khỏe gia đình"
                 />
               </div>
@@ -277,7 +270,7 @@ export function EditPatientModal({
                   type="text"
                   value={formData.headerBadge || ''}
                   onChange={(e) => setFormData({ ...formData, headerBadge: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                   placeholder="VD: Tại nhà / Tại viện"
                 />
               </div>
@@ -287,7 +280,7 @@ export function EditPatientModal({
           {/* PHẦN 2: CHẨN ĐOÁN, CHỈ ĐỊNH & KHỐI CHẾ ĐỘ CHĂM SÓC */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5">
             <h4 className="text-xs font-black uppercase tracking-wider text-indigo-900">
-              2. Thông tin Bệnh viện, Chẩn đoán, Chỉ định & Chế độ chăm sóc
+              2. Thông tin Bệnh viện, Chẩn đoán, Chỉ định &amp; Chế độ chăm sóc
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -310,7 +303,7 @@ export function EditPatientModal({
                   type="text"
                   value={formData.hospital}
                   onChange={(e) => setFormData({ ...formData, hospital: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                   placeholder="VD: Bệnh viện Đại học Y - Hà Nội"
                 />
               </div>
@@ -334,7 +327,7 @@ export function EditPatientModal({
                   type="text"
                   value={formData.room}
                   onChange={(e) => setFormData({ ...formData, room: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                   placeholder="VD: Phục hồi tại nhà / Trung tâm cấp cứu & HSTC"
                 />
               </div>
@@ -360,7 +353,7 @@ export function EditPatientModal({
                   type="text"
                   value={formData.careMode || ''}
                   onChange={(e) => setFormData({ ...formData, careMode: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                   placeholder="VD: Liên tục 24/7 / Theo dõi hàng ngày"
                 />
               </div>
@@ -384,7 +377,7 @@ export function EditPatientModal({
                   type="text"
                   value={formData.careGoal || ''}
                   onChange={(e) => setFormData({ ...formData, careGoal: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                   placeholder="VD: Kiểm soát HA & Phục hồi vận động"
                 />
               </div>
@@ -409,7 +402,7 @@ export function EditPatientModal({
                 type="text"
                 value={formData.diagnosis}
                 onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                 placeholder="VD: Phục hồi chức năng sau tai biến mạch máu não..."
               />
             </div>
@@ -457,125 +450,31 @@ export function EditPatientModal({
                 type="text"
                 value={formData.emergencyPhone || ''}
                 onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })}
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                 placeholder="VD: 0913 218 765 (BS. Hùng)"
               />
             </div>
           </div>
 
-          {/* PHẦN 3: THÊM / SỬA / XOÁ CÁC MỤC THÔNG TIN BỆNH NHÂN TUỲ CHỈNH */}
-          <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-200 space-y-3.5">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-indigo-600" />
-                  3. Các mục thông tin sức khỏe bổ sung (Thêm / Sửa / Xoá tự do)
-                </h4>
-                <p className="text-[11px] text-slate-600 mt-0.5">
-                  Thêm bất kỳ thông tin nào của {formData.name || 'người thân'} (Năm sinh, Nhóm máu, Tiền sử bệnh, Dị ứng, BHYT...)
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleAddCustomField('', '', 'profile')}
-                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Thêm mục mới</span>
-              </button>
-            </div>
+          <PatientCustomFieldsSection
+            patientName={formData.name}
+            customFields={formData.customFields || []}
+            onAddField={handleAddCustomField}
+            onUpdateField={handleUpdateCustomField}
+            onDeleteField={handleDeleteCustomField}
+          />
 
-            {/* Nút gợi ý thêm nhanh 1 chạm */}
-            <div className="flex flex-wrap gap-1.5">
-              {QUICK_FIELD_TEMPLATES.map((tpl) => {
-                const alreadyExists = (formData.customFields || []).some(
-                  (f) => f.label.toLowerCase() === tpl.label.toLowerCase()
-                );
-                if (alreadyExists) return null;
-                return (
-                  <button
-                    key={tpl.label}
-                    type="button"
-                    onClick={() => handleAddCustomField(tpl.label, '', tpl.section)}
-                    className="px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-[11px] font-semibold transition cursor-pointer"
-                  >
-                    + {tpl.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Danh sách các mục đang có */}
-            {(formData.customFields || []).length === 0 ? (
-              <div className="text-center py-4 bg-white/80 rounded-xl border border-dashed border-indigo-200 text-xs text-slate-500">
-                Chưa có mục thông tin bổ sung nào. Bấm các nút gợi ý phía trên hoặc bấm <strong>&quot;+ Thêm mục mới&quot;</strong> để thêm.
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {(formData.customFields || []).map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="p-2.5 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shadow-2xs"
-                  >
-                    <input
-                      type="text"
-                      value={field.label}
-                      onChange={(e) =>
-                        handleUpdateCustomField(field.id, { label: e.target.value })
-                      }
-                      placeholder={`Tên mục ${index + 1} (VD: Nhóm máu)`}
-                      className="sm:w-44 px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <input
-                      type="text"
-                      value={field.value}
-                      onChange={(e) =>
-                        handleUpdateCustomField(field.id, { value: e.target.value })
-                      }
-                      placeholder="Nội dung chi tiết..."
-                      className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <div className="flex items-center gap-1.5 justify-between sm:justify-end">
-                      <select
-                        value={field.section || 'profile'}
-                        onChange={(e) =>
-                          handleUpdateCustomField(field.id, {
-                            section: e.target.value as 'profile' | 'care',
-                          })
-                        }
-                        aria-label="Vị trí hiển thị"
-                        className="px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-700"
-                      >
-                        <option value="profile">Cột Hồ sơ (Trái)</option>
-                        <option value="care">Hộp Chăm sóc (Phải)</option>
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteCustomField(field.id)}
-                        title="Xoá mục thông tin này"
-                        className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Footer Actions */}
           <div className="pt-3 border-t border-slate-200 flex justify-end gap-3 sticky bottom-0 bg-white pb-1">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer min-h-[44px]"
             >
               Huỷ bỏ
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-blue-600 hover:bg-blue-500 active:scale-95 transition shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-blue-600 hover:bg-blue-500 active:scale-95 transition shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer min-h-[44px]"
             >
               <Save className="w-4 h-4" />
               <span>Lưu toàn bộ hồ sơ</span>

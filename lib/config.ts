@@ -1494,6 +1494,8 @@ export const THYROID_VITALS_QUICK_NOTE_TAGS: VitalsQuickNoteTag[] = [
   },
 ];
 
+import { PEDIATRIC_VITALS_QUICK_NOTE_TAGS } from './adaptiveProfileConfig';
+
 export function getQuickNoteTagsForProfile(
   profileType: HealthProfileType = 'post_stroke_cranioplasty'
 ): VitalsQuickNoteTag[] {
@@ -1502,6 +1504,9 @@ export function getQuickNoteTagsForProfile(
   }
   if (profileType === 'thyroid_post_op') {
     return THYROID_VITALS_QUICK_NOTE_TAGS;
+  }
+  if (profileType === 'pediatric') {
+    return PEDIATRIC_VITALS_QUICK_NOTE_TAGS;
   }
   return GENERAL_VITALS_QUICK_NOTE_TAGS;
 }
@@ -1935,6 +1940,88 @@ export function buildPresetCareRoutinesForProfile(
 ): CareRoutine[] {
   const now = new Date().toISOString();
   const todayStr = getVietnamDateStr();
+
+  if (profileType === 'pediatric') {
+    const pediatricItems: CareRoutine[] = [
+      {
+        id: 'routine-ped-med-01',
+        stageId,
+        stageName,
+        category: 'meds',
+        medType: 'scheduled',
+        title: 'Vitamin D3 + K2 (hoặc vi chất theo tuổi)',
+        dosage: 'Theo lứa tuổi',
+        description:
+          'Hỗ trợ hấp thu Canxi, phát triển chiều cao chuẩn WHO và tăng cường miễn dịch cho trẻ.',
+        imageUrl: '',
+        timeSlots: ['morning'],
+        instructions: 'Nhỏ trực tiếp hoặc pha cùng sữa/thức ăn buổi sáng.',
+        conditionNote: '',
+        isActive: true,
+        sortOrder: 1,
+        createdAt: todayStr,
+        updatedAt: now,
+      },
+      {
+        id: 'routine-ped-care-01',
+        stageId,
+        stageName,
+        category: 'care',
+        title: 'Vệ sinh mũi họng nước muối sinh lý 0.9% & đánh răng',
+        dosage: 'Sáng & Tối',
+        description: 'Giữ sạch đường hô hấp trên, phòng viêm mũi họng khi giao mùa.',
+        imageUrl: '',
+        timeSlots: ['morning', 'evening'],
+        instructions: 'Xịt/nhỏ nhẹ nhàng nước muối ấm và nhắc bé súc miệng sạch.',
+        conditionNote: '',
+        isActive: true,
+        sortOrder: 2,
+        createdAt: todayStr,
+        updatedAt: now,
+      },
+      {
+        id: 'routine-ped-rehab-01',
+        stageId,
+        stageName,
+        category: 'rehab',
+        title: 'Vận động ngoài trời & Uống đủ nước ấm',
+        dosage: '30 - 45 phút',
+        description: 'Kích thích hormone tăng trưởng chiều cao tự nhiên và giúp bé ngủ sâu giấc.',
+        imageUrl: '',
+        timeSlots: ['afternoon'],
+        instructions: 'Cho bé chạy nhảy, đạp xe hoặc chơi thể thao vừa sức và bù nước đầy đủ.',
+        conditionNote: '',
+        isActive: true,
+        sortOrder: 3,
+        createdAt: todayStr,
+        updatedAt: now,
+      },
+      {
+        id: 'routine-ped-med-prn',
+        stageId,
+        stageName,
+        category: 'meds',
+        medType: 'as_needed',
+        title: 'Hạ sốt Paracetamol (10 - 15 mg/kg cân nặng)',
+        dosage: '10 - 15 mg/kg/lần',
+        description: 'Thuốc hạ sốt dự phòng tại nhà cho trẻ em.',
+        imageUrl: '',
+        timeSlots: ['morning', 'noon', 'afternoon', 'evening'],
+        instructions:
+          'Pha gói bột hoặc siro với nước ấm, ghi rõ giờ uống để đối chiếu cữ tiếp theo.',
+        conditionNote:
+          'CHỈ UỐNG KHI TRẺ SỐT >= 38.5°C hoặc quấy đau nhiều. Mỗi lần uống cách nhau ít nhất 4 - 6 giờ (tối đa 5 lần/24h).',
+        isActive: true,
+        sortOrder: 4,
+        createdAt: todayStr,
+        updatedAt: now,
+      },
+    ];
+    return pediatricItems.map((item) => ({
+      ...item,
+      id: ensureRecordProfilePrefix(item.id, profileId),
+    }));
+  }
 
   if (profileType === 'thyroid_post_op') {
     const rawItems: CareRoutine[] = [

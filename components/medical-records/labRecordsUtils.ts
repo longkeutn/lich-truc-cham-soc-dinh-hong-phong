@@ -4,6 +4,7 @@ import type {
   VitalsLogEntry,
   FamilyMember,
   AppointmentInfo,
+  PatientInfo,
 } from '@/lib/types';
 import { normalizeDateStr } from '@/lib/config';
 
@@ -15,6 +16,9 @@ export interface LabResultsViewProps {
   patientName: string;
   patientDisplayName: string;
   patientDiagnosis?: string;
+  patientInfo?: PatientInfo;
+  onUpdatePatientInfo?: (info: PatientInfo) => void;
+  initialSubView?: LabSubView;
   profileType: HealthProfileType;
   members: FamilyMember[];
   defaultRecorder: string;
@@ -27,7 +31,7 @@ export interface LabResultsViewProps {
 }
 
 export type ChartCategory = 'thyroid' | 'lipid' | 'metabolic' | 'liver_kidney';
-export type LabSubView = 'all' | 'thyroid' | 'biochem' | 'history';
+export type LabSubView = 'all' | 'thyroid' | 'biochem' | 'history' | 'growth' | 'vaccine';
 
 export interface LabChartPoint {
   date: string;

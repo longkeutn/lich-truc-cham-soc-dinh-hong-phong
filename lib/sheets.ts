@@ -1069,6 +1069,8 @@ function packPatientInfoForSheet(info: PatientInfo): PatientInfo {
     headerBadge: info.headerBadge ?? '',
     careMode: info.careMode ?? '',
     careGoal: info.careGoal ?? '',
+    birthDate: info.birthDate ?? '',
+    gender: info.gender,
     customFields: Array.isArray(info.customFields) ? info.customFields : [],
     healthProfiles: Array.isArray(info.healthProfiles) ? info.healthProfiles : [],
   };
@@ -1132,6 +1134,18 @@ function unpackPatientInfoFromSheet(raw: PatientInfo): PatientInfo {
         : parsedMeta?.careGoal !== undefined
           ? parsedMeta.careGoal
           : 'Duy trì huyết áp & sức khỏe ổn định',
+    birthDate:
+      raw.birthDate !== undefined
+        ? raw.birthDate
+        : parsedMeta?.birthDate !== undefined
+          ? parsedMeta.birthDate
+          : undefined,
+    gender:
+      raw.gender !== undefined
+        ? raw.gender
+        : parsedMeta?.gender !== undefined
+          ? parsedMeta.gender
+          : undefined,
     customFields: Array.isArray(raw.customFields)
       ? raw.customFields
       : Array.isArray(parsedMeta?.customFields)

@@ -7,6 +7,7 @@ import {
   verifyExpensePinAction,
   changeExpensePinAction,
 } from '@/lib/actions';
+import AdminPinKeypadSection from './modals/AdminPinKeypadSection';
 
 interface AdminPinModalProps {
   isOpen: boolean;
@@ -43,10 +44,7 @@ export function AdminPinModal({
   const [mode, setMode] = useState<'unlock' | 'change'>(initialMode);
   const [pinTarget, setPinTarget] = useState<'category' | 'super_admin'>('super_admin');
 
-  // Unlock state
   const [pin, setPin] = useState('');
-
-  // Change PIN state
   const [oldPin, setOldPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -81,75 +79,6 @@ export function AdminPinModal({
     setTimeout(() => setShake(false), 500);
   };
 
-  const handleDigit = (digit: string) => {
-    setErrorMsg('');
-    if (mode === 'unlock') {
-      if (pin.length < 6) {
-        const next = pin + digit;
-        setPin(next);
-        if (next.length === 4) {
-          submitUnlock(next);
-        }
-      }
-    } else {
-      // mode === 'change'
-      if (changeStep === 'old') {
-        const next = oldPin + digit;
-        if (next.length <= 6) {
-          setOldPin(next);
-          if (next.length === 4) {
-            setChangeStep('new');
-          }
-        }
-      } else if (changeStep === 'new') {
-        const next = newPin + digit;
-        if (next.length <= 6) {
-          setNewPin(next);
-          if (next.length === 4) {
-            setChangeStep('confirm');
-          }
-        }
-      } else {
-        const next = confirmPin + digit;
-        if (next.length <= 6) {
-          setConfirmPin(next);
-          if (next.length === 4) {
-            submitChangePin(oldPin, newPin, next);
-          }
-        }
-      }
-    }
-  };
-
-  const handleBackspace = () => {
-    setErrorMsg('');
-    if (mode === 'unlock') {
-      setPin((prev) => prev.slice(0, -1));
-    } else {
-      if (changeStep === 'confirm') {
-        if (confirmPin.length > 0) setConfirmPin((prev) => prev.slice(0, -1));
-        else setChangeStep('new');
-      } else if (changeStep === 'new') {
-        if (newPin.length > 0) setNewPin((prev) => prev.slice(0, -1));
-        else setChangeStep('old');
-      } else {
-        setOldPin((prev) => prev.slice(0, -1));
-      }
-    }
-  };
-
-  const handleClear = () => {
-    setErrorMsg('');
-    if (mode === 'unlock') {
-      setPin('');
-    } else {
-      setOldPin('');
-      setNewPin('');
-      setConfirmPin('');
-      setChangeStep('old');
-    }
-  };
-
   const submitUnlock = async (pinToTest: string) => {
     setIsSubmitting(true);
     setErrorMsg('');
@@ -159,7 +88,6 @@ export function AdminPinModal({
         onExpenseSuccess ? verifyExpensePinAction(pinToTest) : Promise.resolve(false),
       ]);
 
-      // Ưu tiên kiểm tra quyền Admin thực sự (Quản trị hệ thống + Sổ nội bộ + Code.gs)
       if (isSuperAdminPinValid && onExpenseSuccess) {
         setSuccessNotice('Đã mở quyền Quản trị viên cao cấp (Admin)!');
         setTimeout(() => {
@@ -169,7 +97,6 @@ export function AdminPinModal({
         return;
       }
 
-      // Quyền chỉnh sửa danh mục cơ bản (thuốc, bài tập, thông tin bệnh nhân, thành viên)
       if (adminRes.success) {
         setSuccessNotice('Đã mở quyền Chỉnh sửa danh mục!');
         setTimeout(() => {
@@ -234,7 +161,70 @@ export function AdminPinModal({
     }
   };
 
-  // Keyboard handler
+  const handleDigit = (digit: string) => {
+    setErrorMsg('');
+    if (mode === 'unlock') {
+      if (pin.length < 6) {
+        const next = pin + digit;
+        setPin(next);
+        if (next.length === 4) {
+          void submitUnlock(next);
+        }
+      }
+    } else if (changeStep === 'old') {
+      const next = oldPin + digit;
+      if (next.length <= 6) {
+        setOldPin(next);
+        if (next.length === 4) {
+          setChangeStep('new');
+        }
+      }
+    } else if (changeStep === 'new') {
+      const next = newPin + digit;
+      if (next.length <= 6) {
+        setNewPin(next);
+        if (next.length === 4) {
+          setChangeStep('confirm');
+        }
+      }
+    } else {
+      const next = confirmPin + digit;
+      if (next.length <= 6) {
+        setConfirmPin(next);
+        if (next.length === 4) {
+          void submitChangePin(oldPin, newPin, next);
+        }
+      }
+    }
+  };
+
+  const handleBackspace = () => {
+    setErrorMsg('');
+    if (mode === 'unlock') {
+      setPin((prev) => prev.slice(0, -1));
+    } else if (changeStep === 'confirm') {
+      if (confirmPin.length > 0) setConfirmPin((prev) => prev.slice(0, -1));
+      else setChangeStep('new');
+    } else if (changeStep === 'new') {
+      if (newPin.length > 0) setNewPin((prev) => prev.slice(0, -1));
+      else setChangeStep('old');
+    } else {
+      setOldPin((prev) => prev.slice(0, -1));
+    }
+  };
+
+  const handleClear = () => {
+    setErrorMsg('');
+    if (mode === 'unlock') {
+      setPin('');
+    } else {
+      setOldPin('');
+      setNewPin('');
+      setConfirmPin('');
+      setChangeStep('old');
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key >= '0' && e.key <= '9') {
       handleDigit(e.key);
@@ -267,7 +257,6 @@ export function AdminPinModal({
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div
           className={`text-white p-5 text-center relative ${
             isSuperAdmin
@@ -276,8 +265,9 @@ export function AdminPinModal({
           }`}
         >
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition cursor-pointer"
+            className="absolute top-3 right-3 min-h-[44px] min-w-[44px] rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition cursor-pointer"
             title="Đóng"
           >
             ✕
@@ -299,7 +289,6 @@ export function AdminPinModal({
           </p>
         </div>
 
-        {/* Mode switcher tabs */}
         <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-1">
           <button
             type="button"
@@ -308,10 +297,10 @@ export function AdminPinModal({
               setPin('');
               setErrorMsg('');
             }}
-            className={`flex-1 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer min-h-[44px] ${
               mode === 'unlock'
                 ? 'bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-400 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                : 'text-slate-600 hover:text-slate-800 dark:text-slate-400'
             }`}
           >
             🔒 Mở khóa / Lối tắt
@@ -326,17 +315,16 @@ export function AdminPinModal({
               setConfirmPin('');
               setErrorMsg('');
             }}
-            className={`flex-1 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer min-h-[44px] ${
               mode === 'change'
                 ? 'bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-400 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                : 'text-slate-600 hover:text-slate-800 dark:text-slate-400'
             }`}
           >
             🔄 Đổi mã PIN
           </button>
         </div>
 
-        {/* Bảng điều khiển nhanh khi đang có quyền (Sửa danh mục hoặc Admin thực sự) */}
         {(isAdmin || isSuperAdmin) && mode === 'unlock' && (
           <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 space-y-2">
             <div className="flex items-center justify-between gap-2">
@@ -360,14 +348,13 @@ export function AdminPinModal({
                     onLockAdmin();
                     onClose();
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold transition cursor-pointer shrink-0"
+                  className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold transition cursor-pointer shrink-0 min-h-[36px]"
                 >
                   🔒 Khóa lại
                 </button>
               )}
             </div>
 
-            {/* Lối tắt dành riêng cho Admin thực sự (PIN 2468) */}
             {isSuperAdmin ? (
               <div className="grid grid-cols-2 gap-2 pt-1">
                 {onOpenExpenses && (
@@ -377,7 +364,7 @@ export function AdminPinModal({
                       onOpenExpenses();
                       onClose();
                     }}
-                    className="px-3 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                    className="px-3 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs min-h-[44px]"
                   >
                     <span>💰</span>
                     <span>Sổ Thu Chi</span>
@@ -390,22 +377,21 @@ export function AdminPinModal({
                       onOpenGuide();
                       onClose();
                     }}
-                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs min-h-[44px]"
                   >
                     <span>📋</span>
-                    <span>Code.gs & Sheet</span>
+                    <span>Code.gs &amp; Sheet</span>
                   </button>
                 )}
               </div>
             ) : (
-              <p className="text-[11px] text-slate-500 leading-snug">
+              <p className="text-[11px] text-slate-600 leading-snug">
                 Bạn đang có quyền thêm/sửa danh mục. Nhập mã PIN Quản trị viên bên dưới nếu cần mở <strong>Sổ Thu Chi</strong> hoặc <strong>Cấu hình Code.gs</strong>.
               </p>
             )}
           </div>
         )}
 
-        {/* Chọn loại PIN muốn đổi khi ở tab Đổi mã PIN */}
         {mode === 'change' && (
           <div className="px-4 pt-3 pb-1">
             <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
@@ -419,7 +405,7 @@ export function AdminPinModal({
                   setConfirmPin('');
                   setErrorMsg('');
                 }}
-                className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                className={`py-2 px-2 rounded-lg text-[11px] font-bold transition cursor-pointer min-h-[40px] ${
                   pinTarget === 'super_admin'
                     ? 'bg-teal-700 text-white shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -437,7 +423,7 @@ export function AdminPinModal({
                   setConfirmPin('');
                   setErrorMsg('');
                 }}
-                className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                className={`py-2 px-2 rounded-lg text-[11px] font-bold transition cursor-pointer min-h-[40px] ${
                   pinTarget === 'category'
                     ? 'bg-amber-600 text-white shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -449,109 +435,20 @@ export function AdminPinModal({
           </div>
         )}
 
-        {/* Content */}
-        <div className="p-5 flex flex-col items-center">
-          {/* Instruction label */}
-          <div className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-2 text-center">
-            {mode === 'unlock' && <span>Nhập 4 chữ số mã PIN của bạn</span>}
-            {mode === 'change' && changeStep === 'old' && (
-              <span>
-                Bước 1/3: Nhập{' '}
-                <strong className="text-amber-600">
-                  {pinTarget === 'super_admin' ? 'PIN Admin hiện tại' : 'PIN Sửa danh mục hiện tại'}
-                </strong>
-              </span>
-            )}
-            {mode === 'change' && changeStep === 'new' && (
-              <span>
-                Bước 2/3: Nhập mã PIN <strong className="text-blue-600">mới (4 số)</strong>
-              </span>
-            )}
-            {mode === 'change' && changeStep === 'confirm' && (
-              <span>
-                Bước 3/3: <strong className="text-emerald-600">Xác nhận lại</strong> PIN mới
-              </span>
-            )}
-          </div>
+        <AdminPinKeypadSection
+          mode={mode}
+          changeStep={changeStep}
+          pinTarget={pinTarget}
+          currentDotsValue={currentDotsValue}
+          errorMsg={errorMsg}
+          successNotice={successNotice}
+          isSubmitting={isSubmitting}
+          onDigit={handleDigit}
+          onClear={handleClear}
+          onBackspace={handleBackspace}
+        />
 
-          {/* Dots representation */}
-          <div className="flex gap-4 my-2.5 items-center justify-center">
-            {[0, 1, 2, 3].map((idx) => {
-              const isFilled = idx < currentDotsValue.length;
-              return (
-                <div
-                  key={idx}
-                  className={`w-4 h-4 rounded-full border-2 transition-all duration-200 ${
-                    isFilled
-                      ? 'bg-amber-600 border-amber-600 scale-125 shadow-md shadow-amber-500/30'
-                      : 'border-slate-300 dark:border-slate-600 bg-transparent'
-                  }`}
-                />
-              );
-            })}
-          </div>
-
-          {/* Status/Error messages */}
-          <div className="min-h-[24px] flex items-center justify-center text-center px-2">
-            {errorMsg && (
-              <p className="text-xs font-bold text-rose-600 animate-fade-in flex items-center gap-1">
-                ⚠️ {errorMsg}
-              </p>
-            )}
-            {successNotice && (
-              <p className="text-xs font-bold text-emerald-600 animate-fade-in flex items-center gap-1">
-                ✓ {successNotice}
-              </p>
-            )}
-            {!errorMsg && !successNotice && mode === 'unlock' && (
-              <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                Hệ thống tự nhận diện cấp quyền theo mã PIN bạn nhập
-              </p>
-            )}
-          </div>
-
-          {/* Numeric keypad */}
-          <div className="grid grid-cols-3 gap-2.5 w-full max-w-[260px] mt-2">
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
-              <button
-                key={num}
-                type="button"
-                disabled={isSubmitting}
-                onClick={() => handleDigit(num)}
-                className="h-13 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/40 dark:hover:text-amber-300 text-xl font-bold text-slate-800 dark:text-slate-100 active:scale-90 transition shadow-sm border border-slate-200/50 dark:border-slate-700/50 disabled:opacity-50 cursor-pointer"
-              >
-                {num}
-              </button>
-            ))}
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={handleClear}
-              className="h-13 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 active:scale-95 transition cursor-pointer"
-            >
-              Xoá hết
-            </button>
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => handleDigit('0')}
-              className="h-13 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/40 dark:hover:text-amber-300 text-xl font-bold text-slate-800 dark:text-slate-100 active:scale-90 transition shadow-sm border border-slate-200/50 dark:border-slate-700/50 disabled:opacity-50 cursor-pointer"
-            >
-              0
-            </button>
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={handleBackspace}
-              className="h-13 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-rose-600 text-lg font-bold active:scale-95 transition flex items-center justify-center border border-slate-200/50 dark:border-slate-700/50 cursor-pointer"
-            >
-              ⌫
-            </button>
-          </div>
-        </div>
-
-        {/* Footer info giải thích ngắn gọn 2 cấp quyền */}
-        <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5">
+        <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 space-y-0.5">
           <div className="flex items-center justify-between">
             <span>✏️ <strong>Quyền Danh mục:</strong> Sửa thuốc, bài tập, thành viên</span>
           </div>

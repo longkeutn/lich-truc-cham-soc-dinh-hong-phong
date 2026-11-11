@@ -1,0 +1,218 @@
+/**
+ * Danh mục Sổ Tiêm Chủng Điện Tử cho Trẻ Em Việt Nam
+ * Gồm: Chương trình Tiêm Chủng Mở Rộng bắt buộc ('tcmr') & Vắc xin Dịch vụ phổ biến ('service')
+ */
+
+export interface PediatricVaccineTemplate {
+  code: string;
+  name: string;
+  doseNumber: number;
+  category: 'tcmr' | 'service';
+  recommendedAgeMonths: number;
+  recommendedAgeLabel: string;
+  diseaseProtected: string;
+}
+
+export const PEDIATRIC_VACCINE_CATALOG: PediatricVaccineTemplate[] = [
+  // ===== 1. TIÊM CHỦNG MỞ RỘNG (BẮT BUỘC) =====
+  {
+    code: 'hep_b_0',
+    name: 'Viêm gan B (Mũi sơ sinh)',
+    doseNumber: 1,
+    category: 'tcmr',
+    recommendedAgeMonths: 0,
+    recommendedAgeLabel: '24 giờ đầu sau sinh',
+    diseaseProtected: 'Phòng lây truyền virus Viêm gan B sớm sau sinh',
+  },
+  {
+    code: 'bcg_1',
+    name: 'Lao (BCG)',
+    doseNumber: 1,
+    category: 'tcmr',
+    recommendedAgeMonths: 0,
+    recommendedAgeLabel: 'Trong tháng đầu sau sinh',
+    diseaseProtected: 'Phòng bệnh Lao nặng ở trẻ nhỏ',
+  },
+  {
+    code: 'hexavalent_1',
+    name: '5 trong 1 / 6 trong 1 (Mũi 1)',
+    doseNumber: 1,
+    category: 'tcmr',
+    recommendedAgeMonths: 2,
+    recommendedAgeLabel: '2 tháng tuổi',
+    diseaseProtected: 'Bạch hầu, Ho gà, Uốn ván, Bại liệt, Hib, Viêm gan B',
+  },
+  {
+    code: 'hexavalent_2',
+    name: '5 trong 1 / 6 trong 1 (Mũi 2)',
+    doseNumber: 2,
+    category: 'tcmr',
+    recommendedAgeMonths: 3,
+    recommendedAgeLabel: '3 tháng tuổi',
+    diseaseProtected: 'Bạch hầu, Ho gà, Uốn ván, Bại liệt, Hib, Viêm gan B',
+  },
+  {
+    code: 'hexavalent_3',
+    name: '5 trong 1 / 6 trong 1 (Mũi 3)',
+    doseNumber: 3,
+    category: 'tcmr',
+    recommendedAgeMonths: 4,
+    recommendedAgeLabel: '4 tháng tuổi',
+    diseaseProtected: 'Bạch hầu, Ho gà, Uốn ván, Bại liệt, Hib, Viêm gan B',
+  },
+  {
+    code: 'ipv_1',
+    name: 'Bại liệt tiêm IPV',
+    doseNumber: 1,
+    category: 'tcmr',
+    recommendedAgeMonths: 5,
+    recommendedAgeLabel: '5 tháng tuổi (nếu dùng 5in1)',
+    diseaseProtected: 'Tăng cường miễn dịch phòng bệnh Bại liệt',
+  },
+  {
+    code: 'measles_1',
+    name: 'Sởi đơn (MVVAC)',
+    doseNumber: 1,
+    category: 'tcmr',
+    recommendedAgeMonths: 9,
+    recommendedAgeLabel: '9 tháng tuổi',
+    diseaseProtected: 'Phòng bệnh Sởi và biến chứng viêm phổi sau sởi',
+  },
+  {
+    code: 'je_1',
+    name: 'Viêm não Nhật Bản (Mũi 1)',
+    doseNumber: 1,
+    category: 'tcmr',
+    recommendedAgeMonths: 12,
+    recommendedAgeLabel: '12 tháng tuổi',
+    diseaseProtected: 'Phòng bệnh Viêm não Nhật Bản B',
+  },
+  {
+    code: 'je_2',
+    name: 'Viêm não Nhật Bản (Mũi 2)',
+    doseNumber: 2,
+    category: 'tcmr',
+    recommendedAgeMonths: 12.5,
+    recommendedAgeLabel: '1 - 2 tuần sau mũi 1',
+    diseaseProtected: 'Phòng bệnh Viêm não Nhật Bản B',
+  },
+  {
+    code: 'mr_2',
+    name: 'Sởi - Rubella / MMR (Nhắc lại)',
+    doseNumber: 2,
+    category: 'tcmr',
+    recommendedAgeMonths: 18,
+    recommendedAgeLabel: '18 tháng tuổi',
+    diseaseProtected: 'Phòng Sởi - Quai bị - Rubella',
+  },
+  {
+    code: 'hexavalent_4',
+    name: 'Bạch hầu - Ho gà - Uốn ván (Nhắc mũi 4)',
+    doseNumber: 4,
+    category: 'tcmr',
+    recommendedAgeMonths: 18,
+    recommendedAgeLabel: '18 tháng tuổi',
+    diseaseProtected: 'Nhắc lại miễn dịch Bạch hầu, Ho gà, Uốn ván',
+  },
+  {
+    code: 'je_3',
+    name: 'Viêm não Nhật Bản (Mũi 3)',
+    doseNumber: 3,
+    category: 'tcmr',
+    recommendedAgeMonths: 24,
+    recommendedAgeLabel: '24 tháng (1 năm sau mũi 2)',
+    diseaseProtected: 'Củng cố miễn dịch Viêm não Nhật Bản dài hạn',
+  },
+
+  // ===== 2. VẮC XIN DỊCH VỤ QUAN TRỌNG =====
+  {
+    code: 'rota_1',
+    name: 'Tiêu chảy cấp Rota virus (Liều 1)',
+    doseNumber: 1,
+    category: 'service',
+    recommendedAgeMonths: 2,
+    recommendedAgeLabel: 'Từ 6 tuần - 2 tháng tuổi',
+    diseaseProtected: 'Phòng tiêu chảy cấp mất nước nặng do Rotavirus',
+  },
+  {
+    code: 'rota_2',
+    name: 'Tiêu chảy cấp Rota virus (Liều 2)',
+    doseNumber: 2,
+    category: 'service',
+    recommendedAgeMonths: 3,
+    recommendedAgeLabel: 'Hoàn thành trước 6 - 8 tháng tuổi',
+    diseaseProtected: 'Phòng tiêu chảy cấp mất nước nặng do Rotavirus',
+  },
+  {
+    code: 'pneumo_1',
+    name: 'Phế cầu khuẩn (Synflorix / Prevenar 13 - Mũi 1)',
+    doseNumber: 1,
+    category: 'service',
+    recommendedAgeMonths: 2,
+    recommendedAgeLabel: 'Từ 2 tháng tuổi',
+    diseaseProtected: 'Phòng viêm phổi, viêm tai giữa, viêm màng não mủ do Phế cầu',
+  },
+  {
+    code: 'pneumo_2',
+    name: 'Phế cầu khuẩn (Mũi 2)',
+    doseNumber: 2,
+    category: 'service',
+    recommendedAgeMonths: 4,
+    recommendedAgeLabel: 'Cách mũi 1 ít nhất 1 - 2 tháng',
+    diseaseProtected: 'Phòng viêm phổi, viêm tai giữa, viêm màng não mủ do Phế cầu',
+  },
+  {
+    code: 'pneumo_booster',
+    name: 'Phế cầu khuẩn (Mũi nhắc)',
+    doseNumber: 3,
+    category: 'service',
+    recommendedAgeMonths: 12,
+    recommendedAgeLabel: '12 - 15 tháng tuổi',
+    diseaseProtected: 'Nhắc lại miễn dịch Phế cầu bền vững',
+  },
+  {
+    code: 'flu_annual',
+    name: 'Cúm mùa Tứ giá (Vaxigrip / Influvac)',
+    doseNumber: 1,
+    category: 'service',
+    recommendedAgeMonths: 6,
+    recommendedAgeLabel: 'Từ 6 tháng tuổi & nhắc mỗi năm',
+    diseaseProtected: 'Phòng Cúm mùa A/B và biến chứng hô hấp',
+  },
+  {
+    code: 'meningo_1',
+    name: 'Não mô cầu (VA-Mengoc-BC / Menactra)',
+    doseNumber: 1,
+    category: 'service',
+    recommendedAgeMonths: 9,
+    recommendedAgeLabel: 'Từ 6 - 9 tháng tuổi',
+    diseaseProtected: 'Phòng viêm màng não và nhiễm khuẩn huyết tối cấp do Não mô cầu',
+  },
+  {
+    code: 'varicella_1',
+    name: 'Thủy đậu (Varivax / Varilrix - Mũi 1)',
+    doseNumber: 1,
+    category: 'service',
+    recommendedAgeMonths: 12,
+    recommendedAgeLabel: 'Từ 12 tháng tuổi',
+    diseaseProtected: 'Phòng bệnh Thủy đậu và biến chứng nhiễm trùng da',
+  },
+  {
+    code: 'hep_a_1',
+    name: 'Viêm gan A (Avaxim / Havax)',
+    doseNumber: 1,
+    category: 'service',
+    recommendedAgeMonths: 12,
+    recommendedAgeLabel: 'Từ 12 tháng tuổi',
+    diseaseProtected: 'Phòng Viêm gan siêu vi A lây qua đường tiêu hóa',
+  },
+  {
+    code: 'dengue_hpv',
+    name: 'Sốt xuất huyết Qdenga / HPV (Trẻ lớn)',
+    doseNumber: 1,
+    category: 'service',
+    recommendedAgeMonths: 48,
+    recommendedAgeLabel: 'Từ 4 tuổi (SXH) / 9 tuổi (HPV)',
+    diseaseProtected: 'Phòng Sốt xuất huyết Dengue 4 tuýp hoặc HPV cho trẻ lớn',
+  },
+];

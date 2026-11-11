@@ -14,11 +14,8 @@ import {
   Check,
   Clock,
   ClipboardList,
-  MessageSquare,
-  ChevronDown,
-  ChevronUp,
-  Save,
 } from 'lucide-react';
+import ShiftCardHandoverDrawer from './legacy-shifts/ShiftCardHandoverDrawer';
 
 interface ShiftCardProps {
   shift: ShiftRecord;
@@ -59,11 +56,8 @@ export default function ShiftCard({
   });
   const [isSavingHandover, setIsSavingHandover] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState(false);
-  
-  // Quick member selector modal/popover for this specific slot
   const [pickingSlotIndex, setPickingSlotIndex] = useState<number | null>(null);
 
-  // Icon biểu tượng ca
   const renderShiftIcon = () => {
     switch (shift.type) {
       case 'morning':
@@ -81,14 +75,13 @@ export default function ShiftCard({
 
   const handleSaveHandover = async () => {
     setIsSavingHandover(true);
-    const authorName = currentMember ? currentMember.name : (shift.handover.author || 'Người nhà');
+    const authorName = currentMember ? currentMember.name : shift.handover.author || 'Người nhà';
     await onSaveHandover(shift, handoverNote, authorName, vitals);
     setIsSavingHandover(false);
     setSaveFeedback(true);
     setTimeout(() => setSaveFeedback(false), 2000);
   };
 
-  // Đếm tiến độ checklist
   const checklistItems = [
     { key: 'feeding' as const, label: 'Bơm sữa ăn', done: shift.checklist.feeding },
     { key: 'meds' as const, label: 'Uống thuốc', done: shift.checklist.meds },
@@ -99,17 +92,15 @@ export default function ShiftCard({
 
   const handleSlotClick = (slotIndex: number) => {
     if (currentMember) {
-      // Direct assignment if member is chosen
-      onAssign(shift, slotIndex, currentMember);
+      void onAssign(shift, slotIndex, currentMember);
     } else {
-      // Open quick member selector so they can choose immediately!
       setPickingSlotIndex(slotIndex);
     }
   };
 
   const handleSelectQuickMember = (member: FamilyMember) => {
     if (pickingSlotIndex !== null) {
-      onAssign(shift, pickingSlotIndex, member);
+      void onAssign(shift, pickingSlotIndex, member);
       setPickingSlotIndex(null);
     }
   };
@@ -122,19 +113,18 @@ export default function ShiftCard({
           : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-slate-100'
       }`}
     >
-      {/* Quick Member Picker Overlay if triggered */}
       {pickingSlotIndex !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white border border-slate-200 rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h4 className="text-base font-bold text-slate-900">Ai sẽ trực ca này?</h4>
-                <p className="text-xs text-slate-500">{shift.name} ({shift.timeRange})</p>
+                <p className="text-xs text-slate-600">{shift.name} ({shift.timeRange})</p>
               </div>
               <button
                 type="button"
                 onClick={() => setPickingSlotIndex(null)}
-                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -179,7 +169,6 @@ export default function ShiftCard({
         </div>
       )}
 
-      {/* Header Ca Trực */}
       <div className={`p-3.5 sm:p-4 border-b flex flex-wrap items-center justify-between gap-2.5 ${
         shift.isUnderstaffed ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50/80 border-slate-100'
       }`}>
@@ -193,17 +182,16 @@ export default function ShiftCard({
                 {shift.name}
               </h3>
               <span className="text-xs font-semibold text-slate-600 flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-slate-200">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                <Clock className="w-3.5 h-3.5 text-slate-500" />
                 {shift.timeRange}
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 font-medium">
+            <p className="text-[11px] text-slate-600 font-medium">
               Yêu cầu: <span className="font-bold text-slate-800">{shift.requiredPax} người túc trực</span>
             </p>
           </div>
         </div>
 
-        {/* Trạng thái nhân sự: Đủ hay Thiếu */}
         {shift.isUnderstaffed ? (
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-100 text-rose-800 border border-rose-300 text-xs sm:text-sm font-bold shadow-sm">
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 animate-bounce" />
@@ -221,11 +209,10 @@ export default function ShiftCard({
         )}
       </div>
 
-      {/* Vị trí người trực (Shift Assignment Slots) - Touch targets min 48px */}
       <div className="p-3.5 sm:p-4 bg-slate-50/40 space-y-2.5">
-        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+        <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center justify-between">
           <span>Người trực ca ({shift.assignees.filter(Boolean).length}/{shift.requiredPax}):</span>
-          <span className="text-[10px] text-slate-400 font-medium lowercase">Mỗi thành viên có màu sắc riêng</span>
+          <span className="text-[10px] text-slate-500 font-medium lowercase">Mỗi thành viên có màu sắc riêng</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -249,7 +236,6 @@ export default function ShiftCard({
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    {/* Avatar Initials với màu sắc rực rỡ đại diện cho thành viên */}
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm text-white shrink-0 shadow-md ${
                         memberDetails?.badgeColor || 'bg-slate-700'
@@ -260,11 +246,9 @@ export default function ShiftCard({
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {/* Tên người trực nổi bật với màu chữ riêng và kích thước lớn dễ đọc lướt */}
                         <span className={`text-base sm:text-lg font-black tracking-tight truncate ${textClass}`}>
                           {assigneeName}
                         </span>
-
                         {isSelf && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-indigo-600 text-white shadow-xs">
                             BẠN
@@ -277,19 +261,18 @@ export default function ShiftCard({
                           {memberDetails ? memberDetails.relation : `Vị trí ${slotIndex + 1}`}
                         </span>
                         {memberDetails?.phone && (
-                          <span className="text-[11px] text-slate-500 font-medium hidden md:inline">
-                            • {memberDetails.phone}
+                          <span className="text-[11px] text-slate-600 font-medium hidden md:inline">
+                            · {memberDetails.phone}
                           </span>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Nút Huỷ nhận ca */}
                   <button
                     type="button"
-                    onClick={() => onUnassign(shift, slotIndex)}
-                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-600 hover:text-rose-600 text-xs font-bold flex items-center gap-1 min-h-[44px] shrink-0 active:scale-95 transition shadow-xs cursor-pointer"
+                    onClick={() => void onUnassign(shift, slotIndex)}
+                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-600 hover:text-rose-600 text-xs font-bold flex items-center gap-1 min-h-[48px] min-w-[48px] shrink-0 active:scale-95 transition shadow-xs cursor-pointer"
                     title="Nhấn để huỷ nhận ca hoặc đổi người"
                   >
                     <X className="w-3.5 h-3.5 text-rose-500 stroke-[2.5]" />
@@ -299,7 +282,6 @@ export default function ShiftCard({
               );
             }
 
-            // Vị trí còn trống -> Cho phép nhận ca
             return (
               <button
                 key={slotIndex}
@@ -321,7 +303,6 @@ export default function ShiftCard({
           })}
         </div>
 
-        {/* Người hỗ trợ đi cùng (nếu có) */}
         {shift.supporters && shift.supporters.length > 0 && (
           <div className="pt-2 flex items-center gap-1.5 flex-wrap">
             <span className="text-xs font-bold text-emerald-800 flex items-center gap-1">
@@ -339,7 +320,6 @@ export default function ShiftCard({
         )}
       </div>
 
-      {/* CHECKLIST CHĂM SÓC THEO CA */}
       <div className="p-3.5 sm:p-4 border-t border-slate-100 bg-white">
         <div className="flex items-center justify-between mb-2.5">
           <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-800">
@@ -356,8 +336,8 @@ export default function ShiftCard({
             <button
               key={item.key}
               type="button"
-              onClick={() => onToggleChecklist(shift, item.key, !item.done)}
-              className={`p-2.5 rounded-xl border flex items-center justify-between gap-1.5 text-xs font-bold min-h-[44px] transition cursor-pointer active:scale-95 ${
+              onClick={() => void onToggleChecklist(shift, item.key, !item.done)}
+              className={`p-2.5 rounded-xl border flex items-center justify-between gap-1.5 text-xs font-bold min-h-[48px] transition cursor-pointer active:scale-95 ${
                 item.done
                   ? 'bg-emerald-50 border-emerald-400 text-emerald-900 shadow-xs'
                   : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50'
@@ -376,130 +356,18 @@ export default function ShiftCard({
         </div>
       </div>
 
-      {/* SỔ BÀN GIAO CA & SINH HIỆU (Gập mở) */}
-      <div className="border-t border-slate-100 bg-slate-50/60">
-        <button
-          type="button"
-          onClick={() => setShowHandover(!showHandover)}
-          className="w-full p-3 flex items-center justify-between text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 transition cursor-pointer min-h-[44px]"
-        >
-          <div className="flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-amber-500" />
-            <span>Sổ Bàn Giao Ca & Sinh Hiệu</span>
-            {shift.handover.note && (
-              <span className="w-2 h-2 rounded-full bg-amber-500 ring-2 ring-amber-200" title="Có ghi chú bàn giao" />
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {shift.handover.author && (
-              <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
-                Bởi: {shift.handover.author}
-              </span>
-            )}
-            {showHandover ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-          </div>
-        </button>
-
-        {showHandover && (
-          <div className="p-3.5 sm:p-4 border-t border-slate-200 space-y-3 bg-white animate-fadeIn">
-            {/* Sinh hiệu */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              <div>
-                <label className="text-[11px] text-slate-600 font-bold block mb-1">
-                  Huyết áp (mmHg)
-                </label>
-                <input
-                  type="text"
-                  placeholder="120/80"
-                  value={vitals.bp || ''}
-                  onChange={(e) => setVitals((v) => ({ ...v, bp: e.target.value }))}
-                  className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 text-xs font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none min-h-[40px]"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-600 font-bold block mb-1">
-                  SpO2 (%)
-                </label>
-                <input
-                  type="text"
-                  placeholder="97%"
-                  value={vitals.spo2 || ''}
-                  onChange={(e) => setVitals((v) => ({ ...v, spo2: e.target.value }))}
-                  className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 text-xs font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none min-h-[40px]"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-600 font-bold block mb-1">
-                  Mạch (nhịp/phút)
-                </label>
-                <input
-                  type="text"
-                  placeholder="78"
-                  value={vitals.pulse || ''}
-                  onChange={(e) => setVitals((v) => ({ ...v, pulse: e.target.value }))}
-                  className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 text-xs font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none min-h-[40px]"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-slate-600 font-bold block mb-1">
-                  Thân nhiệt (°C)
-                </label>
-                <input
-                  type="text"
-                  placeholder="36.8"
-                  value={vitals.temp || ''}
-                  onChange={(e) => setVitals((v) => ({ ...v, temp: e.target.value }))}
-                  className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 text-xs font-semibold focus:bg-white focus:border-indigo-500 focus:outline-none min-h-[40px]"
-                />
-              </div>
-            </div>
-
-            {/* Ghi chú bàn giao */}
-            <div>
-              <label className="text-[11px] text-slate-600 font-bold block mb-1">
-                Ghi chú dặn dò ca sau (ví dụ: Bác sĩ vừa cho thuốc mới lúc 15h, cần hút đờm...)
-              </label>
-              <textarea
-                rows={2}
-                value={handoverNote}
-                onChange={(e) => setHandoverNote(e.target.value)}
-                placeholder="Nhập tình trạng người bệnh, nhắc nhở hoặc diễn biến đặc biệt..."
-                className="w-full p-2.5 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 text-xs sm:text-sm font-medium focus:bg-white focus:border-indigo-500 focus:outline-none resize-none"
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-[11px] text-slate-500 font-medium">
-                {shift.handover.updatedAt && (
-                  <>Cập nhật: {new Date(shift.handover.updatedAt).toLocaleTimeString('vi-VN')}</>
-                )}
-              </span>
-
-              <button
-                type="button"
-                onClick={handleSaveHandover}
-                disabled={isSavingHandover}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 transition min-h-[44px] cursor-pointer shadow-sm active:scale-95"
-              >
-                {saveFeedback ? (
-                  <>
-                    <Check className="w-4 h-4 text-emerald-200" />
-                    <span>Đã lưu!</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    <span>{isSavingHandover ? 'Đang lưu...' : 'Lưu bàn giao'}</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      <ShiftCardHandoverDrawer
+        shift={shift}
+        showHandover={showHandover}
+        onToggleShowHandover={() => setShowHandover(!showHandover)}
+        vitals={vitals}
+        onChangeVitals={setVitals}
+        handoverNote={handoverNote}
+        onChangeHandoverNote={setHandoverNote}
+        isSavingHandover={isSavingHandover}
+        saveFeedback={saveFeedback}
+        onSaveHandover={() => void handleSaveHandover()}
+      />
     </div>
   );
 }

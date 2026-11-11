@@ -86,7 +86,11 @@ export interface PatientCustomField {
   section?: 'profile' | 'care';
 }
 
-export type HealthProfileType = 'post_stroke_cranioplasty' | 'thyroid_post_op' | 'general_health';
+export type HealthProfileType =
+  | 'post_stroke_cranioplasty'
+  | 'thyroid_post_op'
+  | 'general_health'
+  | 'pediatric';
 
 export interface HealthProfile {
   id: string;                 // 'father' (mặc định cho Bố), 'mother' (Mẹ), hoặc 'profile-...'
@@ -112,6 +116,8 @@ export interface PatientInfo {
   headerBadge?: string;
   careMode?: string;
   careGoal?: string;
+  birthDate?: string;         // YYYY-MM-DD (dùng tính tháng tuổi cho hồ sơ Nhi khoa / người cao tuổi)
+  gender?: 'male' | 'female'; // Giới tính sinh học (dùng đối chiếu chuẩn tăng trưởng WHO)
   customFields?: PatientCustomField[];
   healthProfiles?: HealthProfile[];
 }
@@ -341,8 +347,34 @@ export interface LabResultEntry {
   // Chỉ số mở rộng tự định nghĩa (CRUD linh hoạt)
   customLabs?: CustomLabItem[];
 
+  // Phân loại bản ghi mở rộng (tương thích ngược 100% với cột JSON LabResults / Reminders)
+  recordKind?: 'lab' | 'pediatric_growth' | 'pediatric_vaccine';
+  pediatricGrowth?: PediatricGrowthRecord;
+  pediatricVaccine?: PediatricVaccineRecord;
+
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface PediatricGrowthRecord {
+  ageMonths: number;
+  gender: 'male' | 'female';
+  weightKg?: number;
+  heightCm?: number;
+  headCircumferenceCm?: number;
+  note?: string;
+}
+
+export interface PediatricVaccineRecord {
+  vaccineCode: string;
+  vaccineName: string;
+  doseNumber: number;
+  category: 'tcmr' | 'service';
+  status: 'completed' | 'scheduled' | 'pending';
+  recommendedAgeLabel?: string;
+  nextDueDate?: string;
+  lotNumber?: string;
+  reactionNote?: string;
 }
 
 // ===== EXTENDED AllAppData cho v2.0 =====

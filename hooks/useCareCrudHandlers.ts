@@ -156,7 +156,11 @@ export function useCareCrudHandlers({
         'success'
       );
 
-      if (notificationPrefs.enabled && notificationPrefs.autoVoiceEnabled) {
+      const shouldSpeakVitals =
+        (notificationPrefs.enabled && notificationPrefs.autoVoiceEnabled) ||
+        (activeProfile.profileType === 'thyroid_post_op' && notificationPrefs.autoVoiceEnabled !== false);
+
+      if (shouldSpeakVitals) {
         const evalRes = evaluateVitalReading(
           cleanEntry,
           profileBpThresholds,
@@ -168,7 +172,7 @@ export function useCareCrudHandlers({
             ? `Chỉ số huyết áp và nhịp tim của ${patientDisplayName} ổn định.`
             : `${evalRes.reasons.join('. ')}. ${evalRes.clinicalAdvice}`;
         speakVietnameseReminder(
-          `Đã lưu huyết áp của ${patientDisplayName}: ${cleanEntry.sys} trên ${cleanEntry.dia}${pulseText}. ${statusText}`
+          `Đã ghi nhận huyết áp của ${patientDisplayName}: ${cleanEntry.sys} trên ${cleanEntry.dia}${pulseText}. ${statusText}`
         );
       }
 
@@ -205,6 +209,7 @@ export function useCareCrudHandlers({
     },
     [
       activeProfile.id,
+      activeProfile.profileType,
       profileBpThresholds,
       patientDisplayName,
       notificationPrefs.enabled,
@@ -278,6 +283,15 @@ export function useCareCrudHandlers({
             `✅ ${actor} hoàn thành "${routineItem.title}" (${patientDisplayName})`,
             'success'
           );
+          if (
+            (notificationPrefs.enabled && notificationPrefs.autoVoiceEnabled) ||
+            (activeProfile.profileType === 'thyroid_post_op' &&
+              notificationPrefs.autoVoiceEnabled !== false)
+          ) {
+            speakVietnameseReminder(
+              `Đã ghi nhận hoàn thành ${routineItem.title} của ${patientDisplayName}.`
+            );
+          }
         } else {
           showToast(
             `↩️ Đã bỏ tích "${routineItem.title}" (${patientDisplayName})`,
@@ -302,7 +316,10 @@ export function useCareCrudHandlers({
         });
     },
     [
+      activeProfile.profileType,
       careRoutines,
+      notificationPrefs.autoVoiceEnabled,
+      notificationPrefs.enabled,
       patientDisplayName,
       setDailyLogs,
       setSyncStatus,
@@ -412,10 +429,13 @@ export function useCareCrudHandlers({
             : [scopedEntry, ...prev];
         return next.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
       });
-      showToast(
-        `🔬 Đã lưu phiếu xét nghiệm ngày ${scopedEntry.date} của ${patientDisplayName}!`,
-        'success'
-      );
+      const toastMsg =
+        scopedEntry.recordKind === 'pediatric_growth'
+          ? `📏 Đã lưu chỉ số tăng trưởng ngày ${scopedEntry.date} của ${patientDisplayName}!`
+          : scopedEntry.recordKind === 'pediatric_vaccine'
+            ? `💉 Đã cập nhật sổ tiêm chủng của ${patientDisplayName}!`
+            : `🔬 Đã lưu phiếu xét nghiệm ngày ${scopedEntry.date} của ${patientDisplayName}!`;
+      showToast(toastMsg, 'success');
       setSyncStatus('syncing');
 
       void saveLabResultAction(scopedEntry)
@@ -436,8 +456,15 @@ export function useCareCrudHandlers({
   const handleDeleteLabResult = useCallback(
     async (id: string) => {
       const backup = labResults;
+      const target = labResults.find((l) => l.id === id);
+      const delMsg =
+        target?.recordKind === 'pediatric_growth'
+          ? `🗑️ Đã xóa mốc tăng trưởng của ${patientDisplayName}.`
+          : target?.recordKind === 'pediatric_vaccine'
+            ? `🗑️ Đã xóa bản ghi mũi tiêm của ${patientDisplayName}.`
+            : `🗑️ Đã xóa phiếu xét nghiệm của ${patientDisplayName}.`;
       setLabResults((prev) => prev.filter((l) => l.id !== id));
-      showToast(`🗑️ Đã xóa phiếu xét nghiệm của ${patientDisplayName}.`, 'info');
+      showToast(delMsg, 'info');
       setSyncStatus('syncing');
 
       void deleteLabResultAction(id)

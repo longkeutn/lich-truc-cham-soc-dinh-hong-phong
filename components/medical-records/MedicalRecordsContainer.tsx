@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { FileSpreadsheet, FlaskConical, Plus } from 'lucide-react';
 import type { LabResultEntry } from '@/lib/types';
 import { evaluateLabEntry, normalizeDateStr } from '@/lib/config';
@@ -13,6 +13,8 @@ import {
 import { ThyroidTrackerSection } from './ThyroidTrackerSection';
 import { BiochemistryTrackerSection } from './BiochemistryTrackerSection';
 import { ClinicalAppointmentSection } from './ClinicalAppointmentSection';
+import { PediatricGrowthSection } from './PediatricGrowthSection';
+import { ChildVaccineSection } from './ChildVaccineSection';
 import { AppointmentSection } from '@/components/AppointmentSection';
 import { LabResultFormModal } from './LabResultFormModal';
 import { LegacySheetImportModal } from './LegacySheetImportModal';
@@ -25,6 +27,9 @@ export function MedicalRecordsContainer({
   patientName,
   patientDisplayName,
   patientDiagnosis,
+  patientInfo,
+  onUpdatePatientInfo,
+  initialSubView,
   profileType,
   members,
   defaultRecorder,
@@ -35,18 +40,44 @@ export function MedicalRecordsContainer({
   onSaveAppointment,
   isAdmin = false,
 }: LabResultsViewProps) {
-  const [subView, setSubView] = useState<LabSubView>('all');
+  const isPediatric = profileType === 'pediatric';
+  const [subView, setSubView] = useState<LabSubView>(
+    initialSubView || (isPediatric ? 'growth' : 'all')
+  );
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<LabResultEntry | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
 
+  useEffect(() => {
+    if (initialSubView) {
+      setSubView(initialSubView);
+      return;
+    }
+    setSubView(profileType === 'pediatric' ? 'growth' : 'all');
+  }, [profileId, profileType, initialSubView]);
+
+  const clinicalLabs = useMemo(
+    () => labResults.filter((r) => !r.recordKind || r.recordKind === 'lab'),
+    [labResults]
+  );
+
+  const growthEntries = useMemo(
+    () => labResults.filter((r) => r.recordKind === 'pediatric_growth'),
+    [labResults]
+  );
+
+  const vaccineEntries = useMemo(
+    () => labResults.filter((r) => r.recordKind === 'pediatric_vaccine'),
+    [labResults]
+  );
+
   const sortedLabsDesc = useMemo(() => {
-    return [...labResults].sort((a, b) => {
+    return [...clinicalLabs].sort((a, b) => {
       const dCmp = normalizeDateStr(b.date).localeCompare(normalizeDateStr(a.date));
       if (dCmp !== 0) return dCmp;
       return (b.createdAt || '').localeCompare(a.createdAt || '');
     });
-  }, [labResults]);
+  }, [clinicalLabs]);
 
   const sortedLabsAsc = useMemo(() => [...sortedLabsDesc].reverse(), [sortedLabsDesc]);
 
@@ -87,40 +118,59 @@ export function MedicalRecordsContainer({
     await onDeleteLabResult(entry.id);
   };
 
+  const subTabs: Array<{ id: LabSubView; label: string }> = isPediatric
+    ? [
+        { id: 'growth', label: `📈 Tăng Trưởng WHO (${growthEntries.length})` },
+        { id: 'vaccine', label: `💉 Sổ Tiêm Chủng (${vaccineEntries.length})` },
+        { id: 'all', label: `🔬 Xét Nghiệm & Lịch Khám (${sortedLabsDesc.length})` },
+      ]
+    : [
+        { id: 'all', label: '📋 Tổng hợp toàn bộ' },
+        { id: 'thyroid', label: '🦋 Tuyến Giáp & Hormone' },
+        { id: 'biochem', label: '🧪 Hóa Sinh & Mỡ Máu' },
+        { id: 'history', label: `🗓️ Lịch Sử & Lời Dặn BS (${sortedLabsDesc.length})` },
+      ];
+
   return (
     <div className="space-y-4">
-      {/* Banner Đầu Trang: Sổ Xét Nghiệm & Hóa Sinh */}
+      {/* Banner Đầu Trang: Thích ứng Nhi Khoa (WHO & Tiêm chủng) vs Xét Nghiệm & Hóa Sinh */}
       <div className="rounded-2xl bg-gradient-to-r from-teal-900 via-teal-800 to-cyan-900 text-white p-4 sm:p-5 shadow-sm border border-teal-950">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-xs font-black uppercase">
-                🔬 Xét Nghiệm &amp; Hóa Sinh
+                {isPediatric ? '👶 Tăng Trưởng & Tiêm Chủng' : '🔬 Xét Nghiệm & Hóa Sinh'}
               </span>
               <span className="text-xs font-bold text-teal-100">
-                • Hồ sơ: {patientName} ({patientDisplayName})
+                · Hồ sơ: {patientName} ({patientDisplayName})
               </span>
             </div>
             <h2 className="text-lg sm:text-xl font-black leading-snug">
-              Sổ Theo Dõi Chỉ Số Xét Nghiệm Định Kỳ ({sortedLabsDesc.length} lần khám)
+              {isPediatric
+                ? `Sổ Phát Triển WHO, Tiêm Chủng & Xét Nghiệm Của ${patientDisplayName}`
+                : `Sổ Theo Dõi Chỉ Số Xét Nghiệm Định Kỳ (${sortedLabsDesc.length} lần khám)`}
             </h2>
             <p className="text-sm sm:text-base text-teal-100 font-medium leading-relaxed">
-              {profileType === 'thyroid_post_op'
-                ? 'Theo dõi chuyên sâu Tuyến giáp (TSH, FT4, FT3, TG, Anti-TG & Liều thuốc Levothyroxine), Canxi, Vitamin D, Bộ Mỡ máu & Đường huyết'
-                : patientDiagnosis ||
-                  'Theo dõi Bộ Mỡ máu (Cholesterol, LDL-C, Triglyceride), Đường huyết (Glucose, HbA1c), Gan Thận & Tuyến giáp'}
+              {isPediatric
+                ? 'Theo dõi biểu đồ chiều cao - cân nặng chuẩn WHO (-2SD / Median / +2SD), lịch tiêm chủng mở rộng & dịch vụ và kết quả xét nghiệm'
+                : profileType === 'thyroid_post_op'
+                  ? 'Theo dõi chuyên sâu Tuyến giáp (TSH, FT4, FT3, TG, Anti-TG & Liều thuốc Levothyroxine), Canxi, Vitamin D, Bộ Mỡ máu & Đường huyết'
+                  : patientDiagnosis ||
+                    'Theo dõi Bộ Mỡ máu (Cholesterol, LDL-C, Triglyceride), Đường huyết (Glucose, HbA1c), Gan Thận & Tuyến giáp'}
             </p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap shrink-0">
-            <button
-              type="button"
-              onClick={() => setImportModalOpen(true)}
-              className="min-h-[48px] min-w-[48px] px-3.5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/25 text-sm font-extrabold flex items-center gap-1.5 transition cursor-pointer"
-            >
-              <FileSpreadsheet className="w-4 h-4 shrink-0" />
-              <span>Nhập từ Sheet cũ</span>
-            </button>
+            {!isPediatric && (
+              <button
+                type="button"
+                onClick={() => setImportModalOpen(true)}
+                className="min-h-[48px] min-w-[48px] px-3.5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/25 text-sm font-extrabold flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4 shrink-0" />
+                <span>Nhập từ Sheet cũ</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={openAddModal}
@@ -133,102 +183,133 @@ export function MedicalRecordsContainer({
         </div>
       </div>
 
-      {sortedLabsDesc.length === 0 ? (
-        <div className="space-y-4">
-          <MedicalEmptyState
-            icon={<FlaskConical className="w-8 h-8" />}
-            badge="Hồ sơ Xét nghiệm & Cận lâm sàng"
-            title={`Chưa có kết quả xét nghiệm nào của ${patientDisplayName} (${patientName})`}
-            description={
-              <>
-                Bạn có thể bấm <strong>Nhập Kết Quả Xét Nghiệm</strong> để lưu các chỉ số mới đi khám
-                về, hoặc bấm <strong>Nhập từ Sheet cũ</strong> để dán nhanh toàn bộ lịch sử từ bảng
-                Google Sheet trước đây.
-              </>
-            }
-            tone={profileType === 'thyroid_post_op' ? 'thyroid' : 'medical'}
-            primaryAction={{
-              label: 'Nhập kết quả xét nghiệm đầu tiên',
-              onClick: openAddModal,
-              icon: <Plus className="w-4 h-4" />,
-            }}
-            secondaryAction={{
-              label: 'Dán lịch sử từ Google Sheet cũ',
-              onClick: () => setImportModalOpen(true),
-              icon: <FileSpreadsheet className="w-4 h-4" />,
-            }}
-          />
-          {appointment && onSaveAppointment && (
-            <AppointmentSection
-              appointment={appointment}
-              onSave={onSaveAppointment}
-              isAdmin={isAdmin}
-              todayStr={todayStr}
-              patientDisplayName={patientDisplayName}
-            />
-          )}
+      {/* Thanh chuyển đổi phân khu (Luôn hiển thị cho hồ sơ Nhi khoa hoặc khi có kết quả xét nghiệm) */}
+      {(isPediatric || sortedLabsDesc.length > 0) && (
+        <div className="flex items-center gap-1.5 flex-wrap bg-surface-card border border-border-card rounded-2xl p-2 shadow-2xs">
+          {subTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setSubView(tab.id)}
+              className={`min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl text-sm font-extrabold transition cursor-pointer ${
+                subView === tab.id
+                  ? 'bg-medical-primary text-white shadow-2xs'
+                  : 'text-text-body hover:bg-slate-100'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-      ) : (
+      )}
+
+      {isPediatric && subView === 'growth' && (
+        <PediatricGrowthSection
+          growthEntries={growthEntries}
+          patientInfo={patientInfo}
+          profileId={profileId}
+          todayStr={todayStr}
+          patientDisplayName={patientDisplayName}
+          defaultRecorder={defaultRecorder}
+          onSaveLabResult={onSaveLabResult}
+          onDeleteLabResult={onDeleteLabResult}
+          onUpdatePatientInfo={onUpdatePatientInfo}
+        />
+      )}
+
+      {isPediatric && subView === 'vaccine' && (
+        <ChildVaccineSection
+          vaccineEntries={vaccineEntries}
+          profileId={profileId}
+          todayStr={todayStr}
+          patientDisplayName={patientDisplayName}
+          defaultRecorder={defaultRecorder}
+          onSaveLabResult={onSaveLabResult}
+          onDeleteLabResult={onDeleteLabResult}
+        />
+      )}
+
+      {(!isPediatric || subView === 'all' || subView === 'thyroid' || subView === 'biochem' || subView === 'history') && (
         <>
-          {/* Thanh chuyển đổi phân khu Xét nghiệm */}
-          <div className="flex items-center gap-1.5 flex-wrap bg-surface-card border border-border-card rounded-2xl p-2 shadow-2xs">
-            {[
-              { id: 'all', label: '📋 Tổng hợp toàn bộ' },
-              { id: 'thyroid', label: '🦋 Tuyến Giáp & Hormone' },
-              { id: 'biochem', label: '🧪 Hóa Sinh & Mỡ Máu' },
-              { id: 'history', label: `🗓️ Lịch Sử & Lời Dặn BS (${sortedLabsDesc.length})` },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setSubView(tab.id as LabSubView)}
-                className={`min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl text-sm font-extrabold transition cursor-pointer ${
-                  subView === tab.id
-                    ? 'bg-medical-primary text-white shadow-2xs'
-                    : 'text-text-body hover:bg-slate-100'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          {sortedLabsDesc.length === 0 ? (
+            <div className="space-y-4">
+              <MedicalEmptyState
+                icon={<FlaskConical className="w-8 h-8" />}
+                badge="Hồ sơ Xét nghiệm & Cận lâm sàng"
+                title={`Chưa có kết quả xét nghiệm máu nào của ${patientDisplayName} (${patientName})`}
+                description={
+                  <>
+                    Bạn có thể bấm <strong>Nhập Kết Quả Xét Nghiệm</strong> để lưu các chỉ số khi đi
+                    khám về{!isPediatric && ', hoặc dán nhanh toàn bộ lịch sử từ bảng Google Sheet cũ'}.
+                  </>
+                }
+                tone={profileType === 'thyroid_post_op' ? 'thyroid' : 'medical'}
+                primaryAction={{
+                  label: 'Nhập kết quả xét nghiệm đầu tiên',
+                  onClick: openAddModal,
+                  icon: <Plus className="w-4 h-4" />,
+                }}
+                secondaryAction={
+                  !isPediatric
+                    ? {
+                        label: 'Dán lịch sử từ Google Sheet cũ',
+                        onClick: () => setImportModalOpen(true),
+                        icon: <FileSpreadsheet className="w-4 h-4" />,
+                      }
+                    : undefined
+                }
+              />
+              {appointment && onSaveAppointment && (
+                <AppointmentSection
+                  appointment={appointment}
+                  onSave={onSaveAppointment}
+                  isAdmin={isAdmin}
+                  todayStr={todayStr}
+                  profileType={profileType}
+                  patientDisplayName={patientDisplayName}
+                />
+              )}
+            </div>
+          ) : (
+            <>
+              {(subView === 'all' || subView === 'thyroid') && !isPediatric && (
+                <ThyroidTrackerSection
+                  latestLab={latestLab}
+                  previousLab={previousLab}
+                  indicators={latestEval?.indicators || []}
+                  chartData={chartData}
+                  profileType={profileType}
+                  patientName={patientName}
+                  recentVitalsSummary={recentVitalsSummary}
+                  onEditLab={openEditModal}
+                />
+              )}
 
-          {(subView === 'all' || subView === 'thyroid') && (
-            <ThyroidTrackerSection
-              latestLab={latestLab}
-              previousLab={previousLab}
-              indicators={latestEval?.indicators || []}
-              chartData={chartData}
-              profileType={profileType}
-              patientName={patientName}
-              recentVitalsSummary={recentVitalsSummary}
-              onEditLab={openEditModal}
-            />
-          )}
+              {(subView === 'all' || subView === 'biochem') && (
+                <BiochemistryTrackerSection
+                  latestLab={latestLab}
+                  previousLab={previousLab}
+                  indicators={latestEval?.indicators || []}
+                  summaryPoints={latestEval?.summaryPoints || []}
+                  chartData={chartData}
+                  onEditLab={openEditModal}
+                />
+              )}
 
-          {(subView === 'all' || subView === 'biochem') && (
-            <BiochemistryTrackerSection
-              latestLab={latestLab}
-              previousLab={previousLab}
-              indicators={latestEval?.indicators || []}
-              summaryPoints={latestEval?.summaryPoints || []}
-              chartData={chartData}
-              onEditLab={openEditModal}
-            />
-          )}
-
-          {(subView === 'all' || subView === 'history') && (
-            <ClinicalAppointmentSection
-              sortedLabsDesc={sortedLabsDesc}
-              profileType={profileType}
-              patientDisplayName={patientDisplayName}
-              todayStr={todayStr}
-              isAdmin={isAdmin}
-              appointment={appointment}
-              onSaveAppointment={onSaveAppointment}
-              onEditLab={openEditModal}
-              onDeleteLab={handleDeleteLab}
-            />
+              {(subView === 'all' || subView === 'history') && (
+                <ClinicalAppointmentSection
+                  sortedLabsDesc={sortedLabsDesc}
+                  profileType={profileType}
+                  patientDisplayName={patientDisplayName}
+                  todayStr={todayStr}
+                  isAdmin={isAdmin}
+                  appointment={appointment}
+                  onSaveAppointment={onSaveAppointment}
+                  onEditLab={openEditModal}
+                  onDeleteLab={handleDeleteLab}
+                />
+              )}
+            </>
           )}
         </>
       )}
@@ -250,7 +331,7 @@ export function MedicalRecordsContainer({
       <LegacySheetImportModal
         isOpen={importModalOpen}
         onClose={() => setImportModalOpen(false)}
-        labResults={labResults}
+        labResults={clinicalLabs}
         profileId={profileId}
         profileType={profileType}
         patientName={patientName}

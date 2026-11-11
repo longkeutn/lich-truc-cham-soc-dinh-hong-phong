@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { AlertTriangle, ShieldCheck, ArrowLeft } from 'lucide-react';
 import PatientBanner from '@/components/PatientBanner';
@@ -8,6 +8,8 @@ import QuickVitalsForm from '@/components/QuickVitalsForm';
 import DailyRoutineView from '@/components/DailyRoutineView';
 import { AppointmentSection } from '@/components/AppointmentSection';
 import SmartReminderBanner from '@/components/SmartReminderBanner';
+import { AdaptiveProfileModeBanner } from '@/components/today-dashboard';
+import type { LabSubView } from '@/components/medical-records/labRecordsUtils';
 import {
   AppHeaderBar,
   MobileBottomNav,
@@ -55,9 +57,15 @@ const ExpenseTrackerView = dynamic(() => import('@/components/ExpenseTrackerView
   ),
 });
 
+const StandaloneDoctorReportModal = dynamic(
+  () => import('@/components/vitals-analytics/StandaloneDoctorReportModal')
+);
+
 export default function CareSchedulePage() {
   const ui = useCareUiController();
   const sync = useCareDataSync({ showToast: ui.showToast });
+  const [labsInitialSubView, setLabsInitialSubView] = useState<LabSubView | undefined>(undefined);
+  const [doctorReportOpen, setDoctorReportOpen] = useState<boolean>(false);
 
   const profilesMgr = useHealthProfileManager({
     patientInfo: sync.patientInfo,
@@ -162,7 +170,6 @@ export default function CareSchedulePage() {
         </div>
       )}
 
-      {/* Top App Bar cố định tối giản với Dropdown đổi Hồ sơ nhanh */}
       <AppHeaderBar
         activeView={ui.activeView}
         onChangeView={ui.handleChangeView}
@@ -181,7 +188,6 @@ export default function CareSchedulePage() {
         onRefreshData={() => void sync.loadAllData(true)}
       />
 
-      {/* Khung cuộn nội dung chính tối ưu 1 cột Mobile-First */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-3 pt-3 pb-28 md:pb-8 sm:px-5 sm:pt-4 space-y-4">
         {!sync.hasInitialLoaded && sync.isLoading && (
           <MedicalSkeletonLoader
@@ -191,8 +197,27 @@ export default function CareSchedulePage() {
           />
         )}
 
-        {/* TAB 1: HÔM NAY (Nhắc việc -> Đo HA 5 giây -> Checklist -> Tái khám & Hồ sơ) */}
+        {/* TAB 1: HÔM NAY (Chế độ thích ứng theo Profile -> Nhắc việc -> Đo HA -> Checklist -> Tái khám) */}
         <TabViewPanel isActive={ui.activeView === 'today'} className="space-y-4">
+          <AdaptiveProfileModeBanner
+            activeProfile={profilesMgr.activeProfile}
+            activeRoutines={profilesMgr.activeRoutines}
+            dailyLogs={profilesMgr.profileDailyLogs}
+            labResults={profilesMgr.profileLabResults}
+            todayStr={sync.todayStr}
+            recorderName={profilesMgr.recorderName}
+            onToggleDailyLog={crud.handleToggleDailyLog}
+            onOpenDoctorReport={() => setDoctorReportOpen(true)}
+            onJumpToGrowth={() => {
+              setLabsInitialSubView('growth');
+              ui.handleChangeView('labs');
+            }}
+            onJumpToVaccine={() => {
+              setLabsInitialSubView('vaccine');
+              ui.handleChangeView('labs');
+            }}
+          />
+
           <SmartReminderBanner
             vitalsLog={profilesMgr.profileVitalsLog}
             bpThresholds={profilesMgr.profileBpThresholds}
@@ -241,12 +266,15 @@ export default function CareSchedulePage() {
               onSave={crud.handleSaveAppointment}
               isAdmin={ui.isAdmin}
               todayStr={sync.todayStr}
+              profileType={profilesMgr.activeProfile.profileType}
               patientDisplayName={profilesMgr.patientDisplayName}
             />
           </section>
 
           <PatientBanner
             patientInfo={profilesMgr.profilePatientInfo}
+            profileType={profilesMgr.activeProfile.profileType}
+            patientDisplayName={profilesMgr.patientDisplayName}
             reminders={profilesMgr.profileReminders}
             members={sync.members}
             onAddReminder={crud.handleAddReminder}
@@ -291,6 +319,9 @@ export default function CareSchedulePage() {
               patientName={profilesMgr.profilePatientInfo.name}
               patientDisplayName={profilesMgr.patientDisplayName}
               patientDiagnosis={profilesMgr.profilePatientInfo.diagnosis}
+              patientInfo={profilesMgr.profilePatientInfo}
+              onUpdatePatientInfo={handlePatientUpdated}
+              initialSubView={labsInitialSubView}
               todayStr={sync.todayStr}
               defaultRecorder={profilesMgr.recorderName}
               members={sync.members}
@@ -336,7 +367,7 @@ export default function CareSchedulePage() {
           </TabViewPanel>
         )}
 
-        {/* PHÂN KHU CON: SỔ THU CHI Y TẾ (Truy cập từ Tab Gia Đình, bảo vệ bằng mã PIN riêng) */}
+        {/* PHÂN KHU CON: SỔ THU CHI Y TẾ */}
         {ui.visitedViews.expenses && (
           <TabViewPanel isActive={ui.activeView === 'expenses'} className="space-y-3">
             <div className="flex items-center justify-between gap-2">
@@ -374,7 +405,6 @@ export default function CareSchedulePage() {
         </p>
       </footer>
 
-      {/* Thanh Điều Hướng Cố Định Dưới Đáy 4 Tab Chuẩn Mobile-First */}
       <MobileBottomNav
         activeView={ui.activeView}
         onChangeView={ui.handleChangeView}
@@ -382,7 +412,21 @@ export default function CareSchedulePage() {
         isAdminUnlocked={ui.isAdmin || ui.isExpenseUnlocked}
       />
 
-      {/* Toàn bộ cửa sổ Modal lazy-loaded */}
+      {doctorReportOpen && (
+        <StandaloneDoctorReportModal
+          isOpen={doctorReportOpen}
+          onClose={() => setDoctorReportOpen(false)}
+          vitalsLog={profilesMgr.profileVitalsLog}
+          bpThresholds={profilesMgr.profileBpThresholds}
+          dailyLogs={profilesMgr.profileDailyLogs}
+          careRoutines={profilesMgr.profileCareRoutines}
+          patientName={profilesMgr.profilePatientInfo.name}
+          patientDiagnosis={profilesMgr.profilePatientInfo.diagnosis}
+          profileType={profilesMgr.activeProfile.profileType}
+          showToast={ui.showToast}
+        />
+      )}
+
       <AppModalsHost
         profileModalMode={ui.profileModalMode}
         editingProfileTarget={ui.editingProfileTarget}
