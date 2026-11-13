@@ -3,6 +3,7 @@ export {
   resolveActivePrimaryTab,
   computeLatestVitalByProfile,
   formatProfileShortDate,
+  formatProfileDisplayName,
 } from './navigationTypes';
 export type {
   AppView,

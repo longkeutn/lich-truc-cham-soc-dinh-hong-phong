@@ -1,4 +1,8 @@
 export {
+  TodayProfileSelectorBar,
+  type TodayProfileSelectorBarProps,
+} from './TodayProfileSelectorBar';
+export {
   AdaptiveProfileModeBanner,
   type AdaptiveProfileModeBannerProps,
 } from './AdaptiveProfileModeBanner';

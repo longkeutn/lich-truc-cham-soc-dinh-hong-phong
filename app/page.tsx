@@ -8,7 +8,10 @@ import QuickVitalsForm from '@/components/QuickVitalsForm';
 import DailyRoutineView from '@/components/DailyRoutineView';
 import { AppointmentSection } from '@/components/AppointmentSection';
 import SmartReminderBanner from '@/components/SmartReminderBanner';
-import { AdaptiveProfileModeBanner } from '@/components/today-dashboard';
+import {
+  AdaptiveProfileModeBanner,
+  TodayProfileSelectorBar,
+} from '@/components/today-dashboard';
 import type { LabSubView } from '@/components/medical-records/labRecordsUtils';
 import {
   AppHeaderBar,
@@ -28,33 +31,13 @@ import { useCareUiController } from '@/hooks/useCareUiController';
 
 const VitalsChartView = dynamic(
   () => import('@/components/VitalsChartView').then((m) => m.VitalsChartView),
-  {
-    loading: () => (
-      <MedicalSkeletonLoader
-        variant="full-analytics"
-        label="Đang mở biểu đồ xu hướng huyết áp..."
-      />
-    ),
-  }
+  { loading: () => <MedicalSkeletonLoader variant="full-analytics" label="Đang mở biểu đồ xu hướng huyết áp..." /> }
 );
-
 const LabResultsView = dynamic(() => import('@/components/LabResultsView'), {
-  loading: () => (
-    <MedicalSkeletonLoader
-      variant="lab-grid"
-      label="Đang mở Sổ Xét Nghiệm và Hóa Sinh..."
-    />
-  ),
+  loading: () => <MedicalSkeletonLoader variant="lab-grid" label="Đang mở Sổ Xét Nghiệm và Hóa Sinh..." />,
 });
-
 const ExpenseTrackerView = dynamic(() => import('@/components/ExpenseTrackerView'), {
-  loading: () => (
-    <MedicalSkeletonLoader
-      variant="checklist"
-      rows={4}
-      label="Đang mở Sổ Thu Chi Y Tế..."
-    />
-  ),
+  loading: () => <MedicalSkeletonLoader variant="checklist" rows={4} label="Đang mở Sổ Thu Chi Y Tế..." />,
 });
 
 const StandaloneDoctorReportModal = dynamic(
@@ -205,8 +188,17 @@ export default function CareSchedulePage() {
           </div>
         )}
 
-        {/* TAB 1: HÔM NAY (Chế độ thích ứng theo Profile -> Nhắc việc -> Đo HA -> Checklist -> Tái khám) */}
+        {/* TAB 1: HÔM NAY (Chọn thành viên -> Chế độ thích ứng -> Nhắc việc -> Đo HA -> Checklist -> Tái khám) */}
         <TabViewPanel isActive={ui.activeView === 'today'} className="space-y-4">
+          <TodayProfileSelectorBar
+            profiles={profilesMgr.healthProfiles}
+            activeProfileId={profilesMgr.activeProfile.id}
+            allVitalsLog={sync.vitalsLog}
+            todayStr={sync.todayStr}
+            onSelectProfile={profilesMgr.handleSelectProfile}
+            onOpenAddProfile={() => ui.openProfileModal('add', null)}
+          />
+
           <AdaptiveProfileModeBanner
             activeProfile={profilesMgr.activeProfile}
             activeRoutines={profilesMgr.activeRoutines}

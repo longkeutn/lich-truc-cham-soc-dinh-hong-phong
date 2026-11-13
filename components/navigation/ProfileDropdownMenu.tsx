@@ -58,7 +58,7 @@ export function ProfileDropdownMenu({
             className="min-h-[48px] min-w-[48px] px-2.5 py-1.5 rounded-xl text-xs font-extrabold text-medical-primary hover:bg-medical-surface transition cursor-pointer inline-flex items-center gap-1"
           >
             <Users className="w-3.5 h-3.5 shrink-0" />
-            <span>Thành viên</span>
+            <span>Người chăm sóc</span>
           </button>
         )}
       </div>
@@ -95,15 +95,21 @@ export function ProfileDropdownMenu({
                   </span>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span
-                        className={`text-xs font-extrabold px-1.5 py-0.5 rounded-md ${
-                          isSelected
-                            ? 'bg-amber-300 text-slate-950'
-                            : 'bg-teal-100 text-medical-dark'
-                        }`}
-                      >
-                        {profile.relation || 'Gia đình'}
-                      </span>
+                      {profile.relation &&
+                        !profile.name
+                          .trim()
+                          .toLowerCase()
+                          .startsWith(profile.relation.trim().toLowerCase()) && (
+                          <span
+                            className={`text-xs font-extrabold px-1.5 py-0.5 rounded-md ${
+                              isSelected
+                                ? 'bg-amber-300 text-slate-950'
+                                : 'bg-teal-100 text-medical-dark'
+                            }`}
+                          >
+                            {profile.relation}
+                          </span>
+                        )}
                       <span className="text-sm sm:text-base font-extrabold truncate">
                         {profile.name}
                       </span>

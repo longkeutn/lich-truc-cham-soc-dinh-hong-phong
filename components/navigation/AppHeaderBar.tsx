@@ -22,6 +22,7 @@ import {
 import {
   PRIMARY_NAV_TABS,
   computeLatestVitalByProfile,
+  formatProfileDisplayName,
   resolveActivePrimaryTab,
   type AppView,
   type PrimaryNavTabId,
@@ -136,10 +137,7 @@ export function AppHeaderBar({
 
   const displayAvatar = activeProfile?.avatarEmoji || '❤️';
   const displayTitle = activeProfile
-    ? activeProfile.relation &&
-      !activeProfile.name.toLowerCase().startsWith(activeProfile.relation.toLowerCase())
-      ? `${activeProfile.relation} · ${activeProfile.name}`
-      : activeProfile.name
+    ? formatProfileDisplayName(activeProfile)
     : fallbackPatient.name;
 
   const displaySubtitle = useMemo(() => {

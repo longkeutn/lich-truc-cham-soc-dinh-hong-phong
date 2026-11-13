@@ -69,6 +69,22 @@ export function formatProfileShortDate(dateStr?: string): string {
 }
 
 /**
+ * Chuẩn hóa tên hiển thị của hồ sơ, tránh lặp tiền tố quan hệ (vd "Mẹ Mẹ Phương").
+ */
+export function formatProfileDisplayName(
+  profile: Pick<HealthProfile, 'name' | 'relation'>
+): string {
+  const name = (profile.name || '').trim();
+  const relation = (profile.relation || '').trim();
+  if (!relation) return name || 'Gia đình';
+  if (!name) return relation;
+  if (name.toLowerCase().startsWith(relation.toLowerCase())) {
+    return name;
+  }
+  return `${relation} · ${name}`;
+}
+
+/**
  * Tổng hợp số đo huyết áp mới nhất và số lần đo hôm nay cho từng hồ sơ sức khỏe
  */
 export function computeLatestVitalByProfile(
