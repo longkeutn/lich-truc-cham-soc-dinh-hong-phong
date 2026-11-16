@@ -32,6 +32,8 @@ interface LabFormPanelsProps {
     field: K,
     value: LabBiochemFormValues[K]
   ) => void;
+  hiddenFields?: ReadonlyArray<keyof LabBiochemFormValues>;
+  onManualUnitSelect?: (kind: 'lipid' | 'glucose' | 'calcium') => void;
 }
 
 export function LabMetricInput({
@@ -128,7 +130,31 @@ export function LabUnitMetricField<U extends string>({
   );
 }
 
-export function LabFormPanels({ values, onChangeField }: LabFormPanelsProps) {
+export function LabFormPanels({
+  values,
+  onChangeField,
+  hiddenFields = [],
+  onManualUnitSelect,
+}: LabFormPanelsProps) {
+  const isHidden = (f: keyof LabBiochemFormValues) => hiddenFields.includes(f);
+  const showLipidGroup =
+    !isHidden('cholesterol') ||
+    !isHidden('ldlC') ||
+    !isHidden('hdlC') ||
+    !isHidden('triglyceride');
+  const showMetabolicGroup =
+    !isHidden('glucose') ||
+    !isHidden('hba1c') ||
+    !isHidden('calcium') ||
+    !isHidden('ionizedCalcium') ||
+    !isHidden('vitaminD');
+  const showLiverKidneyGroup =
+    !isHidden('ast') ||
+    !isHidden('alt') ||
+    !isHidden('creatinine') ||
+    !isHidden('urea') ||
+    !isHidden('uricAcid') ||
+    !isHidden('hemoglobin');
   const handleAddCustomRow = () => {
     onChangeField('customLabs', [
       ...values.customLabs,
@@ -159,175 +185,220 @@ export function LabFormPanels({ values, onChangeField }: LabFormPanelsProps) {
   return (
     <div className="space-y-4">
       {/* Nhóm 3: Bộ Mỡ Máu */}
-      <div className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 sm:p-4 space-y-3">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h4 className="text-base font-black text-text-main uppercase">
-            ❤️ Nhóm 3: Bộ Mỡ Máu - Tim Mạch (Lipid)
-          </h4>
-          <div className="flex items-center gap-1.5">
-            {(['mmol/L', 'mg/dL'] as const).map((u) => (
-              <button
-                key={u}
-                type="button"
-                onClick={() => onChangeField('lipidUnit', u)}
-                className={`min-h-[48px] min-w-[68px] px-3 py-2 rounded-xl text-sm font-extrabold border transition cursor-pointer ${
-                  values.lipidUnit === u
-                    ? 'bg-medical-primary text-white border-medical-dark shadow-2xs'
-                    : 'bg-surface-card text-text-body border-border-card hover:bg-slate-100'
-                }`}
-              >
-                {u}
-              </button>
-            ))}
+      {showLipidGroup && (
+        <div className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 sm:p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h4 className="text-base font-black text-text-main uppercase">
+              ❤️ Bộ Mỡ Máu - Tim Mạch (Đơn vị &amp; Chỉ số bổ sung)
+            </h4>
+            <div className="flex items-center gap-1.5">
+              {(['mmol/L', 'mg/dL'] as const).map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => {
+                    onChangeField('lipidUnit', u);
+                    onManualUnitSelect?.('lipid');
+                  }}
+                  className={`min-h-[48px] min-w-[68px] px-3 py-2 rounded-xl text-sm font-extrabold border transition cursor-pointer ${
+                    values.lipidUnit === u
+                      ? 'bg-medical-primary text-white border-medical-dark shadow-2xs'
+                      : 'bg-surface-card text-text-body border-border-card hover:bg-slate-100'
+                  }`}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {!isHidden('cholesterol') && (
+              <LabMetricInput
+                label="Cholesterol TP"
+                subHint={values.lipidUnit === 'mmol/L' ? '<5.2' : '<200'}
+                value={values.cholesterol}
+                onChange={(v) => onChangeField('cholesterol', v)}
+              />
+            )}
+            {!isHidden('ldlC') && (
+              <LabMetricInput
+                label="LDL-C (Mỡ xấu)"
+                subHint={values.lipidUnit === 'mmol/L' ? '<2.6' : '<100'}
+                value={values.ldlC}
+                onChange={(v) => onChangeField('ldlC', v)}
+              />
+            )}
+            {!isHidden('hdlC') && (
+              <LabMetricInput
+                label="HDL-C (Mỡ tốt)"
+                subHint={values.lipidUnit === 'mmol/L' ? '>1.15' : '>45'}
+                value={values.hdlC}
+                onChange={(v) => onChangeField('hdlC', v)}
+              />
+            )}
+            {!isHidden('triglyceride') && (
+              <LabMetricInput
+                label="Triglyceride"
+                subHint={values.lipidUnit === 'mmol/L' ? '<1.7' : '<150'}
+                value={values.triglyceride}
+                onChange={(v) => onChangeField('triglyceride', v)}
+              />
+            )}
           </div>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <LabMetricInput
-            label="Cholesterol TP"
-            subHint={values.lipidUnit === 'mmol/L' ? '<5.2' : '<200'}
-            value={values.cholesterol}
-            onChange={(v) => onChangeField('cholesterol', v)}
-          />
-          <LabMetricInput
-            label="LDL-C (Mỡ xấu)"
-            subHint={values.lipidUnit === 'mmol/L' ? '<2.6' : '<100'}
-            value={values.ldlC}
-            onChange={(v) => onChangeField('ldlC', v)}
-          />
-          <LabMetricInput
-            label="HDL-C (Mỡ tốt)"
-            subHint={values.lipidUnit === 'mmol/L' ? '>1.15' : '>45'}
-            value={values.hdlC}
-            onChange={(v) => onChangeField('hdlC', v)}
-          />
-          <LabMetricInput
-            label="Triglyceride"
-            subHint={values.lipidUnit === 'mmol/L' ? '<1.7' : '<150'}
-            value={values.triglyceride}
-            onChange={(v) => onChangeField('triglyceride', v)}
-          />
-        </div>
-      </div>
+      )}
 
       {/* Nhóm 4: Đường huyết, Canxi & Vitamin D */}
-      <div className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 sm:p-4 space-y-3">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h4 className="text-base font-black text-text-main uppercase">
-            🦴 Nhóm 4: Đường Huyết, Canxi &amp; Vitamin D
-          </h4>
-          <div className="flex items-center gap-2 flex-wrap text-sm">
-            <span className="font-bold text-text-body">Đường:</span>
-            {(['mmol/L', 'mg/dL'] as const).map((u) => (
-              <button
-                key={`glu-${u}`}
-                type="button"
-                onClick={() => onChangeField('glucoseUnit', u)}
-                className={`min-h-[48px] min-w-[68px] px-3 py-2 rounded-xl text-sm font-extrabold border transition cursor-pointer ${
-                  values.glucoseUnit === u
-                    ? 'bg-medical-primary text-white border-medical-dark shadow-2xs'
-                    : 'bg-surface-card text-text-body border-border-card hover:bg-slate-100'
-                }`}
-              >
-                {u}
-              </button>
-            ))}
-            <span className="font-bold text-text-body ml-1">Canxi:</span>
-            {(['mmol/L', 'mg/dL'] as const).map((u) => (
-              <button
-                key={`ca-${u}`}
-                type="button"
-                onClick={() => onChangeField('calciumUnit', u)}
-                className={`min-h-[48px] min-w-[68px] px-3 py-2 rounded-xl text-sm font-extrabold border transition cursor-pointer ${
-                  values.calciumUnit === u
-                    ? 'bg-medical-primary text-white border-medical-dark shadow-2xs'
-                    : 'bg-surface-card text-text-body border-border-card hover:bg-slate-100'
-                }`}
-              >
-                {u}
-              </button>
-            ))}
+      {showMetabolicGroup && (
+        <div className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 sm:p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h4 className="text-base font-black text-text-main uppercase">
+              🦴 Đường Huyết, Canxi &amp; Vitamin D
+            </h4>
+            <div className="flex items-center gap-2 flex-wrap text-sm">
+              <span className="font-bold text-text-body">Đường:</span>
+              {(['mmol/L', 'mg/dL'] as const).map((u) => (
+                <button
+                  key={`glu-${u}`}
+                  type="button"
+                  onClick={() => {
+                    onChangeField('glucoseUnit', u);
+                    onManualUnitSelect?.('glucose');
+                  }}
+                  className={`min-h-[48px] min-w-[68px] px-3 py-2 rounded-xl text-sm font-extrabold border transition cursor-pointer ${
+                    values.glucoseUnit === u
+                      ? 'bg-medical-primary text-white border-medical-dark shadow-2xs'
+                      : 'bg-surface-card text-text-body border-border-card hover:bg-slate-100'
+                  }`}
+                >
+                  {u}
+                </button>
+              ))}
+              <span className="font-bold text-text-body ml-1">Canxi:</span>
+              {(['mmol/L', 'mg/dL'] as const).map((u) => (
+                <button
+                  key={`ca-${u}`}
+                  type="button"
+                  onClick={() => {
+                    onChangeField('calciumUnit', u);
+                    onManualUnitSelect?.('calcium');
+                  }}
+                  className={`min-h-[48px] min-w-[68px] px-3 py-2 rounded-xl text-sm font-extrabold border transition cursor-pointer ${
+                    values.calciumUnit === u
+                      ? 'bg-medical-primary text-white border-medical-dark shadow-2xs'
+                      : 'bg-surface-card text-text-body border-border-card hover:bg-slate-100'
+                  }`}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            {!isHidden('glucose') && (
+              <LabMetricInput
+                label="Glucose đói"
+                subHint={values.glucoseUnit}
+                value={values.glucose}
+                onChange={(v) => onChangeField('glucose', v)}
+              />
+            )}
+            {!isHidden('hba1c') && (
+              <LabMetricInput
+                label="HbA1c"
+                subHint="%"
+                value={values.hba1c}
+                onChange={(v) => onChangeField('hba1c', v)}
+              />
+            )}
+            {!isHidden('calcium') && (
+              <LabMetricInput
+                label="Canxi toàn phần"
+                subHint={values.calciumUnit}
+                value={values.calcium}
+                onChange={(v) => onChangeField('calcium', v)}
+              />
+            )}
+            {!isHidden('ionizedCalcium') && (
+              <LabMetricInput
+                label="Canxi ion (Ca++)"
+                subHint="mmol/L"
+                value={values.ionizedCalcium}
+                onChange={(v) => onChangeField('ionizedCalcium', v)}
+              />
+            )}
+            {!isHidden('vitaminD') && (
+              <LabMetricInput
+                label="Vitamin D"
+                subHint="ng/mL"
+                value={values.vitaminD}
+                onChange={(v) => onChangeField('vitaminD', v)}
+              />
+            )}
           </div>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <LabMetricInput
-            label="Glucose đói"
-            subHint={values.glucoseUnit}
-            value={values.glucose}
-            onChange={(v) => onChangeField('glucose', v)}
-          />
-          <LabMetricInput
-            label="HbA1c"
-            subHint="%"
-            value={values.hba1c}
-            onChange={(v) => onChangeField('hba1c', v)}
-          />
-          <LabMetricInput
-            label="Canxi toàn phần"
-            subHint={values.calciumUnit}
-            value={values.calcium}
-            onChange={(v) => onChangeField('calcium', v)}
-          />
-          <LabMetricInput
-            label="Canxi ion (Ca++)"
-            subHint="mmol/L"
-            value={values.ionizedCalcium}
-            onChange={(v) => onChangeField('ionizedCalcium', v)}
-          />
-          <LabMetricInput
-            label="Vitamin D"
-            subHint="ng/mL"
-            value={values.vitaminD}
-            onChange={(v) => onChangeField('vitaminD', v)}
-          />
-        </div>
-      </div>
+      )}
 
       {/* Nhóm 5: Gan, Thận & Huyết học */}
-      <div className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 sm:p-4 space-y-3">
-        <h4 className="text-base font-black text-text-main uppercase">
-          🧪 Nhóm 5: Chức Năng Gan, Thận &amp; Huyết Học
-        </h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <LabMetricInput
-            label="AST (GOT)"
-            subHint="U/L"
-            value={values.ast}
-            onChange={(v) => onChangeField('ast', v)}
-          />
-          <LabMetricInput
-            label="ALT (GPT)"
-            subHint="U/L"
-            value={values.alt}
-            onChange={(v) => onChangeField('alt', v)}
-          />
-          <LabMetricInput
-            label="Creatinine"
-            subHint="µmol/L"
-            value={values.creatinine}
-            onChange={(v) => onChangeField('creatinine', v)}
-          />
-          <LabMetricInput
-            label="Ure máu"
-            subHint="mmol/L"
-            value={values.urea}
-            onChange={(v) => onChangeField('urea', v)}
-          />
-          <LabMetricInput
-            label="Acid Uric"
-            subHint="µmol/L"
-            value={values.uricAcid}
-            onChange={(v) => onChangeField('uricAcid', v)}
-          />
-          <LabMetricInput
-            label="Hemoglobin"
-            subHint="g/L hoặc g/dL"
-            value={values.hemoglobin}
-            onChange={(v) => onChangeField('hemoglobin', v)}
-          />
+      {showLiverKidneyGroup && (
+        <div className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 sm:p-4 space-y-3">
+          <h4 className="text-base font-black text-text-main uppercase">
+            🧪 Chức Năng Gan, Thận &amp; Huyết Học (Mở rộng)
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {!isHidden('ast') && (
+              <LabMetricInput
+                label="AST (GOT)"
+                subHint="U/L"
+                value={values.ast}
+                onChange={(v) => onChangeField('ast', v)}
+              />
+            )}
+            {!isHidden('alt') && (
+              <LabMetricInput
+                label="ALT (GPT)"
+                subHint="U/L"
+                value={values.alt}
+                onChange={(v) => onChangeField('alt', v)}
+              />
+            )}
+            {!isHidden('creatinine') && (
+              <LabMetricInput
+                label="Creatinine"
+                subHint="µmol/L"
+                value={values.creatinine}
+                onChange={(v) => onChangeField('creatinine', v)}
+              />
+            )}
+            {!isHidden('urea') && (
+              <LabMetricInput
+                label="Ure máu"
+                subHint="mmol/L"
+                value={values.urea}
+                onChange={(v) => onChangeField('urea', v)}
+              />
+            )}
+            {!isHidden('uricAcid') && (
+              <LabMetricInput
+                label="Acid Uric"
+                subHint="µmol/L"
+                value={values.uricAcid}
+                onChange={(v) => onChangeField('uricAcid', v)}
+              />
+            )}
+            {!isHidden('hemoglobin') && (
+              <LabMetricInput
+                label="Hemoglobin"
+                subHint="g/L hoặc g/dL"
+                value={values.hemoglobin}
+                onChange={(v) => onChangeField('hemoglobin', v)}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Nhóm 6: Chỉ số mở rộng tùy chỉnh */}
       <div className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 sm:p-4 space-y-3">

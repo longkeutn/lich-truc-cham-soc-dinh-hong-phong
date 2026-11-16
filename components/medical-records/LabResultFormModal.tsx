@@ -1,23 +1,28 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Check, FlaskConical, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, FlaskConical, SlidersHorizontal, X } from 'lucide-react';
 import type {
   LabResultEntry,
   HealthProfileType,
-  TshTargetLevel,
   FamilyMember,
 } from '@/lib/types';
 import { evaluateLabEntry } from '@/lib/config';
-import { QUICK_DOSES, QUICK_FACILITIES } from './labRecordsUtils';
+import { QUICK_FACILITIES } from './labRecordsUtils';
+import type { LabBiochemFormValues } from './LabFormPanels';
 import {
-  LabFormPanels,
-  LabMetricInput,
-  LabUnitMetricField,
-} from './LabFormPanels';
+  AdviceOnlyBanner,
+  GeneralQuickPanel,
+  LabPackageSelector,
+  ThyroidQuickPanel,
+} from './LabPackagePanels';
+import { LabAdvancedSection } from './LabAdvancedSection';
 import {
-  createInitialLabFormState,
   buildLabEntryFromFormState,
+  createInitialLabFormState,
+  detectDefaultExamPackage,
+  hasAdvancedFieldsForPackage,
+  type LabExamPackage,
   type LabFullFormState,
 } from './labFormState';
 
@@ -49,6 +54,13 @@ export function LabResultFormModal({
   showToast,
 }: LabResultFormModalProps) {
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<LabExamPackage>(() =>
+    detectDefaultExamPackage({ editingEntry, profileType })
+  );
+  const [showAdvanced, setShowAdvanced] = useState<boolean>(() => {
+    const pkg = detectDefaultExamPackage({ editingEntry, profileType });
+    return hasAdvancedFieldsForPackage(editingEntry, pkg);
+  });
   const [form, setForm] = useState<LabFullFormState>(() =>
     createInitialLabFormState({
       editingEntry,
@@ -60,6 +72,9 @@ export function LabResultFormModal({
 
   useEffect(() => {
     if (!isOpen) return;
+    const defaultPkg = detectDefaultExamPackage({ editingEntry, profileType });
+    setSelectedPackage(defaultPkg);
+    setShowAdvanced(hasAdvancedFieldsForPackage(editingEntry, defaultPkg));
     setForm(
       createInitialLabFormState({
         editingEntry,
@@ -77,6 +92,20 @@ export function LabResultFormModal({
     value: LabFullFormState[K]
   ) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const setBioField = <K extends keyof LabBiochemFormValues>(
+    field: K,
+    value: LabBiochemFormValues[K]
+  ) => {
+    setForm((prev) => ({ ...prev, bio: { ...prev.bio, [field]: value } }));
+  };
+
+  const handleManualUnitLock = (kind: 'ft4' | 'lipid' | 'glucose' | 'calcium') => {
+    setForm((prev) => ({
+      ...prev,
+      unitLocks: { ...(prev.unitLocks || {}), [kind]: true },
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -99,7 +128,7 @@ export function LabResultFormModal({
       !entry.doctorAdvice
     ) {
       showToast(
-        'Vui lòng nhập ít nhất 1 chỉ số xét nghiệm, liều thuốc hoặc triệu chứng.',
+        'Vui lòng nhập ít nhất 1 chỉ số xét nghiệm, liều thuốc, triệu chứng hoặc lời dặn bác sĩ.',
         'warn'
       );
       return;
@@ -121,11 +150,11 @@ export function LabResultFormModal({
           <div>
             <h3 className="text-base sm:text-lg font-black flex items-center gap-2">
               <FlaskConical className="w-5 h-5 text-amber-300 shrink-0" />
-              {editingEntry ? 'Cập Nhật Kết Quả Xét Nghiệm' : 'Nhập Kết Quả Xét Nghiệm Mới'} ·{' '}
+              {editingEntry ? 'Cập Nhật Kết Quả Khám' : 'Nhập Kết Quả Xét Nghiệm'} ·{' '}
               {patientName}
             </h3>
             <p className="text-sm text-teal-100 mt-0.5">
-              Chỉ cần điền những chỉ số có trên phiếu xét nghiệm (ô trống sẽ tự động bỏ qua)
+              Chọn đúng gói vừa đi khám để chỉ hiện vài ô cần thiết (ô trống tự động bỏ qua)
             </p>
           </div>
           <button
@@ -139,12 +168,18 @@ export function LabResultFormModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
-          {/* Thông tin đợt khám */}
+          {/* Bước 1: 3 Gói khám 1 chạm */}
+          <LabPackageSelector
+            selectedPackage={selectedPackage}
+            onSelect={setSelectedPackage}
+          />
+
+          {/* Thông tin đợt khám (gọn 2 cột, người nhập mặc định theo hồ sơ) */}
           <div className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 sm:p-4 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-base font-extrabold text-text-body mb-1">
-                  Ngày xét nghiệm *
+                  Ngày khám / xét nghiệm *
                 </label>
                 <input
                   type="date"
@@ -166,39 +201,11 @@ export function LabResultFormModal({
                   className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
                 />
               </div>
-              <div>
-                <label className="block text-base font-extrabold text-text-body mb-1">
-                  Người nhập
-                </label>
-                {members.length > 0 ? (
-                  <select
-                    value={form.recordedBy}
-                    onChange={(e) => setField('recordedBy', e.target.value)}
-                    className="w-full min-h-[48px] min-w-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
-                  >
-                    {members.map((m) => (
-                      <option key={m.id} value={m.name}>
-                        {m.name} ({m.relation})
-                      </option>
-                    ))}
-                    {!members.some((m) => m.name === form.recordedBy) && form.recordedBy && (
-                      <option value={form.recordedBy}>{form.recordedBy}</option>
-                    )}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={form.recordedBy}
-                    onChange={(e) => setField('recordedBy', e.target.value)}
-                    className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
-                  />
-                )}
-              </div>
             </div>
 
             <div className="space-y-1.5">
               <span className="block text-sm font-bold text-text-body">
-                Chọn nhanh bệnh viện / nơi khám:
+                Chọn nhanh nơi khám:
               </span>
               <div className="flex items-center gap-2 flex-wrap">
                 {QUICK_FACILITIES.map((fac) => (
@@ -219,164 +226,120 @@ export function LabResultFormModal({
             </div>
           </div>
 
-          {/* Nhóm 1 & 2: Tuyến giáp & Markers */}
-          <div className="rounded-2xl border border-indigo-200 bg-thyroid-bg/40 p-3.5 sm:p-4 space-y-3.5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <h4 className="text-base font-black text-indigo-950 uppercase">
-                🦋 Nhóm 1 &amp; 2: Tuyến Giáp, Liều Hormone &amp; Markers K Giáp
-              </h4>
-              <select
-                value={form.tshTargetLevel}
-                onChange={(e) => setField('tshTargetLevel', e.target.value as TshTargetLevel)}
-                className="min-h-[48px] min-w-[48px] px-3 rounded-xl border border-indigo-200 bg-surface-card text-sm sm:text-base font-extrabold text-indigo-950"
-              >
-                <option value="high_risk">Đích ức chế cao: TSH &lt; 0.1 µIU/mL</option>
-                <option value="moderate_risk">Đích ức chế vừa: TSH 0.1 - 0.5 µIU/mL</option>
-                <option value="normal">Bình thường chung: TSH 0.4 - 4.0 µIU/mL</option>
-              </select>
-            </div>
+          {/* Nội dung theo Gói khám đang chọn */}
+          {selectedPackage === 'thyroid' && (
+            <ThyroidQuickPanel
+              form={form}
+              onSetField={setField}
+              onSetBioField={setBioField}
+            />
+          )}
 
-            <div>
-              <label className="block text-base font-extrabold text-text-body mb-1">
-                💊 Liều thuốc Levothyroxine đang uống
-              </label>
-              <input
-                type="text"
-                value={form.levothyroxineDose}
-                onChange={(e) => setField('levothyroxineDose', e.target.value)}
-                placeholder="VD: 100mcg hoặc 100x5, 50x2"
-                className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
-              />
-              <div className="flex flex-wrap gap-2 mt-2">
-                {QUICK_DOSES.map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setField('levothyroxineDose', d)}
-                    className={`min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl text-sm font-bold border transition cursor-pointer ${
-                      form.levothyroxineDose === d
-                        ? 'bg-amber-200 text-amber-950 border-amber-400 font-black shadow-2xs'
-                        : 'bg-surface-card text-text-body border-border-card hover:bg-slate-50'
-                    }`}
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {selectedPackage === 'general' && (
+            <GeneralQuickPanel form={form} onSetBioField={setBioField} />
+          )}
 
-            {/* 4 chỉ số hormone có bộ chuyển đổi đơn vị chuẩn y khoa VN */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <LabUnitMetricField
-                label="FT4 (Thyroxine tự do)"
-                value={form.ft4}
-                onChange={(v) => setField('ft4', v)}
-                unit={form.ft4Unit}
-                options={['pmol/L', 'ng/dL']}
-                onUnitChange={(u) => setField('ft4Unit', u)}
-                placeholder={form.ft4Unit === 'pmol/L' ? 'VD: 18.5' : 'VD: 1.45'}
-                refHint={form.ft4Unit === 'pmol/L' ? '12.0 - 22.0 pmol/L' : '0.93 - 1.70 ng/dL'}
-              />
-              <LabUnitMetricField
-                label="FT3 (Triiodothyronine tự do)"
-                value={form.ft3}
-                onChange={(v) => setField('ft3', v)}
-                unit={form.ft3Unit}
-                options={['pg/mL', 'pmol/L']}
-                onUnitChange={(u) => setField('ft3Unit', u)}
-                placeholder={form.ft3Unit === 'pg/mL' ? 'VD: 3.1' : 'VD: 4.8'}
-                refHint={form.ft3Unit === 'pg/mL' ? '2.0 - 4.4 pg/mL' : '3.1 - 6.8 pmol/L'}
-              />
-              <LabUnitMetricField
-                label="T3 toàn phần"
-                value={form.t3}
-                onChange={(v) => setField('t3', v)}
-                unit={form.t3Unit}
-                options={['nmol/L', 'ng/dL']}
-                onUnitChange={(u) => setField('t3Unit', u)}
-                placeholder={form.t3Unit === 'nmol/L' ? 'VD: 1.54' : 'VD: 110'}
-                refHint={form.t3Unit === 'nmol/L' ? '1.1 - 2.8 nmol/L' : '70 - 180 ng/dL'}
-              />
-              <LabUnitMetricField
-                label="T4 toàn phần"
-                value={form.t4}
-                onChange={(v) => setField('t4', v)}
-                unit={form.t4Unit}
-                options={['µg/dL', 'nmol/L']}
-                onUnitChange={(u) => setField('t4Unit', u)}
-                placeholder={form.t4Unit === 'µg/dL' ? 'VD: 8.5' : 'VD: 105'}
-                refHint={form.t4Unit === 'µg/dL' ? '5.1 - 14.1 µg/dL' : '66 - 181 nmol/L'}
-              />
-            </div>
-
-            {/* TSH & các dấu ấn miễn dịch / K giáp */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <LabMetricInput
-                label="TSH"
-                subHint="µIU/mL"
-                value={form.tsh}
-                onChange={(v) => setField('tsh', v)}
-                placeholder="VD: 0.18"
-              />
-              <LabMetricInput
-                label="TG (Marker)"
-                subHint="ng/mL"
-                value={form.tg}
-                onChange={(v) => setField('tg', v)}
-                placeholder="VD: 0.04"
-              />
-              <LabMetricInput
-                label="Anti-TG"
-                subHint="IU/mL"
-                value={form.antiTg}
-                onChange={(v) => setField('antiTg', v)}
-                placeholder="VD: 19.44"
-              />
-              <LabMetricInput
-                label="Anti-TPO"
-                subHint="IU/mL"
-                value={form.antiTpo}
-                onChange={(v) => setField('antiTpo', v)}
-                placeholder="VD: 10.2"
-              />
-            </div>
-          </div>
-
-          {/* Nhóm 3, 4, 5, 6 */}
-          <LabFormPanels
-            values={form.bio}
-            onChangeField={(field, value) =>
-              setForm((prev) => ({ ...prev, bio: { ...prev.bio, [field]: value } }))
-            }
-          />
+          {selectedPackage === 'advice_only' && <AdviceOnlyBanner />}
 
           {/* Triệu chứng & Lời dặn Bác sĩ */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-base font-extrabold text-text-body mb-1">
-                Triệu chứng ghi nhận lúc khám
-              </label>
-              <textarea
-                rows={2}
-                value={form.symptoms}
-                onChange={(e) => setField('symptoms', e.target.value)}
-                placeholder="VD: Hơi mệt, tim đập nhanh, tê nhẹ đầu ngón tay..."
-                className="w-full p-3 rounded-xl border border-border-card text-base text-text-main"
-              />
-            </div>
-            <div>
-              <label className="block text-base font-extrabold text-text-body mb-1">
-                Kết luận &amp; Lời dặn của Bác sĩ
-              </label>
-              <textarea
-                rows={2}
-                value={form.doctorAdvice}
-                onChange={(e) => setField('doctorAdvice', e.target.value)}
-                placeholder="VD: Giữ nguyên liều thuốc giáp, hẹn tái khám sau 3 tháng..."
-                className="w-full p-3 rounded-xl border border-border-card text-base text-text-main"
-              />
-            </div>
+          <div
+            className={
+              selectedPackage === 'advice_only'
+                ? 'space-y-3'
+                : 'grid grid-cols-1 sm:grid-cols-2 gap-3'
+            }
+          >
+            {selectedPackage === 'advice_only' ? (
+              <>
+                <div>
+                  <label className="block text-base font-extrabold text-text-body mb-1">
+                    Kết luận &amp; Lời dặn của Bác sĩ *
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={form.doctorAdvice}
+                    onChange={(e) => setField('doctorAdvice', e.target.value)}
+                    placeholder="VD: Bác sĩ bảo huyết áp ổn, tiếp tục uống thuốc cũ, hẹn 3 tháng khám lại..."
+                    className="w-full p-3 rounded-xl border border-border-card text-base text-text-main bg-surface-card"
+                  />
+                </div>
+                <div>
+                  <label className="block text-base font-extrabold text-text-body mb-1">
+                    Triệu chứng lúc đi khám (nếu có)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={form.symptoms}
+                    onChange={(e) => setField('symptoms', e.target.value)}
+                    placeholder="VD: Hơi mệt, đau khớp gối, ngủ ít..."
+                    className="w-full p-3 rounded-xl border border-border-card text-base text-text-main bg-surface-card"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-base font-extrabold text-text-body mb-1">
+                    Triệu chứng ghi nhận lúc khám
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={form.symptoms}
+                    onChange={(e) => setField('symptoms', e.target.value)}
+                    placeholder="VD: Hơi mệt, tim đập nhanh, tê nhẹ đầu ngón tay..."
+                    className="w-full p-3 rounded-xl border border-border-card text-base text-text-main bg-surface-card"
+                  />
+                </div>
+                <div>
+                  <label className="block text-base font-extrabold text-text-body mb-1">
+                    Kết luận &amp; Lời dặn của Bác sĩ
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={form.doctorAdvice}
+                    onChange={(e) => setField('doctorAdvice', e.target.value)}
+                    placeholder="VD: Giữ nguyên liều thuốc giáp, hẹn tái khám sau 3 tháng..."
+                    className="w-full p-3 rounded-xl border border-border-card text-base text-text-main bg-surface-card"
+                  />
+                </div>
+              </>
+            )}
           </div>
+
+          {/* Nút thu gọn / mở rộng chỉ số nâng cao & đổi đơn vị */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              aria-expanded={showAdvanced}
+              className="w-full min-h-[48px] min-w-[48px] px-4 py-3 rounded-2xl border border-dashed border-border-card bg-slate-50 hover:bg-slate-100 text-text-body text-sm sm:text-base font-extrabold flex items-center justify-between gap-2 transition cursor-pointer"
+            >
+              <span className="flex items-center gap-2 text-left">
+                <SlidersHorizontal className="w-4 h-4 text-medical-primary shrink-0" />
+                <span>
+                  {showAdvanced
+                    ? 'Thu gọn các chỉ số nâng cao'
+                    : 'Mở rộng tất cả chỉ số, người nhập & đổi đơn vị (Nâng cao)'}
+                </span>
+              </span>
+              {showAdvanced ? (
+                <ChevronUp className="w-5 h-5 shrink-0" />
+              ) : (
+                <ChevronDown className="w-5 h-5 shrink-0" />
+              )}
+            </button>
+          </div>
+
+          {showAdvanced && (
+            <LabAdvancedSection
+              selectedPackage={selectedPackage}
+              form={form}
+              members={members}
+              onSetField={setField}
+              onSetBioField={setBioField}
+              onManualUnitLock={handleManualUnitLock}
+            />
+          )}
 
           <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
             <button
@@ -392,7 +355,13 @@ export function LabResultFormModal({
               className="min-h-[48px] min-w-[48px] px-5 py-2.5 rounded-xl bg-medical-primary hover:bg-medical-dark text-white text-base font-extrabold flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
-              <span>{isSaving ? 'Đang lưu...' : 'Lưu kết quả xét nghiệm'}</span>
+              <span>
+                {isSaving
+                  ? 'Đang lưu...'
+                  : selectedPackage === 'advice_only'
+                    ? 'Lưu ghi chú khám bệnh'
+                    : 'Lưu kết quả xét nghiệm'}
+              </span>
             </button>
           </div>
         </form>

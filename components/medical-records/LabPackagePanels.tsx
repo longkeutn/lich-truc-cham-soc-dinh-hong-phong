@@ -1,0 +1,296 @@
+'use client';
+
+import React from 'react';
+import { CheckCircle2, FileText, HeartPulse } from 'lucide-react';
+import { QUICK_DOSES } from './labRecordsUtils';
+import { LabMetricInput, type LabBiochemFormValues } from './LabFormPanels';
+import {
+  resolveEffectiveLabUnits,
+  type LabExamPackage,
+  type LabFullFormState,
+} from './labFormState';
+
+const PACKAGE_CARDS: Array<{
+  id: LabExamPackage;
+  emoji: string;
+  title: string;
+  subtitle: string;
+  badge: string;
+}> = [
+  {
+    id: 'thyroid',
+    emoji: '🦋',
+    title: 'Gói 1: Tuyến Giáp',
+    subtitle: 'Liều thuốc, TSH, FT4, TG, Canxi',
+    badge: '5 chỉ số chính',
+  },
+  {
+    id: 'general',
+    emoji: '🧪',
+    title: 'Gói 2: Tổng Quát',
+    subtitle: 'Đường huyết, Mỡ máu, Gan, Thận',
+    badge: '8 chỉ số chính',
+  },
+  {
+    id: 'advice_only',
+    emoji: '📝',
+    title: 'Gói 3: Chỉ Lời Dặn BS',
+    subtitle: 'Chỉ ghi ngày, nơi khám & lời dặn',
+    badge: '0 cần gõ số',
+  },
+];
+
+export function LabPackageSelector({
+  selectedPackage,
+  onSelect,
+}: {
+  selectedPackage: LabExamPackage;
+  onSelect: (pkg: LabExamPackage) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <span className="text-sm sm:text-base font-black text-text-main">
+          Bước 1: Chọn nhanh gói vừa đi khám (1 chạm)
+        </span>
+        <span className="text-xs sm:text-sm font-semibold text-text-muted">
+          Tự ẩn các ô không liên quan để dễ nhìn
+        </span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        {PACKAGE_CARDS.map((card) => {
+          const active = selectedPackage === card.id;
+          return (
+            <button
+              key={card.id}
+              type="button"
+              onClick={() => onSelect(card.id)}
+              aria-pressed={active}
+              className={`min-h-[72px] min-w-[48px] text-left rounded-2xl border-2 p-3.5 transition cursor-pointer flex items-start gap-3 ${
+                active
+                  ? 'bg-medical-primary text-white border-medical-dark shadow-sm'
+                  : 'bg-surface-card hover:bg-medical-surface/60 text-text-main border-border-card'
+              }`}
+            >
+              <span className="text-2xl leading-none shrink-0 mt-0.5" aria-hidden="true">
+                {card.emoji}
+              </span>
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="text-base font-black leading-snug">{card.title}</span>
+                  {active && <CheckCircle2 className="w-5 h-5 text-amber-300 shrink-0" />}
+                </div>
+                <p
+                  className={`text-xs sm:text-sm font-semibold leading-snug ${
+                    active ? 'text-teal-50' : 'text-text-muted'
+                  }`}
+                >
+                  {card.subtitle}
+                </p>
+                <span
+                  className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[11px] font-extrabold ${
+                    active
+                      ? 'bg-amber-400 text-slate-950'
+                      : 'bg-slate-100 text-text-body'
+                  }`}
+                >
+                  {card.badge}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function ThyroidQuickPanel({
+  form,
+  onSetField,
+  onSetBioField,
+}: {
+  form: LabFullFormState;
+  onSetField: <K extends keyof LabFullFormState>(key: K, value: LabFullFormState[K]) => void;
+  onSetBioField: <K extends keyof LabBiochemFormValues>(
+    field: K,
+    value: LabBiochemFormValues[K]
+  ) => void;
+}) {
+  const effectiveUnits = resolveEffectiveLabUnits(form);
+
+  return (
+    <div className="rounded-2xl border border-indigo-200 bg-thyroid-bg/40 p-3.5 sm:p-4 space-y-3.5">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h4 className="text-base font-black text-indigo-950 flex items-center gap-2">
+          <span>🦋 Chỉ Số Tuyến Giáp Thiết Yếu</span>
+        </h4>
+        <span className="text-xs sm:text-sm font-bold text-indigo-900 bg-white/80 px-2.5 py-1 rounded-lg border border-indigo-200">
+          Để trống ô nào không có trên giấy
+        </span>
+      </div>
+
+      <div>
+        <label className="block text-base font-extrabold text-text-body mb-1">
+          💊 Liều thuốc Levothyroxine đang uống
+        </label>
+        <input
+          type="text"
+          value={form.levothyroxineDose}
+          onChange={(e) => onSetField('levothyroxineDose', e.target.value)}
+          placeholder="VD: 100mcg hoặc 100x5, 50x2"
+          className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
+        />
+        <div className="flex flex-wrap gap-2 mt-2">
+          {QUICK_DOSES.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => onSetField('levothyroxineDose', d)}
+              className={`min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl text-sm font-bold border transition cursor-pointer ${
+                form.levothyroxineDose === d
+                  ? 'bg-amber-200 text-amber-950 border-amber-400 font-black shadow-2xs'
+                  : 'bg-surface-card text-text-body border-border-card hover:bg-slate-50'
+              }`}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <LabMetricInput
+          label="TSH"
+          subHint="µIU/mL"
+          value={form.tsh}
+          onChange={(v) => onSetField('tsh', v)}
+          placeholder="VD: 0.18"
+        />
+        <LabMetricInput
+          label="FT4"
+          subHint={effectiveUnits.ft4Unit}
+          value={form.ft4}
+          onChange={(v) => onSetField('ft4', v)}
+          placeholder={effectiveUnits.ft4Unit === 'pmol/L' ? 'VD: 18.5' : 'VD: 1.45'}
+        />
+        <LabMetricInput
+          label="TG (Marker)"
+          subHint="ng/mL"
+          value={form.tg}
+          onChange={(v) => onSetField('tg', v)}
+          placeholder="VD: 0.04"
+        />
+        <LabMetricInput
+          label="Canxi toàn phần"
+          subHint={effectiveUnits.calciumUnit}
+          value={form.bio.calcium}
+          onChange={(v) => onSetBioField('calcium', v)}
+          placeholder={effectiveUnits.calciumUnit === 'mmol/L' ? 'VD: 2.3' : 'VD: 9.2'}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function GeneralQuickPanel({
+  form,
+  onSetBioField,
+}: {
+  form: LabFullFormState;
+  onSetBioField: <K extends keyof LabBiochemFormValues>(
+    field: K,
+    value: LabBiochemFormValues[K]
+  ) => void;
+}) {
+  const effectiveUnits = resolveEffectiveLabUnits(form);
+
+  return (
+    <div className="rounded-2xl border border-teal-200 bg-teal-50/40 p-3.5 sm:p-4 space-y-3.5">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h4 className="text-base font-black text-teal-950 flex items-center gap-2">
+          <HeartPulse className="w-5 h-5 text-medical-primary shrink-0" />
+          <span>Chỉ Số Khám Tổng Quát Thường Gặp</span>
+        </h4>
+        <span className="text-xs sm:text-sm font-bold text-teal-900 bg-white/80 px-2.5 py-1 rounded-lg border border-teal-200">
+          Tự nhận diện đơn vị mmol/L hoặc mg/dL
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <LabMetricInput
+          label="Đường huyết đói"
+          subHint={effectiveUnits.glucoseUnit}
+          value={form.bio.glucose}
+          onChange={(v) => onSetBioField('glucose', v)}
+          placeholder="VD: 5.6"
+        />
+        <LabMetricInput
+          label="HbA1c"
+          subHint="%"
+          value={form.bio.hba1c}
+          onChange={(v) => onSetBioField('hba1c', v)}
+          placeholder="VD: 6.1"
+        />
+        <LabMetricInput
+          label="Cholesterol TP"
+          subHint={effectiveUnits.lipidUnit}
+          value={form.bio.cholesterol}
+          onChange={(v) => onSetBioField('cholesterol', v)}
+          placeholder="VD: 4.8"
+        />
+        <LabMetricInput
+          label="LDL-C (Mỡ xấu)"
+          subHint={effectiveUnits.lipidUnit}
+          value={form.bio.ldlC}
+          onChange={(v) => onSetBioField('ldlC', v)}
+          placeholder="VD: 2.5"
+        />
+        <LabMetricInput
+          label="Triglyceride"
+          subHint={effectiveUnits.lipidUnit}
+          value={form.bio.triglyceride}
+          onChange={(v) => onSetBioField('triglyceride', v)}
+          placeholder="VD: 1.5"
+        />
+        <LabMetricInput
+          label="Men gan AST (GOT)"
+          subHint="U/L"
+          value={form.bio.ast}
+          onChange={(v) => onSetBioField('ast', v)}
+          placeholder="VD: 24"
+        />
+        <LabMetricInput
+          label="Men gan ALT (GPT)"
+          subHint="U/L"
+          value={form.bio.alt}
+          onChange={(v) => onSetBioField('alt', v)}
+          placeholder="VD: 26"
+        />
+        <LabMetricInput
+          label="Creatinine (Thận)"
+          subHint="µmol/L"
+          value={form.bio.creatinine}
+          onChange={(v) => onSetBioField('creatinine', v)}
+          placeholder="VD: 82"
+        />
+      </div>
+    </div>
+  );
+}
+
+export function AdviceOnlyBanner() {
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 flex items-start gap-3">
+      <FileText className="w-6 h-6 text-amber-700 shrink-0 mt-0.5" />
+      <div className="space-y-1">
+        <p className="text-base font-black text-amber-950">
+          Chế độ ghi nhanh: Không cần nhập bất kỳ con số xét nghiệm nào
+        </p>
+        <p className="text-sm font-medium text-amber-900 leading-relaxed">
+          Chỉ cần chọn ngày khám, nơi khám và ghi lại lời dặn của Bác sĩ ở phía dưới để cả nhà cùng nhớ lịch tái khám và cách uống thuốc.
+        </p>
+      </div>
+    </div>
+  );
+}

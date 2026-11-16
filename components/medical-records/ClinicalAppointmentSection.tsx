@@ -119,7 +119,7 @@ export function ClinicalAppointmentSection({
                       )}
                     </div>
 
-                    {/* Tóm tắt nhanh các chỉ số chính */}
+                    {/* Tóm tắt nhanh các chỉ số chính hoặc lời dặn bác sĩ */}
                     <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                       {ev.indicators.slice(0, 6).map((ind) => (
                         <span
@@ -132,6 +132,11 @@ export function ClinicalAppointmentSection({
                       {ev.indicators.length > 6 && (
                         <span className="text-xs sm:text-sm font-bold text-text-muted">
                           +{ev.indicators.length - 6} chỉ số khác
+                        </span>
+                      )}
+                      {ev.indicators.length === 0 && (entry.doctorAdvice || entry.symptoms) && (
+                        <span className="px-2.5 py-0.5 rounded-md bg-teal-50 text-medical-dark border border-teal-200 text-xs sm:text-sm font-bold line-clamp-1">
+                          📝 {entry.doctorAdvice || entry.symptoms}
                         </span>
                       )}
                     </div>
