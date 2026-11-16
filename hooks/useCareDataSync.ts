@@ -317,6 +317,18 @@ export function useCareDataSync({ showToast }: UseCareDataSyncParams) {
           return;
         }
 
+        // Chống mất dữ liệu: Nếu người dùng đang mở modal hoặc đang gõ chữ trong input/textarea,
+        // TUYỆT ĐỐI KHÔNG tự động reload trang. Hoãn lại cho đến khi người dùng xong việc.
+        const isUserActivelyEditing = Boolean(
+          typeof document !== 'undefined' &&
+            (document.querySelector('.fixed.inset-0') ||
+              document.querySelector('input:focus, textarea:focus'))
+        );
+
+        if (isUserActivelyEditing) {
+          return;
+        }
+
         isUpdatingCodeRef.current = true;
         clientBuildIdRef.current = serverBuildId;
         sessionStorage.setItem('app_last_reloaded_version', serverBuildId);

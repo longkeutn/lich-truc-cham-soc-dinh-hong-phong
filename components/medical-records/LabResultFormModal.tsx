@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Check, ChevronDown, ChevronUp, FlaskConical, SlidersHorizontal, X } from 'lucide-react';
 import type {
   LabResultEntry,
@@ -25,6 +25,12 @@ import {
   type LabExamPackage,
   type LabFullFormState,
 } from './labFormState';
+import {
+  clearLabDraft,
+  hasMeaningfulLabInput,
+  loadLabDraft,
+  saveLabDraft,
+} from './labDraftStorage';
 
 interface LabResultFormModalProps {
   isOpen: boolean;
@@ -54,6 +60,10 @@ export function LabResultFormModal({
   showToast,
 }: LabResultFormModalProps) {
   const [isSaving, setIsSaving] = useState(false);
+  const [restoredDraftNotice, setRestoredDraftNotice] = useState(false);
+  const isModalOpenRef = useRef(false);
+  const currentEditingIdRef = useRef<string | null | undefined>(undefined);
+
   const [selectedPackage, setSelectedPackage] = useState<LabExamPackage>(() =>
     detectDefaultExamPackage({ editingEntry, profileType })
   );
@@ -70,20 +80,80 @@ export function LabResultFormModal({
     })
   );
 
+  // CHỈ khởi tạo lại form khi modal MỚI MỞ hoặc khi ĐỔI BẢN GHI ĐANG SỬA.
+  // TUYỆT ĐỐI KHÔNG reset lại form khi đang mở dở mà dữ liệu nền (latestLab/defaultRecorder) thay đổi!
   useEffect(() => {
-    if (!isOpen) return;
-    const defaultPkg = detectDefaultExamPackage({ editingEntry, profileType });
+    if (!isOpen) {
+      isModalOpenRef.current = false;
+      currentEditingIdRef.current = undefined;
+      return;
+    }
+
+    const isNewlyOpened = !isModalOpenRef.current;
+    const isDifferentEntry = editingEntry?.id !== currentEditingIdRef.current;
+
+    if (isNewlyOpened || isDifferentEntry) {
+      isModalOpenRef.current = true;
+      currentEditingIdRef.current = editingEntry?.id || null;
+
+      if (!editingEntry) {
+        const draft = loadLabDraft(profileId);
+        if (draft && hasMeaningfulLabInput(draft.form)) {
+          setSelectedPackage(draft.selectedPackage);
+          setShowAdvanced(draft.showAdvanced);
+          setForm(draft.form);
+          setRestoredDraftNotice(true);
+          return;
+        }
+      }
+
+      setRestoredDraftNotice(false);
+      const defaultPkg = detectDefaultExamPackage({ editingEntry, profileType });
+      setSelectedPackage(defaultPkg);
+      setShowAdvanced(hasAdvancedFieldsForPackage(editingEntry, defaultPkg));
+      setForm(
+        createInitialLabFormState({
+          editingEntry,
+          latestLab,
+          defaultRecorder,
+          profileType,
+        })
+      );
+    }
+  }, [isOpen, editingEntry, profileId, profileType, latestLab, defaultRecorder]);
+
+  // Tự động lưu bản nháp ngầm sau mỗi 400ms gõ phím (chỉ cho bản ghi mới, tránh mất công khi rớt mạng/reload)
+  useEffect(() => {
+    if (!isOpen || editingEntry) return;
+    if (!hasMeaningfulLabInput(form)) return;
+
+    const timer = setTimeout(() => {
+      saveLabDraft(profileId, {
+        form,
+        selectedPackage,
+        showAdvanced,
+      });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [isOpen, editingEntry, profileId, form, selectedPackage, showAdvanced]);
+
+  const handleDiscardDraft = () => {
+    clearLabDraft(profileId);
+    setRestoredDraftNotice(false);
+    const defaultPkg = detectDefaultExamPackage({ editingEntry: null, profileType });
     setSelectedPackage(defaultPkg);
-    setShowAdvanced(hasAdvancedFieldsForPackage(editingEntry, defaultPkg));
+    setShowAdvanced(false);
     setForm(
       createInitialLabFormState({
-        editingEntry,
+        editingEntry: null,
         latestLab,
         defaultRecorder,
         profileType,
       })
     );
-  }, [isOpen, editingEntry, latestLab, defaultRecorder, profileType]);
+    showToast('Đã xóa bản nháp và tạo lại biểu mẫu mới.', 'info');
+  };
 
   if (!isOpen) return null;
 
@@ -137,6 +207,8 @@ export function LabResultFormModal({
     setIsSaving(true);
     try {
       await onSaveLabResult(entry);
+      clearLabDraft(profileId);
+      setRestoredDraftNotice(false);
       onClose();
     } finally {
       setIsSaving(false);
@@ -168,6 +240,27 @@ export function LabResultFormModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
+          {/* Thông báo đã khôi phục bản nháp đang nhập dở (nếu có) */}
+          {restoredDraftNotice && (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50/95 p-3 sm:p-3.5 text-amber-950 flex items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-2.5 text-sm sm:text-base font-bold min-w-0">
+                <span className="text-xl leading-none shrink-0" aria-hidden="true">
+                  📝
+                </span>
+                <span className="truncate">
+                  Đang hiển thị bản nháp bạn đã nhập dở trước đó.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                className="min-h-[48px] min-w-[48px] px-3.5 py-1.5 rounded-xl bg-amber-200 hover:bg-amber-300 text-amber-950 text-xs sm:text-sm font-black transition cursor-pointer shrink-0"
+              >
+                Xóa nháp &amp; Nhập mới
+              </button>
+            </div>
+          )}
+
           {/* Bước 1: 3 Gói khám 1 chạm */}
           <LabPackageSelector
             selectedPackage={selectedPackage}
