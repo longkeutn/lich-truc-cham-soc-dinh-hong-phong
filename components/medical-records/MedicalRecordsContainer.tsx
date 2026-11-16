@@ -293,6 +293,8 @@ export function MedicalRecordsContainer({
                   summaryPoints={latestEval?.summaryPoints || []}
                   chartData={chartData}
                   onEditLab={openEditModal}
+                  onOpenAddLab={openAddModal}
+                  onOpenImport={() => setImportModalOpen(true)}
                 />
               )}
 

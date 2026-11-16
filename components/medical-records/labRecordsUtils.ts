@@ -223,9 +223,12 @@ export function fmtDateAxis(dateStr: string): string {
   return `${parts[2]}/${parts[1]}/${parts[0].slice(2)}`;
 }
 
-export function parseOptionalNumber(raw: string): number | undefined {
-  if (!raw || !raw.trim()) return undefined;
-  const normalized = raw.trim().replace(',', '.').replace(/^[<>≤≥]+/, '');
+export function parseOptionalNumber(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw === 'number') return isNaN(raw) ? undefined : raw;
+  const str = String(raw).trim();
+  if (!str) return undefined;
+  const normalized = str.replace(',', '.').replace(/^[<>≤≥]+/, '');
   const num = parseFloat(normalized);
   return isNaN(num) ? undefined : num;
 }
@@ -248,23 +251,23 @@ export function buildLabChartData(sortedLabsAsc: LabResultEntry[]): LabChartPoin
     date: fmtDateAxis(item.date),
     fullDate: fmtDateShort(item.date),
     dose: item.levothyroxineDose || '',
-    tsh: item.tsh,
-    ft4: item.ft4,
-    t3: item.t3,
-    ft3: item.ft3,
-    tg: item.tg,
-    cholesterol: item.cholesterol,
-    ldlC: item.ldlC,
-    hdlC: item.hdlC,
-    triglyceride: item.triglyceride,
-    glucose: item.glucose,
-    hba1c: item.hba1c,
-    calcium: item.calcium,
-    vitaminD: item.vitaminD,
-    ast: item.ast,
-    alt: item.alt,
-    creatinine: item.creatinine,
-    hemoglobin: item.hemoglobin,
+    tsh: parseOptionalNumber(item.tsh),
+    ft4: parseOptionalNumber(item.ft4),
+    t3: parseOptionalNumber(item.t3),
+    ft3: parseOptionalNumber(item.ft3),
+    tg: parseOptionalNumber(item.tg),
+    cholesterol: parseOptionalNumber(item.cholesterol),
+    ldlC: parseOptionalNumber(item.ldlC),
+    hdlC: parseOptionalNumber(item.hdlC),
+    triglyceride: parseOptionalNumber(item.triglyceride),
+    glucose: parseOptionalNumber(item.glucose),
+    hba1c: parseOptionalNumber(item.hba1c),
+    calcium: parseOptionalNumber(item.calcium),
+    vitaminD: parseOptionalNumber(item.vitaminD),
+    ast: parseOptionalNumber(item.ast),
+    alt: parseOptionalNumber(item.alt),
+    creatinine: parseOptionalNumber(item.creatinine),
+    hemoglobin: parseOptionalNumber(item.hemoglobin),
   }));
 }
 

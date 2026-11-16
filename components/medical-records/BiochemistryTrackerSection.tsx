@@ -1,17 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import {
-  ResponsiveContainer,
-  ComposedChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-} from 'recharts';
-import { AlertTriangle, Edit3, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Edit3 } from 'lucide-react';
 import type { LabResultEntry } from '@/lib/types';
 import type { LabIndicatorEval } from '@/lib/config';
 import {
@@ -19,18 +9,20 @@ import {
   getLabDeltaText,
   type LabChartPoint,
 } from './labRecordsUtils';
+import { BiochemistryTrendChart } from './BiochemistryTrendChart';
 
-interface BiochemistryTrackerSectionProps {
+export interface BiochemistryTrackerSectionProps {
   latestLab: LabResultEntry | null;
   previousLab: LabResultEntry | null;
   indicators: LabIndicatorEval[];
   summaryPoints: string[];
   chartData: LabChartPoint[];
   onEditLab: (entry: LabResultEntry) => void;
+  onOpenAddLab?: () => void;
+  onOpenImport?: () => void;
 }
 
 type BioFilter = 'all_bio' | 'lipid' | 'metabolic' | 'liver_kidney';
-type BioChartTab = 'lipid' | 'metabolic' | 'liver_kidney';
 
 export function BiochemistryTrackerSection({
   latestLab,
@@ -39,9 +31,10 @@ export function BiochemistryTrackerSection({
   summaryPoints,
   chartData,
   onEditLab,
+  onOpenAddLab,
+  onOpenImport,
 }: BiochemistryTrackerSectionProps) {
   const [bioFilter, setBioFilter] = useState<BioFilter>('all_bio');
-  const [bioChartTab, setBioChartTab] = useState<BioChartTab>('lipid');
 
   const bioIndicators = useMemo(
     () =>
@@ -57,34 +50,6 @@ export function BiochemistryTrackerSection({
   }, [bioIndicators, bioFilter]);
 
   const customLabs = latestLab?.customLabs || [];
-
-  const activeChartPoints = useMemo(() => {
-    if (bioChartTab === 'lipid') {
-      return chartData.filter(
-        (d) =>
-          d.cholesterol !== undefined ||
-          d.ldlC !== undefined ||
-          d.hdlC !== undefined ||
-          d.triglyceride !== undefined
-      );
-    }
-    if (bioChartTab === 'metabolic') {
-      return chartData.filter(
-        (d) =>
-          d.glucose !== undefined ||
-          d.hba1c !== undefined ||
-          d.calcium !== undefined ||
-          d.vitaminD !== undefined
-      );
-    }
-    return chartData.filter(
-      (d) =>
-        d.ast !== undefined ||
-        d.alt !== undefined ||
-        d.creatinine !== undefined ||
-        d.hemoglobin !== undefined
-    );
-  }, [chartData, bioChartTab]);
 
   return (
     <div className="rounded-2xl bg-surface-card border border-border-card shadow-2xs p-4 sm:p-5 space-y-4">
@@ -223,226 +188,12 @@ export function BiochemistryTrackerSection({
         </div>
       )}
 
-      {/* Biểu đồ xu hướng Hóa sinh theo nhóm (hỗ trợ trục tung kép yAxisId='left' & 'right') */}
-      {chartData.length >= 2 && (
-        <div className="pt-3 border-t border-slate-100 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <h4 className="text-base font-black text-text-main flex items-center gap-1.5 uppercase tracking-wide">
-              <TrendingUp className="w-4 h-4 text-medical-primary shrink-0" />
-              Biểu Đồ Xu Hướng Hóa Sinh Qua Các Đợt Khám
-            </h4>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {[
-                { id: 'lipid', label: '❤️ Mỡ máu' },
-                { id: 'metabolic', label: '🦴 Đường & Canxi/VitD' },
-                { id: 'liver_kidney', label: '🧪 Gan & Thận' },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setBioChartTab(t.id as BioChartTab)}
-                  className={`min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl text-sm font-extrabold border transition cursor-pointer ${
-                    bioChartTab === t.id
-                      ? 'bg-slate-800 text-white border-slate-900'
-                      : 'bg-slate-50 text-text-body border-border-card hover:bg-slate-100'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {activeChartPoints.length < 2 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-base text-text-muted">
-              Cần ít nhất 2 kỳ xét nghiệm có nhóm chỉ số này để vẽ đường xu hướng so sánh.
-            </div>
-          ) : (
-            <div className="w-full h-[270px] sm:h-[310px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart
-                  key={bioChartTab}
-                  data={activeChartPoints}
-                  margin={{ top: 10, right: 12, left: -8, bottom: 4 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fill: '#334155', fontSize: 12, fontWeight: 700 }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    yAxisId="left"
-                    tick={{ fill: '#334155', fontSize: 12, fontWeight: 700 }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  {bioChartTab !== 'lipid' && (
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      tick={{
-                        fill: bioChartTab === 'metabolic' ? '#059669' : '#0284c7',
-                        fontSize: 12,
-                        fontWeight: 700,
-                      }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                  )}
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: '14px',
-                      borderColor: '#cbd5e1',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                    }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 700 }} />
-
-                  {bioChartTab === 'lipid' && (
-                    <>
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="cholesterol"
-                        name="Cholesterol TP"
-                        stroke="#0284c7"
-                        strokeWidth={2.5}
-                        dot={{ r: 4 }}
-                        connectNulls
-                      />
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="ldlC"
-                        name="LDL-C (Mỡ xấu)"
-                        stroke="#e11d48"
-                        strokeWidth={2.5}
-                        dot={{ r: 4 }}
-                        connectNulls
-                      />
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="triglyceride"
-                        name="Triglyceride"
-                        stroke="#d97706"
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                        connectNulls
-                      />
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="hdlC"
-                        name="HDL-C (Mỡ tốt)"
-                        stroke="#059669"
-                        strokeWidth={2}
-                        strokeDasharray="4 4"
-                        dot={{ r: 4 }}
-                        connectNulls
-                      />
-                    </>
-                  )}
-
-                  {bioChartTab === 'metabolic' && (
-                    <>
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="glucose"
-                        name="Glucose đói (Trục trái)"
-                        stroke="#ea580c"
-                        strokeWidth={2.5}
-                        dot={{ r: 4 }}
-                        connectNulls
-                      />
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="hba1c"
-                        name="HbA1c % (Trục trái)"
-                        stroke="#e11d48"
-                        strokeWidth={2.5}
-                        dot={{ r: 4 }}
-                        connectNulls
-                      />
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="calcium"
-                        name="Canxi máu (Trục trái)"
-                        stroke="#0284c7"
-                        strokeWidth={3}
-                        dot={{ r: 5 }}
-                        connectNulls
-                      />
-                      <Line
-                        yAxisId="right"
-                        type="monotone"
-                        dataKey="vitaminD"
-                        name="Vitamin D ng/mL (Trục phải)"
-                        stroke="#059669"
-                        strokeWidth={2.2}
-                        strokeDasharray="4 4"
-                        dot={{ r: 4 }}
-                        connectNulls
-                      />
-                    </>
-                  )}
-
-                  {bioChartTab === 'liver_kidney' && (
-                    <>
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="ast"
-                        name="AST / GOT U/L (Trục trái)"
-                        stroke="#d97706"
-                        strokeWidth={2.5}
-                        dot={{ r: 4 }}
-                        connectNulls
-                      />
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="alt"
-                        name="ALT / GPT U/L (Trục trái)"
-                        stroke="#e11d48"
-                        strokeWidth={2.5}
-                        dot={{ r: 4 }}
-                        connectNulls
-                      />
-                      <Line
-                        yAxisId="right"
-                        type="monotone"
-                        dataKey="creatinine"
-                        name="Creatinine µmol/L (Trục phải)"
-                        stroke="#0284c7"
-                        strokeWidth={2.3}
-                        dot={{ r: 4 }}
-                        connectNulls
-                      />
-                      <Line
-                        yAxisId="right"
-                        type="monotone"
-                        dataKey="hemoglobin"
-                        name="Hemoglobin (Trục phải)"
-                        stroke="#059669"
-                        strokeWidth={2}
-                        strokeDasharray="4 4"
-                        dot={{ r: 3.5 }}
-                        connectNulls
-                      />
-                    </>
-                  )}
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Biểu đồ xu hướng Hóa sinh theo nhóm */}
+      <BiochemistryTrendChart
+        chartData={chartData}
+        onOpenAddLab={onOpenAddLab}
+        onOpenImport={onOpenImport}
+      />
     </div>
   );
 }
