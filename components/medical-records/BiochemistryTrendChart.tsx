@@ -219,190 +219,250 @@ export function BiochemistryTrendChart({
           </p>
         </div>
       ) : (
-        <div className="w-full h-[270px] sm:h-[310px]">
+        <div className="w-full h-[280px] sm:h-[320px]">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart
-              key={bioChartTab}
-              data={activeChartPoints}
-              margin={{ top: 10, right: hasRightAxisData ? 12 : 8, left: -8, bottom: 4 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-              <XAxis
-                dataKey="date"
-                tick={{ fill: '#334155', fontSize: 12, fontWeight: 700 }}
-                tickLine={false}
-              />
-              <YAxis
-                yAxisId="left"
-                tick={{ fill: '#334155', fontSize: 12, fontWeight: 700 }}
-                tickLine={false}
-                axisLine={false}
-              />
-              {hasRightAxisData && (
+            {bioChartTab === 'lipid' ? (
+              <ComposedChart
+                key="chart-lipid"
+                data={lipidPoints}
+                margin={{ top: 10, right: 12, left: -8, bottom: 4 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: '#334155', fontSize: 12, fontWeight: 700 }}
+                  tickLine={false}
+                />
                 <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  tick={{
-                    fill: bioChartTab === 'metabolic' ? '#059669' : '#0284c7',
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
+                  yAxisId="left"
+                  tick={{ fill: '#334155', fontSize: 12, fontWeight: 700 }}
                   tickLine={false}
                   axisLine={false}
                 />
-              )}
-              <Tooltip
-                contentStyle={{
-                  borderRadius: '14px',
-                  borderColor: '#cbd5e1',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                }}
-              />
-              <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 700 }} />
-
-              {bioChartTab === 'lipid' && (
-                <>
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="cholesterol"
-                    name="Cholesterol TP"
-                    stroke="#0284c7"
-                    strokeWidth={2.5}
-                    dot={{ r: 4 }}
-                    connectNulls
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: '14px',
+                    borderColor: '#cbd5e1',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 700 }} />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="cholesterol"
+                  name="Cholesterol TP"
+                  stroke="#0284c7"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: '#0284c7' }}
+                  activeDot={{ r: 6 }}
+                  connectNulls
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="ldlC"
+                  name="LDL-C (Mỡ xấu)"
+                  stroke="#e11d48"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: '#e11d48' }}
+                  activeDot={{ r: 6 }}
+                  connectNulls
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="triglyceride"
+                  name="Triglyceride"
+                  stroke="#d97706"
+                  strokeWidth={2}
+                  dot={{ r: 4, fill: '#d97706' }}
+                  activeDot={{ r: 6 }}
+                  connectNulls
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="hdlC"
+                  name="HDL-C (Mỡ tốt)"
+                  stroke="#059669"
+                  strokeWidth={2}
+                  strokeDasharray="4 4"
+                  dot={{ r: 4, fill: '#059669' }}
+                  activeDot={{ r: 6 }}
+                  connectNulls
+                />
+              </ComposedChart>
+            ) : bioChartTab === 'metabolic' ? (
+              <ComposedChart
+                key="chart-metabolic"
+                data={metabolicPoints}
+                margin={{ top: 10, right: hasRightAxisData ? 14 : 8, left: -8, bottom: 4 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: '#334155', fontSize: 12, fontWeight: 700 }}
+                  tickLine={false}
+                />
+                <YAxis
+                  yAxisId="left"
+                  tick={{ fill: '#334155', fontSize: 12, fontWeight: 700 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                {hasRightAxisData ? (
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    tick={{ fill: '#059669', fontSize: 12, fontWeight: 700 }}
+                    tickLine={false}
+                    axisLine={false}
                   />
+                ) : null}
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: '14px',
+                    borderColor: '#cbd5e1',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 700 }} />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="glucose"
+                  name="Glucose đói (Trục trái)"
+                  stroke="#ea580c"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: '#ea580c' }}
+                  activeDot={{ r: 6 }}
+                  connectNulls
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="hba1c"
+                  name="HbA1c % (Trục trái)"
+                  stroke="#e11d48"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: '#e11d48' }}
+                  activeDot={{ r: 6 }}
+                  connectNulls
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="calcium"
+                  name="Canxi máu (Trục trái)"
+                  stroke="#0284c7"
+                  strokeWidth={3}
+                  dot={{ r: 5, fill: '#0284c7' }}
+                  activeDot={{ r: 6 }}
+                  connectNulls
+                />
+                {hasRightAxisData ? (
                   <Line
-                    yAxisId="left"
+                    yAxisId="right"
                     type="monotone"
-                    dataKey="ldlC"
-                    name="LDL-C (Mỡ xấu)"
-                    stroke="#e11d48"
-                    strokeWidth={2.5}
-                    dot={{ r: 4 }}
-                    connectNulls
-                  />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="triglyceride"
-                    name="Triglyceride"
-                    stroke="#d97706"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                    connectNulls
-                  />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="hdlC"
-                    name="HDL-C (Mỡ tốt)"
+                    dataKey="vitaminD"
+                    name="Vitamin D ng/mL (Trục phải)"
                     stroke="#059669"
-                    strokeWidth={2}
+                    strokeWidth={2.2}
                     strokeDasharray="4 4"
-                    dot={{ r: 4 }}
+                    dot={{ r: 4, fill: '#059669' }}
+                    activeDot={{ r: 6 }}
                     connectNulls
                   />
-                </>
-              )}
-
-              {bioChartTab === 'metabolic' && (
-                <>
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="glucose"
-                    name="Glucose đói (Trục trái)"
-                    stroke="#ea580c"
-                    strokeWidth={2.5}
-                    dot={{ r: 4 }}
-                    connectNulls
+                ) : null}
+              </ComposedChart>
+            ) : (
+              <ComposedChart
+                key="chart-liver_kidney"
+                data={liverKidneyPoints}
+                margin={{ top: 10, right: hasRightAxisData ? 14 : 8, left: -8, bottom: 4 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: '#334155', fontSize: 12, fontWeight: 700 }}
+                  tickLine={false}
+                />
+                <YAxis
+                  yAxisId="left"
+                  tick={{ fill: '#334155', fontSize: 12, fontWeight: 700 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                {hasRightAxisData ? (
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    tick={{ fill: '#0284c7', fontSize: 12, fontWeight: 700 }}
+                    tickLine={false}
+                    axisLine={false}
                   />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="hba1c"
-                    name="HbA1c % (Trục trái)"
-                    stroke="#e11d48"
-                    strokeWidth={2.5}
-                    dot={{ r: 4 }}
-                    connectNulls
-                  />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="calcium"
-                    name="Canxi máu (Trục trái)"
-                    stroke="#0284c7"
-                    strokeWidth={3}
-                    dot={{ r: 5 }}
-                    connectNulls
-                  />
-                  {hasRightAxisData && (
-                    <Line
-                      yAxisId="right"
-                      type="monotone"
-                      dataKey="vitaminD"
-                      name="Vitamin D ng/mL (Trục phải)"
-                      stroke="#059669"
-                      strokeWidth={2.2}
-                      strokeDasharray="4 4"
-                      dot={{ r: 4 }}
-                      connectNulls
-                    />
-                  )}
-                </>
-              )}
-
-              {bioChartTab === 'liver_kidney' && (
-                <>
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="ast"
-                    name="AST / GOT U/L (Trục trái)"
-                    stroke="#d97706"
-                    strokeWidth={2.5}
-                    dot={{ r: 4 }}
-                    connectNulls
-                  />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="alt"
-                    name="ALT / GPT U/L (Trục trái)"
-                    stroke="#e11d48"
-                    strokeWidth={2.5}
-                    dot={{ r: 4 }}
-                    connectNulls
-                  />
+                ) : null}
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: '14px',
+                    borderColor: '#cbd5e1',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 700 }} />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="ast"
+                  name="AST / GOT U/L (Trục trái)"
+                  stroke="#d97706"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: '#d97706' }}
+                  activeDot={{ r: 6 }}
+                  connectNulls
+                />
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="alt"
+                  name="ALT / GPT U/L (Trục trái)"
+                  stroke="#e11d48"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: '#e11d48' }}
+                  activeDot={{ r: 6 }}
+                  connectNulls
+                />
+                <Line
+                  yAxisId={creatinineAxisId}
+                  type="monotone"
+                  dataKey="creatinine"
+                  name={`Creatinine µmol/L (${creatinineAxisId === 'right' ? 'Trục phải' : 'Trục trái'})`}
+                  stroke="#0284c7"
+                  strokeWidth={2.3}
+                  dot={{ r: 4, fill: '#0284c7' }}
+                  activeDot={{ r: 6 }}
+                  connectNulls
+                />
+                {liverKidneyPoints.some((d) => d.hemoglobin !== undefined) ? (
                   <Line
                     yAxisId={creatinineAxisId}
                     type="monotone"
-                    dataKey="creatinine"
-                    name={`Creatinine µmol/L (${creatinineAxisId === 'right' ? 'Trục phải' : 'Trục trái'})`}
-                    stroke="#0284c7"
-                    strokeWidth={2.3}
-                    dot={{ r: 4 }}
+                    dataKey="hemoglobin"
+                    name="Hemoglobin"
+                    stroke="#059669"
+                    strokeWidth={2}
+                    strokeDasharray="4 4"
+                    dot={{ r: 3.5, fill: '#059669' }}
+                    activeDot={{ r: 5.5 }}
                     connectNulls
                   />
-                  {activeChartPoints.some((d) => d.hemoglobin !== undefined) && (
-                    <Line
-                      yAxisId={creatinineAxisId}
-                      type="monotone"
-                      dataKey="hemoglobin"
-                      name="Hemoglobin"
-                      stroke="#059669"
-                      strokeWidth={2}
-                      strokeDasharray="4 4"
-                      dot={{ r: 3.5 }}
-                      connectNulls
-                    />
-                  )}
-                </>
-              )}
-            </ComposedChart>
+                ) : null}
+              </ComposedChart>
+            )}
           </ResponsiveContainer>
         </div>
       )}
