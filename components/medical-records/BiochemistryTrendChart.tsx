@@ -22,6 +22,45 @@ export interface BiochemistryTrendChartProps {
   onOpenImport?: () => void;
 }
 
+function formatLipidTooltip(value: unknown, name: unknown, item: unknown) {
+  const entry = item as { payload?: LabChartPoint; dataKey?: string };
+  const pt = entry?.payload;
+  if (pt?.lipidUnit === 'mg/dL' && entry?.dataKey) {
+    const rawVal = pt[`${entry.dataKey}Raw` as keyof LabChartPoint];
+    if (rawVal !== undefined) {
+      return [`${value} mmol/L (Gốc trên phiếu: ${rawVal} mg/dL)`, String(name ?? '')];
+    }
+  }
+  return [`${value} mmol/L`, String(name ?? '')];
+}
+
+function formatMetabolicTooltip(value: unknown, name: unknown, item: unknown) {
+  const entry = item as { payload?: LabChartPoint; dataKey?: string };
+  const pt = entry?.payload;
+  if (entry?.dataKey === 'glucose') {
+    if (pt?.glucoseUnit === 'mg/dL' && pt?.glucoseRaw !== undefined) {
+      return [`${value} mmol/L (Gốc trên phiếu: ${pt.glucoseRaw} mg/dL)`, String(name ?? '')];
+    }
+    return [`${value} mmol/L`, String(name ?? '')];
+  }
+  if (entry?.dataKey === 'calcium') {
+    if (pt?.calciumUnit === 'mg/dL' && pt?.calciumRaw !== undefined) {
+      return [`${value} mmol/L (Gốc trên phiếu: ${pt.calciumRaw} mg/dL)`, String(name ?? '')];
+    }
+    return [`${value} mmol/L`, String(name ?? '')];
+  }
+  if (entry?.dataKey === 'hba1c') return [`${value}%`, String(name ?? '')];
+  if (entry?.dataKey === 'vitaminD') return [`${value} ng/mL`, String(name ?? '')];
+  return [String(value ?? ''), String(name ?? '')];
+}
+
+function formatLiverKidneyTooltip(value: unknown, name: unknown, item: unknown) {
+  const entry = item as { payload?: LabChartPoint; dataKey?: string };
+  if (entry?.dataKey === 'ast' || entry?.dataKey === 'alt') return [`${value} U/L`, String(name ?? '')];
+  if (entry?.dataKey === 'creatinine') return [`${value} µmol/L`, String(name ?? '')];
+  return [String(value ?? ''), String(name ?? '')];
+}
+
 export function BiochemistryTrendChart({
   chartData,
   onOpenAddLab,
@@ -106,6 +145,11 @@ export function BiochemistryTrendChart({
   }, [bioChartTab, activeChartPoints]);
 
   const creatinineAxisId = hasLeftAxisData ? 'right' : 'left';
+
+  const tooltipStyle = useMemo(
+    () => ({ borderRadius: '14px', borderColor: '#cbd5e1', fontSize: '12px', fontWeight: 700 }),
+    []
+  );
 
   if (totalBioPointsCount === 0) {
     return (
@@ -239,14 +283,7 @@ export function BiochemistryTrendChart({
                   tickLine={false}
                   axisLine={false}
                 />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: '14px',
-                    borderColor: '#cbd5e1',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                  }}
-                />
+                <Tooltip contentStyle={tooltipStyle} formatter={formatLipidTooltip} />
                 <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 700 }} />
                 <Line
                   yAxisId="left"
@@ -321,14 +358,7 @@ export function BiochemistryTrendChart({
                     axisLine={false}
                   />
                 ) : null}
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: '14px',
-                    borderColor: '#cbd5e1',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                  }}
-                />
+                <Tooltip contentStyle={tooltipStyle} formatter={formatMetabolicTooltip} />
                 <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 700 }} />
                 <Line
                   yAxisId="left"
@@ -405,14 +435,7 @@ export function BiochemistryTrendChart({
                     axisLine={false}
                   />
                 ) : null}
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: '14px',
-                    borderColor: '#cbd5e1',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                  }}
-                />
+                <Tooltip contentStyle={tooltipStyle} formatter={formatLiverKidneyTooltip} />
                 <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 700 }} />
                 <Line
                   yAxisId="left"

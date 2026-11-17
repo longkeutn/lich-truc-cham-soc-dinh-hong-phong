@@ -128,7 +128,7 @@ export function BiochemistryTrackerSection({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredIndicators.map((ind) => {
-            const deltaText = getLabDeltaText(previousLab, ind.key, ind.value);
+            const deltaText = getLabDeltaText(previousLab, ind.key, ind.value, ind.unit);
             return (
               <div
                 key={ind.key}

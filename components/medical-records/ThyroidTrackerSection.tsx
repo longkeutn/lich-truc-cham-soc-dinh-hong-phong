@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -12,7 +12,7 @@ import {
   Legend,
   ReferenceLine,
 } from 'recharts';
-import { Activity, Edit3, Pill, Building2 } from 'lucide-react';
+import { Activity, Edit3, Pill, Building2, RefreshCw } from 'lucide-react';
 import type { LabResultEntry, HealthProfileType } from '@/lib/types';
 import type { LabIndicatorEval } from '@/lib/config';
 import {
@@ -47,6 +47,8 @@ export function ThyroidTrackerSection({
   recentVitalsSummary,
   onEditLab,
 }: ThyroidTrackerSectionProps) {
+  const [ft4UnitChoice, setFt4UnitChoice] = useState<'pmol/L' | 'ng/dL'>('pmol/L');
+
   const thyroidIndicators = useMemo(
     () => indicators.filter((i) => i.group === 'thyroid' || i.group === 'markers'),
     [indicators]
@@ -58,11 +60,20 @@ export function ThyroidTrackerSection({
         (d) =>
           d.tsh !== undefined ||
           d.ft4 !== undefined ||
+          d.ft4Pmol !== undefined ||
           d.t3 !== undefined ||
           d.tg !== undefined
       ),
     [chartData]
   );
+
+  const hasMixedFt4Units = useMemo(() => {
+    const units = new Set<string>();
+    for (const p of thyroidChartPoints) {
+      if (p.ft4Unit) units.add(p.ft4Unit);
+    }
+    return units.size > 1;
+  }, [thyroidChartPoints]);
 
   const tshUpperRef = useMemo(() => {
     const target =
@@ -152,7 +163,7 @@ export function ThyroidTrackerSection({
       {thyroidIndicators.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {thyroidIndicators.map((ind) => {
-            const deltaText = getLabDeltaText(previousLab, ind.key, ind.value);
+            const deltaText = getLabDeltaText(previousLab, ind.key, ind.value, ind.unit);
             return (
               <div
                 key={ind.key}
@@ -195,15 +206,51 @@ export function ThyroidTrackerSection({
 
       {/* Biểu đồ xu hướng Tuyến Giáp */}
       {thyroidChartPoints.length >= 2 && (
-        <div className="pt-2 space-y-2">
+        <div className="pt-2 space-y-2.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <h4 className="text-xs sm:text-sm font-black text-text-main uppercase tracking-wide">
               📈 Động học TSH (Tím #7c3aed), FT4, T3 &amp; Marker TG qua các kỳ khám
             </h4>
-            <span className="text-xs font-bold text-indigo-800">
-              Đường đứt nét tím: Đích ức chế TSH ({tshUpperRef} µIU/mL)
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-bold">
+                <span className="text-text-muted px-1.5 hidden sm:inline">Trục FT4:</span>
+                <button
+                  type="button"
+                  onClick={() => setFt4UnitChoice('pmol/L')}
+                  className={`min-h-[32px] px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    ft4UnitChoice === 'pmol/L'
+                      ? 'bg-sky-600 text-white font-extrabold shadow-2xs'
+                      : 'text-text-main hover:bg-slate-200'
+                  }`}
+                >
+                  pmol/L (Chuẩn)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFt4UnitChoice('ng/dL')}
+                  className={`min-h-[32px] px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    ft4UnitChoice === 'ng/dL'
+                      ? 'bg-sky-600 text-white font-extrabold shadow-2xs'
+                      : 'text-text-main hover:bg-slate-200'
+                  }`}
+                >
+                  ng/dL
+                </button>
+              </div>
+              <span className="text-xs font-bold text-indigo-800">
+                Đường đứt nét tím: Đích ức chế TSH ({tshUpperRef} µIU/mL)
+              </span>
+            </div>
           </div>
+
+          {hasMixedFt4Units && (
+            <div className="rounded-xl bg-sky-50 border border-sky-200 p-2.5 text-xs text-sky-950 flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-sky-700 shrink-0" />
+              <span>
+                <strong>Đồng nhất đơn vị tự động:</strong> Lịch sử khám có cả <code>pmol/L</code> và <code>ng/dL</code>. Biểu đồ đã tự động quy đổi đồng nhất về <strong>{ft4UnitChoice}</strong> (1 ng/dL = 12.87 pmol/L) để đường xu hướng giữ đúng độ dốc sinh lý, không bị gãy tụt.
+              </span>
+            </div>
+          )}
 
           <div className="w-full h-[270px] sm:h-[310px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -236,6 +283,32 @@ export function ThyroidTrackerSection({
                     borderColor: '#cbd5e1',
                     fontSize: '12px',
                     fontWeight: 700,
+                  }}
+                  formatter={(value: unknown, name: unknown, item: unknown) => {
+                    const entry = item as { payload?: LabChartPoint; dataKey?: string };
+                    if (
+                      entry?.dataKey === 'ft4' ||
+                      entry?.dataKey === 'ft4Pmol' ||
+                      entry?.dataKey === 'ft4NgDl'
+                    ) {
+                      const pt = entry.payload;
+                      if (pt?.ft4Unit && pt?.ft4Raw !== undefined) {
+                        if (ft4UnitChoice === 'pmol/L' && pt.ft4Unit === 'ng/dL') {
+                          return [
+                            `${value} pmol/L (Gốc trên phiếu: ${pt.ft4Raw} ng/dL)`,
+                            `FT4 (${ft4UnitChoice})`,
+                          ];
+                        }
+                        if (ft4UnitChoice === 'ng/dL' && pt.ft4Unit === 'pmol/L') {
+                          return [
+                            `${value} ng/dL (Gốc trên phiếu: ${pt.ft4Raw} pmol/L)`,
+                            `FT4 (${ft4UnitChoice})`,
+                          ];
+                        }
+                      }
+                      return [`${value} ${ft4UnitChoice}`, `FT4 (${ft4UnitChoice})`];
+                    }
+                    return [String(value ?? ''), String(name ?? '')];
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 700 }} />
@@ -270,11 +343,12 @@ export function ThyroidTrackerSection({
                 <Line
                   yAxisId="right"
                   type="monotone"
-                  dataKey="ft4"
-                  name="FT4"
+                  dataKey={ft4UnitChoice === 'ng/dL' ? 'ft4NgDl' : 'ft4Pmol'}
+                  name={`FT4 (${ft4UnitChoice})`}
                   stroke="#0284c7"
-                  strokeWidth={2}
-                  dot={{ r: 3.5, fill: '#0284c7' }}
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: '#0284c7' }}
+                  activeDot={{ r: 6 }}
                   connectNulls
                 />
                 <Line
