@@ -265,58 +265,122 @@ export function SmartReminderSection({
     );
   }
 
-  const hasCritical = visibleAlerts.some((a) => a.severity === 'critical');
-  const hasUrgent = visibleAlerts.some((a) => a.severity === 'urgent');
-  const displayedAlerts = expandedAll ? visibleAlerts : visibleAlerts.slice(0, 2);
-  const hiddenCount = Math.max(0, visibleAlerts.length - displayedAlerts.length);
+  const hasCriticalBp = visibleAlerts.some(
+    (a) => a.severity === 'critical' && (a.category === 'bp_alert' || a.category === 'appointment')
+  );
+  const priorityAlerts = visibleAlerts.filter(
+    (a) => a.category === 'bp_alert' || (a.category === 'appointment' && a.severity === 'critical')
+  );
+  const routineAlerts = visibleAlerts.filter(
+    (a) => !(a.category === 'bp_alert' || (a.category === 'appointment' && a.severity === 'critical'))
+  );
+  const overdueMedsCount = routineAlerts.filter(
+    (a) => a.category === 'meds_due' && a.severity === 'urgent'
+  ).length;
 
-  const containerTheme = hasCritical
+  const containerTheme = hasCriticalBp
     ? 'border-2 border-rose-400 bg-gradient-to-br from-rose-50 via-white to-rose-50/60'
-    : hasUrgent
+    : priorityAlerts.length > 0 || overdueMedsCount > 0
       ? 'border border-amber-200 bg-amber-50/35'
       : 'border border-slate-200 bg-slate-50/60';
 
-  const headerBadgeTheme = hasCritical
+  const headerBadgeTheme = hasCriticalBp
     ? 'bg-rose-600 text-white'
-    : hasUrgent
+    : priorityAlerts.length > 0 || overdueMedsCount > 0
       ? 'bg-amber-600 text-white'
       : 'bg-teal-700 text-white';
 
+  const summaryLine = isSpeaking
+    ? '🔊 Đang đọc nhắc nhở bằng giọng nói Tiếng Việt...'
+    : routineAlerts.length > 0
+      ? `${routineAlerts.length} việc chờ tích (chi tiết theo buổi ở Lịch Thuốc bên dưới)`
+      : 'Theo dõi cảnh báo sinh hiệu & lịch tái khám';
+
+  const renderAlertCard = (item: SmartAlertItem) => {
+    const cardStyle =
+      item.severity === 'critical'
+        ? 'border-rose-300 bg-white text-rose-950'
+        : item.severity === 'urgent'
+          ? 'border-amber-200 bg-white text-slate-900'
+          : 'border-slate-200 bg-white/95 text-slate-800';
+
+    return (
+      <div
+        key={item.id}
+        className={`rounded-xl border px-3 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs ${cardStyle}`}
+      >
+        <div className="min-w-0 space-y-0.5">
+          <div className="text-xs sm:text-sm font-extrabold leading-snug">
+            {item.title}
+          </div>
+          {item.category !== 'meds_due' && item.category !== 'rehab_due' && (
+            <div className="text-xs text-slate-700 font-medium leading-relaxed">
+              {item.detail}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 sm:ml-2 flex-wrap">
+          {item.routineToComplete && (
+            <button
+              type="button"
+              onClick={() => void handleQuickComplete(item)}
+              className="min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition shadow-2xs active:scale-95"
+            >
+              <Check className="w-4 h-4 shrink-0" strokeWidth={2.8} />
+              <span>Đã xong</span>
+            </button>
+          )}
+
+          {!(item.severity === 'critical' && item.category === 'bp_alert') && (
+            <button
+              type="button"
+              onClick={() => handleSnooze(item.id, 30)}
+              className="min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
+              title="Nhắc lại sau 30 phút"
+            >
+              <Clock className="w-4 h-4 shrink-0" />
+              <span>30p</span>
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className={`rounded-2xl p-3.5 sm:p-4 shadow-2xs space-y-3 ${containerTheme}`}>
+    <div className={`rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-2.5 ${containerTheme}`}>
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <div
-            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${headerBadgeTheme}`}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${headerBadgeTheme}`}
           >
-            {hasCritical ? (
-              <AlertTriangle className="w-5 h-5 animate-pulse" />
+            {hasCriticalBp ? (
+              <AlertTriangle className="w-4 h-4 animate-pulse" />
             ) : (
-              <BellRing className="w-5 h-5" />
+              <BellRing className="w-4 h-4" />
             )}
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm sm:text-base font-black text-slate-900 leading-tight">
-                🔔 Trợ Lý Nhắc Thuốc &amp; Sinh Hiệu ({visibleAlerts.length} việc cần chú ý)
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="text-xs sm:text-sm font-black text-slate-900 leading-tight">
+                Trợ Lý Nhắc Việc ({visibleAlerts.length})
               </h3>
-              <span className="px-2 py-0.5 rounded-md bg-white/90 border border-slate-200 text-xs font-bold text-slate-700">
+              <span className="px-1.5 py-0.5 rounded-md bg-white/90 border border-slate-200 text-[11px] font-bold text-slate-700">
                 ⏰ {nowHm}
               </span>
             </div>
             <p className="text-xs text-slate-600 font-semibold truncate">
-              {isSpeaking
-                ? '🔊 Đang đọc nhắc nhở bằng giọng nói Tiếng Việt...'
-                : 'Bấm Đọc to để nghe bằng giọng nói hoặc tích Đã xong ngay tại đây'}
+              {summaryLine}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 ml-auto">
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           <button
             type="button"
             onClick={handleManualSpeakAll}
-            className={`min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
+            className={`min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
               isSpeaking
                 ? 'bg-rose-600 hover:bg-rose-700 text-white'
                 : 'bg-teal-700 hover:bg-teal-800 text-white'
@@ -325,12 +389,12 @@ export function SmartReminderSection({
             {isSpeaking ? (
               <>
                 <VolumeX className="w-4 h-4 shrink-0" />
-                <span>Dừng đọc</span>
+                <span>Dừng</span>
               </>
             ) : (
               <>
                 <Volume2 className="w-4 h-4 shrink-0" />
-                <span>🔊 Đọc to</span>
+                <span>Đọc to</span>
               </>
             )}
           </button>
@@ -339,84 +403,38 @@ export function SmartReminderSection({
             type="button"
             onClick={onOpenSettings}
             aria-label="Cài đặt giờ nhắc thuốc và giọng nói"
-            className="min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-1 cursor-pointer transition"
+            className="min-h-[48px] min-w-[48px] px-2.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition"
           >
             <Settings className="w-4 h-4 text-teal-700 shrink-0" />
             <span className="hidden sm:inline">Giờ nhắc</span>
           </button>
+
+          {routineAlerts.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpandedAll((prev) => !prev)}
+              aria-expanded={expandedAll}
+              className="min-h-[48px] min-w-[48px] px-2.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-teal-800 border border-slate-200 text-xs font-extrabold flex items-center justify-center gap-1 cursor-pointer transition"
+            >
+              <span>{expandedAll ? 'Thu gọn' : `Chi tiết`}</span>
+              {expandedAll ? (
+                <ChevronUp className="w-4 h-4 shrink-0" />
+              ) : (
+                <ChevronDown className="w-4 h-4 shrink-0" />
+              )}
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="space-y-2.5">
-        {displayedAlerts.map((item) => {
-          const cardStyle =
-            item.severity === 'critical'
-              ? 'border-rose-300 bg-white text-rose-950'
-              : item.severity === 'urgent'
-                ? 'border-amber-300 bg-white text-slate-900'
-                : 'border-slate-200 bg-white/95 text-slate-800';
+      {priorityAlerts.length > 0 && (
+        <div className="space-y-2">{priorityAlerts.map(renderAlertCard)}</div>
+      )}
 
-          return (
-            <div
-              key={item.id}
-              className={`rounded-xl border px-3.5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs ${cardStyle}`}
-            >
-              <div className="min-w-0 space-y-1">
-                <div className="text-sm sm:text-base font-extrabold leading-snug">
-                  {item.title}
-                </div>
-                <div className="text-xs sm:text-sm text-slate-700 font-medium leading-relaxed">
-                  {item.detail}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0 sm:ml-2 flex-wrap">
-                {item.routineToComplete && (
-                  <button
-                    type="button"
-                    onClick={() => void handleQuickComplete(item)}
-                    className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-extrabold flex items-center gap-1.5 cursor-pointer transition shadow-2xs active:scale-95"
-                  >
-                    <Check className="w-4 h-4 shrink-0" strokeWidth={2.8} />
-                    <span>Đã thực hiện</span>
-                  </button>
-                )}
-
-                {!(item.severity === 'critical' && item.category === 'bp_alert') && (
-                  <button
-                    type="button"
-                    onClick={() => handleSnooze(item.id, 30)}
-                    className="min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-bold flex items-center gap-1.5 cursor-pointer transition"
-                    title="Nhắc lại sau 30 phút"
-                  >
-                    <Clock className="w-4 h-4 shrink-0" />
-                    <span>Nhắc sau 30p</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {(hiddenCount > 0 || expandedAll) && visibleAlerts.length > 2 && (
-        <button
-          type="button"
-          onClick={() => setExpandedAll((prev) => !prev)}
-          className="w-full min-h-[48px] py-2 rounded-xl bg-white/80 hover:bg-white border border-slate-200 text-xs sm:text-sm font-extrabold text-teal-800 flex items-center justify-center gap-1.5 cursor-pointer transition"
-        >
-          {expandedAll ? (
-            <>
-              <ChevronUp className="w-4 h-4" />
-              <span>Thu gọn danh sách nhắc việc</span>
-            </>
-          ) : (
-            <>
-              <ChevronDown className="w-4 h-4" />
-              <span>Xem thêm {hiddenCount} lời nhắc khác trong ngày</span>
-            </>
-          )}
-        </button>
+      {expandedAll && routineAlerts.length > 0 && (
+        <div className="space-y-2 pt-1 border-t border-slate-200/70">
+          {routineAlerts.map(renderAlertCard)}
+        </div>
       )}
     </div>
   );

@@ -187,10 +187,10 @@ export function buildSmartAlerts({
     for (const med of pendingMeds) {
       list.push({
         id: `med-${effectiveToday}-${slot}-${med.id}`,
-        severity: isOverdue ? 'critical' : 'urgent',
+        severity: isOverdue ? 'urgent' : 'upcoming',
         category: 'meds_due',
-        title: `💊 ${isOverdue ? 'Quá giờ uống thuốc' : 'Đến giờ uống thuốc'} buổi ${slotLabel}: ${med.title}`,
-        detail: `${med.dosage ? `Liều lượng: ${med.dosage}. ` : ''}${med.instructions || `Bấm nút bên phải ngay sau khi ${patientDisplayName} uống xong.`}`,
+        title: `💊 ${isOverdue ? 'Quá giờ' : 'Đến giờ'} buổi ${slotLabel}: ${med.title}`,
+        detail: `${med.dosage ? `Liều: ${med.dosage}. ` : ''}${med.instructions || `Tích xong ở Lịch thuốc bên dưới sau khi ${patientDisplayName} uống.`}`,
         voiceText: `Nhắc uống thuốc buổi ${slotLabel}: Đã đến giờ cho ${patientDisplayName} uống ${med.title}${med.dosage ? `, liều ${med.dosage}` : ''}. ${med.instructions || ''}`,
         routineToComplete: { routine: med, slot },
       });

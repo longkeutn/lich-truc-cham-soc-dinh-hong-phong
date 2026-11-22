@@ -6,7 +6,6 @@ import {
   Baby,
   Calculator,
   CheckCircle2,
-  Clock,
   FileText,
   Pill,
   Ruler,
@@ -19,12 +18,11 @@ import type {
   HealthProfile,
   LabResultEntry,
 } from '@/lib/types';
-import { getVietnamDateStr, getVietnamTimeStr } from '@/lib/config';
+import { getVietnamDateStr } from '@/lib/config';
 import {
   calculatePediatricParacetamolDose,
   isSeniorFriendlyProfile,
 } from '@/lib/adaptiveProfileConfig';
-import { SeniorTextToggle } from '@/components/ui-kit';
 
 export interface AdaptiveProfileModeBannerProps {
   activeProfile: HealthProfile;
@@ -45,8 +43,6 @@ export function AdaptiveProfileModeBanner({
   dailyLogs,
   labResults,
   todayStr,
-  recorderName,
-  onToggleDailyLog,
   onOpenDoctorReport,
   onJumpToGrowth,
   onJumpToVaccine,
@@ -103,94 +99,40 @@ export function AdaptiveProfileModeBanner({
     );
   }, [dailyLogs, effectiveToday, thyroidMorningRoutine]);
 
-  const handleQuickCompleteThyroidMed = async () => {
-    if (!thyroidMorningRoutine) return;
-    await onToggleDailyLog({
-      id: `dl-${effectiveToday}-${thyroidMorningRoutine.id}-morning`,
-      date: effectiveToday,
-      routineId: thyroidMorningRoutine.id,
-      timeSlot: 'morning',
-      isDone: true,
-      doneAt: getVietnamTimeStr(),
-      doneBy: recorderName,
-    });
-  };
-
-  // 1. CHẾ ĐỘ HẬU PHẪU TUYẾN GIÁP & NGƯỜI CAO TUỔI (Mẹ Đoàn Thị Bạch Yến)
+  // 1. CHẾ ĐỘ HẬU PHẪU TUYẾN GIÁP & NGƯỜI CAO TUỔI (Gọn 1 thanh ngữ cảnh, không lặp lại danh sách thuốc bên dưới)
   if (profileType === 'thyroid_post_op') {
     const isDone = Boolean(thyroidMorningLog?.isDone);
     return (
       <section
-        aria-label="Chế độ chăm sóc hậu phẫu tuyến giáp và người cao tuổi"
-        className="rounded-2xl border border-indigo-200 bg-indigo-50/35 p-4 sm:p-5 shadow-2xs space-y-3.5"
+        aria-label="Chế độ chăm sóc hậu phẫu tuyến giáp"
+        className="rounded-2xl border border-indigo-200 bg-indigo-50/40 px-3.5 py-3 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
       >
-        <div className="flex items-start justify-between gap-2.5 flex-wrap">
-          <div className="space-y-1">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-100 border border-indigo-300 text-indigo-950 text-xs font-extrabold">
+        <div className="space-y-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 border border-indigo-200 text-indigo-950 text-xs font-extrabold">
               <Pill className="w-3.5 h-3.5 text-indigo-700" />
-              <span>Chế độ Hậu phẫu Tuyến giáp · Giao diện Chữ To</span>
+              <span>Hậu phẫu Tuyến giáp ({displayName})</span>
             </span>
-            <h2 className="text-base sm:text-lg font-black text-slate-900">
-              Ưu Tiên Sáng Sớm Của {displayName}: Hormone Tuyến Giáp Lúc Bụng Đói
-            </h2>
+            {isDone && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-900 text-xs font-extrabold">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Đã uống thuốc giáp lúc {thyroidMorningLog?.doneAt || 'sáng nay'}</span>
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <SeniorTextToggle compact />
-            <button
-              type="button"
-              onClick={onOpenDoctorReport}
-              className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-white hover:bg-indigo-50 text-indigo-950 border border-indigo-300 text-xs sm:text-sm font-extrabold inline-flex items-center gap-1.5 cursor-pointer"
-            >
-              <FileText className="w-4 h-4 text-indigo-700 shrink-0" />
-              <span>Phiếu Trình BS</span>
-            </button>
-          </div>
+          <p className="text-xs sm:text-sm font-semibold text-slate-700 leading-snug">
+            Nguyên tắc tương tác: uống thuốc giáp lúc đói (trước ăn 30-60p), cách xa Canxi/Sắt ít nhất 4 giờ.
+          </p>
         </div>
 
-        <div
-          className={`rounded-2xl border p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-            isDone
-              ? 'bg-emerald-50/90 border-emerald-300'
-              : 'bg-amber-50/95 border-amber-300'
-          }`}
+        <button
+          type="button"
+          onClick={onOpenDoctorReport}
+          className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-white hover:bg-indigo-50 text-indigo-950 border border-indigo-300 text-xs sm:text-sm font-extrabold inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
         >
-          <div className="space-y-1">
-            <div className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
-              {isDone ? (
-                <>
-                  <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
-                  <span>
-                    Đã uống {thyroidMorningRoutine?.title || 'Levothyroxine'} lúc{' '}
-                    {thyroidMorningLog?.doneAt || 'sáng nay'}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Clock className="w-5 h-5 text-amber-700 shrink-0" />
-                  <span>
-                    Nhắc uống {thyroidMorningRoutine?.title || 'Levothyroxine (Euthyrox / Berlthyrox)'}{' '}
-                    {thyroidMorningRoutine?.dosage ? `· ${thyroidMorningRoutine.dosage}` : ''}
-                  </span>
-                </>
-              )}
-            </div>
-            <p className="text-xs sm:text-sm font-semibold text-slate-700 leading-relaxed">
-              • Uống ngay khi thức dậy với nước lọc, <strong>trước bữa sáng 30 - 60 phút</strong>.
-              <br />• Cách xa <strong>Canxi, Sắt, thuốc dạ dày và sữa đậu nành ít nhất 4 giờ</strong> để hấp thu tối đa.
-            </p>
-          </div>
-
-          {thyroidMorningRoutine && !isDone && (
-            <button
-              type="button"
-              onClick={() => void handleQuickCompleteThyroidMed()}
-              className="min-h-[56px] min-w-[48px] px-5 py-3 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white text-sm sm:text-base font-black inline-flex items-center justify-center gap-2 shadow-xs transition cursor-pointer shrink-0"
-            >
-              <CheckCircle2 className="w-5 h-5 shrink-0" />
-              <span>Xác nhận Đã Uống Lúc Đói</span>
-            </button>
-          )}
-        </div>
+          <FileText className="w-4 h-4 text-indigo-700 shrink-0" />
+          <span>Phiếu Trình BS</span>
+        </button>
       </section>
     );
   }
@@ -329,7 +271,6 @@ export function AdaptiveProfileModeBanner({
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <SeniorTextToggle compact />
         <button
           type="button"
           onClick={onOpenDoctorReport}
