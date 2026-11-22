@@ -54,10 +54,10 @@ export function VitalsDisplayInputs({
   return (
     <div className="space-y-3">
       {/* Bảng 3 chỉ số chính trên màn hình máy đo huyết áp */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 bg-slate-50/90 p-2.5 sm:p-3.5 rounded-2xl border border-slate-200/90">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 bg-teal-50/45 p-2.5 sm:p-3.5 rounded-2xl border-2 border-teal-200/90">
         <div className="flex flex-col justify-between">
           <label className="block text-center mb-1.5 leading-tight">
-            <span className="block text-xs sm:text-sm font-extrabold text-slate-900">
+            <span className="block text-xs sm:text-sm font-extrabold text-teal-950">
               1. SỐ TRÊN
             </span>
             <span className="block text-xs font-semibold text-slate-600">
@@ -73,13 +73,13 @@ export function VitalsDisplayInputs({
             placeholder={isPediatric ? '100' : '128'}
             min={40}
             max={300}
-            className="w-full min-h-[54px] text-2xl sm:text-3xl font-extrabold text-center text-slate-900 bg-white border-2 border-slate-300 rounded-xl py-2.5 sm:py-3 px-1 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-full min-h-[56px] text-2xl sm:text-3xl font-extrabold text-center text-slate-900 bg-white border-2 border-teal-300/90 rounded-xl py-2.5 sm:py-3 px-1 focus:outline-none focus:border-teal-700 focus:ring-4 focus:ring-teal-500/20 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-2xs"
           />
         </div>
 
         <div className="flex flex-col justify-between">
           <label className="block text-center mb-1.5 leading-tight">
-            <span className="block text-xs sm:text-sm font-extrabold text-slate-900">
+            <span className="block text-xs sm:text-sm font-extrabold text-teal-950">
               2. SỐ DƯỚI
             </span>
             <span className="block text-xs font-semibold text-slate-600">
@@ -94,13 +94,13 @@ export function VitalsDisplayInputs({
             placeholder={isPediatric ? '65' : '80'}
             min={20}
             max={200}
-            className="w-full min-h-[54px] text-2xl sm:text-3xl font-extrabold text-center text-slate-900 bg-white border-2 border-slate-300 rounded-xl py-2.5 sm:py-3 px-1 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-full min-h-[56px] text-2xl sm:text-3xl font-extrabold text-center text-slate-900 bg-white border-2 border-teal-300/90 rounded-xl py-2.5 sm:py-3 px-1 focus:outline-none focus:border-teal-700 focus:ring-4 focus:ring-teal-500/20 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-2xs"
           />
         </div>
 
         <div className="flex flex-col justify-between">
           <label className="block text-center mb-1.5 leading-tight">
-            <span className="block text-xs sm:text-sm font-extrabold text-slate-900">
+            <span className="block text-xs sm:text-sm font-extrabold text-teal-950">
               3. NHỊP MẠCH
             </span>
             <span className="block text-xs font-semibold text-slate-600">
@@ -115,7 +115,7 @@ export function VitalsDisplayInputs({
             placeholder={isPediatric ? '95' : '75'}
             min={30}
             max={250}
-            className="w-full min-h-[54px] text-2xl sm:text-3xl font-extrabold text-center text-slate-900 bg-white border-2 border-slate-300 rounded-xl py-2.5 sm:py-3 px-1 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-full min-h-[56px] text-2xl sm:text-3xl font-extrabold text-center text-slate-900 bg-white border-2 border-teal-300/90 rounded-xl py-2.5 sm:py-3 px-1 focus:outline-none focus:border-teal-700 focus:ring-4 focus:ring-teal-500/20 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-2xs"
           />
         </div>
       </div>

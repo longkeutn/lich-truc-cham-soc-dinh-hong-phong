@@ -188,7 +188,7 @@ export default function CareSchedulePage() {
           </div>
         )}
 
-        {/* TAB 1: HÔM NAY (Chọn thành viên -> Chế độ thích ứng -> Nhắc việc -> Đo HA -> Checklist -> Tái khám) */}
+        {/* TAB 1: HÔM NAY (Chọn thành viên -> Nhập sinh hiệu (nổi bật) -> Nhắc việc & Chế độ chăm sóc -> Checklist -> Tái khám) */}
         <TabViewPanel isActive={ui.activeView === 'today'} className="space-y-4">
           <TodayProfileSelectorBar
             profiles={profilesMgr.healthProfiles}
@@ -197,6 +197,35 @@ export default function CareSchedulePage() {
             todayStr={sync.todayStr}
             onSelectProfile={profilesMgr.handleSelectProfile}
             onOpenAddProfile={() => ui.openProfileModal('add', null)}
+          />
+
+          <section id="section-vitals" aria-label="Đo huyết áp và sinh hiệu nhanh">
+            <QuickVitalsForm
+              onSave={crud.handleSaveVitals}
+              lastEntry={profilesMgr.lastVitalsEntry}
+              bpThresholds={profilesMgr.profileBpThresholds}
+              defaultRecorder={profilesMgr.recorderName}
+              members={sync.members}
+              todayStr={sync.todayStr}
+              profileType={profilesMgr.activeProfile.profileType}
+              patientDisplayName={profilesMgr.patientDisplayName}
+            />
+          </section>
+
+          <SmartReminderBanner
+            vitalsLog={profilesMgr.profileVitalsLog}
+            bpThresholds={profilesMgr.profileBpThresholds}
+            activeRoutines={profilesMgr.activeRoutines}
+            dailyLogs={profilesMgr.profileDailyLogs}
+            appointment={profilesMgr.profileAppointment}
+            todayStr={sync.todayStr}
+            defaultRecorder={profilesMgr.recorderName}
+            prefs={ui.notificationPrefs}
+            hasInitialLoaded={sync.hasInitialLoaded}
+            patientDisplayName={profilesMgr.patientDisplayName}
+            onToggleDailyLog={crud.handleToggleDailyLog}
+            onOpenSettings={() => ui.setNotifSettingsModalOpen(true)}
+            showToast={ui.showToast}
           />
 
           <AdaptiveProfileModeBanner
@@ -217,35 +246,6 @@ export default function CareSchedulePage() {
               ui.handleChangeView('labs');
             }}
           />
-
-          <SmartReminderBanner
-            vitalsLog={profilesMgr.profileVitalsLog}
-            bpThresholds={profilesMgr.profileBpThresholds}
-            activeRoutines={profilesMgr.activeRoutines}
-            dailyLogs={profilesMgr.profileDailyLogs}
-            appointment={profilesMgr.profileAppointment}
-            todayStr={sync.todayStr}
-            defaultRecorder={profilesMgr.recorderName}
-            prefs={ui.notificationPrefs}
-            hasInitialLoaded={sync.hasInitialLoaded}
-            patientDisplayName={profilesMgr.patientDisplayName}
-            onToggleDailyLog={crud.handleToggleDailyLog}
-            onOpenSettings={() => ui.setNotifSettingsModalOpen(true)}
-            showToast={ui.showToast}
-          />
-
-          <section id="section-vitals" aria-label="Đo huyết áp và sinh hiệu nhanh">
-            <QuickVitalsForm
-              onSave={crud.handleSaveVitals}
-              lastEntry={profilesMgr.lastVitalsEntry}
-              bpThresholds={profilesMgr.profileBpThresholds}
-              defaultRecorder={profilesMgr.recorderName}
-              members={sync.members}
-              todayStr={sync.todayStr}
-              profileType={profilesMgr.activeProfile.profileType}
-              patientDisplayName={profilesMgr.patientDisplayName}
-            />
-          </section>
 
           <section id="section-routine" aria-label="Danh sách thuốc và bài tập hôm nay">
             <DailyRoutineView

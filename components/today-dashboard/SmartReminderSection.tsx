@@ -271,10 +271,10 @@ export function SmartReminderSection({
   const hiddenCount = Math.max(0, visibleAlerts.length - displayedAlerts.length);
 
   const containerTheme = hasCritical
-    ? 'border-rose-300 bg-gradient-to-br from-rose-50 via-white to-rose-50/60'
+    ? 'border-2 border-rose-400 bg-gradient-to-br from-rose-50 via-white to-rose-50/60'
     : hasUrgent
-      ? 'border-amber-300 bg-gradient-to-br from-amber-50/90 via-white to-amber-50/40'
-      : 'border-teal-300 bg-gradient-to-br from-teal-50/80 via-white to-sky-50/40';
+      ? 'border border-amber-200 bg-amber-50/35'
+      : 'border border-slate-200 bg-slate-50/60';
 
   const headerBadgeTheme = hasCritical
     ? 'bg-rose-600 text-white'
@@ -283,7 +283,7 @@ export function SmartReminderSection({
       : 'bg-teal-700 text-white';
 
   return (
-    <div className={`rounded-2xl border-2 p-3.5 sm:p-4 shadow-xs space-y-3 ${containerTheme}`}>
+    <div className={`rounded-2xl p-3.5 sm:p-4 shadow-2xs space-y-3 ${containerTheme}`}>
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2.5 min-w-0">
           <div

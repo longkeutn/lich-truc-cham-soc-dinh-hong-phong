@@ -303,7 +303,7 @@ export function QuickVitalsSection({
   const alertDisplay = ALERT_DISPLAY[currentAlertLevel];
 
   return (
-    <div className="rounded-2xl border border-slate-200/90 bg-white shadow-xs p-3.5 sm:p-5 space-y-3.5">
+    <div className="rounded-2xl border-2 border-teal-600 bg-white shadow-md ring-4 ring-teal-500/10 overflow-hidden">
       <QuickVitalsHeaderAndPrevBar
         patientDisplayName={patientDisplayName}
         profileType={profileType}
@@ -325,7 +325,8 @@ export function QuickVitalsSection({
         onCancelEdit={resetAll}
       />
 
-      <VitalsVoiceController
+      <div className="p-3.5 sm:p-5 space-y-3.5">
+        <VitalsVoiceController
         isListening={voice.isListening}
         isSpeakingBack={voice.isSpeakingBack}
         voicePanelOpen={voice.voicePanelOpen}
@@ -448,6 +449,7 @@ export function QuickVitalsSection({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

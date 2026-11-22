@@ -122,7 +122,7 @@ export function AdaptiveProfileModeBanner({
     return (
       <section
         aria-label="Chế độ chăm sóc hậu phẫu tuyến giáp và người cao tuổi"
-        className="rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/90 via-white to-teal-50/70 p-4 sm:p-5 shadow-2xs space-y-3.5"
+        className="rounded-2xl border border-indigo-200 bg-indigo-50/35 p-4 sm:p-5 shadow-2xs space-y-3.5"
       >
         <div className="flex items-start justify-between gap-2.5 flex-wrap">
           <div className="space-y-1">
@@ -236,7 +236,7 @@ export function AdaptiveProfileModeBanner({
     return (
       <section
         aria-label="Chế độ chăm sóc Nhi khoa, tăng trưởng WHO và tính liều hạ sốt"
-        className="rounded-2xl border-2 border-cyan-200 bg-gradient-to-br from-cyan-50/90 via-white to-teal-50/70 p-4 sm:p-5 shadow-2xs space-y-3.5"
+        className="rounded-2xl border border-cyan-200 bg-cyan-50/35 p-4 sm:p-5 shadow-2xs space-y-3.5"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="space-y-1">
