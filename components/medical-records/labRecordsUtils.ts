@@ -7,6 +7,16 @@ import type {
   PatientInfo,
 } from '@/lib/types';
 import { normalizeDateStr } from '@/lib/config';
+import {
+  PHOSPHORUS_MG_PER_MMOL,
+  PTH_PG_PER_PMOL,
+  resolveAlbuminUnit,
+  resolvePhosphorusUnit,
+  resolvePthUnit,
+  toAlbuminGL,
+  toPhosphorusMmol,
+  toPthPgMl,
+} from '@/lib/parathyroidEval';
 
 export interface LabResultsViewProps {
   labResults: LabResultEntry[];
@@ -66,6 +76,15 @@ export interface LabChartPoint {
   calcium?: number;
   calciumRaw?: number;
   calciumUnit?: 'mmol/L' | 'mg/dL';
+  phosphorus?: number;
+  phosphorusRaw?: number;
+  phosphorusUnit?: 'mmol/L' | 'mg/dL';
+  pth?: number;
+  pthRaw?: number;
+  pthUnit?: 'pg/mL' | 'pmol/L';
+  albumin?: number;
+  albuminRaw?: number;
+  albuminUnit?: 'g/L' | 'g/dL';
   vitaminD?: number;
   ast?: number;
   alt?: number;
@@ -94,137 +113,7 @@ export const QUICK_FACILITIES = [
   'Phòng khám Đa khoa',
 ];
 
-// 12 mốc lịch sử từ Sheet Data của Mẹ Bạch Yến (2022-2025) trích xuất nguyên bản từ Google Sheet cũ
-export const BACH_YEN_LEGACY_DATA_PRESETS: Array<Omit<LabResultEntry, 'id' | 'createdAt'>> = [
-  {
-    date: '2022-09-01',
-    legacyTimestamp: '01/09/2025 12:32:18',
-    levothyroxineDose: '100mcg',
-    symptoms: 'mệt mỏi, khám lần đầu sau mổ 3 tháng',
-    doctorAdvice: 'Đã cắt toàn bộ tuyến giáp',
-    tshTargetLevel: 'moderate_risk',
-  },
-  {
-    date: '2022-09-12',
-    legacyTimestamp: '01/09/2025 12:30:55',
-    levothyroxineDose: '100mcg',
-    symptoms: 'mệt mỏi, khám lần đầu sau mổ 3 tháng',
-    tshTargetLevel: 'moderate_risk',
-  },
-  {
-    date: '2022-12-12',
-    legacyTimestamp: '01/09/2025 12:34:45',
-    levothyroxineDose: '100x5, 50x2',
-    symptoms: 'Chuẩn đoán thiếu Calci do chế độ ăn. Suy giáp sau điều trị mổ',
-    doctorAdvice: 'Đã cắt toàn bộ tuyến giáp',
-    tshTargetLevel: 'moderate_risk',
-  },
-  {
-    date: '2023-09-18',
-    legacyTimestamp: '01/09/2025 12:45:08',
-    tsh: 3.3147,
-    t3: 1.1,
-    t3Unit: 'nmol/L',
-    ft4: 10.6,
-    ft4Unit: 'pmol/L',
-    levothyroxineDose: '100x5, 50x2',
-    doctorAdvice: 'Đã cắt toàn bộ tuyến giáp',
-    tshTargetLevel: 'moderate_risk',
-  },
-  {
-    date: '2024-03-11',
-    legacyTimestamp: '01/09/2025 12:51:58',
-    tsh: 2.354,
-    t3: 1.54,
-    t3Unit: 'nmol/L',
-    ft4: 14.1,
-    ft4Unit: 'pmol/L',
-    levothyroxineDose: '100mcg',
-    doctorAdvice: 'K giáp thể nhú • Đã cắt toàn bộ tuyến giáp',
-    tshTargetLevel: 'moderate_risk',
-  },
-  {
-    date: '2024-06-16',
-    legacyTimestamp: '01/09/2025 13:25:23',
-    tsh: 0.091,
-    t3: 1.58,
-    t3Unit: 'nmol/L',
-    ft4: 22.6,
-    ft4Unit: 'pmol/L',
-    levothyroxineDose: '100mcgx6, 50mcgx1',
-    symptoms: 'tim đập nhanh',
-    doctorAdvice: 'K giáp thể nhú • Đã cắt toàn bộ tuyến giáp',
-    tshTargetLevel: 'moderate_risk',
-  },
-  {
-    date: '2024-09-02',
-    legacyTimestamp: '01/09/2025 12:58:08',
-    tsh: 0.133,
-    t3: 2.04,
-    t3Unit: 'nmol/L',
-    ft4: 26.27,
-    ft4Unit: 'pmol/L',
-    levothyroxineDose: '100x5, 50x2',
-    doctorAdvice: 'K giáp thể nhú, đã phẫu thuật • Đã cắt toàn bộ tuyến giáp',
-    tshTargetLevel: 'moderate_risk',
-  },
-  {
-    date: '2024-11-23',
-    legacyTimestamp: '01/09/2025 13:04:06',
-    tsh: 0.263,
-    t3: 1.89,
-    t3Unit: 'nmol/L',
-    ft4: 23.29,
-    ft4Unit: 'pmol/L',
-    tg: 0.25,
-    antiTg: 19.44,
-    levothyroxineDose: '100mcg',
-    symptoms: 'chuẩn đoán suy giáp',
-    doctorAdvice: 'K giáp thể nhú • Đã cắt toàn bộ tuyến giáp',
-    tshTargetLevel: 'moderate_risk',
-  },
-  {
-    date: '2025-05-28',
-    legacyTimestamp: '01/09/2025 13:40:08',
-    tsh: 0.193,
-    t3: 1.83,
-    t3Unit: 'nmol/L',
-    ft4: 24.57,
-    ft4Unit: 'pmol/L',
-    levothyroxineDose: '100x5, 50x2',
-    symptoms: 'mệt mỏi, tim đập nhanh',
-    doctorAdvice: 'K giáp thể nhú • Đã cắt toàn bộ tuyến giáp',
-    tshTargetLevel: 'moderate_risk',
-  },
-  {
-    date: '2025-08-30',
-    legacyTimestamp: '01/09/2025 13:47:16',
-    tsh: 0.335,
-    t3: 1.5,
-    t3Unit: 'nmol/L',
-    ft4: 28.14,
-    ft4Unit: 'pmol/L',
-    tg: 0.04,
-    levothyroxineDose: '100mcgx6',
-    symptoms: 'mệt mỏi, tim đập nhanh. Chỉ số TG (Thyroglobulin) < 0.040 ng/mL',
-    doctorAdvice: 'K giáp thể nhú • Đã cắt toàn bộ tuyến giáp',
-    tshTargetLevel: 'moderate_risk',
-  },
-  {
-    date: '2025-09-01',
-    legacyTimestamp: '01/09/2025 15:07:56',
-    levothyroxineDose: '100mcgx6',
-    symptoms: 'Mệt mỏi, tim đập nhanh',
-    tshTargetLevel: 'moderate_risk',
-  },
-  {
-    date: '2025-10-29',
-    legacyTimestamp: '29/10/2025 19:56:01',
-    levothyroxineDose: '100mcgx6',
-    symptoms: 'Bị đau họng, hơi sốt • hơi mệt',
-    tshTargetLevel: 'moderate_risk',
-  },
-];
+export { BACH_YEN_LEGACY_DATA_PRESETS } from './bachYenPresets';
 
 export function fmtDateShort(dateStr: string): string {
   const norm = normalizeDateStr(dateStr);
@@ -342,6 +231,60 @@ export function getLabDeltaText(
     }
   }
 
+  // 6. Phospho: 1 mmol/L = 3.097 mg/dL
+  if (key === 'phosphorus') {
+    const curUnit = resolvePhosphorusUnit(
+      currentVal,
+      currentUnit as 'mmol/L' | 'mg/dL' | undefined
+    );
+    const prevUnit = resolvePhosphorusUnit(prevVal, previousLab.phosphorusUnit);
+    if (curUnit !== prevUnit) {
+      const prevValConverted =
+        curUnit === 'mg/dL'
+          ? Number((prevVal * PHOSPHORUS_MG_PER_MMOL).toFixed(2))
+          : Number((prevVal / PHOSPHORUS_MG_PER_MMOL).toFixed(2));
+      const diff = Number((currentVal - prevValConverted).toFixed(2));
+      const sign = diff > 0 ? `+${diff}` : `${diff}`;
+      return `${diff > 0 ? '↑' : '↓'} ${sign} ${curUnit} (quy đổi từ ${prevVal} ${prevUnit})`;
+    }
+  }
+
+  // 7. PTH: 1 pmol/L = 9.43 pg/mL
+  if (key === 'pth') {
+    const curUnit = resolvePthUnit(
+      currentVal,
+      currentUnit as 'pg/mL' | 'pmol/L' | undefined
+    );
+    const prevUnit = resolvePthUnit(prevVal, previousLab.pthUnit);
+    if (curUnit !== prevUnit) {
+      const prevValConverted =
+        curUnit === 'pg/mL'
+          ? Number((prevVal * PTH_PG_PER_PMOL).toFixed(1))
+          : Number((prevVal / PTH_PG_PER_PMOL).toFixed(2));
+      const diff = Number((currentVal - prevValConverted).toFixed(2));
+      const sign = diff > 0 ? `+${diff}` : `${diff}`;
+      return `${diff > 0 ? '↑' : '↓'} ${sign} ${curUnit} (quy đổi từ ${prevVal} ${prevUnit})`;
+    }
+  }
+
+  // 8. Albumin: 1 g/dL = 10 g/L
+  if (key === 'albumin') {
+    const curUnit = resolveAlbuminUnit(
+      currentVal,
+      currentUnit as 'g/L' | 'g/dL' | undefined
+    );
+    const prevUnit = resolveAlbuminUnit(prevVal, previousLab.albuminUnit);
+    if (curUnit !== prevUnit) {
+      const prevValConverted =
+        curUnit === 'g/L'
+          ? Number((prevVal * 10).toFixed(1))
+          : Number((prevVal / 10).toFixed(2));
+      const diff = Number((currentVal - prevValConverted).toFixed(2));
+      const sign = diff > 0 ? `+${diff}` : `${diff}`;
+      return `${diff > 0 ? '↑' : '↓'} ${sign} ${curUnit} (quy đổi từ ${prevVal} ${prevUnit})`;
+    }
+  }
+
   const diff = Number((currentVal - prevVal).toFixed(2));
   if (diff === 0) return 'Không đổi so với lần trước';
   return diff > 0 ? `↑ +${diff} so với lần trước` : `↓ ${diff} so với lần trước`;
@@ -423,6 +366,19 @@ export function buildLabChartData(sortedLabsAsc: LabResultEntry[]): LabChartPoin
           : rawCa
         : undefined;
 
+    // 5. Phosphorus (mmol/L), PTH (pg/mL), Albumin (g/L)
+    const rawP = parseOptionalNumber(item.phosphorus);
+    const effectivePUnit = rawP !== undefined ? resolvePhosphorusUnit(rawP, item.phosphorusUnit) : undefined;
+    const normP = rawP !== undefined ? Number(toPhosphorusMmol(rawP, effectivePUnit).toFixed(2)) : undefined;
+
+    const rawPth = parseOptionalNumber(item.pth);
+    const effectivePthUnit = rawPth !== undefined ? resolvePthUnit(rawPth, item.pthUnit) : undefined;
+    const normPth = rawPth !== undefined ? Number(toPthPgMl(rawPth, effectivePthUnit).toFixed(1)) : undefined;
+
+    const rawAlb = parseOptionalNumber(item.albumin);
+    const effectiveAlbUnit = rawAlb !== undefined ? resolveAlbuminUnit(rawAlb, item.albuminUnit) : undefined;
+    const normAlb = rawAlb !== undefined ? Number(toAlbuminGL(rawAlb, effectiveAlbUnit).toFixed(1)) : undefined;
+
     return {
       date: fmtDateAxis(item.date),
       fullDate: fmtDateShort(item.date),
@@ -452,6 +408,15 @@ export function buildLabChartData(sortedLabsAsc: LabResultEntry[]): LabChartPoin
       calcium: normCa,
       calciumRaw: rawCa,
       calciumUnit: rawCa !== undefined ? effectiveCaUnit : undefined,
+      phosphorus: normP,
+      phosphorusRaw: rawP,
+      phosphorusUnit: effectivePUnit,
+      pth: normPth,
+      pthRaw: rawPth,
+      pthUnit: effectivePthUnit,
+      albumin: normAlb,
+      albuminRaw: rawAlb,
+      albuminUnit: effectiveAlbUnit,
       vitaminD: parseOptionalNumber(item.vitaminD),
       ast: parseOptionalNumber(item.ast),
       alt: parseOptionalNumber(item.alt),

@@ -154,7 +154,7 @@ export function MedicalRecordsContainer({
               {isPediatric
                 ? 'Theo dõi biểu đồ chiều cao - cân nặng chuẩn WHO (-2SD / Median / +2SD), lịch tiêm chủng mở rộng & dịch vụ và kết quả xét nghiệm'
                 : profileType === 'thyroid_post_op'
-                  ? 'Theo dõi chuyên sâu Tuyến giáp (TSH, FT4, FT3, TG, Anti-TG & Liều thuốc Levothyroxine), Canxi, Vitamin D, Bộ Mỡ máu & Đường huyết'
+                  ? 'Theo dõi chuyên sâu Tuyến giáp (TSH, FT4, FT3, TG, Anti-TG & Liều thuốc Levothyroxine), Cận giáp (PTH, Canxi, Phospho, Albumin, Vitamin D), Mỡ máu & Đường huyết'
                   : patientDiagnosis ||
                     'Theo dõi Bộ Mỡ máu (Cholesterol, LDL-C, Triglyceride), Đường huyết (Glucose, HbA1c), Gan Thận & Tuyến giáp'}
             </p>
@@ -289,6 +289,7 @@ export function MedicalRecordsContainer({
                 <BiochemistryTrackerSection
                   latestLab={latestLab}
                   previousLab={previousLab}
+                  profileType={profileType}
                   indicators={latestEval?.indicators || []}
                   summaryPoints={latestEval?.summaryPoints || []}
                   chartData={chartData}

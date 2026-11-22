@@ -1,4 +1,5 @@
 import { FamilyMember, PhaseConfig, EmergencyContact, ShiftRecord, CarePhase, ShiftType, PatientDailyReminder, PatientInfo, TimeSlot, BpThresholds, RehabStage, AppointmentInfo, CareRoutine, HealthProfile, HealthProfileType, LabResultEntry, TshTargetLevel } from './types';
+import { computeCorrectedCalcium, evaluateParathyroidPanel } from './parathyroidEval';
 
 // =============================================
 // CẤU HÌNH ĐA GIA ĐÌNH (MULTI-FAMILY EDITION CONFIG)
@@ -2757,9 +2758,18 @@ export function evaluateLabEntry(
 
   if (typeof entry.calcium === 'number' && !isNaN(entry.calcium)) {
     const unit = entry.calciumUnit || (entry.calcium > 5 ? 'mg/dL' : 'mmol/L');
-    const valMg = unit === 'mmol/L' ? entry.calcium * 4.0 : entry.calcium;
+    const corrCa = computeCorrectedCalcium(entry);
+    const valMg = corrCa
+      ? corrCa.mgDl
+      : unit === 'mmol/L'
+        ? entry.calcium * 4.008
+        : entry.calcium;
     const isLow = valMg < 8.6;
     const isHigh = valMg > 10.3;
+    const corrText =
+      corrCa && Math.abs(corrCa.diffMmol) >= 0.05
+        ? ` (Canxi hiệu chỉnh theo Albumin: ${corrCa.mmolL} mmol/L | ${corrCa.mgDl} mg/dL)`
+        : '';
     indicators.push({
       key: 'calcium',
       label: 'Canxi máu toàn phần',
@@ -2776,12 +2786,12 @@ export function evaluateLabEntry(
           ? 'bg-amber-100 text-amber-800 border-amber-300'
           : 'bg-emerald-100 text-emerald-800 border-emerald-200',
       clinicalNote: isLow
-        ? 'Canxi máu thấp (dễ gây tê bì tay chân, chuột rút sau mổ tuyến giáp). Cần bổ sung đều đặn Canxi + Vitamin D3 cách giờ uống thuốc giáp ít nhất 4 tiếng.'
-        : 'Nồng độ Canxi máu ổn định, đảm bảo tốt cho thần kinh - cơ và xương.',
+        ? `Canxi máu thấp (dễ gây tê bì tay chân, chuột rút sau mổ tuyến giáp)${corrText}. Cần bổ sung đều đặn Canxi + Vitamin D3 cách giờ uống thuốc giáp ít nhất 4 tiếng.`
+        : `Nồng độ Canxi máu ổn định${corrText}, đảm bảo tốt cho thần kinh - cơ và xương.`,
     });
     if (isLow) {
       summaryPoints.push(
-        'Canxi máu đang thấp (<2.15 mmol/L hay <8.6 mg/dL) - cần chú ý bổ sung Canxi + Vitamin D3 đầy đủ.'
+        `Canxi máu đang thấp (<2.15 mmol/L hay <8.6 mg/dL)${corrText} - cần chú ý bổ sung Canxi + Vitamin D3 đầy đủ.`
       );
     }
   }
@@ -2810,6 +2820,10 @@ export function evaluateLabEntry(
         : 'Canxi ion hóa trong máu ổn định.',
     });
   }
+
+  const parathyroidEval = evaluateParathyroidPanel(entry, profileType);
+  indicators.push(...parathyroidEval.indicators);
+  summaryPoints.push(...parathyroidEval.summaryPoints);
 
   if (typeof entry.vitaminD === 'number' && !isNaN(entry.vitaminD)) {
     const val = entry.vitaminD;

@@ -11,8 +11,14 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
-import { TrendingUp, Plus, FileSpreadsheet } from 'lucide-react';
+import { TrendingUp, Plus } from 'lucide-react';
 import type { LabChartPoint } from './labRecordsUtils';
+import {
+  formatLipidTooltip,
+  formatLiverKidneyTooltip,
+  formatMetabolicTooltip,
+} from './labChartFormatters';
+import { BioChartEmptyState } from './BioChartEmptyState';
 
 export type BioChartTab = 'lipid' | 'metabolic' | 'liver_kidney';
 
@@ -20,45 +26,6 @@ export interface BiochemistryTrendChartProps {
   chartData: LabChartPoint[];
   onOpenAddLab?: () => void;
   onOpenImport?: () => void;
-}
-
-function formatLipidTooltip(value: unknown, name: unknown, item: unknown) {
-  const entry = item as { payload?: LabChartPoint; dataKey?: string };
-  const pt = entry?.payload;
-  if (pt?.lipidUnit === 'mg/dL' && entry?.dataKey) {
-    const rawVal = pt[`${entry.dataKey}Raw` as keyof LabChartPoint];
-    if (rawVal !== undefined) {
-      return [`${value} mmol/L (Gốc trên phiếu: ${rawVal} mg/dL)`, String(name ?? '')];
-    }
-  }
-  return [`${value} mmol/L`, String(name ?? '')];
-}
-
-function formatMetabolicTooltip(value: unknown, name: unknown, item: unknown) {
-  const entry = item as { payload?: LabChartPoint; dataKey?: string };
-  const pt = entry?.payload;
-  if (entry?.dataKey === 'glucose') {
-    if (pt?.glucoseUnit === 'mg/dL' && pt?.glucoseRaw !== undefined) {
-      return [`${value} mmol/L (Gốc trên phiếu: ${pt.glucoseRaw} mg/dL)`, String(name ?? '')];
-    }
-    return [`${value} mmol/L`, String(name ?? '')];
-  }
-  if (entry?.dataKey === 'calcium') {
-    if (pt?.calciumUnit === 'mg/dL' && pt?.calciumRaw !== undefined) {
-      return [`${value} mmol/L (Gốc trên phiếu: ${pt.calciumRaw} mg/dL)`, String(name ?? '')];
-    }
-    return [`${value} mmol/L`, String(name ?? '')];
-  }
-  if (entry?.dataKey === 'hba1c') return [`${value}%`, String(name ?? '')];
-  if (entry?.dataKey === 'vitaminD') return [`${value} ng/mL`, String(name ?? '')];
-  return [String(value ?? ''), String(name ?? '')];
-}
-
-function formatLiverKidneyTooltip(value: unknown, name: unknown, item: unknown) {
-  const entry = item as { payload?: LabChartPoint; dataKey?: string };
-  if (entry?.dataKey === 'ast' || entry?.dataKey === 'alt') return [`${value} U/L`, String(name ?? '')];
-  if (entry?.dataKey === 'creatinine') return [`${value} µmol/L`, String(name ?? '')];
-  return [String(value ?? ''), String(name ?? '')];
 }
 
 export function BiochemistryTrendChart({
@@ -87,6 +54,9 @@ export function BiochemistryTrendChart({
           d.glucose !== undefined ||
           d.hba1c !== undefined ||
           d.calcium !== undefined ||
+          d.phosphorus !== undefined ||
+          d.pth !== undefined ||
+          d.albumin !== undefined ||
           d.vitaminD !== undefined
       ),
     [chartData]
@@ -127,7 +97,9 @@ export function BiochemistryTrendChart({
   const hasRightAxisData = useMemo(() => {
     if (bioChartTab === 'lipid') return false;
     if (bioChartTab === 'metabolic') {
-      return activeChartPoints.some((d) => d.vitaminD !== undefined);
+      return activeChartPoints.some(
+        (d) => d.vitaminD !== undefined || d.pth !== undefined || d.albumin !== undefined
+      );
     }
     return activeChartPoints.some(
       (d) => d.creatinine !== undefined || d.hemoglobin !== undefined
@@ -138,7 +110,11 @@ export function BiochemistryTrendChart({
     if (bioChartTab === 'lipid') return true;
     if (bioChartTab === 'metabolic') {
       return activeChartPoints.some(
-        (d) => d.glucose !== undefined || d.hba1c !== undefined || d.calcium !== undefined
+        (d) =>
+          d.glucose !== undefined ||
+          d.hba1c !== undefined ||
+          d.calcium !== undefined ||
+          d.phosphorus !== undefined
       );
     }
     return activeChartPoints.some((d) => d.ast !== undefined || d.alt !== undefined);
@@ -153,47 +129,11 @@ export function BiochemistryTrendChart({
 
   if (totalBioPointsCount === 0) {
     return (
-      <div className="pt-3 border-t border-slate-100">
-        <div className="rounded-2xl border border-dashed border-teal-200 bg-teal-50/40 p-4 sm:p-5 space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center shrink-0">
-              <TrendingUp className="w-5 h-5 text-medical-primary" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-base font-black text-text-main">
-                Biểu Đồ Xu Hướng Hóa Sinh Chưa Có Dữ Liệu Để Vẽ
-              </h4>
-              <p className="text-sm sm:text-base text-text-body leading-relaxed">
-                {chartData.length > 0
-                  ? `Hiện có ${chartData.length} đợt khám trong lịch sử nhưng toàn bộ chỉ gồm chỉ số Tuyến Giáp (TSH, FT4, TG). Biểu đồ xu hướng Hóa Sinh & Mỡ Máu sẽ tự động vẽ ngay khi bạn nhập kết quả đợt khám có Đường huyết, Mỡ máu, Canxi hoặc Gan thận.`
-                  : 'Chưa có kết quả xét nghiệm hóa sinh nào được ghi nhận.'}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap pt-1">
-            {onOpenAddLab && (
-              <button
-                type="button"
-                onClick={onOpenAddLab}
-                className="min-h-[48px] min-w-[48px] px-4 py-2.5 rounded-xl bg-medical-primary hover:bg-medical-dark text-white text-sm font-extrabold inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Nhập phiếu xét nghiệm Hóa sinh (Gói 2: Tổng Quát)</span>
-              </button>
-            )}
-            {onOpenImport && (
-              <button
-                type="button"
-                onClick={onOpenImport}
-                className="min-h-[48px] min-w-[48px] px-4 py-2.5 rounded-xl bg-surface-card hover:bg-slate-100 text-text-main border border-border-card text-sm font-extrabold inline-flex items-center gap-1.5 cursor-pointer"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
-                <span>Dán dữ liệu từ Sheet &quot;BiochemistryData&quot; cũ</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      <BioChartEmptyState
+        totalHistoryCount={chartData.length}
+        onOpenAddLab={onOpenAddLab}
+        onOpenImport={onOpenImport}
+      />
     );
   }
 
@@ -207,7 +147,7 @@ export function BiochemistryTrendChart({
         <div className="flex items-center gap-1.5 flex-wrap">
           {[
             { id: 'lipid', label: '❤️ Mỡ máu', count: lipidPoints.length },
-            { id: 'metabolic', label: '🦴 Đường & Canxi/VitD', count: metabolicPoints.length },
+            { id: 'metabolic', label: '🦴 Canxi, Cận giáp & Đường', count: metabolicPoints.length },
             { id: 'liver_kidney', label: '🧪 Gan & Thận', count: liverKidneyPoints.length },
           ].map((t) => (
             <button
@@ -393,7 +333,47 @@ export function BiochemistryTrendChart({
                   activeDot={{ r: 6 }}
                   connectNulls
                 />
-                {hasRightAxisData ? (
+                {metabolicPoints.some((d) => d.phosphorus !== undefined) ? (
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="phosphorus"
+                    name="Phospho mmol/L (Trục trái)"
+                    stroke="#0d9488"
+                    strokeWidth={2.2}
+                    dot={{ r: 4, fill: '#0d9488' }}
+                    activeDot={{ r: 6 }}
+                    connectNulls
+                  />
+                ) : null}
+                {metabolicPoints.some((d) => d.pth !== undefined) ? (
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="pth"
+                    name="PTH pg/mL (Trục phải)"
+                    stroke="#7c3aed"
+                    strokeWidth={2.4}
+                    dot={{ r: 4, fill: '#7c3aed' }}
+                    activeDot={{ r: 6 }}
+                    connectNulls
+                  />
+                ) : null}
+                {metabolicPoints.some((d) => d.albumin !== undefined) ? (
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="albumin"
+                    name="Albumin g/L (Trục phải)"
+                    stroke="#475569"
+                    strokeWidth={2}
+                    strokeDasharray="3 3"
+                    dot={{ r: 3.5, fill: '#475569' }}
+                    activeDot={{ r: 5.5 }}
+                    connectNulls
+                  />
+                ) : null}
+                {metabolicPoints.some((d) => d.vitaminD !== undefined) ? (
                   <Line
                     yAxisId="right"
                     type="monotone"

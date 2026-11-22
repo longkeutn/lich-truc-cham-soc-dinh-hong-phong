@@ -334,6 +334,12 @@ export interface LabResultEntry {
   calciumUnit?: 'mmol/L' | 'mg/dL';
   calcium?: number;             // Canxi máu toàn phần
   ionizedCalcium?: number;      // Canxi ion hóa Ca++ (mmol/L)
+  phosphorusUnit?: 'mmol/L' | 'mg/dL';
+  phosphorus?: number;          // Phospho máu (1 mmol/L ≈ 3.097 mg/dL)
+  pthUnit?: 'pg/mL' | 'pmol/L';
+  pth?: number;                 // PTH - Hormone tuyến cận giáp (1 pmol/L ≈ 9.43 pg/mL)
+  albuminUnit?: 'g/L' | 'g/dL';
+  albumin?: number;             // Albumin máu (tính Canxi hiệu chỉnh; 1 g/dL = 10 g/L)
   vitaminD?: number;            // 25-OH Vitamin D (ng/mL)
 
   // Nhóm 5: Chức năng Gan, Thận & Huyết học

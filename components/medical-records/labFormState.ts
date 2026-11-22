@@ -18,6 +18,9 @@ export interface LabUnitLocks {
   lipid?: boolean;
   glucose?: boolean;
   calcium?: boolean;
+  phosphorus?: boolean;
+  pth?: boolean;
+  albumin?: boolean;
 }
 
 export interface LabFullFormState {
@@ -84,6 +87,9 @@ export function detectDefaultExamPackage(params: {
     hasNum(editingEntry.hemoglobin) ||
     hasNum(editingEntry.calcium) ||
     hasNum(editingEntry.ionizedCalcium) ||
+    hasNum(editingEntry.phosphorus) ||
+    hasNum(editingEntry.pth) ||
+    hasNum(editingEntry.albumin) ||
     hasNum(editingEntry.vitaminD) ||
     Boolean(editingEntry.customLabs?.length);
 
@@ -105,6 +111,9 @@ export function hasAdvancedFieldsForPackage(
     hasNum(entry.antiTpo) ||
     hasNum(entry.hdlC) ||
     hasNum(entry.ionizedCalcium) ||
+    hasNum(entry.phosphorus) ||
+    hasNum(entry.pth) ||
+    hasNum(entry.albumin) ||
     hasNum(entry.vitaminD) ||
     hasNum(entry.urea) ||
     hasNum(entry.uricAcid) ||
@@ -143,6 +152,9 @@ export function resolveEffectiveLabUnits(state: LabFullFormState): {
   lipidUnit: 'mmol/L' | 'mg/dL';
   glucoseUnit: 'mmol/L' | 'mg/dL';
   calciumUnit: 'mmol/L' | 'mg/dL';
+  phosphorusUnit: 'mmol/L' | 'mg/dL';
+  pthUnit: 'pg/mL' | 'pmol/L';
+  albuminUnit: 'g/L' | 'g/dL';
 } {
   const locks = state.unitLocks || {};
 
@@ -188,7 +200,36 @@ export function resolveEffectiveLabUnits(state: LabFullFormState): {
         : 'mmol/L'
       : state.bio.calciumUnit;
 
-  return { ft4Unit, lipidUnit, glucoseUnit, calciumUnit };
+  const phosphorusNum = parseOptionalNumber(state.bio.phosphorus);
+  const phosphorusUnit: 'mmol/L' | 'mg/dL' = locks.phosphorus
+    ? state.bio.phosphorusUnit
+    : phosphorusNum !== undefined
+      ? phosphorusNum > 2.2
+        ? 'mg/dL'
+        : 'mmol/L'
+      : state.bio.phosphorusUnit;
+
+  // Khong tu doan pmol/L cho PTH vi suy can giap sau mo co gia tri 2-10 pg/mL
+  const pthUnit: 'pg/mL' | 'pmol/L' = state.bio.pthUnit;
+
+  const albuminNum = parseOptionalNumber(state.bio.albumin);
+  const albuminUnit: 'g/L' | 'g/dL' = locks.albumin
+    ? state.bio.albuminUnit
+    : albuminNum !== undefined
+      ? albuminNum > 12
+        ? 'g/L'
+        : 'g/dL'
+      : state.bio.albuminUnit;
+
+  return {
+    ft4Unit,
+    lipidUnit,
+    glucoseUnit,
+    calciumUnit,
+    phosphorusUnit,
+    pthUnit,
+    albuminUnit,
+  };
 }
 
 export function createInitialLabFormState(params: {
@@ -236,6 +277,12 @@ export function createInitialLabFormState(params: {
         calciumUnit: editingEntry.calciumUnit || 'mmol/L',
         calcium: numStr(editingEntry.calcium),
         ionizedCalcium: numStr(editingEntry.ionizedCalcium),
+        phosphorusUnit: editingEntry.phosphorusUnit || 'mmol/L',
+        phosphorus: numStr(editingEntry.phosphorus),
+        pthUnit: editingEntry.pthUnit || 'pg/mL',
+        pth: numStr(editingEntry.pth),
+        albuminUnit: editingEntry.albuminUnit || 'g/L',
+        albumin: numStr(editingEntry.albumin),
         vitaminD: numStr(editingEntry.vitaminD),
         ast: numStr(editingEntry.ast),
         alt: numStr(editingEntry.alt),
@@ -252,6 +299,9 @@ export function createInitialLabFormState(params: {
         lipid: Boolean(editingEntry.lipidUnit),
         glucose: Boolean(editingEntry.glucoseUnit),
         calcium: Boolean(editingEntry.calciumUnit),
+        phosphorus: Boolean(editingEntry.phosphorusUnit),
+        pth: Boolean(editingEntry.pthUnit),
+        albumin: Boolean(editingEntry.albuminUnit),
       },
     };
   }
@@ -289,6 +339,12 @@ export function createInitialLabFormState(params: {
       calciumUnit: latestLab?.calciumUnit || 'mmol/L',
       calcium: '',
       ionizedCalcium: '',
+      phosphorusUnit: latestLab?.phosphorusUnit || 'mmol/L',
+      phosphorus: '',
+      pthUnit: latestLab?.pthUnit || 'pg/mL',
+      pth: '',
+      albuminUnit: latestLab?.albuminUnit || 'g/L',
+      albumin: '',
       vitaminD: '',
       ast: '',
       alt: '',
@@ -348,6 +404,12 @@ export function buildLabEntryFromFormState(params: {
     calciumUnit: effectiveUnits.calciumUnit,
     calcium: parseOptionalNumber(state.bio.calcium),
     ionizedCalcium: parseOptionalNumber(state.bio.ionizedCalcium),
+    phosphorusUnit: effectiveUnits.phosphorusUnit,
+    phosphorus: parseOptionalNumber(state.bio.phosphorus),
+    pthUnit: effectiveUnits.pthUnit,
+    pth: parseOptionalNumber(state.bio.pth),
+    albuminUnit: effectiveUnits.albuminUnit,
+    albumin: parseOptionalNumber(state.bio.albumin),
     vitaminD: parseOptionalNumber(state.bio.vitaminD),
     ast: parseOptionalNumber(state.bio.ast),
     alt: parseOptionalNumber(state.bio.alt),

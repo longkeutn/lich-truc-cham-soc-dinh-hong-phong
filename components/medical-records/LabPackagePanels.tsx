@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle2, FileText, HeartPulse } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, FileText, HeartPulse } from 'lucide-react';
 import { QUICK_DOSES } from './labRecordsUtils';
 import { LabMetricInput, type LabBiochemFormValues } from './LabFormPanels';
 import {
@@ -107,10 +107,14 @@ export function LabPackageSelector({
 
 export function ThyroidQuickPanel({
   form,
+  showParathyroidQuick,
+  onToggleParathyroidQuick,
   onSetField,
   onSetBioField,
 }: {
   form: LabFullFormState;
+  showParathyroidQuick: boolean;
+  onToggleParathyroidQuick: () => void;
   onSetField: <K extends keyof LabFullFormState>(key: K, value: LabFullFormState[K]) => void;
   onSetBioField: <K extends keyof LabBiochemFormValues>(
     field: K,
@@ -188,6 +192,62 @@ export function ThyroidQuickPanel({
           onChange={(v) => onSetBioField('calcium', v)}
           placeholder={effectiveUnits.calciumUnit === 'mmol/L' ? 'VD: 2.3' : 'VD: 9.2'}
         />
+      </div>
+
+      <div className="pt-1">
+        <button
+          type="button"
+          onClick={onToggleParathyroidQuick}
+          aria-expanded={showParathyroidQuick}
+          className="w-full min-h-[48px] min-w-[48px] px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-white/90 hover:bg-indigo-50/70 text-indigo-950 text-sm font-extrabold flex items-center justify-between gap-2 transition cursor-pointer"
+        >
+          <span>
+            🦴 Bộ Cận Giáp &amp; Hiệu Chỉnh Canxi (PTH, Phospho, Albumin, Vitamin D)
+          </span>
+          {showParathyroidQuick ? (
+            <ChevronUp className="w-4 h-4 shrink-0" />
+          ) : (
+            <ChevronDown className="w-4 h-4 shrink-0" />
+          )}
+        </button>
+
+        {showParathyroidQuick && (
+          <div className="mt-2.5 rounded-xl border border-indigo-200/80 bg-white/85 p-3 space-y-2.5">
+            <p className="text-xs sm:text-sm font-semibold text-indigo-900">
+              Hệ thống tự động quy đổi đơn vị và tính Canxi hiệu chỉnh theo Albumin + tích số Ca × Phospho.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <LabMetricInput
+                label="PTH (Cận giáp)"
+                subHint={effectiveUnits.pthUnit}
+                value={form.bio.pth}
+                onChange={(v) => onSetBioField('pth', v)}
+                placeholder={effectiveUnits.pthUnit === 'pg/mL' ? 'VD: 32' : 'VD: 3.4'}
+              />
+              <LabMetricInput
+                label="Phospho máu"
+                subHint={effectiveUnits.phosphorusUnit}
+                value={form.bio.phosphorus}
+                onChange={(v) => onSetBioField('phosphorus', v)}
+                placeholder={effectiveUnits.phosphorusUnit === 'mmol/L' ? 'VD: 1.15' : 'VD: 3.5'}
+              />
+              <LabMetricInput
+                label="Albumin máu"
+                subHint={effectiveUnits.albuminUnit}
+                value={form.bio.albumin}
+                onChange={(v) => onSetBioField('albumin', v)}
+                placeholder={effectiveUnits.albuminUnit === 'g/L' ? 'VD: 42' : 'VD: 4.2'}
+              />
+              <LabMetricInput
+                label="Vitamin D"
+                subHint="ng/mL"
+                value={form.bio.vitaminD}
+                onChange={(v) => onSetBioField('vitaminD', v)}
+                placeholder="VD: 34"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -3,6 +3,13 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { CustomLabItem } from '@/lib/types';
+import {
+  LabMetricInput,
+  LabUnitMetricField,
+  UnitToggleGroup,
+} from './LabFieldInputs';
+
+export { LabMetricInput, LabUnitMetricField };
 
 export interface LabBiochemFormValues {
   lipidUnit: 'mmol/L' | 'mg/dL';
@@ -16,6 +23,12 @@ export interface LabBiochemFormValues {
   calciumUnit: 'mmol/L' | 'mg/dL';
   calcium: string;
   ionizedCalcium: string;
+  phosphorusUnit: 'mmol/L' | 'mg/dL';
+  phosphorus: string;
+  pthUnit: 'pg/mL' | 'pmol/L';
+  pth: string;
+  albuminUnit: 'g/L' | 'g/dL';
+  albumin: string;
   vitaminD: string;
   ast: string;
   alt: string;
@@ -26,6 +39,8 @@ export interface LabBiochemFormValues {
   customLabs: CustomLabItem[];
 }
 
+export type LabBioUnitKind = 'lipid' | 'glucose' | 'calcium' | 'phosphorus' | 'pth' | 'albumin';
+
 interface LabFormPanelsProps {
   values: LabBiochemFormValues;
   onChangeField: <K extends keyof LabBiochemFormValues>(
@@ -33,101 +48,7 @@ interface LabFormPanelsProps {
     value: LabBiochemFormValues[K]
   ) => void;
   hiddenFields?: ReadonlyArray<keyof LabBiochemFormValues>;
-  onManualUnitSelect?: (kind: 'lipid' | 'glucose' | 'calcium') => void;
-}
-
-export function LabMetricInput({
-  label,
-  subHint,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  subHint?: string;
-  value: string;
-  onChange: (val: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div>
-      <label className="block text-base font-extrabold text-text-body mb-1">
-        {label}
-        {subHint ? (
-          <span className="text-xs sm:text-sm font-semibold text-text-muted ml-1">
-            ({subHint})
-          </span>
-        ) : null}
-      </label>
-      <input
-        type="text"
-        inputMode="decimal"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder || 'Để trống nếu không đo'}
-        className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card focus:outline-none focus:ring-2 focus:ring-medical-primary"
-      />
-    </div>
-  );
-}
-
-export function LabUnitMetricField<U extends string>({
-  label,
-  value,
-  onChange,
-  unit,
-  options,
-  onUnitChange,
-  placeholder,
-  refHint,
-}: {
-  label: string;
-  value: string;
-  onChange: (val: string) => void;
-  unit: U;
-  options: readonly [U, U];
-  onUnitChange: (nextUnit: U) => void;
-  placeholder?: string;
-  refHint?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-indigo-200/80 bg-surface-card p-3 space-y-2">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div>
-          <label className="block text-base font-extrabold text-text-main">{label}</label>
-          {refHint ? (
-            <span className="block text-xs sm:text-sm font-semibold text-text-muted">
-              Chuẩn: {refHint}
-            </span>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-1.5" role="group" aria-label={`Đơn vị ${label}`}>
-          {options.map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => onUnitChange(opt)}
-              className={`min-h-[48px] min-w-[64px] px-3 py-2 rounded-xl text-sm font-extrabold border transition cursor-pointer ${
-                unit === opt
-                  ? 'bg-thyroid-accent text-white border-indigo-700 shadow-2xs'
-                  : 'bg-slate-50 hover:bg-indigo-50 text-text-body border-border-card'
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
-      </div>
-      <input
-        type="text"
-        inputMode="decimal"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder || `Nhập ${label} (${unit})`}
-        className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card focus:outline-none focus:ring-2 focus:ring-medical-primary"
-      />
-    </div>
-  );
+  onManualUnitSelect?: (kind: LabBioUnitKind) => void;
 }
 
 export function LabFormPanels({
@@ -147,6 +68,9 @@ export function LabFormPanels({
     !isHidden('hba1c') ||
     !isHidden('calcium') ||
     !isHidden('ionizedCalcium') ||
+    !isHidden('phosphorus') ||
+    !isHidden('pth') ||
+    !isHidden('albumin') ||
     !isHidden('vitaminD');
   const showLiverKidneyGroup =
     !isHidden('ast') ||
@@ -191,25 +115,14 @@ export function LabFormPanels({
             <h4 className="text-base font-black text-text-main uppercase">
               ❤️ Bộ Mỡ Máu - Tim Mạch (Đơn vị &amp; Chỉ số bổ sung)
             </h4>
-            <div className="flex items-center gap-1.5">
-              {(['mmol/L', 'mg/dL'] as const).map((u) => (
-                <button
-                  key={u}
-                  type="button"
-                  onClick={() => {
-                    onChangeField('lipidUnit', u);
-                    onManualUnitSelect?.('lipid');
-                  }}
-                  className={`min-h-[48px] min-w-[68px] px-3 py-2 rounded-xl text-sm font-extrabold border transition cursor-pointer ${
-                    values.lipidUnit === u
-                      ? 'bg-medical-primary text-white border-medical-dark shadow-2xs'
-                      : 'bg-surface-card text-text-body border-border-card hover:bg-slate-100'
-                  }`}
-                >
-                  {u}
-                </button>
-              ))}
-            </div>
+            <UnitToggleGroup
+              unit={values.lipidUnit}
+              options={['mmol/L', 'mg/dL']}
+              onSelect={(u) => {
+                onChangeField('lipidUnit', u);
+                onManualUnitSelect?.('lipid');
+              }}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -249,54 +162,73 @@ export function LabFormPanels({
         </div>
       )}
 
-      {/* Nhóm 4: Đường huyết, Canxi & Vitamin D */}
+      {/* Nhóm 4: Đường huyết, Canxi, Cận giáp & Vitamin D */}
       {showMetabolicGroup && (
         <div className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 sm:p-4 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <h4 className="text-base font-black text-text-main uppercase">
-              🦴 Đường Huyết, Canxi &amp; Vitamin D
+              🦴 Đường Huyết, Canxi, Cận Giáp &amp; Vitamin D
             </h4>
-            <div className="flex items-center gap-2 flex-wrap text-sm">
-              <span className="font-bold text-text-body">Đường:</span>
-              {(['mmol/L', 'mg/dL'] as const).map((u) => (
-                <button
-                  key={`glu-${u}`}
-                  type="button"
-                  onClick={() => {
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {!isHidden('glucose') && (
+                <UnitToggleGroup
+                  label="Đường"
+                  unit={values.glucoseUnit}
+                  options={['mmol/L', 'mg/dL']}
+                  onSelect={(u) => {
                     onChangeField('glucoseUnit', u);
                     onManualUnitSelect?.('glucose');
                   }}
-                  className={`min-h-[48px] min-w-[68px] px-3 py-2 rounded-xl text-sm font-extrabold border transition cursor-pointer ${
-                    values.glucoseUnit === u
-                      ? 'bg-medical-primary text-white border-medical-dark shadow-2xs'
-                      : 'bg-surface-card text-text-body border-border-card hover:bg-slate-100'
-                  }`}
-                >
-                  {u}
-                </button>
-              ))}
-              <span className="font-bold text-text-body ml-1">Canxi:</span>
-              {(['mmol/L', 'mg/dL'] as const).map((u) => (
-                <button
-                  key={`ca-${u}`}
-                  type="button"
-                  onClick={() => {
+                />
+              )}
+              {!isHidden('calcium') && (
+                <UnitToggleGroup
+                  label="Canxi"
+                  unit={values.calciumUnit}
+                  options={['mmol/L', 'mg/dL']}
+                  onSelect={(u) => {
                     onChangeField('calciumUnit', u);
                     onManualUnitSelect?.('calcium');
                   }}
-                  className={`min-h-[48px] min-w-[68px] px-3 py-2 rounded-xl text-sm font-extrabold border transition cursor-pointer ${
-                    values.calciumUnit === u
-                      ? 'bg-medical-primary text-white border-medical-dark shadow-2xs'
-                      : 'bg-surface-card text-text-body border-border-card hover:bg-slate-100'
-                  }`}
-                >
-                  {u}
-                </button>
-              ))}
+                />
+              )}
+              {!isHidden('phosphorus') && (
+                <UnitToggleGroup
+                  label="Phospho"
+                  unit={values.phosphorusUnit}
+                  options={['mmol/L', 'mg/dL']}
+                  onSelect={(u) => {
+                    onChangeField('phosphorusUnit', u);
+                    onManualUnitSelect?.('phosphorus');
+                  }}
+                />
+              )}
+              {!isHidden('pth') && (
+                <UnitToggleGroup
+                  label="PTH"
+                  unit={values.pthUnit}
+                  options={['pg/mL', 'pmol/L']}
+                  onSelect={(u) => {
+                    onChangeField('pthUnit', u);
+                    onManualUnitSelect?.('pth');
+                  }}
+                />
+              )}
+              {!isHidden('albumin') && (
+                <UnitToggleGroup
+                  label="Albumin"
+                  unit={values.albuminUnit}
+                  options={['g/L', 'g/dL']}
+                  onSelect={(u) => {
+                    onChangeField('albuminUnit', u);
+                    onManualUnitSelect?.('albumin');
+                  }}
+                />
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {!isHidden('glucose') && (
               <LabMetricInput
                 label="Glucose đói"
@@ -327,6 +259,33 @@ export function LabFormPanels({
                 subHint="mmol/L"
                 value={values.ionizedCalcium}
                 onChange={(v) => onChangeField('ionizedCalcium', v)}
+              />
+            )}
+            {!isHidden('phosphorus') && (
+              <LabMetricInput
+                label="Phospho máu"
+                subHint={values.phosphorusUnit}
+                value={values.phosphorus}
+                onChange={(v) => onChangeField('phosphorus', v)}
+                placeholder={values.phosphorusUnit === 'mmol/L' ? 'VD: 1.15' : 'VD: 3.5'}
+              />
+            )}
+            {!isHidden('pth') && (
+              <LabMetricInput
+                label="PTH (Cận giáp)"
+                subHint={values.pthUnit}
+                value={values.pth}
+                onChange={(v) => onChangeField('pth', v)}
+                placeholder={values.pthUnit === 'pg/mL' ? 'VD: 32' : 'VD: 3.4'}
+              />
+            )}
+            {!isHidden('albumin') && (
+              <LabMetricInput
+                label="Albumin máu"
+                subHint={values.albuminUnit}
+                value={values.albumin}
+                onChange={(v) => onChangeField('albumin', v)}
+                placeholder={values.albuminUnit === 'g/L' ? 'VD: 42' : 'VD: 4.2'}
               />
             )}
             {!isHidden('vitaminD') && (

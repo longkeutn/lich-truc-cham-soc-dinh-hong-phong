@@ -7,12 +7,14 @@ import {
   LabFormPanels,
   LabMetricInput,
   LabUnitMetricField,
+  type LabBioUnitKind,
   type LabBiochemFormValues,
 } from './LabFormPanels';
 import type { LabExamPackage, LabFullFormState } from './labFormState';
 
 export function LabAdvancedSection({
   selectedPackage,
+  showParathyroidQuick,
   form,
   members,
   onSetField,
@@ -20,6 +22,7 @@ export function LabAdvancedSection({
   onManualUnitLock,
 }: {
   selectedPackage: LabExamPackage;
+  showParathyroidQuick?: boolean;
   form: LabFullFormState;
   members: FamilyMember[];
   onSetField: <K extends keyof LabFullFormState>(key: K, value: LabFullFormState[K]) => void;
@@ -27,11 +30,13 @@ export function LabAdvancedSection({
     field: K,
     value: LabBiochemFormValues[K]
   ) => void;
-  onManualUnitLock: (kind: 'ft4' | 'lipid' | 'glucose' | 'calcium') => void;
+  onManualUnitLock: (kind: 'ft4' | LabBioUnitKind) => void;
 }) {
   const hiddenBioFields: Array<keyof LabBiochemFormValues> =
     selectedPackage === 'thyroid'
-      ? ['calcium']
+      ? showParathyroidQuick
+        ? ['calcium', 'phosphorus', 'pth', 'albumin', 'vitaminD']
+        : ['calcium']
       : selectedPackage === 'general'
         ? [
             'glucose',

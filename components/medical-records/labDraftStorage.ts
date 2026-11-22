@@ -81,6 +81,9 @@ export function hasMeaningfulLabInput(form: LabFullFormState): boolean {
       bio.uricAcid?.trim() ||
       bio.calcium?.trim() ||
       bio.ionizedCalcium?.trim() ||
+      bio.phosphorus?.trim() ||
+      bio.pth?.trim() ||
+      bio.albumin?.trim() ||
       bio.vitaminD?.trim() ||
       bio.hemoglobin?.trim() ||
       bio.customLabs?.some((c) => c.name?.trim() || c.value?.trim())

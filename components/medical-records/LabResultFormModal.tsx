@@ -9,7 +9,7 @@ import type {
 } from '@/lib/types';
 import { evaluateLabEntry } from '@/lib/config';
 import { QUICK_FACILITIES } from './labRecordsUtils';
-import type { LabBiochemFormValues } from './LabFormPanels';
+import type { LabBioUnitKind, LabBiochemFormValues } from './LabFormPanels';
 import {
   AdviceOnlyBanner,
   GeneralQuickPanel,
@@ -71,6 +71,15 @@ export function LabResultFormModal({
     const pkg = detectDefaultExamPackage({ editingEntry, profileType });
     return hasAdvancedFieldsForPackage(editingEntry, pkg);
   });
+  const [showParathyroidQuick, setShowParathyroidQuick] = useState<boolean>(() =>
+    Boolean(
+      editingEntry &&
+        (editingEntry.pth !== undefined ||
+          editingEntry.phosphorus !== undefined ||
+          editingEntry.albumin !== undefined ||
+          editingEntry.vitaminD !== undefined)
+    )
+  );
   const [form, setForm] = useState<LabFullFormState>(() =>
     createInitialLabFormState({
       editingEntry,
@@ -101,6 +110,14 @@ export function LabResultFormModal({
         if (draft && hasMeaningfulLabInput(draft.form)) {
           setSelectedPackage(draft.selectedPackage);
           setShowAdvanced(draft.showAdvanced);
+          setShowParathyroidQuick(
+            Boolean(
+              draft.form.bio?.pth?.trim() ||
+                draft.form.bio?.phosphorus?.trim() ||
+                draft.form.bio?.albumin?.trim() ||
+                draft.form.bio?.vitaminD?.trim()
+            )
+          );
           setForm(draft.form);
           setRestoredDraftNotice(true);
           return;
@@ -111,6 +128,15 @@ export function LabResultFormModal({
       const defaultPkg = detectDefaultExamPackage({ editingEntry, profileType });
       setSelectedPackage(defaultPkg);
       setShowAdvanced(hasAdvancedFieldsForPackage(editingEntry, defaultPkg));
+      setShowParathyroidQuick(
+        Boolean(
+          editingEntry &&
+            (editingEntry.pth !== undefined ||
+              editingEntry.phosphorus !== undefined ||
+              editingEntry.albumin !== undefined ||
+              editingEntry.vitaminD !== undefined)
+        )
+      );
       setForm(
         createInitialLabFormState({
           editingEntry,
@@ -171,7 +197,7 @@ export function LabResultFormModal({
     setForm((prev) => ({ ...prev, bio: { ...prev.bio, [field]: value } }));
   };
 
-  const handleManualUnitLock = (kind: 'ft4' | 'lipid' | 'glucose' | 'calcium') => {
+  const handleManualUnitLock = (kind: 'ft4' | LabBioUnitKind) => {
     setForm((prev) => ({
       ...prev,
       unitLocks: { ...(prev.unitLocks || {}), [kind]: true },
@@ -323,6 +349,8 @@ export function LabResultFormModal({
           {selectedPackage === 'thyroid' && (
             <ThyroidQuickPanel
               form={form}
+              showParathyroidQuick={showParathyroidQuick}
+              onToggleParathyroidQuick={() => setShowParathyroidQuick((v) => !v)}
               onSetField={setField}
               onSetBioField={setBioField}
             />
@@ -426,6 +454,7 @@ export function LabResultFormModal({
           {showAdvanced && (
             <LabAdvancedSection
               selectedPackage={selectedPackage}
+              showParathyroidQuick={showParathyroidQuick}
               form={form}
               members={members}
               onSetField={setField}

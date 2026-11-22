@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { AlertTriangle, Edit3 } from 'lucide-react';
-import type { LabResultEntry } from '@/lib/types';
+import type { HealthProfileType, LabResultEntry } from '@/lib/types';
 import type { LabIndicatorEval } from '@/lib/config';
 import {
   fmtDateShort,
@@ -10,10 +10,12 @@ import {
   type LabChartPoint,
 } from './labRecordsUtils';
 import { BiochemistryTrendChart } from './BiochemistryTrendChart';
+import { ParathyroidClinicalGuideCard } from './ParathyroidClinicalGuideCard';
 
 export interface BiochemistryTrackerSectionProps {
   latestLab: LabResultEntry | null;
   previousLab: LabResultEntry | null;
+  profileType?: HealthProfileType;
   indicators: LabIndicatorEval[];
   summaryPoints: string[];
   chartData: LabChartPoint[];
@@ -27,6 +29,7 @@ type BioFilter = 'all_bio' | 'lipid' | 'metabolic' | 'liver_kidney';
 export function BiochemistryTrackerSection({
   latestLab,
   previousLab,
+  profileType = 'general_health',
   indicators,
   summaryPoints,
   chartData,
@@ -102,7 +105,7 @@ export function BiochemistryTrackerSection({
         {[
           { id: 'all_bio', label: 'Tất cả Hóa sinh' },
           { id: 'lipid', label: '❤️ Bộ Mỡ máu' },
-          { id: 'metabolic', label: '🦴 Đường huyết & Canxi/VitD' },
+          { id: 'metabolic', label: '🦴 Canxi, Cận giáp & Đường' },
           { id: 'liver_kidney', label: '🧪 Gan, Thận & Huyết học' },
         ].map((tab) => (
           <button
@@ -186,6 +189,11 @@ export function BiochemistryTrackerSection({
             </div>
           ))}
         </div>
+      )}
+
+      {/* Phân tích lâm sàng trục Cận giáp - Canxi - Phospho - Albumin */}
+      {(bioFilter === 'all_bio' || bioFilter === 'metabolic') && (
+        <ParathyroidClinicalGuideCard latestLab={latestLab} profileType={profileType} />
       )}
 
       {/* Biểu đồ xu hướng Hóa sinh theo nhóm */}
