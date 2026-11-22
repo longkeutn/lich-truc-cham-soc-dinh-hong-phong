@@ -19,3 +19,6 @@ export type {
   SyncStateKind,
   OfflineSyncIndicatorProps,
 } from './OfflineSyncIndicator';
+
+export { MedicalInfoToggle } from './MedicalInfoToggle';
+export type { MedicalInfoToggleProps } from './MedicalInfoToggle';

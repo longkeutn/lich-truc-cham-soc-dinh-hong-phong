@@ -26,10 +26,19 @@ const TRACKED_LAB_KEYS = [
   'vitaminD',
   'ast',
   'alt',
+  'ggt',
+  'bilirubinTotal',
+  'bilirubinDirect',
   'creatinine',
+  'egfr',
   'urea',
   'uricAcid',
   'hemoglobin',
+  'gallbladderPolypMm',
+  'gallbladderPolypCount',
+  'liverUltrasound',
+  'kidneyUltrasound',
+  'nextUltrasoundDate',
 ] as const;
 
 export interface LatestKnownLabSnapshot {

@@ -191,6 +191,33 @@ export function ClinicalAppointmentSection({
                         {entry.doctorAdvice}
                       </div>
                     )}
+                    {(entry.gallbladderPolypCount ||
+                      entry.liverUltrasound ||
+                      entry.kidneyUltrasound ||
+                      entry.nextUltrasoundDate) && (
+                      <div className="rounded-xl bg-teal-50/70 border border-teal-200 p-3 text-sm text-teal-950 flex flex-wrap gap-x-4 gap-y-1">
+                        {entry.gallbladderPolypCount && (
+                          <span>
+                            <strong>Polyp túi mật:</strong> {entry.gallbladderPolypCount}
+                          </span>
+                        )}
+                        {entry.liverUltrasound && (
+                          <span>
+                            <strong>Siêu âm gan:</strong> {entry.liverUltrasound}
+                          </span>
+                        )}
+                        {entry.kidneyUltrasound && (
+                          <span>
+                            <strong>Siêu âm thận:</strong> {entry.kidneyUltrasound}
+                          </span>
+                        )}
+                        {entry.nextUltrasoundDate && (
+                          <span>
+                            <strong>Hẹn siêu âm lại:</strong> {fmtDateShort(entry.nextUltrasoundDate)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {ev.indicators.length > 0 && (
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                         {ev.indicators.map((ind) => (

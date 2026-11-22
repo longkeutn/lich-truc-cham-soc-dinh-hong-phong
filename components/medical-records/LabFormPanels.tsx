@@ -3,6 +3,7 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { CustomLabItem } from '@/lib/types';
+import { getLabMedicalGuide } from '@/lib/labMedicalGuides';
 import {
   LabMetricInput,
   LabUnitMetricField,
@@ -32,10 +33,19 @@ export interface LabBiochemFormValues {
   vitaminD: string;
   ast: string;
   alt: string;
+  ggt: string;
+  bilirubinTotal: string;
+  bilirubinDirect: string;
   creatinine: string;
+  egfr: string;
   urea: string;
   uricAcid: string;
   hemoglobin: string;
+  gallbladderPolypMm: string;
+  gallbladderPolypCount: string;
+  liverUltrasound: string;
+  kidneyUltrasound: string;
+  nextUltrasoundDate: string;
   customLabs: CustomLabItem[];
 }
 
@@ -75,10 +85,18 @@ export function LabFormPanels({
   const showLiverKidneyGroup =
     !isHidden('ast') ||
     !isHidden('alt') ||
+    !isHidden('ggt') ||
+    !isHidden('bilirubinTotal') ||
+    !isHidden('bilirubinDirect') ||
     !isHidden('creatinine') ||
+    !isHidden('egfr') ||
     !isHidden('urea') ||
     !isHidden('uricAcid') ||
     !isHidden('hemoglobin');
+  const showUltrasoundGroup =
+    !isHidden('gallbladderPolypMm') ||
+    !isHidden('liverUltrasound') ||
+    !isHidden('kidneyUltrasound');
   const handleAddCustomRow = () => {
     onChangeField('customLabs', [
       ...values.customLabs,
@@ -132,6 +150,7 @@ export function LabFormPanels({
                 subHint={values.lipidUnit === 'mmol/L' ? '<5.2' : '<200'}
                 value={values.cholesterol}
                 onChange={(v) => onChangeField('cholesterol', v)}
+                infoGuide={getLabMedicalGuide('cholesterol')}
               />
             )}
             {!isHidden('ldlC') && (
@@ -140,6 +159,7 @@ export function LabFormPanels({
                 subHint={values.lipidUnit === 'mmol/L' ? '<2.6' : '<100'}
                 value={values.ldlC}
                 onChange={(v) => onChangeField('ldlC', v)}
+                infoGuide={getLabMedicalGuide('ldlC')}
               />
             )}
             {!isHidden('hdlC') && (
@@ -148,6 +168,7 @@ export function LabFormPanels({
                 subHint={values.lipidUnit === 'mmol/L' ? '>1.15' : '>45'}
                 value={values.hdlC}
                 onChange={(v) => onChangeField('hdlC', v)}
+                infoGuide={getLabMedicalGuide('hdlC')}
               />
             )}
             {!isHidden('triglyceride') && (
@@ -156,6 +177,7 @@ export function LabFormPanels({
                 subHint={values.lipidUnit === 'mmol/L' ? '<1.7' : '<150'}
                 value={values.triglyceride}
                 onChange={(v) => onChangeField('triglyceride', v)}
+                infoGuide={getLabMedicalGuide('triglyceride')}
               />
             )}
           </div>
@@ -235,6 +257,7 @@ export function LabFormPanels({
                 subHint={values.glucoseUnit}
                 value={values.glucose}
                 onChange={(v) => onChangeField('glucose', v)}
+                infoGuide={getLabMedicalGuide('glucose')}
               />
             )}
             {!isHidden('hba1c') && (
@@ -243,6 +266,7 @@ export function LabFormPanels({
                 subHint="%"
                 value={values.hba1c}
                 onChange={(v) => onChangeField('hba1c', v)}
+                infoGuide={getLabMedicalGuide('hba1c')}
               />
             )}
             {!isHidden('calcium') && (
@@ -251,6 +275,7 @@ export function LabFormPanels({
                 subHint={values.calciumUnit}
                 value={values.calcium}
                 onChange={(v) => onChangeField('calcium', v)}
+                infoGuide={getLabMedicalGuide('calcium')}
               />
             )}
             {!isHidden('ionizedCalcium') && (
@@ -259,6 +284,7 @@ export function LabFormPanels({
                 subHint="mmol/L"
                 value={values.ionizedCalcium}
                 onChange={(v) => onChangeField('ionizedCalcium', v)}
+                infoGuide={getLabMedicalGuide('ionizedCalcium')}
               />
             )}
             {!isHidden('phosphorus') && (
@@ -268,6 +294,7 @@ export function LabFormPanels({
                 value={values.phosphorus}
                 onChange={(v) => onChangeField('phosphorus', v)}
                 placeholder={values.phosphorusUnit === 'mmol/L' ? 'VD: 1.15' : 'VD: 3.5'}
+                infoGuide={getLabMedicalGuide('phosphorus')}
               />
             )}
             {!isHidden('pth') && (
@@ -277,6 +304,7 @@ export function LabFormPanels({
                 value={values.pth}
                 onChange={(v) => onChangeField('pth', v)}
                 placeholder={values.pthUnit === 'pg/mL' ? 'VD: 32' : 'VD: 3.4'}
+                infoGuide={getLabMedicalGuide('pth')}
               />
             )}
             {!isHidden('albumin') && (
@@ -286,6 +314,7 @@ export function LabFormPanels({
                 value={values.albumin}
                 onChange={(v) => onChangeField('albumin', v)}
                 placeholder={values.albuminUnit === 'g/L' ? 'VD: 42' : 'VD: 4.2'}
+                infoGuide={getLabMedicalGuide('albumin')}
               />
             )}
             {!isHidden('vitaminD') && (
@@ -294,17 +323,18 @@ export function LabFormPanels({
                 subHint="ng/mL"
                 value={values.vitaminD}
                 onChange={(v) => onChangeField('vitaminD', v)}
+                infoGuide={getLabMedicalGuide('vitaminD')}
               />
             )}
           </div>
         </div>
       )}
 
-      {/* Nhóm 5: Gan, Thận & Huyết học */}
+      {/* Nhóm 5: Gan, Mật, Thận & Huyết học */}
       {showLiverKidneyGroup && (
         <div className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 sm:p-4 space-y-3">
           <h4 className="text-base font-black text-text-main uppercase">
-            🧪 Chức Năng Gan, Thận &amp; Huyết Học (Mở rộng)
+            🧪 Chức Năng Gan, Mật, Thận &amp; Huyết Học
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {!isHidden('ast') && (
@@ -313,6 +343,7 @@ export function LabFormPanels({
                 subHint="U/L"
                 value={values.ast}
                 onChange={(v) => onChangeField('ast', v)}
+                infoGuide={getLabMedicalGuide('ast')}
               />
             )}
             {!isHidden('alt') && (
@@ -321,6 +352,37 @@ export function LabFormPanels({
                 subHint="U/L"
                 value={values.alt}
                 onChange={(v) => onChangeField('alt', v)}
+                infoGuide={getLabMedicalGuide('alt')}
+              />
+            )}
+            {!isHidden('ggt') && (
+              <LabMetricInput
+                label="GGT (Gamma-GT)"
+                subHint="U/L"
+                value={values.ggt}
+                onChange={(v) => onChangeField('ggt', v)}
+                placeholder="VD: 35"
+                infoGuide={getLabMedicalGuide('ggt')}
+              />
+            )}
+            {!isHidden('bilirubinTotal') && (
+              <LabMetricInput
+                label="Bilirubin toàn phần"
+                subHint="µmol/L"
+                value={values.bilirubinTotal}
+                onChange={(v) => onChangeField('bilirubinTotal', v)}
+                placeholder="VD: 12.5"
+                infoGuide={getLabMedicalGuide('bilirubinTotal')}
+              />
+            )}
+            {!isHidden('bilirubinDirect') && (
+              <LabMetricInput
+                label="Bilirubin trực tiếp"
+                subHint="µmol/L"
+                value={values.bilirubinDirect}
+                onChange={(v) => onChangeField('bilirubinDirect', v)}
+                placeholder="VD: 3.2"
+                infoGuide={getLabMedicalGuide('bilirubinDirect')}
               />
             )}
             {!isHidden('creatinine') && (
@@ -329,6 +391,17 @@ export function LabFormPanels({
                 subHint="µmol/L"
                 value={values.creatinine}
                 onChange={(v) => onChangeField('creatinine', v)}
+                infoGuide={getLabMedicalGuide('creatinine')}
+              />
+            )}
+            {!isHidden('egfr') && (
+              <LabMetricInput
+                label="eGFR (Mức lọc cầu thận)"
+                subHint="mL/phút"
+                value={values.egfr}
+                onChange={(v) => onChangeField('egfr', v)}
+                placeholder="VD: 84"
+                infoGuide={getLabMedicalGuide('egfr')}
               />
             )}
             {!isHidden('urea') && (
@@ -337,14 +410,16 @@ export function LabFormPanels({
                 subHint="mmol/L"
                 value={values.urea}
                 onChange={(v) => onChangeField('urea', v)}
+                infoGuide={getLabMedicalGuide('urea')}
               />
             )}
             {!isHidden('uricAcid') && (
               <LabMetricInput
-                label="Acid Uric"
+                label="Acid Uric (Gout)"
                 subHint="µmol/L"
                 value={values.uricAcid}
                 onChange={(v) => onChangeField('uricAcid', v)}
+                infoGuide={getLabMedicalGuide('uricAcid')}
               />
             )}
             {!isHidden('hemoglobin') && (
@@ -353,7 +428,84 @@ export function LabFormPanels({
                 subHint="g/L hoặc g/dL"
                 value={values.hemoglobin}
                 onChange={(v) => onChangeField('hemoglobin', v)}
+                infoGuide={getLabMedicalGuide('hemoglobin')}
               />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Nhóm 5b: Siêu âm & Chẩn đoán hình ảnh định kỳ */}
+      {showUltrasoundGroup && (
+        <div className="rounded-2xl border border-teal-200 bg-teal-50/40 p-3.5 sm:p-4 space-y-3">
+          <h4 className="text-base font-black text-teal-950 uppercase">
+            🩺 Siêu Âm &amp; Chẩn Đoán Hình Ảnh Định Kỳ (Polyp Túi Mật, Gan, Thận)
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {!isHidden('gallbladderPolypMm') && (
+              <LabMetricInput
+                label="Polyp túi mật lớn nhất"
+                subHint="mm"
+                value={values.gallbladderPolypMm}
+                onChange={(v) => onChangeField('gallbladderPolypMm', v)}
+                placeholder="VD: 4.5"
+                infoGuide={getLabMedicalGuide('gallbladderPolypMm')}
+              />
+            )}
+            {!isHidden('gallbladderPolypCount') && (
+              <div>
+                <label className="block text-base font-extrabold text-text-body mb-1">
+                  Số lượng / mô tả Polyp
+                </label>
+                <input
+                  type="text"
+                  value={values.gallbladderPolypCount}
+                  onChange={(e) => onChangeField('gallbladderPolypCount', e.target.value)}
+                  placeholder="VD: Đơn độc / Nhiều polyp (2-3 cái)"
+                  className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
+                />
+              </div>
+            )}
+            {!isHidden('liverUltrasound') && (
+              <div>
+                <label className="block text-base font-extrabold text-text-body mb-1">
+                  Siêu âm Gan
+                </label>
+                <input
+                  type="text"
+                  value={values.liverUltrasound}
+                  onChange={(e) => onChangeField('liverUltrasound', e.target.value)}
+                  placeholder="VD: Bình thường / Gan nhiễm mỡ độ 1"
+                  className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
+                />
+              </div>
+            )}
+            {!isHidden('kidneyUltrasound') && (
+              <div>
+                <label className="block text-base font-extrabold text-text-body mb-1">
+                  Siêu âm Thận / Đường mật
+                </label>
+                <input
+                  type="text"
+                  value={values.kidneyUltrasound}
+                  onChange={(e) => onChangeField('kidneyUltrasound', e.target.value)}
+                  placeholder="VD: Bình thường / Sỏi thận 3mm"
+                  className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
+                />
+              </div>
+            )}
+            {!isHidden('nextUltrasoundDate') && (
+              <div>
+                <label className="block text-base font-extrabold text-text-body mb-1">
+                  Hẹn siêu âm lại
+                </label>
+                <input
+                  type="date"
+                  value={values.nextUltrasoundDate}
+                  onChange={(e) => onChangeField('nextUltrasoundDate', e.target.value)}
+                  className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
+                />
+              </div>
             )}
           </div>
         </div>

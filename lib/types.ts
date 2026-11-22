@@ -342,13 +342,24 @@ export interface LabResultEntry {
   albumin?: number;             // Albumin máu (tính Canxi hiệu chỉnh; 1 g/dL = 10 g/L)
   vitaminD?: number;            // 25-OH Vitamin D (ng/mL)
 
-  // Nhóm 5: Chức năng Gan, Thận & Huyết học
+  // Nhóm 5: Chức năng Gan, Mật, Thận & Huyết học
   ast?: number;                 // AST / GOT (U/L)
   alt?: number;                 // ALT / GPT (U/L)
+  ggt?: number;                 // GGT - Gamma-GT (U/L, nhạy với rượu bia & đường mật)
+  bilirubinTotal?: number;      // Bilirubin toàn phần (µmol/L)
+  bilirubinDirect?: number;     // Bilirubin trực tiếp (µmol/L)
   creatinine?: number;          // Creatinine máu (µmol/L)
+  egfr?: number;                // Mức lọc cầu thận ước tính eGFR (mL/phút/1.73m²)
   urea?: number;                // Ure máu (mmol/L)
   uricAcid?: number;            // Acid Uric (µmol/L)
   hemoglobin?: number;          // Hemoglobin - Huyết sắc tố (g/dL hoặc g/L)
+
+  // Nhóm 6: Siêu âm & Chẩn đoán hình ảnh định kỳ (Polyp túi mật, Gan, Thận)
+  gallbladderPolypMm?: number;  // Kích thước polyp túi mật lớn nhất (mm)
+  gallbladderPolypCount?: string; // Số lượng / mô tả polyp (VD: Đơn độc, Nhiều polyp)
+  liverUltrasound?: string;     // Kết quả siêu âm gan (VD: Bình thường, Gan nhiễm mỡ độ 1)
+  kidneyUltrasound?: string;    // Kết quả siêu âm thận (VD: Bình thường, Sỏi thận nhỏ)
+  nextUltrasoundDate?: string;  // Ngày hẹn siêu âm định kỳ tiếp theo (YYYY-MM-DD)
 
   // Chỉ số mở rộng tự định nghĩa (CRUD linh hoạt)
   customLabs?: CustomLabItem[];

@@ -88,8 +88,12 @@ export interface LabChartPoint {
   vitaminD?: number;
   ast?: number;
   alt?: number;
+  ggt?: number;
   creatinine?: number;
+  egfr?: number;
+  uricAcid?: number;
   hemoglobin?: number;
+  gallbladderPolypMm?: number;
 }
 
 export const QUICK_DOSES = [
@@ -420,8 +424,12 @@ export function buildLabChartData(sortedLabsAsc: LabResultEntry[]): LabChartPoin
       vitaminD: parseOptionalNumber(item.vitaminD),
       ast: parseOptionalNumber(item.ast),
       alt: parseOptionalNumber(item.alt),
+      ggt: parseOptionalNumber(item.ggt),
       creatinine: parseOptionalNumber(item.creatinine),
+      egfr: parseOptionalNumber(item.egfr),
+      uricAcid: parseOptionalNumber(item.uricAcid),
       hemoglobin: parseOptionalNumber(item.hemoglobin),
+      gallbladderPolypMm: parseOptionalNumber(item.gallbladderPolypMm),
     };
   });
 }

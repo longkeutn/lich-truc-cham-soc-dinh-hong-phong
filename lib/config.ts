@@ -1,4 +1,4 @@
-import { FamilyMember, PhaseConfig, EmergencyContact, ShiftRecord, CarePhase, ShiftType, PatientDailyReminder, PatientInfo, TimeSlot, BpThresholds, RehabStage, AppointmentInfo, CareRoutine, HealthProfile, HealthProfileType, LabResultEntry, TshTargetLevel } from './types';
+import { FamilyMember, PhaseConfig, EmergencyContact, ShiftRecord, CarePhase, ShiftType, PatientDailyReminder, PatientInfo, PatientCustomField, TimeSlot, BpThresholds, RehabStage, AppointmentInfo, CareRoutine, HealthProfile, HealthProfileType, LabResultEntry, TshTargetLevel } from './types';
 import { computeCorrectedCalcium, evaluateParathyroidPanel } from './parathyroidEval';
 import {
   evaluateFt4Indicator,
@@ -53,19 +53,23 @@ export const APP_SHORT_TITLE =
 export const PATIENT_INFO: PatientInfo = {
   name: DEFAULT_MEMBER_NAME,
   diagnosis: IS_FAMILY_STANDARD_MODE
-    ? 'Theo dõi huyết áp, tim mạch & chăm sóc sức khỏe hằng ngày'
+    ? 'Tim mạch & Huyết áp • Theo dõi Gout tái phát • Hội chứng ruột kích thích (IBS) • Polyp túi mật định kỳ'
     : 'Đang phục hồi chức năng sau đột quỵ (tai biến mạch máu não)',
   hospital: IS_FAMILY_STANDARD_MODE
-    ? 'Khám & kiểm tra định kỳ'
+    ? 'Khám & kiểm tra định kỳ (Thái Nguyên)'
     : 'Bệnh viện Bạch Mai - Hà Nội (nơi điều trị trước đó)',
   room: 'Tại nhà',
-  notes: 'Cần theo dõi huyết áp hàng ngày, uống thuốc đúng giờ, tập vận động và nghỉ ngơi đều đặn.',
+  notes: IS_FAMILY_STANDARD_MODE
+    ? 'Nghỉ tĩnh 5-10 phút sau đánh Tennis/đạp xe trước khi đo HA. Uống đủ 2-2.5L nước/ngày để thải Acid Uric ngừa Gout và bảo vệ thận. Hạn chế rượu bia, thuốc lá, đồ mỡ/purin; theo dõi kích thước Polyp túi mật mỗi lần siêu âm định kỳ.'
+    : 'Cần theo dõi huyết áp hàng ngày, uống thuốc đúng giờ, tập vận động và nghỉ ngơi đều đặn.',
   emergencyPhone: IS_FAMILY_STANDARD_MODE ? '' : '0913 218 765',
   statusBadge: 'Theo dõi sức khỏe gia đình',
-  conditionTag: IS_FAMILY_STANDARD_MODE ? 'Huyết áp & Tim mạch' : 'Phục hồi tại nhà',
+  conditionTag: IS_FAMILY_STANDARD_MODE ? 'Tim mạch • Gout • IBS • Polyp mật' : 'Phục hồi tại nhà',
   headerBadge: 'Tại nhà',
   careMode: 'Hằng ngày',
-  careGoal: 'Duy trì huyết áp & sức khỏe ổn định',
+  careGoal: IS_FAMILY_STANDARD_MODE
+    ? 'Ổn định HA, mỡ máu, GGT, Acid Uric <360 & theo dõi Polyp túi mật'
+    : 'Duy trì huyết áp & sức khỏe ổn định',
 };
 
 export const FAMILY_MEMBERS: FamilyMember[] = IS_FAMILY_STANDARD_MODE
@@ -1466,10 +1470,52 @@ export const GENERAL_VITALS_QUICK_NOTE_TAGS: VitalsQuickNoteTag[] = [
     tone: 'neutral',
   },
   {
-    id: 'gen_after_walk',
-    value: 'Đo sau tập thể dục',
-    label: '🚶 Đo sau tập thể dục',
+    id: 'gen_after_sport',
+    value: 'Sau đánh Tennis / Đạp xe',
+    label: '🎾 Sau đánh Tennis / Đạp xe',
     tone: 'neutral',
+    clinicalTip:
+      'Hãy ngồi nghỉ tĩnh 5-10 phút cho nhịp tim hạ về bình thường trước khi đo huyết áp. Uống bù đủ nước lọc/điện giải để tránh cô đặc máu gây khởi phát cơn Gout; buổi sáng trời rét ở Thái Nguyên cần mặc ấm và khởi động kỹ khớp vai/gối.',
+  },
+  {
+    id: 'gen_gout_flare',
+    value: 'Đau/sưng khớp chân (nghi Gout)',
+    label: '🦶 Đau/sưng khớp chân (Gout)',
+    tone: 'warn',
+    clinicalTip:
+      'Tạm ngưng đánh Tennis/đi bộ nhiều, kê cao chân nghỉ ngơi, uống 2-2.5 lít nước lọc, kiêng tuyệt đối rượu bia - nội tạng - hải sản - thịt đỏ. Không tự ý uống thuốc giảm đau mạnh khi chưa hỏi bác sĩ (dễ hại dạ dày & thận).',
+  },
+  {
+    id: 'gen_ibs_pain',
+    value: 'Đau bụng / Rối loạn đại tiện (IBS)',
+    label: '🤢 Đau bụng / Rối loạn tiêu hóa (IBS)',
+    tone: 'warn',
+    clinicalTip:
+      'Ghi chú thêm món ăn lạ, đồ lạnh hoặc rượu bia vừa dùng trước đó để tìm yếu tố kích hoạt ruột. Uống nước ấm, ăn nhẹ dễ tiêu; tránh tự ý dùng thuốc giảm đau nhóm NSAID.',
+  },
+  {
+    id: 'gen_gallbladder_pain',
+    value: 'Đau tức hạ sườn phải / Đầy sau ăn mỡ',
+    label: '⚠️ Tức hạ sườn phải (Túi mật)',
+    tone: 'warn',
+    clinicalTip:
+      'Cần theo dõi liên quan Polyp túi mật: hạn chế ngay đồ chiên xào, lòng đỏ trứng, mỡ động vật và rượu bia. Nếu đau quặn dữ dội kéo dài, sốt hoặc vàng mắt cần đi khám ngay.',
+  },
+  {
+    id: 'gen_alcohol',
+    value: 'Hôm nay có uống rượu/bia',
+    label: '🍺 Hôm nay có uống rượu/bia',
+    tone: 'warn',
+    clinicalTip:
+      'Rượu bia làm thận giảm thải Acid Uric (dễ bùng cơn Gout), kích thích co thắt ruột (IBS), tăng men gan GGT và khiến huyết áp dao động mạnh. Hãy uống xen kẽ nhiều nước lọc và không đo huyết áp ngay sau khi uống.',
+  },
+  {
+    id: 'gen_smoking',
+    value: 'Có hút thuốc lá',
+    label: '🚬 Có hút thuốc lá',
+    tone: 'warn',
+    clinicalTip:
+      'Nicotine gây co mạch tức thì, đẩy huyết áp tăng vọt và làm tăng nguy cơ xơ vữa mạch máu. Tránh hút thuốc ít nhất 30 phút trước khi đo huyết áp hoặc ngay sau khi chơi Tennis.',
   },
   {
     id: 'gen_dizzy',
@@ -1477,7 +1523,7 @@ export const GENERAL_VITALS_QUICK_NOTE_TAGS: VitalsQuickNoteTag[] = [
     label: '😵 Hơi hoa mắt / chóng mặt',
     tone: 'warn',
     clinicalTip:
-      'Nên ngồi hoặc nằm nghỉ yên tĩnh 15–20 phút, uống một ngụm nước ấm và đo kiểm tra lại huyết áp.',
+      'Nên ngồi hoặc nằm nghỉ yên tĩnh 15-20 phút, uống một ngụm nước ấm và đo kiểm tra lại huyết áp.',
   },
   {
     id: 'gen_headache',
@@ -1485,7 +1531,7 @@ export const GENERAL_VITALS_QUICK_NOTE_TAGS: VitalsQuickNoteTag[] = [
     label: '🤕 Đau đầu / mỏi vai gáy',
     tone: 'warn',
     clinicalTip:
-      'Nếu đau đầu kèm huyết áp tăng cao (≥140/90 mmHg), cần nghỉ ngơi tuyệt đối và theo dõi sát để dùng thuốc theo chỉ định Bác sĩ.',
+      'Nếu đau đầu kèm huyết áp tăng cao (>= 140/90 mmHg), cần nghỉ ngơi tuyệt đối và theo dõi sát để dùng thuốc theo chỉ định Bác sĩ.',
   },
   {
     id: 'gen_insomnia',
@@ -1727,7 +1773,7 @@ export function buildResolvedHealthProfiles(
     ? IS_FAMILY_STANDARD_MODE
       ? isMotherPrimary
         ? 'Đã phẫu thuật cắt toàn bộ tuyến giáp (K giáp thể nhú) • Duy trì hormone Levothyroxine & Kiểm soát Huyết áp, Mỡ máu, Canxi'
-        : 'Theo dõi huyết áp, tim mạch, mỡ máu & chăm sóc sức khỏe hằng ngày'
+        : 'Tim mạch & Huyết áp • Theo dõi Gout tái phát • Hội chứng ruột kích thích (IBS) • Polyp túi mật định kỳ'
       : 'Đang phục hồi chức năng sau đột quỵ (tai biến mạch máu não)'
     : rawFatherDiag;
 
@@ -1735,15 +1781,51 @@ export function buildResolvedHealthProfiles(
   const resolvedFatherHospital =
     IS_FAMILY_STANDARD_MODE &&
     (!rawHospital || rawHospital.toLowerCase().includes('bạch mai'))
-      ? 'Khám & kiểm tra sức khỏe định kỳ'
+      ? 'Khám & kiểm tra sức khỏe định kỳ (Thái Nguyên)'
       : rawHospital || 'Khám & kiểm tra định kỳ';
 
   const rawNotes = savedPrimary?.patientInfo?.notes || fatherPatientInfo.notes || '';
   const resolvedFatherNotes =
     IS_FAMILY_STANDARD_MODE && !rawNotes
-      ? 'Đo huyết áp sáng/tối, uống thuốc đúng giờ, tập vận động nhẹ nhàng và ăn nhạt giảm mỡ.'
+      ? isMotherPrimary
+        ? 'Uống thuốc hormone tuyến giáp buổi sáng lúc bụng đói, theo dõi huyết áp, nhịp tim và canxi.'
+        : 'Nghỉ tĩnh 5-10 phút sau đánh Tennis/đạp xe trước khi đo HA. Uống đủ 2-2.5L nước/ngày để thải Acid Uric ngừa Gout và bảo vệ thận. Hạn chế rượu bia, thuốc lá, đồ mỡ/purin; theo dõi kích thước Polyp túi mật khi siêu âm định kỳ.'
       : rawNotes ||
         'Đo huyết áp hàng ngày, uống thuốc đúng giờ, tập vận động và nghỉ ngơi đều đặn.';
+
+  const defaultFatherCustomFields: PatientCustomField[] =
+    IS_FAMILY_STANDARD_MODE && !isMotherPrimary
+      ? [
+          {
+            id: 'cf-father-polyp',
+            label: 'Polyp túi mật định kỳ',
+            value:
+              'Theo dõi kích thước (mm) qua siêu âm 6 tháng/lần (cảnh báo nếu tăng nhanh hoặc >= 10mm)',
+            section: 'profile',
+          },
+          {
+            id: 'cf-father-gout-ibs',
+            label: 'Tiền sử Gout & Ruột kích thích (IBS)',
+            value:
+              'Từng phát Gout sưng chân vài lần & nhập viện đau bụng IBS - hạn chế rượu bia, thuốc lá, nội tạng, đồ cay/mỡ',
+            section: 'profile',
+          },
+          {
+            id: 'cf-father-sport',
+            label: 'Thể thao & Sinh hoạt (Thái Nguyên)',
+            value:
+              'Chơi Tennis, đi bộ & đạp xe đều; khởi động kỹ khớp vai/gối, giữ ấm sáng sớm rét và bù nước điện giải',
+            section: 'care',
+          },
+        ]
+      : [];
+
+  const existingFatherCustomFields =
+    savedPrimary?.patientInfo?.customFields && savedPrimary.patientInfo.customFields.length > 0
+      ? savedPrimary.patientInfo.customFields
+      : fatherPatientInfo.customFields && fatherPatientInfo.customFields.length > 0
+        ? fatherPatientInfo.customFields
+        : defaultFatherCustomFields;
 
   // 1. Hồ sơ của Thành viên chính (mặc định id: 'father', hỗ trợ đổi sang Mẹ hoặc bất kỳ vai vế/icon nào)
   const fatherProfile: HealthProfile = {
@@ -1760,6 +1842,7 @@ export function buildResolvedHealthProfiles(
       diagnosis: resolvedFatherDiag,
       hospital: resolvedFatherHospital,
       notes: resolvedFatherNotes,
+      customFields: existingFatherCustomFields,
       statusBadge:
         IS_FAMILY_STANDARD_MODE &&
         (!fatherPatientInfo.statusBadge ||
@@ -1772,7 +1855,7 @@ export function buildResolvedHealthProfiles(
           fatherPatientInfo.conditionTag.includes('Tai biến'))
           ? primaryProfileType === 'thyroid_post_op'
             ? 'Tuyến giáp • HA • Mỡ máu'
-            : 'Huyết áp & Tim mạch'
+            : 'Tim mạch • Gout • IBS • Polyp mật'
           : fatherPatientInfo.conditionTag || 'Phục hồi tại nhà',
       careMode:
         IS_FAMILY_STANDARD_MODE && fatherPatientInfo.careMode === 'Liên tục 24/7'
@@ -1781,7 +1864,7 @@ export function buildResolvedHealthProfiles(
       careGoal:
         IS_FAMILY_STANDARD_MODE &&
         (!fatherPatientInfo.careGoal || fatherPatientInfo.careGoal.includes('SpO2'))
-          ? 'Duy trì huyết áp, mỡ máu & nhịp tim ổn định'
+          ? 'Ổn định HA, mỡ máu, GGT, Acid Uric <360 & theo dõi Polyp túi mật'
           : fatherPatientInfo.careGoal || 'Duy trì huyết áp & sức khỏe ổn định',
       healthProfiles: undefined,
     },
@@ -2192,7 +2275,7 @@ export function buildPresetCareRoutinesForProfile(
     }));
   }
 
-  // Mẫu chuẩn cho Bố Thành Đô hoặc thành viên sức khỏe tổng quát / huyết áp / tim mạch
+  // Mẫu chuẩn cho Bố Thành Đô hoặc thành viên sức khỏe tổng quát / huyết áp / tim mạch / Gout / IBS / Polyp
   const generalItems: CareRoutine[] = [
     {
       id: 'routine-gen-med-01',
@@ -2202,10 +2285,10 @@ export function buildPresetCareRoutinesForProfile(
       medType: 'scheduled',
       title: 'Thuốc Huyết áp / Tim mạch buổi sáng (theo đơn)',
       dosage: '1 viên',
-      description: 'Duy trì huyết áp ổn định trong ngày (có thể bấm Quản lý đơn thuốc để sửa đúng tên thuốc đang dùng).',
+      description: 'Duy trì huyết áp ổn định trong ngày (bấm Quản lý đơn thuốc để sửa đúng tên thuốc đang dùng).',
       imageUrl: '',
       timeSlots: ['morning'],
-      instructions: 'Đo huyết áp trước khi uống. Uống sau ăn sáng 30 phút.',
+      instructions: 'Đo huyết áp lúc nghỉ trước khi uống. Uống sau ăn sáng 30 phút.',
       conditionNote: 'Nếu HA tâm thu < 100 hoặc tâm trương < 60: nghỉ ngơi và hỏi ý kiến Bác sĩ.',
       isActive: true,
       sortOrder: 1,
@@ -2218,9 +2301,9 @@ export function buildPresetCareRoutinesForProfile(
       stageName,
       category: 'meds',
       medType: 'scheduled',
-      title: 'Thuốc Mỡ máu / Bổ trợ tuần hoàn buổi tối (nếu có)',
+      title: 'Thuốc Mỡ máu / Hạ Acid Uric buổi tối (nếu có theo đơn)',
       dosage: '1 viên',
-      description: 'Ổn định mỡ máu và thành mạch (có thể sửa hoặc tắt nếu không dùng).',
+      description: 'Kiểm soát LDL-C, bảo vệ thành mạch và phòng tái phát cơn Gout (tắt nếu không dùng).',
       imageUrl: '',
       timeSlots: ['evening'],
       instructions: 'Uống buổi tối sau ăn.',
@@ -2235,13 +2318,13 @@ export function buildPresetCareRoutinesForProfile(
       stageId,
       stageName,
       category: 'rehab',
-      title: 'Đi bộ / Tập thể dục dưỡng sinh nhẹ nhàng',
-      dosage: '20 phút',
-      description: 'Giúp lưu thông khí huyết, ổn định huyết áp và ngủ ngon hơn.',
+      title: 'Đánh Tennis / Đạp xe / Đi bộ an toàn',
+      dosage: '30 - 45 phút',
+      description: 'Giúp ổn định huyết áp, tăng mỡ tốt HDL-C và tiêu thụ đường huyết; khởi động kỹ khớp vai/gối/cổ chân.',
       imageUrl: '',
       timeSlots: ['morning', 'afternoon'],
-      instructions: 'Tập vừa sức, khởi động kỹ trước khi tập.',
-      conditionNote: '',
+      instructions: 'Mặc ấm nếu tập sáng sớm trời rét ở Thái Nguyên; nghỉ tĩnh 5-10 phút sau tập rồi mới đo huyết áp.',
+      conditionNote: 'Ngưng tập ngay nếu đau khớp chân (Gout) hoặc tức ngực, chóng mặt.',
       isActive: true,
       sortOrder: 3,
       createdAt: todayStr,
@@ -2252,12 +2335,12 @@ export function buildPresetCareRoutinesForProfile(
       stageId,
       stageName,
       category: 'care',
-      title: 'Uống đủ nước ấm & Ăn nhạt giảm muối, giảm mỡ',
+      title: 'Uống đủ 2 - 2.5L nước lọc & Hạn chế rượu bia, thuốc lá, đồ nhiều mỡ/purin',
       dosage: 'Hằng ngày',
-      description: 'Chế độ dinh dưỡng bảo vệ tim mạch và huyết áp.',
+      description: 'Giúp thải Acid Uric (ngừa Gout), giảm cô đặc dịch mật (Polyp túi mật), dịu ruột (IBS) và giảm tải gan GGT.',
       imageUrl: '',
       timeSlots: ['morning', 'noon', 'afternoon', 'evening'],
-      instructions: 'Uống nước ấm đều đặn, hạn chế đồ mặn và thực phẩm nhiều Cholesterol.',
+      instructions: 'Bù nước trước và sau khi đánh Tennis/đạp xe; tránh đồ chiên rán, nội tạng, hải sản, đồ cay lạnh.',
       conditionNote: '',
       isActive: true,
       sortOrder: 4,
@@ -2282,7 +2365,7 @@ export interface LabIndicatorEval {
   key: string;
   label: string;
   shortLabel: string;
-  group: 'thyroid' | 'markers' | 'lipid' | 'metabolic' | 'liver_kidney';
+  group: 'thyroid' | 'markers' | 'lipid' | 'metabolic' | 'liver_kidney' | 'ultrasound';
   value: number;
   unit: string;
   refText: string;
@@ -2779,7 +2862,7 @@ export function evaluateLabEntry(
       group: 'liver_kidney',
       value: entry.ast,
       unit: 'U/L',
-      refText: '< 37 – 40 U/L',
+      refText: '< 37 - 40 U/L',
       status: entry.ast > 80 ? 'critical' : isHigh ? 'high' : 'normal',
       badgeText: entry.ast > 80 ? '🔴 Tăng cao (>80)' : isHigh ? '🟡 Tăng (>40)' : '🟢 Bình thường',
       badgeClass:
@@ -2789,7 +2872,7 @@ export function evaluateLabEntry(
             ? 'bg-amber-100 text-amber-800 border-amber-300'
             : 'bg-emerald-100 text-emerald-800 border-emerald-200',
       clinicalNote: isHigh
-        ? 'Men gan AST tăng; cần theo dõi chức năng gan, nhất là khi đang dùng thuốc hạ mỡ máu.'
+        ? 'Men gan AST tăng; cần hạn chế rượu bia và theo dõi chức năng gan.'
         : 'Men gan AST bình thường.',
     });
     if (isHigh) {
@@ -2816,12 +2899,94 @@ export function evaluateLabEntry(
             ? 'bg-amber-100 text-amber-800 border-amber-300'
             : 'bg-emerald-100 text-emerald-800 border-emerald-200',
       clinicalNote: isHigh
-        ? 'Men gan ALT tăng; cần uống đủ nước và báo Bác sĩ kiểm tra.'
+        ? 'Men gan ALT tăng; cần hạn chế rượu bia, uống đủ nước và báo Bác sĩ kiểm tra.'
         : 'Men gan ALT bình thường.',
     });
     if (isHigh) {
       summaryPoints.push(`Men gan ALT tăng (${entry.alt} U/L > 40).`);
     }
+  }
+
+  if (typeof entry.ggt === 'number' && !isNaN(entry.ggt)) {
+    const upperLimit = isThyroidProfile ? 40 : 60;
+    const isHigh = entry.ggt > upperLimit;
+    const isVeryHigh = entry.ggt > upperLimit * 2;
+    indicators.push({
+      key: 'ggt',
+      label: 'GGT (Gamma-GT Gan Mật)',
+      shortLabel: 'GGT',
+      group: 'liver_kidney',
+      value: entry.ggt,
+      unit: 'U/L',
+      refText: `< ${upperLimit} U/L`,
+      status: isVeryHigh ? 'critical' : isHigh ? 'high' : 'normal',
+      badgeText: isVeryHigh
+        ? `🔴 Tăng cao (>${upperLimit * 2})`
+        : isHigh
+          ? `🟡 Tăng (>${upperLimit})`
+          : '🟢 Bình thường',
+      badgeClass: isVeryHigh
+        ? 'bg-rose-100 text-rose-800 border-rose-300'
+        : isHigh
+          ? 'bg-amber-100 text-amber-800 border-amber-300'
+          : 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      clinicalNote: isHigh
+        ? 'GGT tăng cảnh báo gan đang chịu tải từ rượu bia hoặc ứ mật nhẹ; cần giảm/ngưng rượu bia và kiểm tra siêu âm gan mật.'
+        : 'Chỉ số GGT ổn định.',
+    });
+    if (isHigh) {
+      summaryPoints.push(
+        `Men gan GGT tăng (${entry.ggt} U/L > ${upperLimit}) - nhạy cảm với rượu bia & đường mật.`
+      );
+    }
+  }
+
+  if (typeof entry.bilirubinTotal === 'number' && !isNaN(entry.bilirubinTotal)) {
+    const isHigh = entry.bilirubinTotal > 21;
+    indicators.push({
+      key: 'bilirubinTotal',
+      label: 'Bilirubin toàn phần',
+      shortLabel: 'Bilirubin TP',
+      group: 'liver_kidney',
+      value: entry.bilirubinTotal,
+      unit: 'µmol/L',
+      refText: '3.4 - 21.0 µmol/L',
+      status: entry.bilirubinTotal > 34 ? 'critical' : isHigh ? 'high' : 'normal',
+      badgeText: entry.bilirubinTotal > 34 ? '🔴 Cao (>34)' : isHigh ? '🟡 Hơi cao (>21)' : '🟢 Bình thường',
+      badgeClass:
+        entry.bilirubinTotal > 34
+          ? 'bg-rose-100 text-rose-800 border-rose-300'
+          : isHigh
+            ? 'bg-amber-100 text-amber-800 border-amber-300'
+            : 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      clinicalNote: isHigh
+        ? 'Bilirubin toàn phần hơi cao; cần theo dõi thêm đường mật / túi mật khi siêu âm.'
+        : 'Sắc tố mật Bilirubin toàn phần bình thường.',
+    });
+    if (isHigh) {
+      summaryPoints.push(`Bilirubin toàn phần tăng (${entry.bilirubinTotal} µmol/L > 21).`);
+    }
+  }
+
+  if (typeof entry.bilirubinDirect === 'number' && !isNaN(entry.bilirubinDirect)) {
+    const isHigh = entry.bilirubinDirect > 5.1;
+    indicators.push({
+      key: 'bilirubinDirect',
+      label: 'Bilirubin trực tiếp',
+      shortLabel: 'Bilirubin TT',
+      group: 'liver_kidney',
+      value: entry.bilirubinDirect,
+      unit: 'µmol/L',
+      refText: '< 5.1 µmol/L',
+      status: isHigh ? 'high' : 'normal',
+      badgeText: isHigh ? '🟡 Cao (>5.1)' : '🟢 Bình thường',
+      badgeClass: isHigh
+        ? 'bg-amber-100 text-amber-800 border-amber-300'
+        : 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      clinicalNote: isHigh
+        ? 'Bilirubin trực tiếp tăng; lưu ý kiểm tra lưu thông đường mật và túi mật.'
+        : 'Bilirubin trực tiếp bình thường.',
+    });
   }
 
   if (typeof entry.creatinine === 'number' && !isNaN(entry.creatinine)) {
@@ -2835,7 +3000,7 @@ export function evaluateLabEntry(
       group: 'liver_kidney',
       value: entry.creatinine,
       unit: 'µmol/L',
-      refText: isThyroidProfile ? '44 – 88 µmol/L (Nữ)' : '53 – 110 µmol/L',
+      refText: isThyroidProfile ? '44 - 88 µmol/L (Nữ)' : '53 - 110 µmol/L',
       status: isVeryHigh ? 'critical' : isHigh ? 'high' : 'normal',
       badgeText: isVeryHigh ? '🔴 Cao (>120)' : isHigh ? `🟡 Cao (>${upperLimit})` : '🟢 Bình thường',
       badgeClass: isVeryHigh
@@ -2844,11 +3009,43 @@ export function evaluateLabEntry(
           ? 'bg-amber-100 text-amber-800 border-amber-300'
           : 'bg-emerald-100 text-emerald-800 border-emerald-200',
       clinicalNote: isHigh
-        ? `Creatinine vượt ${upperLimit} µmol/L; cần uống đủ nước, siêu âm thận và cân nhắc liều Canxi/Vitamin D cùng Bác sĩ.`
-        : 'Chức năng thận ổn định.',
+        ? `Creatinine vượt ${upperLimit} µmol/L; cần uống đủ nước, kiểm soát huyết áp và tránh tự uống thuốc giảm đau hại thận.`
+        : 'Chức năng thận Creatinine ổn định.',
     });
     if (isHigh) {
       summaryPoints.push(`Creatinine máu cao (${entry.creatinine} µmol/L > ${upperLimit}) - cần theo dõi chức năng lọc cầu thận.`);
+    }
+  }
+
+  if (typeof entry.egfr === 'number' && !isNaN(entry.egfr)) {
+    const val = entry.egfr;
+    const isReduced = val < 60;
+    const isMild = val >= 60 && val < 90;
+    indicators.push({
+      key: 'egfr',
+      label: 'eGFR (Mức lọc cầu thận ước tính)',
+      shortLabel: 'eGFR (Lọc thận)',
+      group: 'liver_kidney',
+      value: val,
+      unit: 'mL/phút',
+      refText: '>= 90 (60-89: ổn định tuổi 60+)',
+      status: isReduced ? 'critical' : isMild ? 'normal' : 'optimal',
+      badgeText: isReduced
+        ? '🔴 Giảm (<60)'
+        : isMild
+          ? '🟢 Ổn định (60-89)'
+          : '🟢 Rất tốt (>=90)',
+      badgeClass: isReduced
+        ? 'bg-rose-100 text-rose-800 border-rose-300'
+        : 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      clinicalNote: isReduced
+        ? 'Mức lọc cầu thận dưới 60 mL/phút; cần bảo vệ thận chặt chẽ (ổn định HA, uống đủ nước, tuyệt đối tránh thuốc giảm đau NSAID).'
+        : isMild
+          ? 'Sức lọc thận ổn định phù hợp tuổi 60+; duy trì uống đủ 2L nước/ngày.'
+          : 'Chức năng lọc cầu thận rất tốt.',
+    });
+    if (isReduced) {
+      summaryPoints.push(`eGFR giảm (${val} mL/phút < 60) - cần khám theo dõi chức năng thận.`);
     }
   }
 
@@ -2861,35 +3058,63 @@ export function evaluateLabEntry(
       group: 'liver_kidney',
       value: entry.urea,
       unit: 'mmol/L',
-      refText: '2.5 – 7.5 mmol/L',
+      refText: '2.5 - 7.5 mmol/L',
       status: isHigh ? 'high' : 'normal',
       badgeText: isHigh ? '🟡 Hơi cao' : '🟢 Bình thường',
       badgeClass: isHigh
         ? 'bg-amber-100 text-amber-800 border-amber-300'
         : 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      clinicalNote: isHigh ? 'Ure máu hơi cao (có thể do thiếu nước hoặc ăn nhiều đạm).' : 'Ure máu bình thường.',
+      clinicalNote: isHigh ? 'Ure máu hơi cao (có thể do thiếu nước sau vận động hoặc ăn nhiều đạm).' : 'Ure máu bình thường.',
     });
   }
 
   if (typeof entry.uricAcid === 'number' && !isNaN(entry.uricAcid)) {
-    const isHigh = entry.uricAcid > 400;
+    const val = entry.uricAcid;
+    const isGoutTargetMode = profileType === 'general_health';
+    const isCritical = val > 420;
+    const isAboveTarget = isGoutTargetMode ? val > 360 : val > 400;
     indicators.push({
       key: 'uricAcid',
-      label: 'Acid Uric máu',
+      label: 'Acid Uric máu (Gout)',
       shortLabel: 'Acid Uric',
       group: 'liver_kidney',
-      value: entry.uricAcid,
+      value: val,
       unit: 'µmol/L',
-      refText: '150 – 400 µmol/L',
-      status: isHigh ? 'high' : 'normal',
-      badgeText: isHigh ? '🟡 Cao (>400)' : '🟢 Bình thường',
-      badgeClass: isHigh
-        ? 'bg-amber-100 text-amber-800 border-amber-300'
-        : 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      clinicalNote: isHigh
-        ? 'Acid Uric cao; nên hạn chế hải sản, thịt đỏ, nước hầm xương và uống nhiều nước.'
-        : 'Acid Uric trong giới hạn tốt.',
+      refText: isGoutTargetMode
+        ? 'Đích ngừa Gout: < 360 (Chuẩn chung < 420 µmol/L)'
+        : '150 - 400 µmol/L',
+      status: isCritical ? 'critical' : isAboveTarget ? 'high' : 'optimal',
+      badgeText: isCritical
+        ? '🔴 Cao (>420 · Nguy cơ Gout)'
+        : isAboveTarget
+          ? isGoutTargetMode
+            ? '🟡 Trên đích Gout (>360)'
+            : '🟡 Cao (>400)'
+          : isGoutTargetMode
+            ? '🟢 Đạt đích Gout (<360)'
+            : '🟢 Bình thường',
+      badgeClass: isCritical
+        ? 'bg-rose-100 text-rose-800 border-rose-300'
+        : isAboveTarget
+          ? 'bg-amber-100 text-amber-800 border-amber-300'
+          : 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      clinicalNote: isCritical
+        ? 'Acid Uric cao dễ kết tinh gây sưng đau khớp Gout cấp và sỏi thận; cần kiêng bia rượu, nội tạng, hải sản và uống đủ nước.'
+        : isAboveTarget
+          ? 'Cao hơn đích kiểm soát Gout (<360 µmol/L); nên uống 2-2.5L nước/ngày và hạn chế rượu bia, đạm purin.'
+          : 'Acid Uric được kiểm soát tốt dưới ngưỡng gây Gout.',
     });
+    if (isCritical || isAboveTarget) {
+      summaryPoints.push(
+        `Acid Uric đạt ${val} µmol/L (${
+          isCritical
+            ? 'ngưỡng cao >420, dễ khởi phát cơn Gout'
+            : isGoutTargetMode
+              ? 'cao hơn đích kiểm soát Gout <360'
+              : 'vượt 400'
+        }).`
+      );
+    }
   }
 
   if (typeof entry.hemoglobin === 'number' && !isNaN(entry.hemoglobin)) {
@@ -2904,7 +3129,7 @@ export function evaluateLabEntry(
       group: 'liver_kidney',
       value: val,
       unit: isGPerL ? 'g/L' : 'g/dL',
-      refText: isGPerL ? '120 – 160 g/L' : '12.0 – 16.0 g/dL',
+      refText: isGPerL ? '120 - 160 g/L' : '12.0 - 16.0 g/dL',
       status: isLow ? 'low' : 'normal',
       badgeText: isLow ? '🟡 Thiếu máu nhẹ' : '🟢 Đạt chuẩn',
       badgeClass: isLow
@@ -2914,6 +3139,52 @@ export function evaluateLabEntry(
         ? 'Huyết sắc tố hơi thấp; chú ý bổ sung thực phẩm giàu sắt, vitamin B12 và folate.'
         : 'Huyết sắc tố bình thường, không thiếu máu.',
     });
+  }
+
+  if (typeof entry.gallbladderPolypMm === 'number' && !isNaN(entry.gallbladderPolypMm)) {
+    const mm = entry.gallbladderPolypMm;
+    const prevMm =
+      previousLab && typeof previousLab.gallbladderPolypMm === 'number'
+        ? previousLab.gallbladderPolypMm
+        : null;
+    const diffMm = prevMm !== null ? Number((mm - prevMm).toFixed(1)) : null;
+    const isCritical = mm >= 10;
+    const isWatchClose = mm >= 6 && mm < 10;
+    const isRapidGrowth = diffMm !== null && diffMm >= 2;
+    indicators.push({
+      key: 'gallbladderPolypMm',
+      label: 'Polyp túi mật (Siêu âm)',
+      shortLabel: 'Polyp túi mật',
+      group: 'ultrasound',
+      value: mm,
+      unit: 'mm',
+      refText: '< 6 mm (Theo dõi 6-12 tháng) · >= 10 mm cần hội chẩn',
+      status: isCritical ? 'critical' : isWatchClose || isRapidGrowth ? 'high' : 'normal',
+      badgeText: isCritical
+        ? '🔴 Chạm ngưỡng >=10mm'
+        : isRapidGrowth
+          ? `🟡 Tăng nhanh (+${diffMm}mm)`
+          : isWatchClose
+            ? '🟡 Theo dõi sát (6-9.9mm)'
+            : '🟢 Theo dõi định kỳ (<6mm)',
+      badgeClass: isCritical
+        ? 'bg-rose-100 text-rose-800 border-rose-300'
+        : isWatchClose || isRapidGrowth
+          ? 'bg-amber-100 text-amber-800 border-amber-300'
+          : 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      clinicalNote: isCritical
+        ? 'Polyp >= 10 mm có nguy cơ biến chứng cao hơn; cần khám chuyên khoa Ngoại tiêu hóa sớm để bác sĩ đánh giá hướng xử trí.'
+        : isWatchClose || isRapidGrowth
+          ? 'Cần siêu âm kiểm tra lại sau mỗi 3-6 tháng, hạn chế đồ nhiều mỡ và rượu bia.'
+          : 'Polyp nhỏ lành tính, tiếp tục siêu âm theo dõi định kỳ mỗi 6-12 tháng.',
+    });
+    if (isCritical || isWatchClose || isRapidGrowth) {
+      summaryPoints.push(
+        `Polyp túi mật hiện tại ${mm} mm${
+          diffMm !== null && diffMm > 0 ? ` (tăng +${diffMm} mm so với lần siêu âm trước)` : ''
+        }${isCritical ? ' - chạm mốc >= 10mm cần khám Ngoại tiêu hóa' : ' - cần theo dõi sát'}.`
+      );
+    }
   }
 
   let overallStatus: LabEvalStatus = 'normal';

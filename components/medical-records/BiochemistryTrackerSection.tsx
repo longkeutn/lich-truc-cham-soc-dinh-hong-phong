@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { AlertTriangle, Edit3 } from 'lucide-react';
+import { AlertTriangle, Calendar, Edit3, Stethoscope } from 'lucide-react';
 import type { HealthProfileType, LabResultEntry } from '@/lib/types';
 import type { LabIndicatorEval } from '@/lib/config';
+import { getLabMedicalGuide } from '@/lib/labMedicalGuides';
+import { MedicalInfoToggle } from '@/components/ui-kit';
 import {
   fmtDateShort,
   getLabDeltaText,
@@ -26,7 +28,7 @@ export interface BiochemistryTrackerSectionProps {
   onOpenImport?: () => void;
 }
 
-type BioFilter = 'all_bio' | 'lipid' | 'metabolic' | 'liver_kidney';
+type BioFilter = 'all_bio' | 'lipid' | 'metabolic' | 'liver_kidney' | 'ultrasound';
 
 export function BiochemistryTrackerSection({
   latestLab,
@@ -46,7 +48,11 @@ export function BiochemistryTrackerSection({
   const bioIndicators = useMemo(
     () =>
       indicators.filter(
-        (i) => i.group === 'lipid' || i.group === 'metabolic' || i.group === 'liver_kidney'
+        (i) =>
+          i.group === 'lipid' ||
+          i.group === 'metabolic' ||
+          i.group === 'liver_kidney' ||
+          i.group === 'ultrasound'
       ),
     [indicators]
   );
@@ -57,6 +63,16 @@ export function BiochemistryTrackerSection({
   }, [bioIndicators, bioFilter]);
 
   const customLabs = latestLab?.customLabs || [];
+  const hasUltrasoundDetails = Boolean(
+    latestLab &&
+      (latestLab.gallbladderPolypCount ||
+        latestLab.liverUltrasound ||
+        latestLab.kidneyUltrasound ||
+        latestLab.nextUltrasoundDate)
+  );
+  const polypGuide = getLabMedicalGuide('gallbladderPolypMm');
+  const liverUsGuide = getLabMedicalGuide('liverUltrasound');
+  const kidneyUsGuide = getLabMedicalGuide('kidneyUltrasound');
 
   return (
     <div className="rounded-2xl bg-surface-card border border-border-card shadow-2xs p-4 sm:p-5 space-y-4">
@@ -64,7 +80,7 @@ export function BiochemistryTrackerSection({
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="px-2.5 py-0.5 rounded-lg bg-medical-surface text-medical-dark border border-medical-border text-xs sm:text-sm font-extrabold">
-              🧪 Hóa Sinh, Mỡ Máu, Canxi &amp; Gan Thận
+              🧪 Hóa Sinh, Mỡ Máu, Gan Thận, Gout &amp; Siêu Âm
             </span>
             {latestLab && (
               <span className="text-xs sm:text-sm font-bold text-text-muted">
@@ -73,8 +89,11 @@ export function BiochemistryTrackerSection({
             )}
           </div>
           <h3 className="text-base sm:text-lg font-black text-text-main mt-1">
-            Bảng Đánh Giá Chỉ Số Hóa Sinh &amp; Chuyển Hóa
+            Bảng Đánh Giá Chỉ Số Hóa Sinh &amp; Chẩn Đoán Hình Ảnh
           </h3>
+          <p className="text-xs sm:text-sm text-text-muted font-medium">
+            Bấm nút <strong>Giải thích</strong> / <strong>Xem tác hại</strong> trên từng thẻ để xem ý nghĩa y khoa và cảnh báo sức khỏe.
+          </p>
         </div>
 
         {latestLab && (
@@ -107,10 +126,11 @@ export function BiochemistryTrackerSection({
       {/* Bộ lọc nhóm Hóa sinh */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {[
-          { id: 'all_bio', label: 'Tất cả Hóa sinh' },
+          { id: 'all_bio', label: 'Tất cả' },
           { id: 'lipid', label: '❤️ Bộ Mỡ máu' },
-          { id: 'metabolic', label: '🦴 Canxi, Cận giáp & Đường' },
-          { id: 'liver_kidney', label: '🧪 Gan, Thận & Huyết học' },
+          { id: 'metabolic', label: '🦴 Đường, Canxi & Cận giáp' },
+          { id: 'liver_kidney', label: '🧪 Gan, Thận & Gout' },
+          { id: 'ultrasound', label: '🩺 Siêu âm & Polyp' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -128,9 +148,11 @@ export function BiochemistryTrackerSection({
       </div>
 
       {/* Danh sách thẻ chỉ số Hóa sinh */}
-      {filteredIndicators.length === 0 && customLabs.length === 0 ? (
+      {filteredIndicators.length === 0 &&
+      customLabs.length === 0 &&
+      !(hasUltrasoundDetails && (bioFilter === 'all_bio' || bioFilter === 'ultrasound')) ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-base text-text-muted font-medium">
-          Chưa có chỉ số hóa sinh / mỡ máu ở lần khám gần nhất. Bấm &quot;Cập nhật chỉ số&quot; hoặc &quot;Nhập Kết Quả Xét Nghiệm&quot; để bổ sung.
+          Chưa có chỉ số ở nhóm này trong lần khám gần nhất. Bấm &quot;Cập nhật chỉ số&quot; hoặc &quot;Nhập Kết Quả Xét Nghiệm&quot; để bổ sung.
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -141,10 +163,13 @@ export function BiochemistryTrackerSection({
                 : previousLab;
             const deltaText = getLabDeltaText(prevForInd, ind.key, ind.value, ind.unit);
             const indDate = sourceDateByKey?.[ind.key];
+            const guide = getLabMedicalGuide(ind.key);
+            const isWarnStatus =
+              ind.status === 'high' || ind.status === 'low' || ind.status === 'critical';
             return (
               <div
                 key={ind.key}
-                className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 space-y-1.5 flex flex-col justify-between"
+                className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 space-y-2 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2">
@@ -175,8 +200,18 @@ export function BiochemistryTrackerSection({
                     </div>
                   )}
                 </div>
-                <div className="text-sm sm:text-base text-text-body pt-2 border-t border-slate-200/70 leading-relaxed">
-                  {ind.clinicalNote}
+
+                <div className="pt-2 border-t border-slate-200/70 space-y-2">
+                  <div className="text-sm text-text-body leading-relaxed">
+                    {ind.clinicalNote}
+                  </div>
+                  {guide && (
+                    <MedicalInfoToggle
+                      guide={guide}
+                      isWarning={isWarnStatus}
+                      buttonLabel={isWarnStatus ? 'Xem tác hại & cách xử trí' : 'Ý nghĩa & tác hại'}
+                    />
+                  )}
                 </div>
               </div>
             );
@@ -202,6 +237,70 @@ export function BiochemistryTrackerSection({
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Tóm tắt Siêu âm định kỳ (Gan, Thận, Mô tả Polyp & Hẹn siêu âm lại) */}
+      {hasUltrasoundDetails && (bioFilter === 'all_bio' || bioFilter === 'ultrasound') && latestLab && (
+        <div className="rounded-2xl border border-teal-200 bg-teal-50/40 p-3.5 sm:p-4 space-y-2.5">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h4 className="text-base font-black text-teal-950 flex items-center gap-1.5">
+              <Stethoscope className="w-4 h-4 text-teal-700 shrink-0" />
+              <span>Chi Tiết Siêu Âm Bụng Định Kỳ</span>
+            </h4>
+            {latestLab.nextUltrasoundDate && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-teal-200 text-xs sm:text-sm font-extrabold text-teal-900">
+                <Calendar className="w-3.5 h-3.5 text-teal-700" />
+                Hẹn siêu âm lại: {fmtDateShort(latestLab.nextUltrasoundDate)}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+            {latestLab.gallbladderPolypCount && (
+              <div className="rounded-xl border border-teal-200 bg-white p-3 space-y-1.5">
+                <div className="text-xs font-bold text-text-muted uppercase">Mô tả Polyp túi mật</div>
+                <div className="text-sm sm:text-base font-black text-text-main">
+                  {latestLab.gallbladderPolypCount}
+                </div>
+                {polypGuide && (
+                  <MedicalInfoToggle guide={polypGuide} compact buttonLabel="Ý nghĩa & tác hại" />
+                )}
+              </div>
+            )}
+            {latestLab.liverUltrasound && (
+              <div className="rounded-xl border border-teal-200 bg-white p-3 space-y-1.5">
+                <div className="text-xs font-bold text-text-muted uppercase">Siêu âm Gan</div>
+                <div className="text-sm sm:text-base font-black text-text-main">
+                  {latestLab.liverUltrasound}
+                </div>
+                {liverUsGuide && (
+                  <MedicalInfoToggle
+                    guide={liverUsGuide}
+                    isWarning={latestLab.liverUltrasound.toLowerCase().includes('nhiễm mỡ')}
+                    compact
+                    buttonLabel="Ý nghĩa & tác hại"
+                  />
+                )}
+              </div>
+            )}
+            {latestLab.kidneyUltrasound && (
+              <div className="rounded-xl border border-teal-200 bg-white p-3 space-y-1.5">
+                <div className="text-xs font-bold text-text-muted uppercase">Siêu âm Thận / Đường mật</div>
+                <div className="text-sm sm:text-base font-black text-text-main">
+                  {latestLab.kidneyUltrasound}
+                </div>
+                {kidneyUsGuide && (
+                  <MedicalInfoToggle
+                    guide={kidneyUsGuide}
+                    isWarning={latestLab.kidneyUltrasound.toLowerCase().includes('sỏi')}
+                    compact
+                    buttonLabel="Ý nghĩa & tác hại"
+                  />
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

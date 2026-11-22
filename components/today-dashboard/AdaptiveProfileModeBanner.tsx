@@ -61,6 +61,7 @@ export function AdaptiveProfileModeBanner({
   }, [labResults]);
 
   const [weightInput, setWeightInput] = useState<string>('');
+  const [showGeneralSafetyGuide, setShowGeneralSafetyGuide] = useState(false);
   const resolvedWeight =
     weightInput !== ''
       ? parseFloat(weightInput.replace(',', '.'))
@@ -258,28 +259,60 @@ export function AdaptiveProfileModeBanner({
 
   return (
     <section
-      aria-label="Chế độ người cao tuổi theo dõi huyết áp và tim mạch"
-      className="rounded-2xl border border-teal-200 bg-gradient-to-r from-teal-50/90 via-white to-emerald-50/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+      aria-label="Chế độ người cao tuổi theo dõi huyết áp, tim mạch và vận động"
+      className="rounded-2xl border border-teal-200 bg-gradient-to-r from-teal-50/90 via-white to-emerald-50/60 p-4 space-y-3 shadow-2xs"
     >
-      <div className="space-y-0.5">
-        <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-teal-900">
-          <Activity className="w-4 h-4 text-teal-700" />
-          <span>Chế độ Người Cao Tuổi · Tim Mạch &amp; Huyết Áp ({displayName})</span>
-        </span>
-        <p className="text-xs sm:text-sm font-semibold text-slate-700">
-          Nghỉ tĩnh 5 - 10 phút sau vận động thể thao trước khi đo huyết áp. Hỗ trợ đọc giọng nói Tiếng Việt khi lưu số đo.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="space-y-1 min-w-0">
+          <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-teal-900">
+            <Activity className="w-4 h-4 text-teal-700 shrink-0" />
+            <span>Tim Mạch, Vận Động An Toàn &amp; Bệnh Nền ({displayName})</span>
+          </span>
+          <p className="text-xs sm:text-sm font-semibold text-slate-700 leading-snug">
+            Nghỉ tĩnh 5 - 10 phút sau chơi Tennis / đạp xe trước khi đo HA. Uống đủ nước để ngừa Gout và bảo vệ thận.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowGeneralSafetyGuide((v) => !v)}
+            aria-expanded={showGeneralSafetyGuide}
+            className={`min-h-[48px] min-w-[48px] px-3 py-2 rounded-xl border text-xs sm:text-sm font-extrabold inline-flex items-center gap-1.5 cursor-pointer transition ${
+              showGeneralSafetyGuide
+                ? 'bg-teal-700 text-white border-teal-800'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-950 border-amber-300'
+            }`}
+          >
+            <ShieldAlert className="w-4 h-4 shrink-0" />
+            <span>{showGeneralSafetyGuide ? 'Ẩn lưu ý sức khỏe ▴' : 'ℹ️ Lưu ý thể thao & bệnh nền ▾'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={onOpenDoctorReport}
+            className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-white hover:bg-teal-50 text-teal-950 border border-teal-300 text-xs sm:text-sm font-extrabold inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <FileText className="w-4 h-4 text-teal-700 shrink-0" />
+            <span>Phiếu Trình BS</span>
+          </button>
+        </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          type="button"
-          onClick={onOpenDoctorReport}
-          className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-white hover:bg-teal-50 text-teal-950 border border-teal-300 text-xs sm:text-sm font-extrabold inline-flex items-center gap-1.5 cursor-pointer"
-        >
-          <FileText className="w-4 h-4 text-teal-700 shrink-0" />
-          <span>Phiếu Trình BS</span>
-        </button>
-      </div>
+
+      {showGeneralSafetyGuide && (
+        <div className="rounded-xl border border-teal-200 bg-white p-3.5 text-xs sm:text-sm text-slate-800 grid grid-cols-1 md:grid-cols-2 gap-2.5 leading-relaxed">
+          <div className="p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200 space-y-1">
+            <div className="font-black text-emerald-950">🎾 An toàn khi chơi Tennis &amp; Đạp xe</div>
+            <p>
+              Khởi động kỹ vai/gối/cổ chân 5-10 phút; mặc ấm nếu tập sáng sớm trời rét ở Thái Nguyên để tránh co mạch tăng huyết áp. Nếu thấy tức ngực, khó thở, chóng mặt hoặc HA &gt;= 180/110 phải dừng tập ngay.
+            </p>
+          </div>
+          <div className="p-2.5 rounded-lg bg-amber-50/80 border border-amber-200 space-y-1">
+            <div className="font-black text-amber-950">🍺 Thuốc lá, Rượu bia &amp; Gout - IBS - Polyp</div>
+            <p>
+              Rượu bia làm ngưng thải Acid Uric (gây sưng chân Gout), kích thích đau bụng IBS, tăng men gan GGT; thuốc lá làm co mạch và đẩy nhanh xơ vữa. Hạn chế tối đa đồ mỡ để theo dõi ổn định Polyp túi mật.
+            </p>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

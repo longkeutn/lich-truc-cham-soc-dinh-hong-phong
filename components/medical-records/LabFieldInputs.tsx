@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import type { LabMedicalGuide } from '@/lib/labMedicalGuides';
+import { MedicalInfoToggle } from '@/components/ui-kit';
 
 export function UnitToggleGroup<U extends string>({
   label,
@@ -40,23 +42,34 @@ export function LabMetricInput({
   value,
   onChange,
   placeholder,
+  infoGuide,
 }: {
   label: string;
   subHint?: string;
   value: string;
   onChange: (val: string) => void;
   placeholder?: string;
+  infoGuide?: LabMedicalGuide | null;
 }) {
   return (
     <div>
-      <label className="block text-base font-extrabold text-text-body mb-1">
-        {label}
-        {subHint ? (
-          <span className="text-xs sm:text-sm font-semibold text-text-muted ml-1">
-            ({subHint})
-          </span>
-        ) : null}
-      </label>
+      <div className="flex items-center justify-between gap-1.5 mb-1 flex-wrap">
+        <label className="block text-base font-extrabold text-text-body">
+          {label}
+          {subHint ? (
+            <span className="text-xs sm:text-sm font-semibold text-text-muted ml-1">
+              ({subHint})
+            </span>
+          ) : null}
+        </label>
+        {infoGuide && (
+          <MedicalInfoToggle
+            guide={infoGuide}
+            compact
+            buttonLabel="Ý nghĩa"
+          />
+        )}
+      </div>
       <input
         type="text"
         inputMode="decimal"
@@ -78,6 +91,7 @@ export function LabUnitMetricField<U extends string>({
   onUnitChange,
   placeholder,
   refHint,
+  infoGuide,
 }: {
   label: string;
   value: string;
@@ -87,12 +101,16 @@ export function LabUnitMetricField<U extends string>({
   onUnitChange: (nextUnit: U) => void;
   placeholder?: string;
   refHint?: string;
+  infoGuide?: LabMedicalGuide | null;
 }) {
   return (
     <div className="rounded-xl border border-indigo-200/80 bg-surface-card p-3 space-y-2">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <label className="block text-base font-extrabold text-text-main">{label}</label>
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="block text-base font-extrabold text-text-main">{label}</label>
+            {infoGuide && <MedicalInfoToggle guide={infoGuide} compact buttonLabel="Ý nghĩa" />}
+          </div>
           {refHint ? (
             <span className="block text-xs sm:text-sm font-semibold text-text-muted">
               Chuẩn: {refHint}

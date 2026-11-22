@@ -8,6 +8,7 @@ import type {
   FamilyMember,
   TimeSlot,
   HealthProfileType,
+  LabResultEntry,
 } from '@/lib/types';
 import {
   TIME_SLOT_CONFIG,
@@ -23,6 +24,7 @@ export interface VitalsChartViewProps {
   bpThresholds: BpThresholds;
   dailyLogs: DailyLog[];
   careRoutines: CareRoutine[];
+  labResults?: LabResultEntry[];
   isAdmin: boolean;
   members?: FamilyMember[];
   patientName?: string;

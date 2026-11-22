@@ -294,6 +294,7 @@ export default function CareSchedulePage() {
               bpThresholds={profilesMgr.profileBpThresholds}
               dailyLogs={profilesMgr.profileDailyLogs}
               careRoutines={profilesMgr.profileCareRoutines}
+              labResults={profilesMgr.profileLabResults}
               isAdmin={ui.isAdmin}
               members={sync.members}
               patientName={profilesMgr.profilePatientInfo.name}
@@ -420,6 +421,7 @@ export default function CareSchedulePage() {
           bpThresholds={profilesMgr.profileBpThresholds}
           dailyLogs={profilesMgr.profileDailyLogs}
           careRoutines={profilesMgr.profileCareRoutines}
+          labResults={profilesMgr.profileLabResults}
           patientName={profilesMgr.profilePatientInfo.name}
           patientDiagnosis={profilesMgr.profilePatientInfo.diagnosis}
           profileType={profilesMgr.activeProfile.profileType}

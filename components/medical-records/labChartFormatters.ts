@@ -52,7 +52,16 @@ export function formatMetabolicTooltip(value: unknown, name: unknown, item: unkn
 
 export function formatLiverKidneyTooltip(value: unknown, name: unknown, item: unknown) {
   const entry = item as { payload?: LabChartPoint; dataKey?: string };
-  if (entry?.dataKey === 'ast' || entry?.dataKey === 'alt') return [`${value} U/L`, String(name ?? '')];
+  if (
+    entry?.dataKey === 'ast' ||
+    entry?.dataKey === 'alt' ||
+    entry?.dataKey === 'ggt'
+  ) {
+    return [`${value} U/L`, String(name ?? '')];
+  }
   if (entry?.dataKey === 'creatinine') return [`${value} µmol/L`, String(name ?? '')];
+  if (entry?.dataKey === 'egfr') return [`${value} mL/phút`, String(name ?? '')];
+  if (entry?.dataKey === 'uricAcid') return [`${value} µmol/L`, String(name ?? '')];
+  if (entry?.dataKey === 'gallbladderPolypMm') return [`${value} mm`, String(name ?? '')];
   return [String(value ?? ''), String(name ?? '')];
 }

@@ -7,7 +7,9 @@ import {
   ArrowRight,
   Pill,
   Heart,
-  Info,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { BpThresholds } from '@/lib/types';
 import { evaluateVitalReading } from '@/lib/config';
@@ -44,6 +46,28 @@ export function VitalsMetricSummaryCards({
     setActiveCardInfo((prev) => (prev === id ? null : id));
   };
 
+  const renderGuideButton = (id: number, ariaLabel: string) => {
+    const isOpen = activeCardInfo === id;
+    return (
+      <button
+        type="button"
+        onClick={() => toggleCard(id)}
+        aria-expanded={isOpen}
+        aria-label={ariaLabel}
+        className={`min-h-[38px] px-2.5 py-1 rounded-full border text-xs font-extrabold inline-flex items-center gap-1 transition cursor-pointer shrink-0 ${
+          isOpen
+            ? 'bg-teal-700 text-white border-teal-800 shadow-2xs'
+            : 'bg-teal-50/90 hover:bg-teal-100 text-teal-900 border-teal-300 shadow-2xs'
+        }`}
+        title="Bấm để xem giải thích & tác hại sức khỏe"
+      >
+        <HelpCircle className={`w-3.5 h-3.5 shrink-0 ${isOpen ? 'text-amber-300' : 'text-teal-700'}`} />
+        <span>{isOpen ? 'Thu gọn' : 'Giải thích'}</span>
+        {isOpen ? <ChevronUp className="w-3.5 h-3.5 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 shrink-0" />}
+      </button>
+    );
+  };
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
       {/* Thẻ 1: Lần đo gần nhất */}
@@ -63,19 +87,7 @@ export function VitalsMetricSummaryCards({
               1. Lần Đo Gần Nhất
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => toggleCard(1)}
-            aria-label="Xem giải thích lần đo gần nhất"
-            className={`min-h-[48px] min-w-[48px] -my-2 -mr-2 rounded-xl flex items-center justify-center transition cursor-pointer shrink-0 ${
-              activeCardInfo === 1
-                ? 'bg-teal-100 text-medical-dark'
-                : 'text-text-muted hover:text-medical-primary hover:bg-white/70'
-            }`}
-            title="Xem giải thích lâm sàng"
-          >
-            <Info className="w-4 h-4" />
-          </button>
+          {renderGuideButton(1, 'Xem giải thích lần đo gần nhất')}
         </div>
 
         {summaryStats.latest && latestEval ? (
@@ -141,19 +153,7 @@ export function VitalsMetricSummaryCards({
           <span className="text-xs sm:text-sm font-bold text-text-body uppercase tracking-wide truncate">
             2. Huyết Áp Trung Bình
           </span>
-          <button
-            type="button"
-            onClick={() => toggleCard(2)}
-            aria-label="Xem giải thích huyết áp trung bình"
-            className={`min-h-[48px] min-w-[48px] -my-2 -mr-2 rounded-xl flex items-center justify-center transition cursor-pointer shrink-0 ${
-              activeCardInfo === 2
-                ? 'bg-teal-100 text-medical-dark'
-                : 'text-text-muted hover:text-medical-primary hover:bg-slate-100'
-            }`}
-            title="Xem giải thích Huyết áp"
-          >
-            <Info className="w-4 h-4" />
-          </button>
+          {renderGuideButton(2, 'Xem giải thích huyết áp trung bình')}
         </div>
 
         {summaryStats.avgSys !== null ? (
@@ -188,18 +188,18 @@ export function VitalsMetricSummaryCards({
         )}
 
         {activeCardInfo === 2 && (
-          <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs sm:text-sm text-text-body bg-slate-50 p-3 rounded-xl leading-relaxed space-y-1">
+          <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs sm:text-sm text-text-body bg-slate-50 p-3 rounded-xl leading-relaxed space-y-1.5">
             <div>
               • <strong>Số trên (Tâm thu):</strong> Áp lực máu bơm lên não lúc tim co bóp (An toàn
-              &lt;{bpThresholds.highSys}, đẹp 115-130).
+              &lt;{bpThresholds.highSys}, đẹp 115-130). Cao kéo dài dễ gây đột quỵ, suy tim, hại thận.
             </div>
             <div>
               • <strong>Số dưới (Tâm trương):</strong> Áp lực mạch lúc tim giãn nghỉ nuôi cơ tim (An
-              toàn &lt;{bpThresholds.highDia}, đẹp 70-80).
+              toàn &lt;{bpThresholds.highDia}, đẹp 70-80). Cao làm thành mạch căng cứng, nhanh mệt.
             </div>
             <div>
               • <strong>Hiệu áp (Số trên - Số dưới):</strong> Đẹp nhất <strong>40-55 mmHg</strong>{' '}
-              (TB kỳ này: {summaryStats.avgPP ?? '-'} mmHg).
+              (TB kỳ này: {summaryStats.avgPP ?? '-'} mmHg). Nếu &ge; 60 mmHg cho thấy thành mạch hơi cứng (hay tăng thêm khi hút thuốc, uống rượu bia).
             </div>
           </div>
         )}
@@ -217,19 +217,7 @@ export function VitalsMetricSummaryCards({
           <span className="text-xs sm:text-sm font-bold text-text-body uppercase tracking-wide truncate">
             3. Nhịp Tim (Mạch) TB
           </span>
-          <button
-            type="button"
-            onClick={() => toggleCard(3)}
-            aria-label="Xem giải thích Nhịp tim"
-            className={`min-h-[48px] min-w-[48px] -my-2 -mr-2 rounded-xl flex items-center justify-center transition cursor-pointer shrink-0 ${
-              activeCardInfo === 3
-                ? 'bg-amber-100 text-amber-900'
-                : 'text-text-muted hover:text-amber-800 hover:bg-amber-50'
-            }`}
-            title="Xem giải thích Nhịp tim"
-          >
-            <Info className="w-4 h-4" />
-          </button>
+          {renderGuideButton(3, 'Xem giải thích Nhịp tim')}
         </div>
 
         <div className="flex items-baseline justify-between gap-2 mt-1.5 flex-wrap">
@@ -299,10 +287,14 @@ export function VitalsMetricSummaryCards({
         </div>
 
         {activeCardInfo === 3 && (
-          <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs sm:text-sm text-text-body bg-slate-50 p-3 rounded-xl leading-relaxed">
-            💡 <strong>Nhịp tim lúc nghỉ:</strong> Tốt nhất từ <strong>60-79 nhịp/phút</strong> (bình
-            thường 60-99). Nếu mạch từ 50-59 là hơi chậm nhẹ; dưới 50 nhịp/phút cần hỏi Bác sĩ khi
-            tái khám.
+          <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs sm:text-sm text-text-body bg-slate-50 p-3 rounded-xl leading-relaxed space-y-1">
+            <div>
+              💡 <strong>Nhịp tim lúc nghỉ:</strong> Tốt nhất từ <strong>60-79 nhịp/phút</strong> (bình
+              thường 60-90).
+            </div>
+            <div>
+              ⚠️ <strong>Tác hại nếu bất thường:</strong> Nếu lúc nghỉ &ge; 100 nhịp/phút kéo dài khiến tim nhanh mệt (hay gặp sau uống rượu bia, hút thuốc hoặc mất nước sau Tennis). Nếu &lt; 50 nhịp/phút kèm choáng váng cần báo Bác sĩ.
+            </div>
           </div>
         )}
       </div>
@@ -313,22 +305,10 @@ export function VitalsMetricSummaryCards({
           <div className="flex items-center gap-1.5 min-w-0">
             <Pill className="w-4 h-4 text-vital-safe shrink-0" />
             <span className="text-xs sm:text-sm font-bold text-text-body uppercase tracking-wide truncate">
-              4. Thuốc &amp; Tập PHCN
+              4. Thuốc &amp; Vận Động
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => toggleCard(4)}
-            aria-label="Xem cách tính tuân thủ thuốc và tập"
-            className={`min-h-[48px] min-w-[48px] -my-2 -mr-2 rounded-xl flex items-center justify-center transition cursor-pointer shrink-0 ${
-              activeCardInfo === 4
-                ? 'bg-emerald-100 text-emerald-800'
-                : 'text-text-muted hover:text-emerald-700 hover:bg-emerald-50'
-            }`}
-            title="Xem cách tính tuân thủ"
-          >
-            <Info className="w-4 h-4" />
-          </button>
+          {renderGuideButton(4, 'Xem cách tính tuân thủ thuốc và tập')}
         </div>
 
         {complianceStats.medsPercentage !== null ? (

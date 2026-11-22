@@ -81,10 +81,18 @@ export function detectDefaultExamPackage(params: {
     hasNum(editingEntry.triglyceride) ||
     hasNum(editingEntry.ast) ||
     hasNum(editingEntry.alt) ||
+    hasNum(editingEntry.ggt) ||
+    hasNum(editingEntry.bilirubinTotal) ||
+    hasNum(editingEntry.bilirubinDirect) ||
     hasNum(editingEntry.creatinine) ||
+    hasNum(editingEntry.egfr) ||
     hasNum(editingEntry.urea) ||
     hasNum(editingEntry.uricAcid) ||
     hasNum(editingEntry.hemoglobin) ||
+    hasNum(editingEntry.gallbladderPolypMm) ||
+    Boolean(editingEntry.gallbladderPolypCount) ||
+    Boolean(editingEntry.liverUltrasound) ||
+    Boolean(editingEntry.kidneyUltrasound) ||
     hasNum(editingEntry.calcium) ||
     hasNum(editingEntry.ionizedCalcium) ||
     hasNum(editingEntry.phosphorus) ||
@@ -110,13 +118,14 @@ export function hasAdvancedFieldsForPackage(
     hasNum(entry.antiTg) ||
     hasNum(entry.antiTpo) ||
     hasNum(entry.hdlC) ||
+    hasNum(entry.bilirubinTotal) ||
+    hasNum(entry.bilirubinDirect) ||
     hasNum(entry.ionizedCalcium) ||
     hasNum(entry.phosphorus) ||
     hasNum(entry.pth) ||
     hasNum(entry.albumin) ||
     hasNum(entry.vitaminD) ||
     hasNum(entry.urea) ||
-    hasNum(entry.uricAcid) ||
     hasNum(entry.hemoglobin) ||
     Boolean(entry.customLabs?.length);
 
@@ -130,7 +139,14 @@ export function hasAdvancedFieldsForPackage(
     hasNum(entry.triglyceride) ||
     hasNum(entry.ast) ||
     hasNum(entry.alt) ||
-    hasNum(entry.creatinine);
+    hasNum(entry.ggt) ||
+    hasNum(entry.creatinine) ||
+    hasNum(entry.egfr) ||
+    hasNum(entry.uricAcid) ||
+    hasNum(entry.gallbladderPolypMm) ||
+    Boolean(entry.gallbladderPolypCount) ||
+    Boolean(entry.liverUltrasound) ||
+    Boolean(entry.kidneyUltrasound);
 
   const hasThyroidQuick =
     hasNum(entry.tsh) ||
@@ -286,10 +302,19 @@ export function createInitialLabFormState(params: {
         vitaminD: numStr(editingEntry.vitaminD),
         ast: numStr(editingEntry.ast),
         alt: numStr(editingEntry.alt),
+        ggt: numStr(editingEntry.ggt),
+        bilirubinTotal: numStr(editingEntry.bilirubinTotal),
+        bilirubinDirect: numStr(editingEntry.bilirubinDirect),
         creatinine: numStr(editingEntry.creatinine),
+        egfr: numStr(editingEntry.egfr),
         urea: numStr(editingEntry.urea),
         uricAcid: numStr(editingEntry.uricAcid),
         hemoglobin: numStr(editingEntry.hemoglobin),
+        gallbladderPolypMm: numStr(editingEntry.gallbladderPolypMm),
+        gallbladderPolypCount: editingEntry.gallbladderPolypCount || '',
+        liverUltrasound: editingEntry.liverUltrasound || '',
+        kidneyUltrasound: editingEntry.kidneyUltrasound || '',
+        nextUltrasoundDate: editingEntry.nextUltrasoundDate || '',
         customLabs: Array.isArray(editingEntry.customLabs)
           ? [...editingEntry.customLabs]
           : [],
@@ -348,10 +373,19 @@ export function createInitialLabFormState(params: {
       vitaminD: '',
       ast: '',
       alt: '',
+      ggt: '',
+      bilirubinTotal: '',
+      bilirubinDirect: '',
       creatinine: '',
+      egfr: '',
       urea: '',
       uricAcid: '',
       hemoglobin: '',
+      gallbladderPolypMm: '',
+      gallbladderPolypCount: '',
+      liverUltrasound: '',
+      kidneyUltrasound: '',
+      nextUltrasoundDate: '',
       customLabs: [],
     },
     unitLocks: {},
@@ -413,10 +447,21 @@ export function buildLabEntryFromFormState(params: {
     vitaminD: parseOptionalNumber(state.bio.vitaminD),
     ast: parseOptionalNumber(state.bio.ast),
     alt: parseOptionalNumber(state.bio.alt),
+    ggt: parseOptionalNumber(state.bio.ggt),
+    bilirubinTotal: parseOptionalNumber(state.bio.bilirubinTotal),
+    bilirubinDirect: parseOptionalNumber(state.bio.bilirubinDirect),
     creatinine: parseOptionalNumber(state.bio.creatinine),
+    egfr: parseOptionalNumber(state.bio.egfr),
     urea: parseOptionalNumber(state.bio.urea),
     uricAcid: parseOptionalNumber(state.bio.uricAcid),
     hemoglobin: parseOptionalNumber(state.bio.hemoglobin),
+    gallbladderPolypMm: parseOptionalNumber(state.bio.gallbladderPolypMm),
+    gallbladderPolypCount: state.bio.gallbladderPolypCount.trim() || undefined,
+    liverUltrasound: state.bio.liverUltrasound.trim() || undefined,
+    kidneyUltrasound: state.bio.kidneyUltrasound.trim() || undefined,
+    nextUltrasoundDate: state.bio.nextUltrasoundDate
+      ? normalizeDateStr(state.bio.nextUltrasoundDate)
+      : undefined,
     customLabs: cleanCustomLabs.length > 0 ? cleanCustomLabs : undefined,
     createdAt: editingEntry?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),

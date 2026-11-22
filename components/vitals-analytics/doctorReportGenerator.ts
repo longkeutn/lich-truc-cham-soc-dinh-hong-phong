@@ -3,6 +3,7 @@ import type {
   BpThresholds,
   CareRoutine,
   HealthProfileType,
+  LabResultEntry,
 } from '@/lib/types';
 import {
   TIME_SLOT_CONFIG,
@@ -10,6 +11,7 @@ import {
   getVietnamDateOffsetStr,
   getVietnamDateStr,
   compareVitalsDesc,
+  normalizeDateStr,
 } from '@/lib/config';
 import {
   ALL_SLOTS,
@@ -30,8 +32,90 @@ export interface DoctorReportParams {
   normalizedVitals: VitalsLogEntry[];
   filteredLog: VitalsLogEntry[];
   careRoutines: CareRoutine[];
+  labResults?: LabResultEntry[];
   summaryStats: VitalsSummaryStats;
   complianceStats: VitalsComplianceStats;
+}
+
+interface LifestyleTriggerCounts {
+  alcoholCount: number;
+  smokingCount: number;
+  sportCount: number;
+  goutFlareCount: number;
+  ibsPainCount: number;
+  gallbladderPainCount: number;
+}
+
+function summarizeLifestyleTriggers(entries: VitalsLogEntry[]): LifestyleTriggerCounts {
+  const counts: LifestyleTriggerCounts = {
+    alcoholCount: 0,
+    smokingCount: 0,
+    sportCount: 0,
+    goutFlareCount: 0,
+    ibsPainCount: 0,
+    gallbladderPainCount: 0,
+  };
+  for (const e of entries) {
+    const n = (e.note || '').toLowerCase();
+    if (!n) continue;
+    if (n.includes('rượu') || n.includes('bia')) counts.alcoholCount += 1;
+    if (n.includes('thuốc lá')) counts.smokingCount += 1;
+    if (n.includes('tennis') || n.includes('đạp xe') || n.includes('thể dục')) counts.sportCount += 1;
+    if (n.includes('gout') || n.includes('sưng khớp')) counts.goutFlareCount += 1;
+    if (n.includes('ibs') || n.includes('đau bụng') || n.includes('rối loạn')) counts.ibsPainCount += 1;
+    if (n.includes('hạ sườn phải') || n.includes('túi mật')) counts.gallbladderPainCount += 1;
+  }
+  return counts;
+}
+
+function summarizeLabsForDoctor(labResults: LabResultEntry[] = []): {
+  polypSeries: string[];
+  latestUltrasoundSummary: string[];
+  latestBiochemSummary: string[];
+} {
+  const clinical = [...labResults]
+    .filter((r) => !r.recordKind || r.recordKind === 'lab')
+    .sort((a, b) => normalizeDateStr(b.date).localeCompare(normalizeDateStr(a.date)));
+
+  const polypSeries = clinical
+    .filter((r) => typeof r.gallbladderPolypMm === 'number' && !isNaN(r.gallbladderPolypMm))
+    .slice(0, 4)
+    .reverse()
+    .map((r) => `${fmtDateShort(r.date)}: ${r.gallbladderPolypMm}mm`);
+
+  const latestUs = clinical.find(
+    (r) =>
+      r.gallbladderPolypCount ||
+      r.liverUltrasound ||
+      r.kidneyUltrasound ||
+      r.nextUltrasoundDate
+  );
+  const latestUltrasoundSummary: string[] = [];
+  if (latestUs) {
+    if (latestUs.gallbladderPolypCount) latestUltrasoundSummary.push(`Polyp túi mật: ${latestUs.gallbladderPolypCount}`);
+    if (latestUs.liverUltrasound) latestUltrasoundSummary.push(`Gan: ${latestUs.liverUltrasound}`);
+    if (latestUs.kidneyUltrasound) latestUltrasoundSummary.push(`Thận: ${latestUs.kidneyUltrasound}`);
+    if (latestUs.nextUltrasoundDate) latestUltrasoundSummary.push(`Hẹn siêu âm lại: ${fmtDateShort(latestUs.nextUltrasoundDate)}`);
+  }
+
+  const latestLab = clinical[0];
+  const latestBiochemSummary: string[] = [];
+  if (latestLab) {
+    const dStr = fmtDateShort(latestLab.date);
+    if (typeof latestLab.uricAcid === 'number') latestBiochemSummary.push(`Acid Uric: ${latestLab.uricAcid} µmol/L (${dStr})`);
+    if (typeof latestLab.ggt === 'number') latestBiochemSummary.push(`GGT: ${latestLab.ggt} U/L`);
+    if (typeof latestLab.ast === 'number' || typeof latestLab.alt === 'number') {
+      latestBiochemSummary.push(`AST/ALT: ${latestLab.ast ?? '-'}/${latestLab.alt ?? '-'} U/L`);
+    }
+    if (typeof latestLab.creatinine === 'number') latestBiochemSummary.push(`Creatinine: ${latestLab.creatinine} µmol/L`);
+    if (typeof latestLab.egfr === 'number') latestBiochemSummary.push(`eGFR: ${latestLab.egfr} mL/phút`);
+    if (typeof latestLab.ldlC === 'number') latestBiochemSummary.push(`LDL-C: ${latestLab.ldlC} ${latestLab.lipidUnit || 'mmol/L'}`);
+    if (typeof latestLab.triglyceride === 'number') latestBiochemSummary.push(`Triglyceride: ${latestLab.triglyceride} ${latestLab.lipidUnit || 'mmol/L'}`);
+    if (typeof latestLab.glucose === 'number') latestBiochemSummary.push(`Glucose: ${latestLab.glucose} ${latestLab.glucoseUnit || 'mmol/L'}`);
+    if (typeof latestLab.hba1c === 'number') latestBiochemSummary.push(`HbA1c: ${latestLab.hba1c}%`);
+  }
+
+  return { polypSeries, latestUltrasoundSummary, latestBiochemSummary };
 }
 
 export function escapeHtml(raw: unknown): string {
@@ -70,6 +154,7 @@ export function buildDoctorSummaryText(params: DoctorReportParams): string {
     normalizedVitals,
     filteredLog,
     careRoutines,
+    labResults = [],
     summaryStats,
     complianceStats,
   } = params;
@@ -226,6 +311,45 @@ export function buildDoctorSummaryText(params: DoctorReportParams): string {
     }
   }
 
+  const triggers = summarizeLifestyleTriggers(periodEntries);
+  const hasTriggers =
+    triggers.alcoholCount > 0 ||
+    triggers.smokingCount > 0 ||
+    triggers.sportCount > 0 ||
+    triggers.goutFlareCount > 0 ||
+    triggers.ibsPainCount > 0 ||
+    triggers.gallbladderPainCount > 0;
+
+  if (hasTriggers) {
+    lines.push('--------------------');
+    lines.push('4️⃣ TẦN SUẤT SINH HOẠT & TRIỆU CHỨNG GHI NHẬN TRONG KỲ:');
+    if (triggers.sportCount > 0) lines.push(`• Tập thể thao (Tennis / Đạp xe): ${triggers.sportCount} lần`);
+    if (triggers.alcoholCount > 0) lines.push(`• Có uống rượu/bia: ${triggers.alcoholCount} lần`);
+    if (triggers.smokingCount > 0) lines.push(`• Có hút thuốc lá: ${triggers.smokingCount} lần`);
+    if (triggers.goutFlareCount > 0) lines.push(`• Đau/sưng khớp chân (Gout): ${triggers.goutFlareCount} lần`);
+    if (triggers.ibsPainCount > 0) lines.push(`• Đau bụng / rối loạn tiêu hóa (IBS): ${triggers.ibsPainCount} lần`);
+    if (triggers.gallbladderPainCount > 0) lines.push(`• Đau tức hạ sườn phải (Túi mật): ${triggers.gallbladderPainCount} lần`);
+  }
+
+  const labSummary = summarizeLabsForDoctor(labResults);
+  if (
+    labSummary.polypSeries.length > 0 ||
+    labSummary.latestUltrasoundSummary.length > 0 ||
+    labSummary.latestBiochemSummary.length > 0
+  ) {
+    lines.push('--------------------');
+    lines.push('5️⃣ XÉT NGHIỆM HÓA SINH & SIÊU ÂM POLYP GẦN NHẤT:');
+    if (labSummary.polypSeries.length > 0) {
+      lines.push(`• Diễn biến kích thước Polyp túi mật: ${labSummary.polypSeries.join(' -> ')}`);
+    }
+    if (labSummary.latestUltrasoundSummary.length > 0) {
+      lines.push(`• Siêu âm gần nhất: ${labSummary.latestUltrasoundSummary.join(' | ')}`);
+    }
+    if (labSummary.latestBiochemSummary.length > 0) {
+      lines.push(`• Sinh hóa gần nhất: ${labSummary.latestBiochemSummary.join(' · ')}`);
+    }
+  }
+
   const notedEntriesInPeriod = [...periodEntries]
     .filter((e) => Boolean(e.note && e.note.trim()))
     .sort(compareVitalsDesc)
@@ -234,8 +358,8 @@ export function buildDoctorSummaryText(params: DoctorReportParams): string {
     lines.push('--------------------');
     lines.push(
       isPostStrokeProfile
-        ? '4️⃣ GHI CHÚ TRIỆU CHỨNG & VÙNG KHUYẾT SỌ TRONG KỲ:'
-        : '4️⃣ GHI CHÚ TRIỆU CHỨNG & TÌNH TRẠNG SỨC KHỎE TRONG KỲ:'
+        ? '6️⃣ GHI CHÚ TRIỆU CHỨNG & VÙNG KHUYẾT SỌ TRONG KỲ:'
+        : '6️⃣ GHI CHÚ CHI TIẾT TRONG KỲ:'
     );
     for (const ne of notedEntriesInPeriod) {
       lines.push(
@@ -265,6 +389,7 @@ export function openPrintDoctorReportWindow(
     normalizedVitals,
     filteredLog,
     careRoutines,
+    labResults = [],
     summaryStats,
     complianceStats,
   } = params;
@@ -283,6 +408,8 @@ export function openPrintDoctorReportWindow(
     (r) => r.isActive && r.category === 'meds' && r.medType !== 'as_needed'
   );
   const notedEntries = periodEntries.filter((e) => Boolean(e.note && e.note.trim()));
+  const triggers = summarizeLifestyleTriggers(periodEntries);
+  const labSummary = summarizeLabsForDoctor(labResults);
 
   const slotRowsHtml = ALL_SLOTS.map((slot) => {
     const st = summaryStats.byPeriod[slot];
@@ -334,6 +461,55 @@ export function openPrintDoctorReportWindow(
       </tr>`;
     })
     .join('');
+
+  const hasTriggersPrint =
+    triggers.alcoholCount > 0 ||
+    triggers.smokingCount > 0 ||
+    triggers.sportCount > 0 ||
+    triggers.goutFlareCount > 0 ||
+    triggers.ibsPainCount > 0 ||
+    triggers.gallbladderPainCount > 0;
+  const hasLabSummaryPrint =
+    labSummary.polypSeries.length > 0 ||
+    labSummary.latestUltrasoundSummary.length > 0 ||
+    labSummary.latestBiochemSummary.length > 0;
+
+  const lifestyleAndLabsHtml =
+    hasTriggersPrint || hasLabSummaryPrint
+      ? `<h3>III. Sinh hoạt, Yếu tố kích hoạt &amp; Kết quả Xét nghiệm / Siêu âm Polyp</h3>
+         <div class="context-box">
+           ${
+             hasTriggersPrint
+               ? `<div><strong>• Tần suất ghi nhận trong kỳ:</strong> ${[
+                   triggers.sportCount > 0 ? `Tennis/Đạp xe: ${triggers.sportCount} lần` : '',
+                   triggers.alcoholCount > 0 ? `Rượu/bia: ${triggers.alcoholCount} lần` : '',
+                   triggers.smokingCount > 0 ? `Thuốc lá: ${triggers.smokingCount} lần` : '',
+                   triggers.goutFlareCount > 0 ? `Đau/sưng Gout: ${triggers.goutFlareCount} lần` : '',
+                   triggers.ibsPainCount > 0 ? `Đau bụng IBS: ${triggers.ibsPainCount} lần` : '',
+                   triggers.gallbladderPainCount > 0 ? `Tức hạ sườn phải: ${triggers.gallbladderPainCount} lần` : '',
+                 ]
+                   .filter(Boolean)
+                   .map(escapeHtml)
+                   .join(' · ')}</div>`
+               : ''
+           }
+           ${
+             labSummary.polypSeries.length > 0
+               ? `<div><strong>• Diễn biến Polyp túi mật:</strong> ${escapeHtml(labSummary.polypSeries.join(' -> '))}</div>`
+               : ''
+           }
+           ${
+             labSummary.latestUltrasoundSummary.length > 0
+               ? `<div><strong>• Siêu âm gần nhất:</strong> ${escapeHtml(labSummary.latestUltrasoundSummary.join(' | '))}</div>`
+               : ''
+           }
+           ${
+             labSummary.latestBiochemSummary.length > 0
+               ? `<div><strong>• Sinh hóa gần nhất:</strong> ${escapeHtml(labSummary.latestBiochemSummary.join(' · '))}</div>`
+               : ''
+           }
+         </div>`
+      : '';
 
   const html = `<!DOCTYPE html>
 <html lang="vi">
@@ -449,7 +625,8 @@ export function openPrintDoctorReportWindow(
       <table><thead><tr><th>Tên thuốc</th><th>Liều dùng</th><th>Buổi uống</th></tr></thead><tbody>${medsRowsHtml}</tbody></table>
     </div>
   </div>
-  <h3>III. Bảng nhật ký chi tiết các lần đo (${Math.min(periodEntries.length, 35)} lần đo gần nhất trong kỳ)</h3>
+  ${lifestyleAndLabsHtml}
+  <h3>${hasTriggersPrint || hasLabSummaryPrint ? 'IV' : 'III'}. Bảng nhật ký chi tiết các lần đo (${Math.min(periodEntries.length, 35)} lần đo gần nhất trong kỳ)</h3>
   <table>
     <thead><tr><th>Ngày &amp; Giờ</th><th>Buổi</th><th>Huyết áp (mmHg)</th><th>Mạch (l/p)</th><th>MAP / PP</th><th>Đánh giá &amp; Ghi chú triệu chứng</th></tr></thead>
     <tbody>${logRowsHtml}</tbody>

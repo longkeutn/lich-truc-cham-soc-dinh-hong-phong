@@ -46,7 +46,15 @@ export function LabAdvancedSection({
             'triglyceride',
             'ast',
             'alt',
+            'ggt',
             'creatinine',
+            'egfr',
+            'uricAcid',
+            'gallbladderPolypMm',
+            'gallbladderPolypCount',
+            'liverUltrasound',
+            'kidneyUltrasound',
+            'nextUltrasoundDate',
           ]
         : [];
 

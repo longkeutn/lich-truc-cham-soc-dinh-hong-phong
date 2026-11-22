@@ -15,6 +15,8 @@ import {
 import { Activity, Edit3, Pill, Building2, RefreshCw } from 'lucide-react';
 import type { LabResultEntry, HealthProfileType } from '@/lib/types';
 import type { LabIndicatorEval } from '@/lib/config';
+import { getLabMedicalGuide } from '@/lib/labMedicalGuides';
+import { MedicalInfoToggle } from '@/components/ui-kit';
 import {
   fmtDateShort,
   getLabDeltaText,
@@ -174,10 +176,13 @@ export function ThyroidTrackerSection({
                 : previousLab;
             const deltaText = getLabDeltaText(prevForInd, ind.key, ind.value, ind.unit);
             const indDate = sourceDateByKey?.[ind.key];
+            const guide = getLabMedicalGuide(ind.key);
+            const isWarnStatus =
+              ind.status === 'high' || ind.status === 'low' || ind.status === 'critical';
             return (
               <div
                 key={ind.key}
-                className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 space-y-1.5 flex flex-col justify-between"
+                className="rounded-2xl border border-border-card bg-slate-50/70 p-3.5 space-y-2 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2">
@@ -206,8 +211,17 @@ export function ThyroidTrackerSection({
                     <div className="text-xs sm:text-sm font-bold text-indigo-800 mt-1">{deltaText}</div>
                   )}
                 </div>
-                <div className="text-sm sm:text-base text-text-body pt-2 border-t border-slate-200/70 leading-relaxed">
-                  {ind.clinicalNote}
+                <div className="pt-2 border-t border-slate-200/70 space-y-2">
+                  <div className="text-sm text-text-body leading-relaxed">
+                    {ind.clinicalNote}
+                  </div>
+                  {guide && (
+                    <MedicalInfoToggle
+                      guide={guide}
+                      isWarning={isWarnStatus}
+                      buttonLabel={isWarnStatus ? 'Xem tác hại & xử trí' : 'Ý nghĩa & tác hại'}
+                    />
+                  )}
                 </div>
               </div>
             );

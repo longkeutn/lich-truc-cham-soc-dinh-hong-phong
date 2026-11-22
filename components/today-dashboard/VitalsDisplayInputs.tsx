@@ -1,8 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { HealthProfileType, VitalsPeriod } from '@/lib/types';
 import { TIME_SLOT_CONFIG } from '@/lib/config';
+import { getLabMedicalGuide } from '@/lib/labMedicalGuides';
+import { AlertTriangle, ChevronDown, ChevronUp, HelpCircle, ShieldCheck } from 'lucide-react';
 
 const PERIOD_OPTIONS: VitalsPeriod[] = ['morning', 'noon', 'afternoon', 'evening'];
 
@@ -48,6 +50,11 @@ export function VitalsDisplayInputs({
   const isPostStroke = profileType === 'post_stroke_cranioplasty';
   const isPediatric = profileType === 'pediatric';
 
+  const [activeGuideKey, setActiveGuideKey] = useState<'sys' | 'dia' | 'pulse' | null>(null);
+  const activeGuide = activeGuideKey ? getLabMedicalGuide(activeGuideKey) : null;
+  const toggleGuide = (k: 'sys' | 'dia' | 'pulse') =>
+    setActiveGuideKey((prev) => (prev === k ? null : k));
+
   const spo2Num = spo2 ? parseFloat(spo2) : undefined;
   const tempNum = temp ? parseFloat(temp.replace(',', '.')) : undefined;
 
@@ -56,14 +63,34 @@ export function VitalsDisplayInputs({
       {/* Bảng 3 chỉ số chính trên màn hình máy đo huyết áp */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3 bg-teal-50/45 p-2.5 sm:p-3.5 rounded-2xl border-2 border-teal-200/90">
         <div className="flex flex-col justify-between">
-          <label className="block text-center mb-1.5 leading-tight">
-            <span className="block text-xs sm:text-sm font-extrabold text-teal-950">
-              1. SỐ TRÊN
-            </span>
-            <span className="block text-xs font-semibold text-slate-600">
-              Tâm thu (SYS)
-            </span>
-          </label>
+          <div className="text-center mb-1.5 leading-tight space-y-1">
+            <label className="block">
+              <span className="block text-xs sm:text-sm font-extrabold text-teal-950">
+                1. SỐ TRÊN
+              </span>
+              <span className="block text-xs font-semibold text-slate-600">
+                Tâm thu (SYS)
+              </span>
+            </label>
+            <button
+              type="button"
+              onClick={() => toggleGuide('sys')}
+              aria-expanded={activeGuideKey === 'sys'}
+              className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full border text-[11px] font-extrabold cursor-pointer transition ${
+                activeGuideKey === 'sys'
+                  ? 'bg-teal-700 text-white border-teal-800'
+                  : 'bg-white hover:bg-teal-100 text-teal-900 border-teal-300'
+              }`}
+            >
+              <HelpCircle className="w-3 h-3 shrink-0" />
+              <span>{activeGuideKey === 'sys' ? 'Ẩn' : 'Ý nghĩa'}</span>
+              {activeGuideKey === 'sys' ? (
+                <ChevronUp className="w-3 h-3 shrink-0" />
+              ) : (
+                <ChevronDown className="w-3 h-3 shrink-0" />
+              )}
+            </button>
+          </div>
           <input
             ref={sysInputRef}
             type="number"
@@ -78,14 +105,34 @@ export function VitalsDisplayInputs({
         </div>
 
         <div className="flex flex-col justify-between">
-          <label className="block text-center mb-1.5 leading-tight">
-            <span className="block text-xs sm:text-sm font-extrabold text-teal-950">
-              2. SỐ DƯỚI
-            </span>
-            <span className="block text-xs font-semibold text-slate-600">
-              Tâm trương (DIA)
-            </span>
-          </label>
+          <div className="text-center mb-1.5 leading-tight space-y-1">
+            <label className="block">
+              <span className="block text-xs sm:text-sm font-extrabold text-teal-950">
+                2. SỐ DƯỚI
+              </span>
+              <span className="block text-xs font-semibold text-slate-600">
+                Tâm trương (DIA)
+              </span>
+            </label>
+            <button
+              type="button"
+              onClick={() => toggleGuide('dia')}
+              aria-expanded={activeGuideKey === 'dia'}
+              className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full border text-[11px] font-extrabold cursor-pointer transition ${
+                activeGuideKey === 'dia'
+                  ? 'bg-teal-700 text-white border-teal-800'
+                  : 'bg-white hover:bg-teal-100 text-teal-900 border-teal-300'
+              }`}
+            >
+              <HelpCircle className="w-3 h-3 shrink-0" />
+              <span>{activeGuideKey === 'dia' ? 'Ẩn' : 'Ý nghĩa'}</span>
+              {activeGuideKey === 'dia' ? (
+                <ChevronUp className="w-3 h-3 shrink-0" />
+              ) : (
+                <ChevronDown className="w-3 h-3 shrink-0" />
+              )}
+            </button>
+          </div>
           <input
             type="number"
             inputMode="numeric"
@@ -99,14 +146,34 @@ export function VitalsDisplayInputs({
         </div>
 
         <div className="flex flex-col justify-between">
-          <label className="block text-center mb-1.5 leading-tight">
-            <span className="block text-xs sm:text-sm font-extrabold text-teal-950">
-              3. NHỊP MẠCH
-            </span>
-            <span className="block text-xs font-semibold text-slate-600">
-              Nhịp/phút (BPM)
-            </span>
-          </label>
+          <div className="text-center mb-1.5 leading-tight space-y-1">
+            <label className="block">
+              <span className="block text-xs sm:text-sm font-extrabold text-teal-950">
+                3. NHỊP MẠCH
+              </span>
+              <span className="block text-xs font-semibold text-slate-600">
+                Nhịp/phút (BPM)
+              </span>
+            </label>
+            <button
+              type="button"
+              onClick={() => toggleGuide('pulse')}
+              aria-expanded={activeGuideKey === 'pulse'}
+              className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full border text-[11px] font-extrabold cursor-pointer transition ${
+                activeGuideKey === 'pulse'
+                  ? 'bg-teal-700 text-white border-teal-800'
+                  : 'bg-white hover:bg-teal-100 text-teal-900 border-teal-300'
+              }`}
+            >
+              <HelpCircle className="w-3 h-3 shrink-0" />
+              <span>{activeGuideKey === 'pulse' ? 'Ẩn' : 'Ý nghĩa'}</span>
+              {activeGuideKey === 'pulse' ? (
+                <ChevronUp className="w-3 h-3 shrink-0" />
+              ) : (
+                <ChevronDown className="w-3 h-3 shrink-0" />
+              )}
+            </button>
+          </div>
           <input
             type="number"
             inputMode="numeric"
@@ -119,6 +186,45 @@ export function VitalsDisplayInputs({
           />
         </div>
       </div>
+
+      {activeGuide && (
+        <div
+          role="region"
+          aria-label={`Giải thích chỉ số ${activeGuide.title}`}
+          className="rounded-2xl border-2 border-teal-300 bg-white p-3.5 space-y-2 text-xs sm:text-sm text-slate-800 shadow-sm leading-relaxed"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-black text-teal-950 flex items-center gap-1.5">
+              <HelpCircle className="w-4 h-4 text-teal-700 shrink-0" />
+              {activeGuide.title}
+            </span>
+            <button
+              type="button"
+              onClick={() => setActiveGuideKey(null)}
+              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-extrabold text-slate-700 cursor-pointer"
+            >
+              Đóng ✕
+            </button>
+          </div>
+          <p className="text-slate-700">
+            <strong>• Là gì:</strong> {activeGuide.whatItIs}
+          </p>
+          <div className="rounded-xl bg-amber-50/90 border border-amber-200 p-2.5 text-amber-950">
+            <div className="font-black flex items-center gap-1.5 text-amber-900 mb-0.5">
+              <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>Tác hại nếu tăng hoặc giảm bất thường:</span>
+            </div>
+            <p>{activeGuide.harmWarning}</p>
+          </div>
+          <div className="rounded-xl bg-emerald-50/80 border border-emerald-200 p-2.5 text-emerald-950">
+            <div className="font-black flex items-center gap-1.5 text-emerald-900 mb-0.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>Mức an toàn &amp; Lưu ý:</span>
+            </div>
+            <p>{activeGuide.safeTargetAndTips}</p>
+          </div>
+        </div>
+      )}
 
       {/* Sinh hiệu mở rộng thích ứng: SpO2 & Nhiệt độ cho Hậu đột quỵ / Ghép sọ hoặc Nhi khoa */}
       {(isPostStroke || isPediatric) && (

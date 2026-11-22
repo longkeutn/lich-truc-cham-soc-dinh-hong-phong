@@ -59,13 +59,13 @@ export function VitalsSymptomSelector({
     ? [...CRANIOPLASTY_FLAP_TAGS, ...quickNoteTags]
     : quickNoteTags;
 
-  const activeWarnTags = allDisplayedTags.filter(
+  const activeTipTags = allDisplayedTags.filter(
     (t, index, arr) =>
-      t.tone === 'warn' &&
       Boolean(t.clinicalTip) &&
       isQuickNoteTagSelected(note, t.value) &&
       arr.findIndex((x) => x.value === t.value) === index
   );
+  const [showWhyTags, setShowWhyTags] = React.useState(false);
 
   return (
     <div className="rounded-2xl bg-slate-50/80 border border-slate-200/90 p-3 space-y-2.5">
@@ -81,13 +81,29 @@ export function VitalsSymptomSelector({
       )}
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="text-xs sm:text-sm font-extrabold text-slate-800">
-          🏷️{' '}
-          {isPostStroke
-            ? 'Tình trạng sinh hoạt & phục hồi trong ngày'
-            : `Chạm chọn nhanh tình trạng của ${patientDisplayName}`}{' '}
-          <span className="font-normal text-slate-600">(tự điền vào ô Ghi chú)</span>:
-        </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs sm:text-sm font-extrabold text-slate-800">
+            🏷️{' '}
+            {isPostStroke
+              ? 'Tình trạng sinh hoạt & phục hồi trong ngày'
+              : `Chạm chọn nhanh tình trạng của ${patientDisplayName}`}{' '}
+            <span className="font-normal text-slate-600">(tự điền vào ô Ghi chú)</span>:
+          </span>
+          {profileType === 'general_health' && (
+            <button
+              type="button"
+              onClick={() => setShowWhyTags((v) => !v)}
+              aria-expanded={showWhyTags}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-extrabold cursor-pointer transition ${
+                showWhyTags
+                  ? 'bg-teal-700 text-white border-teal-800'
+                  : 'bg-white hover:bg-teal-50 text-teal-900 border-teal-300'
+              }`}
+            >
+              <span>{showWhyTags ? 'Thu gọn ▴' : 'ℹ️ Tại sao nên bấm thẻ? ▾'}</span>
+            </button>
+          )}
+        </div>
         {note.trim() && (
           <button
             type="button"
@@ -99,12 +115,32 @@ export function VitalsSymptomSelector({
         )}
       </div>
 
+      {showWhyTags && profileType === 'general_health' && (
+        <div className="p-3 rounded-xl bg-white border border-teal-300 text-xs sm:text-sm text-slate-700 space-y-1.5 leading-relaxed">
+          <div className="font-black text-teal-950">
+            💡 Bấm thẻ 1 chạm giúp Bác sĩ &amp; gia đình thấy ngay nguyên nhân làm huyết áp/sức khỏe thay đổi:
+          </div>
+          <ul className="list-disc list-inside space-y-1">
+            <li><strong>Rượu bia &amp; Thuốc lá:</strong> Làm tăng huyết áp, khởi phát sưng chân Gout, kích thích đau bụng ruột kích thích (IBS) và tăng men gan GGT.</li>
+            <li><strong>Sau Tennis / Đạp xe:</strong> Giúp tách biệt số đo lúc vừa tập xong với số đo lúc nghỉ ngơi thật sự.</li>
+            <li><strong>Đau khớp Gout / Đau bụng IBS / Tức hạ sườn phải:</strong> Tự động hiện lời khuyên xử trí an toàn và tổng hợp vào Phiếu Trình Bác Sĩ.</li>
+          </ul>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">{quickNoteTags.map(renderTagButton)}</div>
 
-      {activeWarnTags.length > 0 && (
-        <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-xs sm:text-sm text-amber-950 space-y-1.5">
-          {activeWarnTags.map((wt) => (
-            <div key={wt.id} className="leading-relaxed">
+      {activeTipTags.length > 0 && (
+        <div className="space-y-1.5">
+          {activeTipTags.map((wt) => (
+            <div
+              key={wt.id}
+              className={`p-3 rounded-xl border text-xs sm:text-sm leading-relaxed ${
+                wt.tone === 'warn'
+                  ? 'bg-amber-50 border-amber-300 text-amber-950'
+                  : 'bg-teal-50 border-teal-300 text-teal-950'
+              }`}
+            >
               <strong>💡 Lưu ý ({wt.value}):</strong> {wt.clinicalTip}
             </div>
           ))}

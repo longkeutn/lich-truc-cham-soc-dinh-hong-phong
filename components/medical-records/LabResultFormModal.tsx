@@ -221,7 +221,10 @@ export function LabResultFormModal({
       (!entry.customLabs || entry.customLabs.length === 0) &&
       !entry.levothyroxineDose &&
       !entry.symptoms &&
-      !entry.doctorAdvice
+      !entry.doctorAdvice &&
+      !entry.gallbladderPolypCount &&
+      !entry.liverUltrasound &&
+      !entry.kidneyUltrasound
     ) {
       showToast(
         'Vui lòng nhập ít nhất 1 chỉ số xét nghiệm, liều thuốc, triệu chứng hoặc lời dặn bác sĩ.',

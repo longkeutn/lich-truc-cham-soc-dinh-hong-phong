@@ -6,6 +6,7 @@ import type {
   CareRoutine,
   DailyLog,
   HealthProfileType,
+  LabResultEntry,
   VitalsLogEntry,
 } from '@/lib/types';
 import {
@@ -26,6 +27,7 @@ export interface StandaloneDoctorReportModalProps {
   bpThresholds: BpThresholds;
   dailyLogs: DailyLog[];
   careRoutines: CareRoutine[];
+  labResults?: LabResultEntry[];
   patientName: string;
   patientDiagnosis?: string;
   profileType: HealthProfileType;
@@ -39,6 +41,7 @@ export default function StandaloneDoctorReportModal({
   bpThresholds,
   dailyLogs,
   careRoutines,
+  labResults = [],
   patientName,
   patientDiagnosis,
   profileType,
@@ -104,6 +107,7 @@ export default function StandaloneDoctorReportModal({
       normalizedVitals={normalizedVitals}
       filteredLog={filteredLog}
       careRoutines={careRoutines}
+      labResults={labResults}
       summaryStats={summaryStats}
       complianceStats={complianceStats}
       showToast={showToast}

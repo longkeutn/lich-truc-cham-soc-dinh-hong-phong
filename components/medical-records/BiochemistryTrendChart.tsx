@@ -20,7 +20,7 @@ import {
 } from './labChartFormatters';
 import { BioChartEmptyState } from './BioChartEmptyState';
 
-export type BioChartTab = 'lipid' | 'metabolic' | 'liver_kidney';
+export type BioChartTab = 'lipid' | 'metabolic' | 'liver_kidney' | 'gout_polyp';
 
 export interface BiochemistryTrendChartProps {
   chartData: LabChartPoint[];
@@ -68,14 +68,27 @@ export function BiochemistryTrendChart({
         (d) =>
           d.ast !== undefined ||
           d.alt !== undefined ||
+          d.ggt !== undefined ||
           d.creatinine !== undefined ||
+          d.egfr !== undefined ||
           d.hemoglobin !== undefined
       ),
     [chartData]
   );
 
+  const goutPolypPoints = useMemo(
+    () =>
+      chartData.filter(
+        (d) => d.uricAcid !== undefined || d.gallbladderPolypMm !== undefined
+      ),
+    [chartData]
+  );
+
   const totalBioPointsCount =
-    lipidPoints.length + metabolicPoints.length + liverKidneyPoints.length;
+    lipidPoints.length +
+    metabolicPoints.length +
+    liverKidneyPoints.length +
+    goutPolypPoints.length;
 
   // Tự động chuyển sang tab có số liệu nếu tab hiện tại rỗng
   useEffect(() => {
@@ -84,15 +97,24 @@ export function BiochemistryTrendChart({
         setBioChartTab('metabolic');
       } else if (liverKidneyPoints.length > 0) {
         setBioChartTab('liver_kidney');
+      } else if (goutPolypPoints.length > 0) {
+        setBioChartTab('gout_polyp');
       }
     }
-  }, [bioChartTab, lipidPoints.length, metabolicPoints.length, liverKidneyPoints.length]);
+  }, [
+    bioChartTab,
+    lipidPoints.length,
+    metabolicPoints.length,
+    liverKidneyPoints.length,
+    goutPolypPoints.length,
+  ]);
 
   const activeChartPoints = useMemo(() => {
     if (bioChartTab === 'lipid') return lipidPoints;
     if (bioChartTab === 'metabolic') return metabolicPoints;
+    if (bioChartTab === 'gout_polyp') return goutPolypPoints;
     return liverKidneyPoints;
-  }, [bioChartTab, lipidPoints, metabolicPoints, liverKidneyPoints]);
+  }, [bioChartTab, lipidPoints, metabolicPoints, liverKidneyPoints, goutPolypPoints]);
 
   const hasRightAxisData = useMemo(() => {
     if (bioChartTab === 'lipid') return false;
@@ -101,8 +123,11 @@ export function BiochemistryTrendChart({
         (d) => d.vitaminD !== undefined || d.pth !== undefined || d.albumin !== undefined
       );
     }
+    if (bioChartTab === 'gout_polyp') {
+      return activeChartPoints.some((d) => d.gallbladderPolypMm !== undefined);
+    }
     return activeChartPoints.some(
-      (d) => d.creatinine !== undefined || d.hemoglobin !== undefined
+      (d) => d.creatinine !== undefined || d.egfr !== undefined || d.hemoglobin !== undefined
     );
   }, [bioChartTab, activeChartPoints]);
 
@@ -117,10 +142,16 @@ export function BiochemistryTrendChart({
           d.phosphorus !== undefined
       );
     }
-    return activeChartPoints.some((d) => d.ast !== undefined || d.alt !== undefined);
+    if (bioChartTab === 'gout_polyp') {
+      return activeChartPoints.some((d) => d.uricAcid !== undefined);
+    }
+    return activeChartPoints.some(
+      (d) => d.ast !== undefined || d.alt !== undefined || d.ggt !== undefined
+    );
   }, [bioChartTab, activeChartPoints]);
 
   const creatinineAxisId = hasLeftAxisData ? 'right' : 'left';
+  const polypAxisId = hasLeftAxisData ? 'right' : 'left';
 
   const tooltipStyle = useMemo(
     () => ({ borderRadius: '14px', borderColor: '#cbd5e1', fontSize: '12px', fontWeight: 700 }),
@@ -149,6 +180,7 @@ export function BiochemistryTrendChart({
             { id: 'lipid', label: '❤️ Mỡ máu', count: lipidPoints.length },
             { id: 'metabolic', label: '🦴 Canxi, Cận giáp & Đường', count: metabolicPoints.length },
             { id: 'liver_kidney', label: '🧪 Gan & Thận', count: liverKidneyPoints.length },
+            { id: 'gout_polyp', label: '🫧 Gout & Polyp', count: goutPolypPoints.length },
           ].map((t) => (
             <button
               key={t.id}
@@ -388,6 +420,62 @@ export function BiochemistryTrendChart({
                   />
                 ) : null}
               </ComposedChart>
+            ) : bioChartTab === 'gout_polyp' ? (
+              <ComposedChart
+                key="chart-gout_polyp"
+                data={goutPolypPoints}
+                margin={{ top: 10, right: hasRightAxisData ? 14 : 8, left: -8, bottom: 4 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: '#334155', fontSize: 12, fontWeight: 700 }}
+                  tickLine={false}
+                />
+                <YAxis
+                  yAxisId="left"
+                  tick={{ fill: '#334155', fontSize: 12, fontWeight: 700 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                {hasRightAxisData && hasLeftAxisData ? (
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    tick={{ fill: '#0f766e', fontSize: 12, fontWeight: 700 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                ) : null}
+                <Tooltip contentStyle={tooltipStyle} formatter={formatLiverKidneyTooltip} />
+                <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 700 }} />
+                {goutPolypPoints.some((d) => d.uricAcid !== undefined) ? (
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="uricAcid"
+                    name="Acid Uric µmol/L (Đích Gout <360)"
+                    stroke="#d97706"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, fill: '#d97706' }}
+                    activeDot={{ r: 6 }}
+                    connectNulls
+                  />
+                ) : null}
+                {goutPolypPoints.some((d) => d.gallbladderPolypMm !== undefined) ? (
+                  <Line
+                    yAxisId={polypAxisId}
+                    type="monotone"
+                    dataKey="gallbladderPolypMm"
+                    name="Polyp túi mật mm (Cảnh báo >=10)"
+                    stroke="#0f766e"
+                    strokeWidth={2.5}
+                    dot={{ r: 4.5, fill: '#0f766e' }}
+                    activeDot={{ r: 6.5 }}
+                    connectNulls
+                  />
+                ) : null}
+              </ComposedChart>
             ) : (
               <ComposedChart
                 key="chart-liver_kidney"
@@ -439,6 +527,19 @@ export function BiochemistryTrendChart({
                   activeDot={{ r: 6 }}
                   connectNulls
                 />
+                {liverKidneyPoints.some((d) => d.ggt !== undefined) ? (
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="ggt"
+                    name="GGT U/L (Trục trái)"
+                    stroke="#7c3aed"
+                    strokeWidth={2.4}
+                    dot={{ r: 4, fill: '#7c3aed' }}
+                    activeDot={{ r: 6 }}
+                    connectNulls
+                  />
+                ) : null}
                 <Line
                   yAxisId={creatinineAxisId}
                   type="monotone"
@@ -450,6 +551,20 @@ export function BiochemistryTrendChart({
                   activeDot={{ r: 6 }}
                   connectNulls
                 />
+                {liverKidneyPoints.some((d) => d.egfr !== undefined) ? (
+                  <Line
+                    yAxisId={creatinineAxisId}
+                    type="monotone"
+                    dataKey="egfr"
+                    name="eGFR mL/phút"
+                    stroke="#0d9488"
+                    strokeWidth={2}
+                    strokeDasharray="3 3"
+                    dot={{ r: 3.5, fill: '#0d9488' }}
+                    activeDot={{ r: 5.5 }}
+                    connectNulls
+                  />
+                ) : null}
                 {liverKidneyPoints.some((d) => d.hemoglobin !== undefined) ? (
                   <Line
                     yAxisId={creatinineAxisId}

@@ -14,6 +14,7 @@ import type {
   BpThresholds,
   CareRoutine,
   HealthProfileType,
+  LabResultEntry,
 } from '@/lib/types';
 import {
   TIME_SLOT_CONFIG,
@@ -46,6 +47,7 @@ interface DoctorSummaryExportModalProps {
   normalizedVitals: VitalsLogEntry[];
   filteredLog: VitalsLogEntry[];
   careRoutines: CareRoutine[];
+  labResults?: LabResultEntry[];
   summaryStats: VitalsSummaryStats;
   complianceStats: VitalsComplianceStats;
   showToast?: (msg: string, type?: 'info' | 'success' | 'warn') => void;
@@ -63,6 +65,7 @@ export function DoctorSummaryExportModal({
   normalizedVitals,
   filteredLog,
   careRoutines,
+  labResults = [],
   summaryStats,
   complianceStats,
   showToast,
@@ -80,6 +83,7 @@ export function DoctorSummaryExportModal({
       normalizedVitals,
       filteredLog,
       careRoutines,
+      labResults,
       summaryStats,
       complianceStats,
     }),
@@ -92,6 +96,7 @@ export function DoctorSummaryExportModal({
       normalizedVitals,
       filteredLog,
       careRoutines,
+      labResults,
       summaryStats,
       complianceStats,
     ]

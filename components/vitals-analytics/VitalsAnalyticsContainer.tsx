@@ -33,6 +33,7 @@ export function VitalsAnalyticsContainer({
   bpThresholds,
   dailyLogs,
   careRoutines,
+  labResults = [],
   members = [],
   patientName = DEFAULT_MEMBER_NAME,
   patientDiagnosis,
@@ -225,6 +226,7 @@ export function VitalsAnalyticsContainer({
         normalizedVitals={normalizedVitals}
         filteredLog={filteredLog}
         careRoutines={careRoutines}
+        labResults={labResults}
         summaryStats={summaryStats}
         complianceStats={complianceStats}
         showToast={showToast}

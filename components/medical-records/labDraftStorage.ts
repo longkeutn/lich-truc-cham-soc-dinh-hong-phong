@@ -76,9 +76,17 @@ export function hasMeaningfulLabInput(form: LabFullFormState): boolean {
       bio.triglyceride?.trim() ||
       bio.ast?.trim() ||
       bio.alt?.trim() ||
+      bio.ggt?.trim() ||
+      bio.bilirubinTotal?.trim() ||
+      bio.bilirubinDirect?.trim() ||
       bio.creatinine?.trim() ||
+      bio.egfr?.trim() ||
       bio.urea?.trim() ||
       bio.uricAcid?.trim() ||
+      bio.gallbladderPolypMm?.trim() ||
+      bio.gallbladderPolypCount?.trim() ||
+      bio.liverUltrasound?.trim() ||
+      bio.kidneyUltrasound?.trim() ||
       bio.calcium?.trim() ||
       bio.ionizedCalcium?.trim() ||
       bio.phosphorus?.trim() ||

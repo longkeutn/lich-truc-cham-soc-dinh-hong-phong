@@ -1,7 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { CheckCircle2, ChevronDown, ChevronUp, FileText, HeartPulse } from 'lucide-react';
+import { getLabMedicalGuide } from '@/lib/labMedicalGuides';
+import { MedicalInfoToggle } from '@/components/ui-kit';
 import { QUICK_DOSES } from './labRecordsUtils';
 import { LabMetricInput, type LabBiochemFormValues } from './LabFormPanels';
 import {
@@ -28,8 +30,8 @@ const PACKAGE_CARDS: Array<{
     id: 'general',
     emoji: '🧪',
     title: 'Gói 2: Tổng Quát',
-    subtitle: 'Đường huyết, Mỡ máu, Gan, Thận',
-    badge: '8 chỉ số chính',
+    subtitle: 'Đường, Mỡ máu, Gan (GGT), Thận, Gout & Siêu âm',
+    badge: '11 chỉ số + Siêu âm',
   },
   {
     id: 'advice_only',
@@ -264,16 +266,25 @@ export function GeneralQuickPanel({
   ) => void;
 }) {
   const effectiveUnits = resolveEffectiveLabUnits(form);
+  const [showUltrasoundQuick, setShowUltrasoundQuick] = useState<boolean>(() =>
+    Boolean(
+      form.bio.gallbladderPolypMm.trim() ||
+        form.bio.gallbladderPolypCount.trim() ||
+        form.bio.liverUltrasound.trim() ||
+        form.bio.kidneyUltrasound.trim() ||
+        form.bio.nextUltrasoundDate.trim()
+    )
+  );
 
   return (
     <div className="rounded-2xl border border-teal-200 bg-teal-50/40 p-3.5 sm:p-4 space-y-3.5">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h4 className="text-base font-black text-teal-950 flex items-center gap-2">
           <HeartPulse className="w-5 h-5 text-medical-primary shrink-0" />
-          <span>Chỉ Số Khám Tổng Quát Thường Gặp</span>
+          <span>Chỉ Số Khám Tổng Quát, Tim Mạch, Gan &amp; Gout</span>
         </h4>
         <span className="text-xs sm:text-sm font-bold text-teal-900 bg-white/80 px-2.5 py-1 rounded-lg border border-teal-200">
-          Tự nhận diện đơn vị mmol/L hoặc mg/dL
+          Bấm nút &quot;Ý nghĩa&quot; cạnh từng ô để xem tác hại sức khỏe
         </span>
       </div>
 
@@ -284,6 +295,7 @@ export function GeneralQuickPanel({
           value={form.bio.glucose}
           onChange={(v) => onSetBioField('glucose', v)}
           placeholder="VD: 5.6"
+          infoGuide={getLabMedicalGuide('glucose')}
         />
         <LabMetricInput
           label="HbA1c"
@@ -291,6 +303,7 @@ export function GeneralQuickPanel({
           value={form.bio.hba1c}
           onChange={(v) => onSetBioField('hba1c', v)}
           placeholder="VD: 6.1"
+          infoGuide={getLabMedicalGuide('hba1c')}
         />
         <LabMetricInput
           label="Cholesterol TP"
@@ -298,6 +311,7 @@ export function GeneralQuickPanel({
           value={form.bio.cholesterol}
           onChange={(v) => onSetBioField('cholesterol', v)}
           placeholder="VD: 4.8"
+          infoGuide={getLabMedicalGuide('cholesterol')}
         />
         <LabMetricInput
           label="LDL-C (Mỡ xấu)"
@@ -305,6 +319,7 @@ export function GeneralQuickPanel({
           value={form.bio.ldlC}
           onChange={(v) => onSetBioField('ldlC', v)}
           placeholder="VD: 2.5"
+          infoGuide={getLabMedicalGuide('ldlC')}
         />
         <LabMetricInput
           label="Triglyceride"
@@ -312,6 +327,7 @@ export function GeneralQuickPanel({
           value={form.bio.triglyceride}
           onChange={(v) => onSetBioField('triglyceride', v)}
           placeholder="VD: 1.5"
+          infoGuide={getLabMedicalGuide('triglyceride')}
         />
         <LabMetricInput
           label="Men gan AST (GOT)"
@@ -319,6 +335,7 @@ export function GeneralQuickPanel({
           value={form.bio.ast}
           onChange={(v) => onSetBioField('ast', v)}
           placeholder="VD: 24"
+          infoGuide={getLabMedicalGuide('ast')}
         />
         <LabMetricInput
           label="Men gan ALT (GPT)"
@@ -326,6 +343,15 @@ export function GeneralQuickPanel({
           value={form.bio.alt}
           onChange={(v) => onSetBioField('alt', v)}
           placeholder="VD: 26"
+          infoGuide={getLabMedicalGuide('alt')}
+        />
+        <LabMetricInput
+          label="GGT (Gan mật)"
+          subHint="U/L"
+          value={form.bio.ggt}
+          onChange={(v) => onSetBioField('ggt', v)}
+          placeholder="VD: 35"
+          infoGuide={getLabMedicalGuide('ggt')}
         />
         <LabMetricInput
           label="Creatinine (Thận)"
@@ -333,7 +359,112 @@ export function GeneralQuickPanel({
           value={form.bio.creatinine}
           onChange={(v) => onSetBioField('creatinine', v)}
           placeholder="VD: 82"
+          infoGuide={getLabMedicalGuide('creatinine')}
         />
+        <LabMetricInput
+          label="eGFR (Lọc thận)"
+          subHint="mL/phút"
+          value={form.bio.egfr}
+          onChange={(v) => onSetBioField('egfr', v)}
+          placeholder="VD: 84"
+          infoGuide={getLabMedicalGuide('egfr')}
+        />
+        <LabMetricInput
+          label="Acid Uric (Gout)"
+          subHint="µmol/L"
+          value={form.bio.uricAcid}
+          onChange={(v) => onSetBioField('uricAcid', v)}
+          placeholder="VD: 350"
+          infoGuide={getLabMedicalGuide('uricAcid')}
+        />
+      </div>
+
+      <div className="pt-1">
+        <button
+          type="button"
+          onClick={() => setShowUltrasoundQuick((v) => !v)}
+          aria-expanded={showUltrasoundQuick}
+          className="w-full min-h-[48px] min-w-[48px] px-3.5 py-2.5 rounded-xl border border-teal-200 bg-white/90 hover:bg-teal-50/70 text-teal-950 text-sm font-extrabold flex items-center justify-between gap-2 transition cursor-pointer"
+        >
+          <span>
+            🩺 Siêu Âm Bụng Định Kỳ (Polyp Túi Mật, Gan Nhiễm Mỡ, Sỏi Thận)
+          </span>
+          {showUltrasoundQuick ? (
+            <ChevronUp className="w-4 h-4 shrink-0" />
+          ) : (
+            <ChevronDown className="w-4 h-4 shrink-0" />
+          )}
+        </button>
+
+        {showUltrasoundQuick && (
+          <div className="mt-2.5 rounded-xl border border-teal-200/80 bg-white/90 p-3 space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-xs sm:text-sm font-semibold text-teal-900">
+                Ghi kích thước Polyp túi mật (mm) qua từng lần siêu âm để theo dõi tốc độ tăng trưởng.
+              </p>
+              {(() => {
+                const guide = getLabMedicalGuide('gallbladderPolypMm');
+                return guide ? <MedicalInfoToggle guide={guide} compact buttonLabel="Ý nghĩa Polyp" /> : null;
+              })()}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <LabMetricInput
+                label="Polyp túi mật lớn nhất"
+                subHint="mm"
+                value={form.bio.gallbladderPolypMm}
+                onChange={(v) => onSetBioField('gallbladderPolypMm', v)}
+                placeholder="VD: 4.5"
+              />
+              <div>
+                <label className="block text-base font-extrabold text-text-body mb-1">
+                  Số lượng / mô tả Polyp
+                </label>
+                <input
+                  type="text"
+                  value={form.bio.gallbladderPolypCount}
+                  onChange={(e) => onSetBioField('gallbladderPolypCount', e.target.value)}
+                  placeholder="VD: Đơn độc / Nhiều polyp"
+                  className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
+                />
+              </div>
+              <div>
+                <label className="block text-base font-extrabold text-text-body mb-1">
+                  Siêu âm Gan
+                </label>
+                <input
+                  type="text"
+                  value={form.bio.liverUltrasound}
+                  onChange={(e) => onSetBioField('liverUltrasound', e.target.value)}
+                  placeholder="VD: Bình thường / Gan nhiễm mỡ độ 1"
+                  className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
+                />
+              </div>
+              <div>
+                <label className="block text-base font-extrabold text-text-body mb-1">
+                  Siêu âm Thận / Đường mật
+                </label>
+                <input
+                  type="text"
+                  value={form.bio.kidneyUltrasound}
+                  onChange={(e) => onSetBioField('kidneyUltrasound', e.target.value)}
+                  placeholder="VD: Bình thường / Sỏi thận nhỏ"
+                  className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
+                />
+              </div>
+              <div>
+                <label className="block text-base font-extrabold text-text-body mb-1">
+                  Hẹn siêu âm lại
+                </label>
+                <input
+                  type="date"
+                  value={form.bio.nextUltrasoundDate}
+                  onChange={(e) => onSetBioField('nextUltrasoundDate', e.target.value)}
+                  className="w-full min-h-[48px] px-3 rounded-xl border border-border-card text-base font-bold text-text-main bg-surface-card"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
