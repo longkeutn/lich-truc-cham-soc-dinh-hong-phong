@@ -283,7 +283,7 @@ export interface ExpenseEntry {
 }
 
 // ===== LAB RESULTS & BIOCHEMISTRY - Sổ Theo Dõi Xét Nghiệm & Hóa Sinh (Dùng chung Đa Hồ Sơ) =====
-export type TshTargetLevel = 'high_risk' | 'moderate_risk' | 'normal';
+export type TshTargetLevel = 'high_risk' | 'moderate_risk' | 'low_risk' | 'normal';
 
 export interface CustomLabItem {
   id: string;

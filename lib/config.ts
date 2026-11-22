@@ -1,5 +1,10 @@
 import { FamilyMember, PhaseConfig, EmergencyContact, ShiftRecord, CarePhase, ShiftType, PatientDailyReminder, PatientInfo, TimeSlot, BpThresholds, RehabStage, AppointmentInfo, CareRoutine, HealthProfile, HealthProfileType, LabResultEntry, TshTargetLevel } from './types';
 import { computeCorrectedCalcium, evaluateParathyroidPanel } from './parathyroidEval';
+import {
+  evaluateFt4Indicator,
+  evaluateTgAndAntiTgIndicators,
+  evaluateTshIndicator,
+} from './thyroidClinicalEval';
 
 // =============================================
 // CẤU HÌNH ĐA GIA ĐÌNH (MULTI-FAMILY EDITION CONFIG)
@@ -2230,7 +2235,8 @@ export interface LabIndicatorEval {
  */
 export function evaluateLabEntry(
   entry: LabResultEntry,
-  profileType: HealthProfileType = 'general_health'
+  profileType: HealthProfileType = 'general_health',
+  previousLab?: LabResultEntry | null
 ): {
   indicators: LabIndicatorEval[];
   overallStatus: LabEvalStatus;
@@ -2243,154 +2249,28 @@ export function evaluateLabEntry(
     Boolean(entry.levothyroxineDose) ||
     entry.tg !== undefined ||
     entry.tshTargetLevel === 'high_risk' ||
-    entry.tshTargetLevel === 'moderate_risk';
+    entry.tshTargetLevel === 'moderate_risk' ||
+    entry.tshTargetLevel === 'low_risk';
 
   const tshTarget: TshTargetLevel =
     entry.tshTargetLevel || (isThyroidProfile ? 'moderate_risk' : 'normal');
 
   // 1. TSH (µIU/mL)
   if (typeof entry.tsh === 'number' && !isNaN(entry.tsh)) {
-    const val = entry.tsh;
-    let status: LabEvalStatus = 'normal';
-    let badgeText = '🟢 Đạt chuẩn';
-    let badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-    let refText = '0.40 – 4.00 µIU/mL';
-    let clinicalNote = 'TSH nằm trong giới hạn bình thường.';
-
-    if (tshTarget === 'high_risk') {
-      refText = 'Mục tiêu ức chế cao: < 0.10 µIU/mL';
-      if (val < 0.01) {
-        status = 'low';
-        badgeText = '🟡 Ức chế rất sâu (<0.01)';
-        badgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
-        clinicalNote =
-          'TSH ức chế rất sâu (<0.01 µIU/mL). Cần theo dõi nhịp tim và mật độ xương để tránh cường giáp dưới lâm sàng quá mức.';
-      } else if (val <= 0.1) {
-        status = 'optimal';
-        badgeText = '🟢 Đạt đích ức chế (<0.1)';
-        badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-        clinicalNote = 'TSH đạt mục tiêu ức chế cao (<0.1 µIU/mL) sau phẫu thuật K giáp.';
-      } else if (val <= 0.5) {
-        status = 'normal';
-        badgeText = '🟢 Ức chế vừa (0.1–0.5)';
-        badgeClass = 'bg-teal-100 text-teal-800 border-teal-200';
-        clinicalNote = 'TSH ở mức ức chế vừa (0.1–0.5 µIU/mL).';
-      } else {
-        status = val > 2.0 ? 'critical' : 'high';
-        badgeText = val > 2.0 ? '🔴 TSH cao (>2.0)' : '🟡 Chưa đạt đích ức chế';
-        badgeClass =
-          val > 2.0
-            ? 'bg-rose-100 text-rose-800 border-rose-300'
-            : 'bg-amber-100 text-amber-800 border-amber-300';
-        clinicalNote =
-          'TSH cao hơn mục tiêu ức chế. Cần kiểm tra việc uống Levothyroxine lúc đói (cách xa Canxi/Sắt 4h) và hỏi Bác sĩ chỉnh liều.';
-        summaryPoints.push(clinicalNote);
-      }
-    } else if (tshTarget === 'moderate_risk') {
-      refText = 'Mục tiêu ức chế: 0.10 – 0.50 µIU/mL (hoặc <0.1)';
-      if (val < 0.05) {
-        status = 'low';
-        badgeText = '🟡 Ức chế sâu (<0.05)';
-        badgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
-        clinicalNote =
-          'TSH thấp sâu (<0.05 µIU/mL). Nếu kèm tim đập nhanh, hồi hộp hoặc FT4 cao, nên báo Bác sĩ xem xét giảm nhẹ liều Levothyroxine.';
-        summaryPoints.push(clinicalNote);
-      } else if (val <= 0.5) {
-        status = 'optimal';
-        badgeText = '🟢 Đạt đích ức chế (≤0.5)';
-        badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-        clinicalNote = 'TSH nằm trong vùng mục tiêu ức chế tối ưu sau phẫu thuật K giáp.';
-      } else if (val <= 2.0) {
-        status = 'normal';
-        badgeText = '🟡 Hơi cao so với đích ức chế';
-        badgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
-        clinicalNote = 'TSH trong ngưỡng bình thường chung nhưng cao hơn mức ức chế 0.5 µIU/mL.';
-      } else {
-        status = 'high';
-        badgeText = '🔴 TSH cao (Thiếu hormone)';
-        badgeClass = 'bg-rose-100 text-rose-800 border-rose-300';
-        clinicalNote =
-          'TSH tăng cao gợi ý chưa đủ liều hormone Levothyroxine hoặc giảm hấp thu thuốc. Cần báo Bác sĩ điều chỉnh.';
-        summaryPoints.push(clinicalNote);
-      }
-    } else {
-      if (val < 0.4) {
-        status = 'low';
-        badgeText = '🟡 Thấp (<0.4)';
-        badgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
-        clinicalNote = 'TSH thấp hơn ngưỡng bình thường (xu hướng cường giáp / dư hormone).';
-      } else if (val > 4.2) {
-        status = 'high';
-        badgeText = '🔴 Cao (>4.2)';
-        badgeClass = 'bg-rose-100 text-rose-800 border-rose-300';
-        clinicalNote = 'TSH tăng cao (xu hướng suy giáp / thiếu hormone tuyến giáp).';
-      }
+    const tshEval = evaluateTshIndicator(entry.tsh, tshTarget);
+    indicators.push(tshEval);
+    if (tshEval.status === 'high' || tshEval.status === 'critical' || tshEval.status === 'low') {
+      summaryPoints.push(tshEval.clinicalNote);
     }
-
-    indicators.push({
-      key: 'tsh',
-      label: 'TSH (Hormone kích thích tuyến giáp)',
-      shortLabel: 'TSH',
-      group: 'thyroid',
-      value: val,
-      unit: 'µIU/mL',
-      refText,
-      status,
-      badgeText,
-      badgeClass,
-      clinicalNote,
-    });
   }
 
-  // 2. FT4 (ng/dL hoặc pmol/L -> quy đổi nội bộ sang ng/dL để đánh giá chuẩn: 1 ng/dL = 12.87 pmol/L)
+  // 2. FT4 (ng/dL hoặc pmol/L -> quy đổi nội bộ sang pmol/L để đánh giá chuẩn: 1 ng/dL = 12.87 pmol/L)
   if (typeof entry.ft4 === 'number' && !isNaN(entry.ft4)) {
-    const unit = entry.ft4Unit || (entry.ft4 > 5 ? 'pmol/L' : 'ng/dL');
-    const valInNgDl = unit === 'pmol/L' ? entry.ft4 / 12.87 : entry.ft4;
-    const refText =
-      unit === 'pmol/L'
-        ? isThyroidProfile
-          ? '12.0 – 22.0 (Đích ức chế: 16.5 – 22.0 pmol/L)'
-          : '12.0 – 22.0 pmol/L'
-        : isThyroidProfile
-          ? '0.93 – 1.70 (Đích ức chế: 1.30 – 1.70 ng/dL)'
-          : '0.93 – 1.70 ng/dL';
-
-    let status: LabEvalStatus = 'normal';
-    let badgeText = '🟢 Đạt chuẩn';
-    let badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-    let clinicalNote = 'Nồng độ FT4 tự do trong máu ổn định.';
-
-    if (valInNgDl < 0.9) {
-      status = 'low';
-      badgeText = '🔴 FT4 thấp';
-      badgeClass = 'bg-rose-100 text-rose-800 border-rose-300';
-      clinicalNote = 'FT4 thấp hơn chuẩn (thiếu hụt hormone giáp T4).';
-      summaryPoints.push(clinicalNote);
-    } else if (valInNgDl > 1.85) {
-      status = 'high';
-      badgeText = '🟡 FT4 cao (Dư hormone)';
-      badgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
-      clinicalNote =
-        'FT4 vượt ngưỡng trên, dễ gây hồi hộp, nhịp tim nhanh. Nên trao đổi Bác sĩ về liều Levothyroxine.';
-      summaryPoints.push(clinicalNote);
-    } else if (isThyroidProfile && valInNgDl >= 1.25 && valInNgDl <= 1.75) {
-      status = 'optimal';
-      badgeText = '🟢 Tối ưu (1.3–1.7)';
+    const ft4Eval = evaluateFt4Indicator(entry.ft4, entry.ft4Unit, isThyroidProfile);
+    indicators.push(ft4Eval);
+    if (ft4Eval.status === 'high' || ft4Eval.status === 'critical' || ft4Eval.status === 'low') {
+      summaryPoints.push(ft4Eval.clinicalNote);
     }
-
-    indicators.push({
-      key: 'ft4',
-      label: 'FT4 (Thyroxine tự do)',
-      shortLabel: 'FT4',
-      group: 'thyroid',
-      value: entry.ft4,
-      unit,
-      refText,
-      status,
-      badgeText,
-      badgeClass,
-      clinicalNote,
-    });
   }
 
   // 3. FT3 (pg/mL hoặc pmol/L -> 1 pg/mL = 1.536 pmol/L)
@@ -2496,65 +2376,10 @@ export function evaluateLabEntry(
     });
   }
 
-  // 4. TG (Thyroglobulin - ng/mL)
-  if (typeof entry.tg === 'number' && !isNaN(entry.tg)) {
-    const val = entry.tg;
-    let status: LabEvalStatus = 'optimal';
-    let badgeText = '🟢 Rất tốt (<0.2)';
-    let badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-    let clinicalNote = 'Chỉ dấu TG rất thấp, đáp ứng hoàn toàn tốt sau cắt toàn bộ tuyến giáp.';
-
-    if (val >= 0.2 && val <= 1.0) {
-      status = 'normal';
-      badgeText = '🟢 Ổn định (≤1.0)';
-      badgeClass = 'bg-teal-100 text-teal-800 border-teal-200';
-      clinicalNote = 'TG ở mức thấp an toàn (≤1.0 ng/mL), tiếp tục theo dõi định kỳ.';
-    } else if (val > 1.0) {
-      status = val >= 2.0 ? 'critical' : 'high';
-      badgeText = '🟡 Cần lưu ý (>1.0)';
-      badgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
-      clinicalNote =
-        'Chỉ số TG > 1.0 ng/mL sau cắt toàn bộ tuyến giáp: cần theo dõi động học TG cùng siêu âm vùng cổ theo hướng dẫn Bác sĩ chuyên khoa.';
-      summaryPoints.push(clinicalNote);
-    }
-
-    indicators.push({
-      key: 'tg',
-      label: 'TG (Thyroglobulin - Marker K giáp)',
-      shortLabel: 'TG',
-      group: 'markers',
-      value: val,
-      unit: 'ng/mL',
-      refText: 'Sau cắt giáp toàn bộ: < 0.2 – 1.0 ng/mL',
-      status,
-      badgeText,
-      badgeClass,
-      clinicalNote,
-    });
-  }
-
-  // 5. Anti-TG (IU/mL)
-  if (typeof entry.antiTg === 'number' && !isNaN(entry.antiTg)) {
-    const val = entry.antiTg;
-    const isHigh = val > 115;
-    indicators.push({
-      key: 'antiTg',
-      label: 'Anti-TG (Kháng thể kháng Thyroglobulin)',
-      shortLabel: 'Anti-TG',
-      group: 'markers',
-      value: val,
-      unit: 'IU/mL',
-      refText: '< 115 IU/mL (Âm tính)',
-      status: isHigh ? 'high' : 'normal',
-      badgeText: isHigh ? '🟡 Tăng (>115)' : '🟢 Âm tính (<115)',
-      badgeClass: isHigh
-        ? 'bg-amber-100 text-amber-800 border-amber-300'
-        : 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      clinicalNote: isHigh
-        ? 'Anti-TG tăng có thể ảnh hưởng đến độ chính xác của TG; cần theo dõi xu hướng giảm dần của Anti-TG qua các kỳ khám.'
-        : 'Anti-TG âm tính, giúp kết quả định lượng TG đạt độ tin cậy cao nhất.',
-    });
-  }
+  // 4 & 5. TG (Thyroglobulin) & Anti-TG kết hợp đánh giá đáp ứng sinh hóa + xu hướng
+  const tgMarkersEval = evaluateTgAndAntiTgIndicators(entry, previousLab);
+  indicators.push(...tgMarkersEval.indicators);
+  summaryPoints.push(...tgMarkersEval.summaryPoints);
 
   // 6. Anti-TPO (IU/mL)
   if (typeof entry.antiTpo === 'number' && !isNaN(entry.antiTpo)) {
@@ -2692,6 +2517,9 @@ export function evaluateLabEntry(
         ? 'Triglyceride tăng; nên giảm tinh bột đường ngọt, cơm trắng buổi tối và đồ chiên rán.'
         : 'Triglyceride nằm trong giới hạn tốt.',
     });
+    if (isHigh) {
+      summaryPoints.push('Triglyceride vượt ngưỡng khuyến nghị (<1.70 mmol/L hay <150 mg/dL).');
+    }
   }
 
   // 8. Chuyển hóa, Khoáng chất & Vitamin (Glucose, HbA1c, Canxi, Vitamin D)
@@ -2725,8 +2553,17 @@ export function evaluateLabEntry(
             : 'bg-emerald-100 text-emerald-800 border-emerald-200',
       clinicalNote: isHigh
         ? 'Đường huyết lúc đói hơi cao; nên hạn chế đồ ngọt, tinh bột tinh chế và kiểm tra thêm HbA1c.'
-        : 'Đường huyết lúc đói ổn định.',
+        : isLow
+          ? 'Đường huyết thấp (<3.9 mmol/L); chú ý ăn đúng bữa.'
+          : 'Đường huyết lúc đói ổn định.',
     });
+    if (isHigh || isLow) {
+      summaryPoints.push(
+        isLow
+          ? 'Glucose máu đói thấp (<3.9 mmol/L).'
+          : 'Glucose máu lúc đói cao (>5.6 mmol/L) - cần kiểm tra thêm HbA1c và tiết chế đường tinh bột.'
+      );
+    }
   }
 
   if (typeof entry.hba1c === 'number' && !isNaN(entry.hba1c)) {
@@ -2754,6 +2591,9 @@ export function evaluateLabEntry(
           ? 'HbA1c ở ngưỡng tiền tiểu đường, cần điều chỉnh chế độ ăn giảm đường và tập thể dục.'
           : 'Đường huyết trung bình 3 tháng rất tốt.',
     });
+    if (isHigh || isPre) {
+      summaryPoints.push(`HbA1c đạt ${val}% (${isHigh ? 'ngưỡng tiểu đường ≥6.5%' : 'ngưỡng tiền tiểu đường 5.7–6.4%'}).`);
+    }
   }
 
   if (typeof entry.calcium === 'number' && !isNaN(entry.calcium)) {
@@ -2829,6 +2669,7 @@ export function evaluateLabEntry(
     const val = entry.vitaminD;
     const isLow = val < 30;
     const isDeficient = val < 20;
+    const isExcess = val > 100;
     indicators.push({
       key: 'vitaminD',
       label: '25-OH Vitamin D',
@@ -2836,18 +2677,34 @@ export function evaluateLabEntry(
       group: 'metabolic',
       value: val,
       unit: 'ng/mL',
-      refText: '30 – 100 ng/mL',
-      status: isDeficient ? 'critical' : isLow ? 'low' : 'optimal',
-      badgeText: isDeficient ? '🔴 Thiếu hụt (<20)' : isLow ? '🟡 Hơi thiếu (<30)' : '🟢 Đạt chuẩn (≥30)',
-      badgeClass: isDeficient
-        ? 'bg-rose-100 text-rose-800 border-rose-300'
+      refText: '30 – 60 ng/mL (Tối đa < 100)',
+      status: isDeficient || isExcess ? 'critical' : isLow ? 'low' : 'optimal',
+      badgeText: isExcess
+        ? '🔴 Quá cao (>100)'
+        : isDeficient
+          ? '🔴 Thiếu hụt (<20)'
+          : isLow
+            ? '🟡 Hơi thiếu (<30)'
+            : '🟢 Đạt chuẩn (30–60)',
+      badgeClass:
+        isDeficient || isExcess
+          ? 'bg-rose-100 text-rose-800 border-rose-300'
+          : isLow
+            ? 'bg-amber-100 text-amber-800 border-amber-300'
+            : 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      clinicalNote: isExcess
+        ? 'Vitamin D vượt 100 ng/mL làm tăng nguy cơ ngộ độc, tăng Canxi máu/niệu và sỏi thận; cần ngưng bổ sung và hỏi Bác sĩ.'
         : isLow
-          ? 'bg-amber-100 text-amber-800 border-amber-300'
-          : 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      clinicalNote: isLow
-        ? 'Vitamin D dưới 30 ng/mL làm giảm hấp thu Canxi vào xương. Nên duy trì bổ sung Vitamin D3 và tắm nắng sáng.'
-        : 'Nồng độ Vitamin D tối ưu giúp hấp thu Canxi tốt.',
+          ? 'Vitamin D dưới 30 ng/mL làm giảm hấp thu Canxi vào xương. Nên duy trì bổ sung Vitamin D3 và tắm nắng sáng.'
+          : 'Nồng độ Vitamin D tối ưu giúp hấp thu Canxi tốt.',
     });
+    if (isLow || isExcess) {
+      summaryPoints.push(
+        isExcess
+          ? `25-OH Vitamin D đang quá cao (${val} ng/mL > 100) - tạm ngưng Vitamin D và báo Bác sĩ.`
+          : `25-OH Vitamin D đang thấp (${val} ng/mL < 30) - cần bổ sung Vitamin D3 để tối ưu hấp thu Canxi.`
+      );
+    }
   }
 
   // 9. Chức năng Gan, Thận & Huyết học (AST, ALT, Creatinine, Ure, Acid Uric, Hemoglobin)
@@ -2862,14 +2719,20 @@ export function evaluateLabEntry(
       unit: 'U/L',
       refText: '< 37 – 40 U/L',
       status: entry.ast > 80 ? 'critical' : isHigh ? 'high' : 'normal',
-      badgeText: isHigh ? '🟡 Tăng (>40)' : '🟢 Bình thường',
-      badgeClass: isHigh
-        ? 'bg-amber-100 text-amber-800 border-amber-300'
-        : 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      badgeText: entry.ast > 80 ? '🔴 Tăng cao (>80)' : isHigh ? '🟡 Tăng (>40)' : '🟢 Bình thường',
+      badgeClass:
+        entry.ast > 80
+          ? 'bg-rose-100 text-rose-800 border-rose-300'
+          : isHigh
+            ? 'bg-amber-100 text-amber-800 border-amber-300'
+            : 'bg-emerald-100 text-emerald-800 border-emerald-200',
       clinicalNote: isHigh
-        ? 'Men gan AST tăng nhẹ; cần theo dõi chức năng gan, nhất là khi đang dùng thuốc hạ mỡ máu.'
+        ? 'Men gan AST tăng; cần theo dõi chức năng gan, nhất là khi đang dùng thuốc hạ mỡ máu.'
         : 'Men gan AST bình thường.',
     });
+    if (isHigh) {
+      summaryPoints.push(`Men gan AST tăng (${entry.ast} U/L > 40).`);
+    }
   }
 
   if (typeof entry.alt === 'number' && !isNaN(entry.alt)) {
@@ -2883,18 +2746,26 @@ export function evaluateLabEntry(
       unit: 'U/L',
       refText: '< 40 U/L',
       status: entry.alt > 80 ? 'critical' : isHigh ? 'high' : 'normal',
-      badgeText: isHigh ? '🟡 Tăng (>40)' : '🟢 Bình thường',
-      badgeClass: isHigh
-        ? 'bg-amber-100 text-amber-800 border-amber-300'
-        : 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      badgeText: entry.alt > 80 ? '🔴 Tăng cao (>80)' : isHigh ? '🟡 Tăng (>40)' : '🟢 Bình thường',
+      badgeClass:
+        entry.alt > 80
+          ? 'bg-rose-100 text-rose-800 border-rose-300'
+          : isHigh
+            ? 'bg-amber-100 text-amber-800 border-amber-300'
+            : 'bg-emerald-100 text-emerald-800 border-emerald-200',
       clinicalNote: isHigh
         ? 'Men gan ALT tăng; cần uống đủ nước và báo Bác sĩ kiểm tra.'
         : 'Men gan ALT bình thường.',
     });
+    if (isHigh) {
+      summaryPoints.push(`Men gan ALT tăng (${entry.alt} U/L > 40).`);
+    }
   }
 
   if (typeof entry.creatinine === 'number' && !isNaN(entry.creatinine)) {
-    const isHigh = entry.creatinine > 110;
+    const upperLimit = isThyroidProfile ? 88 : 110;
+    const isHigh = entry.creatinine > upperLimit;
+    const isVeryHigh = entry.creatinine > 120;
     indicators.push({
       key: 'creatinine',
       label: 'Creatinine máu (Chức năng thận)',
@@ -2902,16 +2773,21 @@ export function evaluateLabEntry(
       group: 'liver_kidney',
       value: entry.creatinine,
       unit: 'µmol/L',
-      refText: '53 – 110 µmol/L',
-      status: isHigh ? 'high' : 'normal',
-      badgeText: isHigh ? '🟡 Cao (>110)' : '🟢 Bình thường',
-      badgeClass: isHigh
-        ? 'bg-amber-100 text-amber-800 border-amber-300'
-        : 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      refText: isThyroidProfile ? '44 – 88 µmol/L (Nữ)' : '53 – 110 µmol/L',
+      status: isVeryHigh ? 'critical' : isHigh ? 'high' : 'normal',
+      badgeText: isVeryHigh ? '🔴 Cao (>120)' : isHigh ? `🟡 Cao (>${upperLimit})` : '🟢 Bình thường',
+      badgeClass: isVeryHigh
+        ? 'bg-rose-100 text-rose-800 border-rose-300'
+        : isHigh
+          ? 'bg-amber-100 text-amber-800 border-amber-300'
+          : 'bg-emerald-100 text-emerald-800 border-emerald-200',
       clinicalNote: isHigh
-        ? 'Creatinine hơi cao; cần chú ý uống đủ nước và theo dõi chức năng lọc cầu thận.'
+        ? `Creatinine vượt ${upperLimit} µmol/L; cần uống đủ nước, siêu âm thận và cân nhắc liều Canxi/Vitamin D cùng Bác sĩ.`
         : 'Chức năng thận ổn định.',
     });
+    if (isHigh) {
+      summaryPoints.push(`Creatinine máu cao (${entry.creatinine} µmol/L > ${upperLimit}) - cần theo dõi chức năng lọc cầu thận.`);
+    }
   }
 
   if (typeof entry.urea === 'number' && !isNaN(entry.urea)) {

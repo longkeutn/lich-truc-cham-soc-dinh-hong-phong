@@ -15,6 +15,8 @@ import { ParathyroidClinicalGuideCard } from './ParathyroidClinicalGuideCard';
 export interface BiochemistryTrackerSectionProps {
   latestLab: LabResultEntry | null;
   previousLab: LabResultEntry | null;
+  sourceDateByKey?: Record<string, string>;
+  previousEntryByKey?: Record<string, LabResultEntry | null>;
   profileType?: HealthProfileType;
   indicators: LabIndicatorEval[];
   summaryPoints: string[];
@@ -29,6 +31,8 @@ type BioFilter = 'all_bio' | 'lipid' | 'metabolic' | 'liver_kidney';
 export function BiochemistryTrackerSection({
   latestLab,
   previousLab,
+  sourceDateByKey,
+  previousEntryByKey,
   profileType = 'general_health',
   indicators,
   summaryPoints,
@@ -131,7 +135,12 @@ export function BiochemistryTrackerSection({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredIndicators.map((ind) => {
-            const deltaText = getLabDeltaText(previousLab, ind.key, ind.value, ind.unit);
+            const prevForInd =
+              previousEntryByKey && ind.key in previousEntryByKey
+                ? previousEntryByKey[ind.key]
+                : previousLab;
+            const deltaText = getLabDeltaText(prevForInd, ind.key, ind.value, ind.unit);
+            const indDate = sourceDateByKey?.[ind.key];
             return (
               <div
                 key={ind.key}
@@ -154,6 +163,11 @@ export function BiochemistryTrackerSection({
                   </div>
                   <div className="text-xs sm:text-sm text-text-muted font-medium mt-0.5">
                     Chuẩn: {ind.refText}
+                    {indDate && latestLab && indDate !== latestLab.date && (
+                      <span className="ml-1.5 text-medical-dark font-bold">
+                        · Đo ngày {fmtDateShort(indDate)}
+                      </span>
+                    )}
                   </div>
                   {deltaText && (
                     <div className="text-xs sm:text-sm font-bold text-medical-dark mt-1">

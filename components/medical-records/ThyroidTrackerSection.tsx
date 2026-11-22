@@ -24,6 +24,8 @@ import {
 interface ThyroidTrackerSectionProps {
   latestLab: LabResultEntry | null;
   previousLab: LabResultEntry | null;
+  sourceDateByKey?: Record<string, string>;
+  previousEntryByKey?: Record<string, LabResultEntry | null>;
   indicators: LabIndicatorEval[];
   chartData: LabChartPoint[];
   profileType: HealthProfileType;
@@ -40,6 +42,8 @@ interface ThyroidTrackerSectionProps {
 export function ThyroidTrackerSection({
   latestLab,
   previousLab,
+  sourceDateByKey,
+  previousEntryByKey,
   indicators,
   chartData,
   profileType,
@@ -81,6 +85,7 @@ export function ThyroidTrackerSection({
       (profileType === 'thyroid_post_op' ? 'moderate_risk' : 'normal');
     if (target === 'high_risk') return 0.1;
     if (target === 'moderate_risk') return 0.5;
+    if (target === 'low_risk') return 2.0;
     return 4.0;
   }, [latestLab?.tshTargetLevel, profileType]);
 
@@ -163,7 +168,12 @@ export function ThyroidTrackerSection({
       {thyroidIndicators.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {thyroidIndicators.map((ind) => {
-            const deltaText = getLabDeltaText(previousLab, ind.key, ind.value, ind.unit);
+            const prevForInd =
+              previousEntryByKey && ind.key in previousEntryByKey
+                ? previousEntryByKey[ind.key]
+                : previousLab;
+            const deltaText = getLabDeltaText(prevForInd, ind.key, ind.value, ind.unit);
+            const indDate = sourceDateByKey?.[ind.key];
             return (
               <div
                 key={ind.key}
@@ -186,6 +196,11 @@ export function ThyroidTrackerSection({
                   </div>
                   <div className="text-xs sm:text-sm text-text-muted font-medium mt-0.5">
                     Ngưỡng tham chiếu: {ind.refText}
+                    {indDate && latestLab && indDate !== latestLab.date && (
+                      <span className="ml-1.5 text-indigo-800 font-bold">
+                        · Đo ngày {fmtDateShort(indDate)}
+                      </span>
+                    )}
                   </div>
                   {deltaText && (
                     <div className="text-xs sm:text-sm font-bold text-indigo-800 mt-1">{deltaText}</div>

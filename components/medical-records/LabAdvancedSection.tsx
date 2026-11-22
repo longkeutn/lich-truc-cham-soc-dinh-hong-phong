@@ -93,6 +93,7 @@ export function LabAdvancedSection({
           >
             <option value="high_risk">Đích ức chế cao: TSH &lt; 0.1 µIU/mL</option>
             <option value="moderate_risk">Đích ức chế vừa: TSH 0.1 - 0.5 µIU/mL</option>
+            <option value="low_risk">Đích ổn định lâu dài: TSH 0.5 - 2.0 µIU/mL</option>
             <option value="normal">Bình thường chung: TSH 0.4 - 4.0 µIU/mL</option>
           </select>
         </div>

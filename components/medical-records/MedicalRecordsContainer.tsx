@@ -4,6 +4,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { FileSpreadsheet, FlaskConical, Plus } from 'lucide-react';
 import type { LabResultEntry } from '@/lib/types';
 import { evaluateLabEntry, normalizeDateStr } from '@/lib/config';
+import { buildLatestKnownLabSnapshot } from '@/lib/thyroidClinicalEval';
+import { analyzeThyroidPostOpMilestones } from '@/lib/thyroidMilestones';
 import { MedicalEmptyState } from '@/components/ui-kit';
 import {
   buildLabChartData,
@@ -11,6 +13,7 @@ import {
   type LabSubView,
 } from './labRecordsUtils';
 import { ThyroidTrackerSection } from './ThyroidTrackerSection';
+import { ThyroidMilestoneAssessmentCard } from './ThyroidMilestoneAssessmentCard';
 import { BiochemistryTrackerSection } from './BiochemistryTrackerSection';
 import { ClinicalAppointmentSection } from './ClinicalAppointmentSection';
 import { PediatricGrowthSection } from './PediatricGrowthSection';
@@ -84,9 +87,23 @@ export function MedicalRecordsContainer({
   const latestLab = sortedLabsDesc[0] || null;
   const previousLab = sortedLabsDesc[1] || null;
 
+  const labSnapshot = useMemo(
+    () => buildLatestKnownLabSnapshot(sortedLabsDesc),
+    [sortedLabsDesc]
+  );
+
+  const effectiveLatestLab = labSnapshot.mergedEntry || latestLab;
+
   const latestEval = useMemo(
-    () => (latestLab ? evaluateLabEntry(latestLab, profileType) : null),
-    [latestLab, profileType]
+    () =>
+      effectiveLatestLab
+        ? evaluateLabEntry(
+            effectiveLatestLab,
+            profileType,
+            labSnapshot.previousEntryByKey['tg'] || previousLab
+          )
+        : null,
+    [effectiveLatestLab, profileType, labSnapshot.previousEntryByKey, previousLab]
   );
 
   const chartData = useMemo(() => buildLabChartData(sortedLabsAsc), [sortedLabsAsc]);
@@ -104,13 +121,26 @@ export function MedicalRecordsContainer({
     return { avgSys, avgDia, avgPulse, count: recent.length };
   }, [vitalsLog]);
 
+  const milestoneAssessment = useMemo(
+    () =>
+      analyzeThyroidPostOpMilestones({
+        snapshot: labSnapshot,
+        evalResult: latestEval,
+        recentVitalsSummary,
+        profileType,
+        todayStr,
+      }),
+    [labSnapshot, latestEval, recentVitalsSummary, profileType, todayStr]
+  );
+
   const openAddModal = () => {
     setEditingEntry(null);
     setFormModalOpen(true);
   };
 
   const openEditModal = (entry: LabResultEntry) => {
-    setEditingEntry(entry);
+    const originalEntry = clinicalLabs.find((item) => item.id === entry.id) || entry;
+    setEditingEntry(originalEntry);
     setFormModalOpen(true);
   };
 
@@ -273,22 +303,34 @@ export function MedicalRecordsContainer({
           ) : (
             <>
               {(subView === 'all' || subView === 'thyroid') && !isPediatric && (
-                <ThyroidTrackerSection
-                  latestLab={latestLab}
-                  previousLab={previousLab}
-                  indicators={latestEval?.indicators || []}
-                  chartData={chartData}
-                  profileType={profileType}
-                  patientName={patientName}
-                  recentVitalsSummary={recentVitalsSummary}
-                  onEditLab={openEditModal}
-                />
+                <>
+                  {milestoneAssessment && (
+                    <ThyroidMilestoneAssessmentCard
+                      assessment={milestoneAssessment}
+                      patientDisplayName={patientDisplayName}
+                    />
+                  )}
+                  <ThyroidTrackerSection
+                    latestLab={effectiveLatestLab}
+                    previousLab={previousLab}
+                    sourceDateByKey={labSnapshot.sourceDateByKey}
+                    previousEntryByKey={labSnapshot.previousEntryByKey}
+                    indicators={latestEval?.indicators || []}
+                    chartData={chartData}
+                    profileType={profileType}
+                    patientName={patientName}
+                    recentVitalsSummary={recentVitalsSummary}
+                    onEditLab={openEditModal}
+                  />
+                </>
               )}
 
               {(subView === 'all' || subView === 'biochem') && (
                 <BiochemistryTrackerSection
-                  latestLab={latestLab}
+                  latestLab={effectiveLatestLab}
                   previousLab={previousLab}
+                  sourceDateByKey={labSnapshot.sourceDateByKey}
+                  previousEntryByKey={labSnapshot.previousEntryByKey}
                   profileType={profileType}
                   indicators={latestEval?.indicators || []}
                   summaryPoints={latestEval?.summaryPoints || []}
