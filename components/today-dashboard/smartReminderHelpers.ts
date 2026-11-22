@@ -11,6 +11,8 @@ import {
   compareVitalsDesc,
   evaluateVitalReading,
   normalizeDateStr,
+  normalizeTimeStr,
+  timeStrToMinutes,
 } from '@/lib/config';
 import type { NotificationPreferences } from '@/lib/notifications';
 
@@ -30,10 +32,7 @@ export interface SmartAlertItem {
 export const SNOOZE_STORAGE_KEY = 'care_snoozed_alerts_v1';
 
 export function parseHmToMinutes(hm: string): number {
-  const parts = (hm || '07:00').split(':');
-  const h = parseInt(parts[0] || '7', 10);
-  const m = parseInt(parts[1] || '0', 10);
-  return (isNaN(h) ? 7 : h) * 60 + (isNaN(m) ? 0 : m);
+  return timeStrToMinutes(hm);
 }
 
 export function loadSnoozedMap(): Record<string, number> {
@@ -100,6 +99,7 @@ export function buildSmartAlerts({
     const latest = todayVitals[0];
     const latestEval = evaluateVitalReading(latest, bpThresholds, patientDisplayName);
 
+    const safeLatestTime = normalizeTimeStr(latest.time) || latest.time;
     if (latestEval.overallAlertLevel === 'critical') {
       const pulseNote = latest.pulse ? `, mạch ${latest.pulse}` : '';
       const reasonStr = latestEval.reasons.join(' · ');
@@ -107,9 +107,9 @@ export function buildSmartAlerts({
         id: `bp-crit-${latest.id}`,
         severity: 'critical',
         category: 'bp_alert',
-        title: `🚨 ${latestEval.statusLabel} lúc ${latest.time}: ${latest.sys}/${latest.dia} mmHg${pulseNote}`,
+        title: `🚨 ${latestEval.statusLabel} lúc ${safeLatestTime}: ${latest.sys}/${latest.dia} mmHg${pulseNote}`,
         detail: `${reasonStr}. ${latestEval.clinicalAdvice}`,
-        voiceText: `Cảnh báo khẩn cấp! Chỉ số lúc ${latest.time} của ${patientDisplayName} là huyết áp ${latest.sys} trên ${latest.dia}${pulseNote}. ${reasonStr}. ${latestEval.clinicalAdvice}`,
+        voiceText: `Cảnh báo khẩn cấp! Chỉ số lúc ${safeLatestTime} của ${patientDisplayName} là huyết áp ${latest.sys} trên ${latest.dia}${pulseNote}. ${reasonStr}. ${latestEval.clinicalAdvice}`,
       });
     } else if (latestEval.overallAlertLevel === 'warning') {
       const pulseNote = latest.pulse ? `, mạch ${latest.pulse}` : '';
@@ -118,9 +118,9 @@ export function buildSmartAlerts({
         id: `bp-warn-${latest.id}`,
         severity: 'urgent',
         category: 'bp_alert',
-        title: `⚠️ Lưu ý chỉ số lúc ${latest.time}: ${latest.sys}/${latest.dia} mmHg${pulseNote}`,
+        title: `⚠️ Lưu ý chỉ số lúc ${safeLatestTime}: ${latest.sys}/${latest.dia} mmHg${pulseNote}`,
         detail: `${reasonStr}. ${latestEval.clinicalAdvice}`,
-        voiceText: `Lưu ý! Lần đo lúc ${latest.time} của ${patientDisplayName} có ${reasonStr}. ${latestEval.clinicalAdvice}`,
+        voiceText: `Lưu ý! Lần đo lúc ${safeLatestTime} của ${patientDisplayName} có ${reasonStr}. ${latestEval.clinicalAdvice}`,
       });
     }
   }

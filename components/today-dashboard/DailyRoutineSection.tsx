@@ -40,7 +40,8 @@ export interface DailyRoutineViewProps {
 const TIME_SLOT_ORDER: TimeSlot[] = ['morning', 'noon', 'afternoon', 'evening'];
 
 function stepDateStr(dateStr: string, offsetDays: number): string {
-  const parts = dateStr.split('-').map(Number);
+  const norm = normalizeDateStr(dateStr);
+  const parts = norm.split('-').map(Number);
   if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return dateStr;
   const utcNoon = new Date(
     Date.UTC(parts[0], parts[1] - 1, parts[2] + offsetDays, 12, 0, 0)
@@ -52,7 +53,8 @@ function stepDateStr(dateStr: string, offsetDays: number): string {
 }
 
 function fmtShortDDMM(dateStr: string): string {
-  const parts = dateStr.split('-');
+  const norm = normalizeDateStr(dateStr);
+  const parts = norm.split('-');
   return parts.length === 3 ? `${parts[2]}/${parts[1]}` : dateStr;
 }
 

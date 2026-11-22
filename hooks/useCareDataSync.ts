@@ -93,6 +93,78 @@ export function useCareDataSync({ showToast }: UseCareDataSyncParams) {
   const isFetchingRef = useRef<boolean>(false);
   const lastSyncTimestampRef = useRef<number>(0);
 
+  const applyNormalizedAppData = useCallback((source: Record<string, unknown>) => {
+    if (Array.isArray(source.shifts)) setShifts(source.shifts as ShiftRecord[]);
+    if (Array.isArray(source.members)) setMembers(source.members as FamilyMember[]);
+    if (source.patientInfo && typeof source.patientInfo === 'object') {
+      const pInfo = source.patientInfo as PatientInfo;
+      if (pInfo.name) setPatientInfo(pInfo);
+    }
+    if (Array.isArray(source.contacts)) setContacts(source.contacts as EmergencyContact[]);
+    if (Array.isArray(source.reminders)) {
+      setReminders(
+        (source.reminders as PatientDailyReminder[]).map((r) => ({
+          ...r,
+          time: normalizeTimeStr(r.time) || r.time,
+        }))
+      );
+    }
+    if (source.settings) setSettings(source.settings as SystemSettings);
+
+    const resolvedThresholds = (source.bpThresholds as BpThresholds) || DEFAULT_BP_THRESHOLDS;
+    if (Array.isArray(source.vitalsLog)) {
+      const cleanedVitals = (source.vitalsLog as VitalsLogEntry[])
+        .map((v) => ({
+          ...v,
+          date: normalizeDateStr(v.date),
+          time: normalizeTimeStr(v.time),
+          alertLevel: computeAlertLevel(v.sys, v.dia, resolvedThresholds, v.pulse),
+        }))
+        .sort(compareVitalsDesc);
+      setVitalsLog(cleanedVitals);
+    }
+    if (Array.isArray(source.careRoutines)) setCareRoutines(source.careRoutines as CareRoutine[]);
+    if (Array.isArray(source.dailyLogs)) {
+      setDailyLogs(
+        (source.dailyLogs as DailyLog[]).map((l) => ({
+          ...l,
+          date: normalizeDateStr(l.date) || l.date,
+          doneAt: l.doneAt ? normalizeTimeStr(l.doneAt) : undefined,
+        }))
+      );
+    }
+    if (Array.isArray(source.stages) && source.stages.length > 0) {
+      setStages(source.stages as RehabStage[]);
+      const firstActive = (source.stages as RehabStage[]).find((s) => s.isActive);
+      if (firstActive) setActiveStageId(firstActive.id);
+    }
+    if (source.appointment) {
+      const appt = source.appointment as AppointmentInfo;
+      setAppointment({
+        ...appt,
+        nextDate: normalizeDateStr(appt.nextDate) || appt.nextDate,
+        lastDate: normalizeDateStr(appt.lastDate) || appt.lastDate,
+      });
+    }
+    if (source.bpThresholds) setBpThresholds(source.bpThresholds as BpThresholds);
+    if (Array.isArray(source.expenses)) {
+      setExpenses(
+        (source.expenses as ExpenseEntry[]).map((e) => ({
+          ...e,
+          date: normalizeDateStr(e.date) || e.date,
+        }))
+      );
+    }
+    if (Array.isArray(source.labResults)) {
+      setLabResults(
+        (source.labResults as LabResultEntry[]).map((l) => ({
+          ...l,
+          date: normalizeDateStr(l.date) || l.date,
+        }))
+      );
+    }
+  }, []);
+
   const loadAllData = useCallback(
     async (forceRefresh = false, silent = false) => {
       if (isFetchingRef.current) return;
@@ -113,39 +185,7 @@ export function useCareDataSync({ showToast }: UseCareDataSyncParams) {
 
         if (appData) {
           lastSyncTimestampRef.current = Date.now();
-          if (Array.isArray(appData.shifts)) setShifts(appData.shifts);
-          if (Array.isArray(appData.members)) setMembers(appData.members);
-          if (appData.patientInfo && appData.patientInfo.name) {
-            setPatientInfo(appData.patientInfo);
-          }
-          if (Array.isArray(appData.contacts)) setContacts(appData.contacts);
-          if (Array.isArray(appData.reminders)) setReminders(appData.reminders);
-          if (appData.settings) setSettings(appData.settings);
-
-          const resolvedThresholds = appData.bpThresholds || DEFAULT_BP_THRESHOLDS;
-          if (Array.isArray(appData.vitalsLog)) {
-            const cleanedVitals = appData.vitalsLog
-              .map((v) => ({
-                ...v,
-                date: normalizeDateStr(v.date),
-                time: normalizeTimeStr(v.time),
-                alertLevel: computeAlertLevel(v.sys, v.dia, resolvedThresholds, v.pulse),
-              }))
-              .sort(compareVitalsDesc);
-            setVitalsLog(cleanedVitals);
-          }
-          if (Array.isArray(appData.careRoutines)) setCareRoutines(appData.careRoutines);
-          if (Array.isArray(appData.dailyLogs)) setDailyLogs(appData.dailyLogs);
-          if (Array.isArray(appData.stages) && appData.stages.length > 0) {
-            setStages(appData.stages);
-            const firstActive = appData.stages.find((s) => s.isActive);
-            if (firstActive) setActiveStageId(firstActive.id);
-          }
-          if (appData.appointment) setAppointment(appData.appointment);
-          if (appData.bpThresholds) setBpThresholds(appData.bpThresholds);
-          if (Array.isArray(appData.expenses)) setExpenses(appData.expenses);
-          if (Array.isArray(appData.labResults)) setLabResults(appData.labResults);
-
+          applyNormalizedAppData(appData as unknown as Record<string, unknown>);
           setSyncStatus('synced');
           if (forceRefresh && !silent) {
             showToast('Đã đồng bộ dữ liệu mới nhất từ Google Sheets!', 'success');
@@ -163,7 +203,7 @@ export function useCareDataSync({ showToast }: UseCareDataSyncParams) {
         setHasInitialLoaded(true);
       }
     },
-    [activePhase, showToast]
+    [activePhase, applyNormalizedAppData, showToast]
   );
 
   // Khởi tạo Stale-While-Revalidate từ localStorage & tải ngầm trước các Tab phụ
@@ -180,30 +220,7 @@ export function useCareDataSync({ showToast }: UseCareDataSyncParams) {
       if (rawSnap) {
         const snap = JSON.parse(rawSnap);
         if (snap && typeof snap === 'object') {
-          if (Array.isArray(snap.shifts)) setShifts(snap.shifts);
-          if (Array.isArray(snap.members)) setMembers(snap.members);
-          if (snap.patientInfo && snap.patientInfo.name) setPatientInfo(snap.patientInfo);
-          if (Array.isArray(snap.contacts)) setContacts(snap.contacts);
-          if (Array.isArray(snap.reminders)) setReminders(snap.reminders);
-          if (snap.settings) setSettings(snap.settings);
-          const snapThresholds = snap.bpThresholds || DEFAULT_BP_THRESHOLDS;
-          if (Array.isArray(snap.vitalsLog)) {
-            setVitalsLog(
-              snap.vitalsLog.map((v: VitalsLogEntry) => ({
-                ...v,
-                date: normalizeDateStr(v.date),
-                time: normalizeTimeStr(v.time),
-                alertLevel: computeAlertLevel(v.sys, v.dia, snapThresholds, v.pulse),
-              }))
-            );
-          }
-          if (Array.isArray(snap.careRoutines)) setCareRoutines(snap.careRoutines);
-          if (Array.isArray(snap.dailyLogs)) setDailyLogs(snap.dailyLogs);
-          if (Array.isArray(snap.stages) && snap.stages.length > 0) setStages(snap.stages);
-          if (snap.appointment) setAppointment(snap.appointment);
-          if (snap.bpThresholds) setBpThresholds(snap.bpThresholds);
-          if (Array.isArray(snap.expenses)) setExpenses(snap.expenses);
-          if (Array.isArray(snap.labResults)) setLabResults(snap.labResults);
+          applyNormalizedAppData(snap as Record<string, unknown>);
           setHasInitialLoaded(true);
           setIsLoading(false);
           restoredFromSnapshot = true;
@@ -223,7 +240,7 @@ export function useCareDataSync({ showToast }: UseCareDataSyncParams) {
     }, 1200);
 
     return () => clearTimeout(preloadTimer);
-  }, [loadAllData]);
+  }, [applyNormalizedAppData, loadAllData]);
 
   // Tự động lưu bản chụp localStorage (debounce 350ms, chống vượt Quota ảnh Base64)
   useEffect(() => {

@@ -4,7 +4,7 @@ import type {
   ExpenseStage,
   ExpenseType,
 } from '@/lib/types';
-import { getVietnamDateStr } from '@/lib/config';
+import { getVietnamDateStr, normalizeDateStr } from '@/lib/config';
 
 export const STAGE_CONFIG: Record<
   ExpenseStage,
@@ -187,7 +187,8 @@ export function formatNumberInput(val: number | string): string {
 
 export function formatDateVN(dateStr: string): string {
   if (!dateStr) return '';
-  const parts = dateStr.split('-');
+  const norm = normalizeDateStr(dateStr);
+  const parts = norm.split('-');
   if (parts.length !== 3) return dateStr;
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }

@@ -388,9 +388,9 @@ function ensureSheetsSetup(ss) {
     sheetReminders.setFrozenRows(1);
 
     const defaultReminders = [
-      ['reminder-meds-1', 'meds', 'Đo huyết áp trước khi uống thuốc sáng', 'Ngồi nghỉ 5–10 phút trước khi đo huyết áp. Nếu huyết áp tâm thu < 100 hoặc tâm trương < 60, nghỉ ngơi và hỏi ý kiến Bác sĩ.', 'Gia đình', '07:30', 'TRUE', new Date().toISOString()],
-      ['reminder-feeding-2', 'feeding', 'Chế độ ăn nhạt & uống đủ nước ấm', 'Hạn chế ăn mặn, giảm muối và đồ nhiều dầu mỡ. Chia nhỏ lượng nước ấm uống đều trong ngày.', 'Gia đình', '09:00', 'FALSE', new Date().toISOString()],
-      ['reminder-condition-3', 'condition', 'Tập vận động nhẹ nhàng & theo dõi giấc ngủ', 'Đi bộ hoặc vận động nhẹ nhàng 15–20 phút mỗi buổi, tránh thay đổi tư thế đột ngột khi mới thức dậy.', 'Bác sĩ tư vấn', '16:30', 'FALSE', new Date().toISOString()]
+      ['reminder-meds-1', 'meds', 'Đo huyết áp trước khi uống thuốc sáng', 'Ngồi nghỉ 5–10 phút trước khi đo huyết áp. Nếu huyết áp tâm thu < 100 hoặc tâm trương < 60, nghỉ ngơi và hỏi ý kiến Bác sĩ.', 'Gia đình', "'07:30", 'TRUE', new Date().toISOString()],
+      ['reminder-feeding-2', 'feeding', 'Chế độ ăn nhạt & uống đủ nước ấm', 'Hạn chế ăn mặn, giảm muối và đồ nhiều dầu mỡ. Chia nhỏ lượng nước ấm uống đều trong ngày.', 'Gia đình', "'09:00", 'FALSE', new Date().toISOString()],
+      ['reminder-condition-3', 'condition', 'Tập vận động nhẹ nhàng & theo dõi giấc ngủ', 'Đi bộ hoặc vận động nhẹ nhàng 15–20 phút mỗi buổi, tránh thay đổi tư thế đột ngột khi mới thức dậy.', 'Bác sĩ tư vấn', "'16:30", 'FALSE', new Date().toISOString()]
     ];
     defaultReminders.forEach(r => sheetReminders.appendRow(r));
   }
@@ -711,7 +711,7 @@ function readReminders(ss) {
         title: String(row[2] || ''),
         content: String(row[3] || ''),
         author: String(row[4] || ''),
-        time: String(row[5] || ''),
+        time: formatRowTime(row[5]),
         isUrgent: String(row[6]).toUpperCase() === 'TRUE'
       });
     }
@@ -821,10 +821,11 @@ function saveContact(ss, contact) {
 
 function saveReminder(ss, reminder) {
   const sheet = ss.getSheetByName('Reminders');
+  if (!sheet || !reminder) return;
   const data = sheet.getDataRange().getValues();
   const rowValues = [
     reminder.id, reminder.category, reminder.title, reminder.content,
-    reminder.author, reminder.time, reminder.isUrgent ? 'TRUE' : 'FALSE', new Date().toISOString()
+    reminder.author, "'" + formatRowTime(reminder.time), reminder.isUrgent ? 'TRUE' : 'FALSE', new Date().toISOString()
   ];
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === reminder.id) {
@@ -887,12 +888,17 @@ function saveAdminPin(ss, pin) {
 function formatRowTime(val) {
   if (!val) return '';
   if (val instanceof Date) {
-    return Utilities.formatDate(val, 'GMT+7', 'HH:mm');
+    var h = val.getHours();
+    var m = val.getMinutes();
+    return (h < 10 ? '0' + h : '' + h) + ':' + (m < 10 ? '0' + m : '' + m);
   }
-  const str = String(val).trim();
-  if (/^\d{1,2}:\d{2}/.test(str)) {
-    const parts = str.split(':');
-    return (parts[0].length === 1 ? '0' + parts[0] : parts[0]) + ':' + parts[1].substring(0, 2);
+  var str = String(val).trim();
+  if (!str) return '';
+  var match = str.match(/(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\s+[^:]*?|\b1899-\d{2}-\d{2}[T\s]|(?:^|\s|T))(\d{1,2})[:hH](\d{2})/i);
+  if (match) {
+    var hh = parseInt(match[1], 10);
+    var mm = match[2];
+    return (hh < 10 ? '0' + hh : '' + hh) + ':' + mm;
   }
   return str;
 }

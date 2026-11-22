@@ -17,7 +17,7 @@ import type {
   PatientInfo,
   ReminderCategory,
 } from '@/lib/types';
-import { PATIENT_INFO, getVietnamTimeStr } from '@/lib/config';
+import { PATIENT_INFO, getVietnamTimeStr, normalizeTimeStr } from '@/lib/config';
 import { speakVietnameseReminder, stopSpeakingVietnamese } from '@/lib/notifications';
 import { PatientInfoSummaryPanel } from './PatientInfoSummaryPanel';
 import { ReminderFormCard } from './ReminderFormCard';
@@ -72,7 +72,14 @@ export function PatientProfileBanner({
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
-    if (Array.isArray(remindersProp)) setLocalReminders(remindersProp);
+    if (Array.isArray(remindersProp)) {
+      setLocalReminders(
+        remindersProp.map((r) => ({
+          ...r,
+          time: normalizeTimeStr(r.time) || r.time,
+        }))
+      );
+    }
   }, [remindersProp]);
 
   useEffect(() => {
@@ -146,13 +153,16 @@ export function PatientProfileBanner({
       setFormError('Vui lòng nhập tiêu đề lời nhắn.');
       return;
     }
+    const existing = editingReminderId
+      ? localReminders.find((r) => r.id === editingReminderId)
+      : null;
     const newRem: PatientDailyReminder = {
       id: editingReminderId || `rem-${Date.now()}`,
       category: formCategory,
       title: formTitle.trim(),
       content: formContent.trim() || formTitle.trim(),
       author: formAuthor.trim() || 'Gia đình',
-      time: getVietnamTimeStr(),
+      time: normalizeTimeStr(existing?.time) || getVietnamTimeStr(),
       isUrgent: formIsUrgent,
     };
 

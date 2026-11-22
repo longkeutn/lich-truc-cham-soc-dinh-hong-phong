@@ -888,7 +888,10 @@ async function syncMemoryStoreFromWebapp(): Promise<boolean> {
               // ignore malformed json
             }
           } else {
-            cleanReminders.push(rawRem);
+            cleanReminders.push({
+              ...rawRem,
+              time: normalizeTimeStr(rawRem.time) || rawRem.time,
+            });
           }
         }
         memoryStore.setReminders(cleanReminders);
@@ -929,16 +932,33 @@ async function syncMemoryStoreFromWebapp(): Promise<boolean> {
 
       // V2.0: Nạp dữ liệu mới từ Google Sheets (kể cả khi mảng rỗng)
       if (Array.isArray(data.vitalsLog)) {
-        memoryStore.setVitalsLog(data.vitalsLog as VitalsLogEntry[]);
+        memoryStore.setVitalsLog(
+          (data.vitalsLog as VitalsLogEntry[]).map((v) => ({
+            ...v,
+            date: normalizeDateStr(v.date) || v.date,
+            time: normalizeTimeStr(v.time) || v.time,
+          }))
+        );
       }
       if (Array.isArray(data.careRoutines)) {
         memoryStore.setCareRoutines(data.careRoutines as CareRoutine[]);
       }
       if (Array.isArray(data.dailyLogs)) {
-        memoryStore.setDailyLogs(data.dailyLogs as DailyLog[]);
+        memoryStore.setDailyLogs(
+          (data.dailyLogs as DailyLog[]).map((l) => ({
+            ...l,
+            date: normalizeDateStr(l.date) || l.date,
+            doneAt: l.doneAt ? normalizeTimeStr(l.doneAt) : undefined,
+          }))
+        );
       }
       if (data.appointment && typeof data.appointment === 'object') {
-        memoryStore.setAppointment(data.appointment as AppointmentInfo);
+        const appt = data.appointment as AppointmentInfo;
+        memoryStore.setAppointment({
+          ...appt,
+          nextDate: normalizeDateStr(appt.nextDate) || appt.nextDate,
+          lastDate: normalizeDateStr(appt.lastDate) || appt.lastDate,
+        });
       }
       if (data.bpThresholds && typeof data.bpThresholds === 'object') {
         memoryStore.setBpThresholds(data.bpThresholds as BpThresholds);

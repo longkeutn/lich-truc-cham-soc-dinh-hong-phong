@@ -13,6 +13,7 @@ import {
   TIME_SLOT_CONFIG,
   classifyClinicalPulse,
   getVietnamDateOffsetStr,
+  normalizeDateStr,
 } from '@/lib/config';
 
 export type DateRange = 'today' | '3d' | '7d' | '14d' | '30d' | 'all';
@@ -198,21 +199,27 @@ export function periodLabel(period: string): string {
 }
 
 export function fmtDateShort(dateStr: string): string {
-  const parts = dateStr.split('-');
+  if (!dateStr) return '';
+  const norm = normalizeDateStr(dateStr);
+  const parts = norm.split('-');
   if (parts.length !== 3) return dateStr;
   return `${parts[2]}/${parts[1]}`;
 }
 
 export function fmtDateFull(dateStr: string): string {
-  const parts = dateStr.split('-');
+  if (!dateStr) return '';
+  const norm = normalizeDateStr(dateStr);
+  const parts = norm.split('-');
   if (parts.length !== 3) return dateStr;
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
 export function getWeekdayVN(dateStr: string): string {
-  const parts = dateStr.split('-').map(Number);
-  if (parts.length !== 3) return '';
-  const d = new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1, 12, 0, 0);
+  if (!dateStr) return '';
+  const norm = normalizeDateStr(dateStr);
+  const parts = norm.split('-').map(Number);
+  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return '';
+  const d = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
   const days = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
   return days[d.getDay()] || '';
 }

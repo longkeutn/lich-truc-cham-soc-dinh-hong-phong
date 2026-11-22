@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { PatientVitals, ShiftRecord } from '@/lib/types';
+import { normalizeTimeStr } from '@/lib/config';
 import {
   Check,
   ChevronDown,
@@ -131,7 +132,7 @@ export default function ShiftCardHandoverDrawer({
           <div className="flex items-center justify-between pt-1">
             <span className="text-[11px] text-slate-600 font-medium">
               {shift.handover.updatedAt && (
-                <>Cập nhật: {new Date(shift.handover.updatedAt).toLocaleTimeString('vi-VN')}</>
+                <>Cập nhật: {normalizeTimeStr(shift.handover.updatedAt) || shift.handover.updatedAt}</>
               )}
             </span>
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { CarePhase, FamilyMember, ShiftRecord, PatientVitals } from '@/lib/types';
+import { getVietnamDateStr } from '@/lib/config';
 import ShiftCard from './ShiftCard';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 
@@ -36,10 +37,7 @@ export default function MonthlyView({
   members,
 }: MonthlyViewProps) {
   const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [selectedDateStr, setSelectedDateStr] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  });
+  const [selectedDateStr, setSelectedDateStr] = useState(() => getVietnamDateStr());
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth(); // 0-11

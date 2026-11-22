@@ -1,4 +1,5 @@
 import type { FamilyMember, ShiftRecord, ShiftType } from '@/lib/types';
+import { normalizeDateStr } from '@/lib/config';
 
 export interface SessionOption {
   id: 'morning' | 'afternoon' | 'night' | 'full_day';
@@ -79,13 +80,17 @@ export function getMondayOfWeek(baseDate: Date): Date {
 }
 
 export function formatDateShortVN(dateStr: string): string {
-  const parts = dateStr.split('-');
+  if (!dateStr) return '';
+  const norm = normalizeDateStr(dateStr);
+  const parts = norm.split('-');
   if (parts.length !== 3) return dateStr;
   return `${parts[2]}/${parts[1]}`;
 }
 
 export function formatDateFullVN(dateStr: string): string {
-  const parts = dateStr.split('-');
+  if (!dateStr) return '';
+  const norm = normalizeDateStr(dateStr);
+  const parts = norm.split('-');
   if (parts.length !== 3) return dateStr;
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
@@ -99,7 +104,8 @@ export interface WeekDayInfo {
 }
 
 export function computeWeekDays(todayStr: string, weekOffset: number): WeekDayInfo[] {
-  const [y, m, d] = todayStr.split('-').map(Number);
+  const normToday = normalizeDateStr(todayStr);
+  const [y, m, d] = normToday.split('-').map(Number);
   const base = new Date(y, (m || 1) - 1, d || 1, 12, 0, 0);
   base.setDate(base.getDate() + weekOffset * 7);
   const monday = getMondayOfWeek(base);

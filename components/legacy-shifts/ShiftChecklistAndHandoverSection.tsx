@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { PatientVitals, ShiftRecord } from '@/lib/types';
+import { normalizeTimeStr } from '@/lib/config';
 import {
   Activity,
   Check,
@@ -173,10 +174,7 @@ export default function ShiftChecklistAndHandoverSection({
             {shift.handover.updatedAt ? (
               <span>
                 Cập nhật lần cuối bởi {shift.handover.author || 'Người nhà'} (
-                {new Date(shift.handover.updatedAt).toLocaleTimeString('vi-VN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {normalizeTimeStr(shift.handover.updatedAt) || shift.handover.updatedAt}
                 )
               </span>
             ) : (

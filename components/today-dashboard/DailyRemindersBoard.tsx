@@ -3,6 +3,7 @@
 import React from 'react';
 import { Clock, Edit2, Trash2, User, Volume2, VolumeX } from 'lucide-react';
 import type { PatientDailyReminder, ReminderCategory } from '@/lib/types';
+import { normalizeTimeStr } from '@/lib/config';
 import { REMINDER_CATEGORY_LABELS } from './ReminderFormCard';
 
 const BADGE_STYLE: Record<ReminderCategory, string> = {
@@ -70,7 +71,7 @@ export function DailyRemindersBoard({
                 {rem.time && (
                   <span className="text-xs font-semibold text-slate-600 inline-flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    <span>{rem.time}</span>
+                    <span>{normalizeTimeStr(rem.time) || rem.time}</span>
                   </span>
                 )}
               </div>

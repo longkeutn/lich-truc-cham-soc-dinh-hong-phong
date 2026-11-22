@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { ShiftRecord, FamilyMember } from '@/lib/types';
+import { normalizeTimeStr } from '@/lib/config';
 import {
   Activity,
   CheckCircle2,
@@ -191,10 +192,7 @@ export default function ShiftHistoryCard({ shift, members }: ShiftHistoryCardPro
               </span>
               {shift.handover.updatedAt && (
                 <span className="text-amber-800 font-normal">
-                  {new Date(shift.handover.updatedAt).toLocaleTimeString('vi-VN', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {normalizeTimeStr(shift.handover.updatedAt) || shift.handover.updatedAt}
                 </span>
               )}
             </div>

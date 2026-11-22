@@ -20,6 +20,8 @@ import {
   evaluateVitalReading,
   formatVietnamDateFull,
   getVietnamDateStr,
+  normalizeDateStr,
+  normalizeTimeStr,
   TIME_SLOT_CONFIG,
 } from '@/lib/config';
 
@@ -52,12 +54,14 @@ function formatLastEntryTime(entry: VitalsLogEntry, currentTodayStr?: string): s
   const slotCfg = TIME_SLOT_CONFIG[entry.period];
   const slotLabel = slotCfg?.label || entry.period;
   const todayStr = currentTodayStr || getVietnamDateStr();
-  if (entry.date === todayStr) return `${entry.time} ${slotLabel.toLowerCase()} nay`;
-  const diffDays = diffDaysBetweenDateStr(todayStr, entry.date);
-  if (diffDays === 1) return `${entry.time} hôm qua`;
+  const timeStr = normalizeTimeStr(entry.time) || entry.time;
+  const dateStr = normalizeDateStr(entry.date) || entry.date;
+  if (dateStr === todayStr) return `${timeStr} ${slotLabel.toLowerCase()} nay`;
+  const diffDays = diffDaysBetweenDateStr(todayStr, dateStr);
+  if (diffDays === 1) return `${timeStr} hôm qua`;
   if (diffDays > 1 && diffDays <= 7) return `${diffDays} ngày trước`;
-  const parts = (entry.date || '').split('-');
-  return parts.length === 3 ? `${entry.time} ngày ${parts[2]}/${parts[1]}` : entry.date;
+  const parts = dateStr.split('-');
+  return parts.length === 3 ? `${timeStr} ngày ${parts[2]}/${parts[1]}` : dateStr;
 }
 
 function renderTrendIcon(trend: 'up' | 'down' | 'stable') {

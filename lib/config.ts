@@ -685,8 +685,10 @@ export function getVietnamDateOffsetStr(daysOffset: number, baseDate: Date = new
  * Ví dụ: diffDaysBetweenDateStr('2026-10-23', '2026-10-22') === 1.
  */
 export function diffDaysBetweenDateStr(dateStrA: string, dateStrB: string): number {
-  const [yA, mA, dA] = dateStrA.split('-').map(Number);
-  const [yB, mB, dB] = dateStrB.split('-').map(Number);
+  const normA = normalizeDateStr(dateStrA);
+  const normB = normalizeDateStr(dateStrB);
+  const [yA, mA, dA] = normA.split('-').map(Number);
+  const [yB, mB, dB] = normB.split('-').map(Number);
   if (!yA || !mA || !dA || !yB || !mB || !dB) return 0;
   const utcA = Date.UTC(yA, mA - 1, dA, 12, 0, 0);
   const utcB = Date.UTC(yB, mB - 1, dB, 12, 0, 0);
@@ -697,13 +699,32 @@ export function diffDaysBetweenDateStr(dateStrA: string, dateStrB: string): numb
  * Hiển thị ngày tiếng Việt thân thiện cho người lớn tuổi: "Thứ Sáu, 23/10/2026"
  */
 export function formatVietnamDateFull(dateStr: string): string {
-  const parts = (dateStr || '').split('-');
+  const norm = normalizeDateStr(dateStr);
+  const parts = (norm || '').split('-');
   if (parts.length !== 3) return dateStr;
   const [y, m, d] = parts.map(Number);
   if (!y || !m || !d) return dateStr;
   const utcNoon = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
   const weekdayLabel = WEEKDAY_VN_LABELS[utcNoon.getUTCDay()] || '';
   return `${weekdayLabel}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+}
+
+/** Hiển thị ngày ngắn gọn tiếng Việt: "23/10" */
+export function formatDateShortVN(dateStr: string): string {
+  if (!dateStr) return '';
+  const norm = normalizeDateStr(dateStr);
+  const parts = norm.split('-');
+  if (parts.length !== 3) return dateStr;
+  return `${parts[2]}/${parts[1]}`;
+}
+
+/** Hiển thị ngày đầy đủ tiếng Việt: "23/10/2026" */
+export function formatDateFullVN(dateStr: string): string {
+  if (!dateStr) return '';
+  const norm = normalizeDateStr(dateStr);
+  const parts = norm.split('-');
+  if (parts.length !== 3) return dateStr;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
 /** Tự động nhận diện buổi hiện tại theo giờ Việt Nam (UTC+7) */
@@ -1152,9 +1173,14 @@ export function evaluateVitalReading(
  * Chuẩn hóa mọi chuỗi ngày (YYYY-M-D, DD/MM/YYYY, ISO timestamp, Date string...)
  * về đúng định dạng chuẩn YYYY-MM-DD theo múi giờ Việt Nam (UTC+7).
  */
-export function normalizeDateStr(raw: string | undefined | null): string {
+export function normalizeDateStr(raw: string | Date | undefined | null): string {
   if (!raw) return '';
+  if (raw instanceof Date) {
+    if (isNaN(raw.getTime())) return '';
+    return getVietnamDateStr(raw);
+  }
   const str = String(raw).trim();
+  if (!str) return '';
   // Nếu là chuỗi ISO có chứa giờ (VD: 2026-10-22T23:30:00.000Z) -> đổi sang đúng ngày lịch Việt Nam (UTC+7)
   if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
     const parsed = new Date(str);
@@ -1213,20 +1239,56 @@ export function extractRoutineStartDateStr(
 }
 
 /**
- * Chuẩn hóa mọi chuỗi giờ ('6:05', '06:05', '6h05'...) về chuẩn HH:mm (24h, luôn có 2 chữ số giờ).
- * Khắc phục triệt để lỗi so sánh chuỗi '6:05' > '11:14'.
+ * Chuẩn hóa mọi định dạng giờ:
+ * - Chuỗi 24h: '07:30', '7:30', '16:30'
+ * - Chuỗi tiếng Việt: '7h', '7h30', '07h30', '7h sáng', '7h tối', '7h chiều'
+ * - Chuỗi 12h: '7:30 AM', '7:30 PM'
+ * - Chuỗi Date từ Google Sheets / JS Date: 'Sat Dec 30 1899 07:30:00 GMT+0706 (Indochina Time)'
+ * - Chuỗi ISO: '2026-11-22T06:30:00.000Z', '1899-12-30T07:30:00'
+ * về đúng định dạng chuẩn HH:mm (24h, 2 chữ số giờ và phút).
  */
-export function normalizeTimeStr(raw: string | undefined | null): string {
+export function normalizeTimeStr(raw: string | Date | undefined | null): string {
   if (!raw) return '';
+  if (raw instanceof Date) {
+    if (isNaN(raw.getTime())) return '';
+    return getVietnamTimeStr(raw);
+  }
   const str = String(raw).trim();
-  const match = str.match(/(\d{1,2})[:hH](\d{1,2})/);
+  if (!str) return '';
+
+  // 1. Chuỗi Date từ Google Sheets / JS Date (VD: 'Sat Dec 30 1899 07:30:00 GMT+0706 (Indochina Time)')
+  // Trích xuất trực tiếp cụm HH:mm(:ss) đã ở dạng 24h từ chuỗi Date
+  const dateStrMatch = str.match(
+    /(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\s+[^:]*?|\b1899-\d{2}-\d{2}[T\s])(\d{1,2}):(\d{2})(?::\d{2})?/i
+  );
+  if (dateStrMatch) {
+    const hh = parseInt(dateStrMatch[1], 10);
+    const mm = parseInt(dateStrMatch[2], 10);
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  }
+
+  // 2. ISO timestamp hiện đại có timezone (VD: '2026-11-22T06:30:00.000Z') -> đổi sang giờ VN
+  if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+      return getVietnamTimeStr(parsed);
+    }
+  }
+
+  // 3. Chuỗi giờ thông thường: 07:30, 7:30, 7h30, 7h, 7:30 PM, 7h tối...
+  const match = str.match(/(\d{1,2})[:hH](\d{1,2})?/);
   if (match) {
     let hh = parseInt(match[1], 10);
-    const mm = parseInt(match[2], 10);
+    const mm = match[2] ? parseInt(match[2], 10) : 0;
     const lower = str.toLowerCase();
-    if ((lower.includes('pm') || lower.includes('ch')) && hh < 12) {
+
+    // Kiểm tra có từ chỉ buổi chiều/tối (PM, chiều, tối, ch) bằng word boundary hoặc ở cuối chuỗi
+    const isPm = /\b(pm|ch|chiều|tối)\b/i.test(lower) || /(?:pm|ch|chiều|tối)$/i.test(lower);
+    const isAm = /\b(am|sa|sáng)\b/i.test(lower) || /(?:am|sa|sáng)$/i.test(lower);
+
+    if (isPm && hh < 12) {
       hh += 12;
-    } else if ((lower.includes('am') || lower.includes('sa')) && hh === 12) {
+    } else if (isAm && hh === 12) {
       hh = 0;
     }
     hh = Math.max(0, Math.min(23, hh));
