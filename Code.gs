@@ -1105,13 +1105,13 @@ function upsertDailyLog(ss, log) {
 function saveAppointmentToSettings(ss, appt) {
   const sheet = ss.getSheetByName('Settings');
   if (!sheet) return;
-  const map = {
-    appt_next_date: appt.nextDate || '',
-    appt_next_note: appt.nextNote || '',
-    appt_next_who: appt.nextWho || '',
-    appt_last_date: appt.lastDate || '',
-    appt_last_note: appt.lastNote || ''
-  };
+  const map = {};
+  if (appt.nextDate !== undefined) map.appt_next_date = appt.nextDate || '';
+  if (appt.nextNote !== undefined) map.appt_next_note = appt.nextNote || '';
+  if (appt.nextWho !== undefined) map.appt_next_who = appt.nextWho || '';
+  if (appt.lastDate !== undefined) map.appt_last_date = appt.lastDate || '';
+  if (appt.lastNote !== undefined) map.appt_last_note = appt.lastNote || '';
+
   const data = sheet.getDataRange().getValues();
   for (const [key, val] of Object.entries(map)) {
     let found = false;
@@ -1124,6 +1124,32 @@ function saveAppointmentToSettings(ss, appt) {
     }
     if (!found) sheet.appendRow([key, val, 'Lịch tái khám']);
   }
+
+  // Đồng thời cập nhật vào emergency_phone metadata cho profile 'father' nếu có
+  try {
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === 'emergency_phone') {
+        const rawPhone = String(data[i][1] || '');
+        if (rawPhone.includes(' ||META||')) {
+          const parts = rawPhone.split(' ||META||');
+          const meta = JSON.parse(parts[1]);
+          if (Array.isArray(meta.healthProfiles)) {
+            const fProf = meta.healthProfiles.find(function(p) { return p && p.id === 'father'; });
+            if (fProf) {
+              fProf.appointment = fProf.appointment || {};
+              if (appt.nextDate !== undefined) fProf.appointment.nextDate = appt.nextDate || '';
+              if (appt.nextNote !== undefined) fProf.appointment.nextNote = appt.nextNote || '';
+              if (appt.nextWho !== undefined) fProf.appointment.nextWho = appt.nextWho || '';
+              if (appt.lastDate !== undefined) fProf.appointment.lastDate = appt.lastDate || '';
+              if (appt.lastNote !== undefined) fProf.appointment.lastNote = appt.lastNote || '';
+              sheet.getRange(i + 1, 2).setValue(parts[0] + ' ||META||' + JSON.stringify(meta));
+            }
+          }
+        }
+        break;
+      }
+    }
+  } catch (metaErr) {}
 }
 
 function saveBpThresholdsToSettings(ss, bp) {

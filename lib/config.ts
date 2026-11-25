@@ -42,7 +42,7 @@ export const DEFAULT_MEMBER_NAME =
     ''
   ).trim() ||
   (IS_YOUNG_FAMILY_MODE
-    ? 'Thanh Long'
+    ? 'Thành Long'
     : IS_FAMILY_STANDARD_MODE
       ? 'Bố Thành Đô'
       : 'Đinh Hồng Phong');
@@ -106,7 +106,7 @@ export const FAMILY_MEMBERS: FamilyMember[] = IS_YOUNG_FAMILY_MODE
   ? [
       {
         id: 'mem-father',
-        name: 'Thanh Long',
+        name: 'Thành Long',
         relation: 'Bản thân',
         phone: 'Chưa cập nhật',
         badgeColor: 'bg-teal-600',
@@ -572,7 +572,7 @@ export const DEFAULT_APPOINTMENT: AppointmentInfo = {
 };
 
 /** Tên người ghi mặc định */
-export const DEFAULT_RECORDER = IS_YOUNG_FAMILY_MODE ? 'Thanh Long' : 'Mẹ';
+export const DEFAULT_RECORDER = IS_YOUNG_FAMILY_MODE ? 'Thành Long' : 'Mẹ';
 
 /** Danh sách đơn thuốc & bài tập phục hồi mặc định (Giai đoạn 1) */
 export const DEFAULT_CARE_ROUTINES: CareRoutine[] = [
@@ -2108,7 +2108,28 @@ export function buildResolvedHealthProfiles(
       healthProfiles: undefined,
     },
     bpThresholds: savedPrimary?.bpThresholds || fatherThresholds || DEFAULT_BP_THRESHOLDS,
-    appointment: savedPrimary?.appointment || fatherAppointment || DEFAULT_APPOINTMENT,
+    appointment: {
+      nextDate:
+        fatherAppointment?.nextDate ||
+        savedPrimary?.appointment?.nextDate ||
+        '',
+      nextNote:
+        fatherAppointment?.nextNote ||
+        savedPrimary?.appointment?.nextNote ||
+        '',
+      nextWho:
+        fatherAppointment?.nextWho ||
+        savedPrimary?.appointment?.nextWho ||
+        '',
+      lastDate:
+        fatherAppointment?.lastDate ||
+        savedPrimary?.appointment?.lastDate ||
+        '',
+      lastNote:
+        fatherAppointment?.lastNote ||
+        savedPrimary?.appointment?.lastNote ||
+        '',
+    },
   };
 
   // 2. Các hồ sơ thành viên khác đã lưu

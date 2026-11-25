@@ -75,19 +75,27 @@ export function useFamilyAdminCrudHandlers({
             appointment: p.id === DEFAULT_HEALTH_PROFILE_ID ? info : p.appointment,
           })
         );
-        setPatientInfo((prev) => ({ ...prev, healthProfiles: updatedAll }));
-        showToast(`📅 Đã lưu lịch tái khám của ${patientDisplayName}!`, 'success');
+        const nextRoot: PatientInfo = {
+          ...patientInfo,
+          healthProfiles: updatedAll,
+        };
+        setPatientInfo(nextRoot);
         setSyncStatus('syncing');
 
-        void saveAppointmentAction(info)
-          .then((res) => {
-            if (res.success && res.appointment) setAppointment(res.appointment);
-            setSyncStatus(res.success ? 'synced' : 'error');
-          })
-          .catch(() => {
-            setSyncStatus('error');
-            showToast('Lỗi lưu lịch tái khám lên Sheet.', 'warn');
-          });
+        try {
+          const res = await saveAppointmentAction(info);
+          if (res.success && res.appointment) {
+            setAppointment(res.appointment);
+          }
+          // Lưu đồng thời metadata healthProfiles để giữ tính nhất quán 100% giữa Settings rows và metadata
+          syncRootPatientInfo(nextRoot);
+          setSyncStatus('synced');
+          showToast(`📅 Đã lưu lịch tái khám của ${patientDisplayName}!`, 'success');
+        } catch (err) {
+          console.error('Lỗi lưu lịch tái khám:', err);
+          setSyncStatus('error');
+          showToast('Lỗi lưu lịch tái khám lên Sheet.', 'warn');
+        }
       } else {
         const updatedProfile: HealthProfile = {
           ...activeProfile,

@@ -22,6 +22,7 @@ import {
   buildDefaultShiftRecord,
   DEFAULT_BP_THRESHOLDS,
   DEFAULT_APPOINTMENT, DEFAULT_MEMBER_NAME, IS_FAMILY_STANDARD_MODE, IS_YOUNG_FAMILY_MODE,
+  DEFAULT_HEALTH_PROFILE_ID,
   compareVitalsDesc,
   normalizeDateStr,
   normalizeTimeStr,
@@ -1351,9 +1352,22 @@ export async function saveAppointmentToStorage(info: AppointmentInfo): Promise<A
   memoryStore.setAppointment(info);
   serverCacheManager.invalidateAll();
 
+  // Đồng thời cập nhật appointment của profile father trong patientInfo.healthProfiles nếu có
+  const currentPatient = memoryStore.getPatientInfo();
+  if (Array.isArray(currentPatient.healthProfiles)) {
+    const updatedProfiles = currentPatient.healthProfiles.map((p) =>
+      p.id === DEFAULT_HEALTH_PROFILE_ID ? { ...p, appointment: info } : p
+    );
+    memoryStore.setPatientInfo({
+      ...currentPatient,
+      healthProfiles: updatedProfiles,
+    });
+  }
+
   const syncRes = await sendToWebappWithTimeout({ action: 'saveAppointment', appointment: info }, 20000);
   if (!syncRes.success) {
     console.warn('[saveAppointmentToStorage] Đồng bộ Google Sheets thất bại:', syncRes.error || syncRes);
+    throw new Error(syncRes.error || 'Đồng bộ Google Sheets thất bại');
   }
 
   return memoryStore.getAppointment();
