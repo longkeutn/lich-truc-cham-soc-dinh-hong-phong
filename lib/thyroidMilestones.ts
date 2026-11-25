@@ -57,10 +57,24 @@ export function analyzeThyroidPostOpMilestones(params: {
   evalResult: { indicators: LabIndicatorEval[]; overallStatus: LabEvalStatus; summaryPoints: string[] } | null;
   recentVitalsSummary: { avgSys: number; avgDia: number; avgPulse: number | null; count: number } | null;
   profileType: HealthProfileType;
+  gender?: 'male' | 'female';
   todayStr?: string;
 }): ThyroidMilestoneAssessment | null {
-  const { snapshot, evalResult, recentVitalsSummary, profileType, todayStr } = params;
+  const { snapshot, evalResult, recentVitalsSummary, profileType, gender, todayStr } = params;
   const entry = snapshot.mergedEntry;
+  const hasAnyThyroidData = Boolean(
+    entry &&
+      (entry.tsh !== undefined ||
+        entry.ft4 !== undefined ||
+        entry.ft3 !== undefined ||
+        entry.t3 !== undefined ||
+        entry.t4 !== undefined ||
+        entry.tg !== undefined ||
+        entry.antiTg !== undefined ||
+        entry.antiTpo !== undefined ||
+        Boolean(entry.levothyroxineDose))
+  );
+  if (profileType !== 'thyroid_post_op' && !hasAnyThyroidData) return null;
   if (!entry && profileType !== 'thyroid_post_op') return null;
 
   const byKey = new Map<string, LabIndicatorEval>();
@@ -182,12 +196,20 @@ export function analyzeThyroidPostOpMilestones(params: {
       : 'Theo dõi nhịp tim nghỉ hằng ngày giúp nhận biết sớm tình trạng dư thuốc giáp.',
   });
 
+  const creatLabel =
+    gender === 'male'
+      ? 'Creatinine (Thận - Nam)'
+      : gender === 'female'
+        ? 'Creatinine (Thận - Nữ)'
+        : 'Creatinine (Chức năng thận)';
+  const creatTarget = gender === 'female' ? '44 – 88 µmol/L' : '53 – 110 µmol/L';
+
   milestones.push(
     makeFromIndicator('ldlC', 'LDL-C (Mỡ xấu)', 'metabolic', '< 2.6 mmol/L (< 100 mg/dL)', 12, 'Xét nghiệm mỡ máu mỗi 6–12 tháng để bảo vệ mạch máu.'),
     makeFromIndicator('triglyceride', 'Triglyceride', 'metabolic', '< 1.70 mmol/L (< 150 mg/dL)', 12, 'Kiểm tra cùng bộ mỡ máu định kỳ.'),
     makeFromIndicator('glucose', 'Glucose đói', 'metabolic', '3.9 – 5.6 mmol/L', 12, 'Tầm soát đường huyết định kỳ mỗi 6–12 tháng.'),
     makeFromIndicator('hba1c', 'HbA1c (TB 3 tháng)', 'metabolic', '< 5.7%', 12, 'Đánh giá đường huyết trung bình 3 tháng.'),
-    makeFromIndicator('creatinine', 'Creatinine (Thận - Nữ)', 'metabolic', '44 – 88 µmol/L', 12, 'Theo dõi chức năng thận khi dùng Canxi/Vitamin D lâu dài.')
+    makeFromIndicator('creatinine', creatLabel, 'metabolic', creatTarget, 12, 'Theo dõi chức năng lọc cầu thận định kỳ.')
   );
 
   // Phân tích chéo lâm sàng thực tế (Cross-Signals)

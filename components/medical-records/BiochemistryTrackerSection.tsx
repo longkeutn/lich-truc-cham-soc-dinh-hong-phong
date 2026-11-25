@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { AlertTriangle, Calendar, Edit3, Stethoscope } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Calendar, ChevronDown, ChevronUp, Edit3, Stethoscope, TrendingUp } from 'lucide-react';
 import type { HealthProfileType, LabResultEntry, PatientInfo } from '@/lib/types';
 import type { LabIndicatorEval } from '@/lib/config';
 import { getLabMedicalGuide } from '@/lib/labMedicalGuides';
@@ -24,8 +24,8 @@ export interface BiochemistryTrackerSectionProps {
   patientInfo?: PatientInfo;
   todayStr?: string;
   indicators: LabIndicatorEval[];
-  summaryPoints: string[];
   chartData: LabChartPoint[];
+  compactSummaryView?: boolean;
   onEditLab: (entry: LabResultEntry) => void;
   onOpenAddLab?: () => void;
   onOpenImport?: () => void;
@@ -42,13 +42,32 @@ export function BiochemistryTrackerSection({
   patientInfo,
   todayStr,
   indicators,
-  summaryPoints,
   chartData,
+  compactSummaryView = false,
   onEditLab,
   onOpenAddLab,
   onOpenImport,
 }: BiochemistryTrackerSectionProps) {
   const [bioFilter, setBioFilter] = useState<BioFilter>('all_bio');
+  const [showTrendChart, setShowTrendChart] = useState<boolean>(!compactSummaryView);
+
+  useEffect(() => {
+    setShowTrendChart(!compactSummaryView);
+  }, [compactSummaryView]);
+
+  const hasParathyroidSignals = useMemo(
+    () =>
+      profileType === 'thyroid_post_op' ||
+      Boolean(
+        latestLab &&
+          (latestLab.pth !== undefined ||
+            latestLab.phosphorus !== undefined ||
+            latestLab.calcium !== undefined ||
+            latestLab.ionizedCalcium !== undefined)
+      ) ||
+      chartData.some((d) => d.pth !== undefined || d.phosphorus !== undefined || d.calcium !== undefined),
+    [profileType, latestLab, chartData]
+  );
 
   const bioIndicators = useMemo(
     () =>
@@ -96,9 +115,6 @@ export function BiochemistryTrackerSection({
           <h3 className="text-base sm:text-lg font-black text-text-main mt-1">
             Bảng Đánh Giá Chỉ Số Hóa Sinh &amp; Chẩn Đoán Hình Ảnh
           </h3>
-          <p className="text-xs sm:text-sm text-text-muted font-medium">
-            Bấm nút <strong>Giải thích</strong> / <strong>Xem tác hại</strong> trên từng thẻ để xem ý nghĩa y khoa và cảnh báo sức khỏe.
-          </p>
         </div>
 
         {latestLab && (
@@ -113,7 +129,7 @@ export function BiochemistryTrackerSection({
         )}
       </div>
 
-      {/* Nhận xét tự động theo chuẩn y khoa (ảnh chụp tổng hợp chỉ số gần nhất) */}
+      {/* Nhận xét tự động theo chuẩn y khoa (nguồn tổng hợp duy nhất, không lặp lại hộp vàng) */}
       <ClinicalAutoAssessmentCard
         entry={latestLab}
         previousLab={previousLab}
@@ -123,27 +139,17 @@ export function BiochemistryTrackerSection({
         compactHeaderLabel={latestLab ? `Tổng hợp tới ${fmtDateShort(latestLab.date)}` : undefined}
       />
 
-      {/* Điểm lưu ý lâm sàng chi tiết nếu có */}
-      {summaryPoints.length > 0 && (
-        <div className="rounded-2xl bg-vital-warning-bg border border-amber-300 p-3.5 space-y-1.5">
-          <div className="text-base font-black text-amber-950 flex items-center gap-1.5">
-            <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0" />
-            Tổng hợp điểm cần lưu ý từ kết quả gần nhất:
-          </div>
-          <ul className="list-disc list-inside text-base text-amber-950 space-y-1 leading-relaxed">
-            {summaryPoints.map((pt, idx) => (
-              <li key={idx}>{pt}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       {/* Bộ lọc nhóm Hóa sinh */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {[
           { id: 'all_bio', label: 'Tất cả' },
           { id: 'lipid', label: '❤️ Bộ Mỡ máu' },
-          { id: 'metabolic', label: '🦴 Đường, Canxi & Cận giáp' },
+          {
+            id: 'metabolic',
+            label: hasParathyroidSignals
+              ? '🦴 Đường, Canxi & Cận giáp'
+              : '🩸 Đường huyết & Khoáng chất',
+          },
           { id: 'liver_kidney', label: '🧪 Gan, Thận & Gout' },
           { id: 'ultrasound', label: '🩺 Siêu âm & Polyp' },
         ].map((tab) => (
@@ -216,18 +222,23 @@ export function BiochemistryTrackerSection({
                   )}
                 </div>
 
-                <div className="pt-2 border-t border-slate-200/70 space-y-2">
-                  <div className="text-sm text-text-body leading-relaxed">
-                    {ind.clinicalNote}
+                {(isWarnStatus || guide) && (
+                  <div className="pt-2 border-t border-slate-200/70 space-y-2">
+                    {isWarnStatus && (
+                      <div className="text-xs sm:text-sm text-amber-950 font-medium leading-relaxed">
+                        {ind.clinicalNote}
+                      </div>
+                    )}
+                    {guide && (
+                      <MedicalInfoToggle
+                        guide={guide}
+                        isWarning={isWarnStatus}
+                        compact={!isWarnStatus}
+                        buttonLabel={isWarnStatus ? 'Xem tác hại & cách xử trí' : 'Giải thích'}
+                      />
+                    )}
                   </div>
-                  {guide && (
-                    <MedicalInfoToggle
-                      guide={guide}
-                      isWarning={isWarnStatus}
-                      buttonLabel={isWarnStatus ? 'Xem tác hại & cách xử trí' : 'Ý nghĩa & tác hại'}
-                    />
-                  )}
-                </div>
+                )}
               </div>
             );
           })}
@@ -319,17 +330,46 @@ export function BiochemistryTrackerSection({
         </div>
       )}
 
-      {/* Phân tích lâm sàng trục Cận giáp - Canxi - Phospho - Albumin */}
-      {(bioFilter === 'all_bio' || bioFilter === 'metabolic') && (
+      {/* Phân tích lâm sàng trục Cận giáp - Canxi - Phospho - Albumin (chỉ khi đúng chuyên khoa hoặc có dữ liệu Cận giáp/Canxi) */}
+      {hasParathyroidSignals && (bioFilter === 'all_bio' || bioFilter === 'metabolic') && (
         <ParathyroidClinicalGuideCard latestLab={latestLab} profileType={profileType} />
       )}
 
-      {/* Biểu đồ xu hướng Hóa sinh theo nhóm */}
-      <BiochemistryTrendChart
-        chartData={chartData}
-        onOpenAddLab={onOpenAddLab}
-        onOpenImport={onOpenImport}
-      />
+      {/* Biểu đồ xu hướng Hóa sinh theo nhóm (thu gọn mặc định trên trang Tổng hợp toàn bộ) */}
+      {compactSummaryView && !showTrendChart ? (
+        <button
+          type="button"
+          onClick={() => setShowTrendChart(true)}
+          className="w-full min-h-[48px] px-4 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-border-card text-sm font-extrabold text-text-main flex items-center justify-between gap-2 transition cursor-pointer"
+        >
+          <span className="inline-flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-medical-primary shrink-0" />
+            <span>Mở Biểu Đồ Xu Hướng Hóa Sinh Qua Các Đợt Khám</span>
+          </span>
+          <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
+        </button>
+      ) : (
+        <div className="space-y-2">
+          {compactSummaryView && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowTrendChart(false)}
+                className="min-h-[36px] px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-extrabold text-text-body inline-flex items-center gap-1 cursor-pointer"
+              >
+                <span>Thu gọn biểu đồ</span>
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+          <BiochemistryTrendChart
+            chartData={chartData}
+            showParathyroidLabel={hasParathyroidSignals}
+            onOpenAddLab={onOpenAddLab}
+            onOpenImport={onOpenImport}
+          />
+        </div>
+      )}
     </div>
   );
 }

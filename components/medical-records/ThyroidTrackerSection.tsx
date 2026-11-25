@@ -211,18 +211,23 @@ export function ThyroidTrackerSection({
                     <div className="text-xs sm:text-sm font-bold text-indigo-800 mt-1">{deltaText}</div>
                   )}
                 </div>
-                <div className="pt-2 border-t border-slate-200/70 space-y-2">
-                  <div className="text-sm text-text-body leading-relaxed">
-                    {ind.clinicalNote}
+                {(isWarnStatus || guide) && (
+                  <div className="pt-2 border-t border-slate-200/70 space-y-2">
+                    {isWarnStatus && (
+                      <div className="text-xs sm:text-sm text-amber-950 font-medium leading-relaxed">
+                        {ind.clinicalNote}
+                      </div>
+                    )}
+                    {guide && (
+                      <MedicalInfoToggle
+                        guide={guide}
+                        isWarning={isWarnStatus}
+                        compact={!isWarnStatus}
+                        buttonLabel={isWarnStatus ? 'Xem tác hại & xử trí' : 'Giải thích'}
+                      />
+                    )}
                   </div>
-                  {guide && (
-                    <MedicalInfoToggle
-                      guide={guide}
-                      isWarning={isWarnStatus}
-                      buttonLabel={isWarnStatus ? 'Xem tác hại & xử trí' : 'Ý nghĩa & tác hại'}
-                    />
-                  )}
-                </div>
+                )}
               </div>
             );
           })}

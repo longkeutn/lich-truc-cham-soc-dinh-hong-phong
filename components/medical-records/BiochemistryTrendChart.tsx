@@ -24,12 +24,14 @@ export type BioChartTab = 'lipid' | 'metabolic' | 'liver_kidney' | 'gout_polyp';
 
 export interface BiochemistryTrendChartProps {
   chartData: LabChartPoint[];
+  showParathyroidLabel?: boolean;
   onOpenAddLab?: () => void;
   onOpenImport?: () => void;
 }
 
 export function BiochemistryTrendChart({
   chartData,
+  showParathyroidLabel = false,
   onOpenAddLab,
   onOpenImport,
 }: BiochemistryTrendChartProps) {
@@ -178,7 +180,13 @@ export function BiochemistryTrendChart({
         <div className="flex items-center gap-1.5 flex-wrap">
           {[
             { id: 'lipid', label: '❤️ Mỡ máu', count: lipidPoints.length },
-            { id: 'metabolic', label: '🦴 Canxi, Cận giáp & Đường', count: metabolicPoints.length },
+            {
+              id: 'metabolic',
+              label: showParathyroidLabel
+                ? '🦴 Canxi, Cận giáp & Đường'
+                : '🩸 Đường & Khoáng chất',
+              count: metabolicPoints.length,
+            },
             { id: 'liver_kidney', label: '🧪 Gan & Thận', count: liverKidneyPoints.length },
             { id: 'gout_polyp', label: '🫧 Gout & Polyp', count: goutPolypPoints.length },
           ].map((t) => (

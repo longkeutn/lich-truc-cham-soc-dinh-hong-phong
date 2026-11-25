@@ -164,16 +164,52 @@ export function MedicalRecordsContainer({
     return { avgSys, avgDia, avgPulse, count: recent.length };
   }, [vitalsLog]);
 
+  const hasThyroidData = useMemo(
+    () =>
+      sortedLabsDesc.some(
+        (r) =>
+          r.tsh !== undefined ||
+          r.ft4 !== undefined ||
+          r.ft3 !== undefined ||
+          r.t3 !== undefined ||
+          r.t4 !== undefined ||
+          r.tg !== undefined ||
+          r.antiTg !== undefined ||
+          r.antiTpo !== undefined ||
+          Boolean(r.levothyroxineDose)
+      ),
+    [sortedLabsDesc]
+  );
+
+  const showThyroidSection = profileType === 'thyroid_post_op' || hasThyroidData;
+
+  useEffect(() => {
+    if (subView === 'thyroid' && !showThyroidSection) {
+      setSubView('all');
+    }
+  }, [subView, showThyroidSection]);
+
   const milestoneAssessment = useMemo(
     () =>
-      analyzeThyroidPostOpMilestones({
-        snapshot: labSnapshot,
-        evalResult: latestEval,
-        recentVitalsSummary,
-        profileType,
-        todayStr,
-      }),
-    [labSnapshot, latestEval, recentVitalsSummary, profileType, todayStr]
+      showThyroidSection
+        ? analyzeThyroidPostOpMilestones({
+            snapshot: labSnapshot,
+            evalResult: latestEval,
+            recentVitalsSummary,
+            profileType,
+            gender: patientInfo?.gender,
+            todayStr,
+          })
+        : null,
+    [
+      showThyroidSection,
+      labSnapshot,
+      latestEval,
+      recentVitalsSummary,
+      profileType,
+      patientInfo?.gender,
+      todayStr,
+    ]
   );
 
   const openAddModal = () => {
@@ -347,10 +383,20 @@ export function MedicalRecordsContainer({
     : [
         { id: 'all', label: '📋 Tổng hợp toàn bộ' },
         { id: 'visits', label: `🩺 Đợt Khám & Đơn Thuốc (${visitEntries.length})` },
-        { id: 'thyroid', label: '🦋 Tuyến Giáp & Hormone' },
+        ...(showThyroidSection ? [{ id: 'thyroid' as LabSubView, label: '🦋 Tuyến Giáp & Hormone' }] : []),
         { id: 'biochem', label: '🧪 Hóa Sinh & Mỡ Máu' },
         { id: 'history', label: `🗓️ Lịch Sử & Lời Dặn BS (${sortedLabsDesc.length})` },
       ];
+
+  const bannerSubtitle = isPediatric
+    ? 'Theo dõi biểu đồ chiều cao - cân nặng chuẩn WHO (-2SD / Median / +2SD), lịch tiêm chủng mở rộng & dịch vụ và kết quả xét nghiệm'
+    : profileType === 'thyroid_post_op'
+      ? 'Theo dõi chuyên sâu Tuyến giáp (TSH, FT4, FT3, TG, Anti-TG & Liều thuốc Levothyroxine), Cận giáp (PTH, Canxi, Phospho, Albumin, Vitamin D), Mỡ máu & Đường huyết'
+      : profileType === 'post_stroke_cranioplasty'
+        ? patientDiagnosis ||
+          'Theo dõi mục tiêu Mỡ máu (LDL-C < 1.8 mmol/L), Đường huyết, Chức năng Gan - Thận & Hình ảnh học'
+        : patientDiagnosis ||
+          'Theo dõi Bộ Mỡ máu (Cholesterol, LDL-C, Triglyceride), Đường huyết (Glucose, HbA1c), Gan - Thận - Acid Uric & Siêu âm';
 
   return (
     <div className="space-y-4">
@@ -372,12 +418,7 @@ export function MedicalRecordsContainer({
                 : `Sổ Theo Dõi Chỉ Số Xét Nghiệm Định Kỳ (${sortedLabsDesc.length} lần khám)`}
             </h2>
             <p className="text-sm sm:text-base text-teal-100 font-medium leading-relaxed">
-              {isPediatric
-                ? 'Theo dõi biểu đồ chiều cao - cân nặng chuẩn WHO (-2SD / Median / +2SD), lịch tiêm chủng mở rộng & dịch vụ và kết quả xét nghiệm'
-                : profileType === 'thyroid_post_op'
-                  ? 'Theo dõi chuyên sâu Tuyến giáp (TSH, FT4, FT3, TG, Anti-TG & Liều thuốc Levothyroxine), Cận giáp (PTH, Canxi, Phospho, Albumin, Vitamin D), Mỡ máu & Đường huyết'
-                  : patientDiagnosis ||
-                    'Theo dõi Bộ Mỡ máu (Cholesterol, LDL-C, Triglyceride), Đường huyết (Glucose, HbA1c), Gan Thận & Tuyến giáp'}
+              {bannerSubtitle}
             </p>
           </div>
 
@@ -541,7 +582,7 @@ export function MedicalRecordsContainer({
             </div>
           ) : (
             <>
-              {(subView === 'all' || subView === 'thyroid') && !isPediatric && (
+              {(subView === 'all' || subView === 'thyroid') && !isPediatric && showThyroidSection && (
                 <>
                   {milestoneAssessment && (
                     <ThyroidMilestoneAssessmentCard
@@ -574,8 +615,8 @@ export function MedicalRecordsContainer({
                   patientInfo={patientInfo}
                   todayStr={todayStr}
                   indicators={latestEval?.indicators || []}
-                  summaryPoints={latestEval?.summaryPoints || []}
                   chartData={chartData}
+                  compactSummaryView={subView === 'all'}
                   onEditLab={openEditModal}
                   onOpenAddLab={openAddModal}
                   onOpenImport={() => setImportModalOpen(true)}
@@ -591,6 +632,7 @@ export function MedicalRecordsContainer({
                   todayStr={todayStr}
                   isAdmin={isAdmin}
                   appointment={appointment}
+                  compactSummaryView={subView === 'all'}
                   onSaveAppointment={onSaveAppointment}
                   onEditLab={openEditModal}
                   onDeleteLab={handleDeleteLab}

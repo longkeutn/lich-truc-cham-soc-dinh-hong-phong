@@ -3455,7 +3455,9 @@ export function evaluateLabEntry(
           ? 'bg-amber-100 text-amber-800 border-amber-300'
           : 'bg-emerald-100 text-emerald-800 border-emerald-200',
       clinicalNote: isLow
-        ? `Canxi máu thấp (dễ gây tê bì tay chân, chuột rút sau mổ tuyến giáp)${corrText}. Cần bổ sung đều đặn Canxi + Vitamin D3 cách giờ uống thuốc giáp ít nhất 4 tiếng.`
+        ? isThyroidProfile
+          ? `Canxi máu thấp (dễ gây tê bì tay chân, chuột rút sau mổ tuyến giáp)${corrText}. Cần bổ sung đều đặn Canxi + Vitamin D3 cách giờ uống thuốc giáp ít nhất 4 tiếng.`
+          : `Canxi máu thấp (dễ gây tê bì tay chân, chuột rút)${corrText}. Nên hỏi Bác sĩ về chế độ ăn giàu Canxi và bổ sung Vitamin D3 nếu thiếu.`
         : `Nồng độ Canxi máu ổn định${corrText}, đảm bảo tốt cho thần kinh - cơ và xương.`,
     });
     if (isLow) {
@@ -3726,7 +3728,9 @@ export function evaluateLabEntry(
       clinicalNote: isReduced
         ? 'Mức lọc cầu thận dưới 60 mL/phút; cần bảo vệ thận chặt chẽ (ổn định HA, uống đủ nước, tuyệt đối tránh thuốc giảm đau NSAID).'
         : isMild
-          ? 'Sức lọc thận ổn định phù hợp tuổi 60+; duy trì uống đủ 2L nước/ngày.'
+          ? ageYears !== null && ageYears < 60
+            ? 'Sức lọc thận ở vùng 60-89 mL/phút; duy trì uống đủ 2-2.5L nước/ngày và theo dõi lại cùng Creatinine kỳ tới.'
+            : 'Sức lọc thận ổn định phù hợp tuổi 60+; duy trì uống đủ 2L nước/ngày.'
           : 'Chức năng lọc cầu thận rất tốt.',
     });
     if (isReduced) {
