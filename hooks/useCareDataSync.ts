@@ -24,6 +24,7 @@ import {
   DEFAULT_MEMBER_NAME,
   DEFAULT_REHAB_STAGES,
   IS_FAMILY_STANDARD_MODE,
+  IS_YOUNG_FAMILY_MODE,
   compareVitalsDesc,
   computeAlertLevel,
   formatVietnamDateFull,
@@ -43,12 +44,18 @@ const EMPTY_PATIENT_INFO: PatientInfo = {
   notes: '',
   emergencyPhone: '',
   statusBadge: 'Theo dõi sức khỏe gia đình',
-  conditionTag: IS_FAMILY_STANDARD_MODE ? 'Huyết áp & Tim mạch' : 'Phục hồi tại nhà',
+  conditionTag: IS_YOUNG_FAMILY_MODE
+    ? 'L5/S1 • Sỏi thận • Acid Uric • Cardio'
+    : IS_FAMILY_STANDARD_MODE
+      ? 'Huyết áp & Tim mạch'
+      : 'Phục hồi tại nhà',
   headerBadge: 'Tại nhà',
   careMode: 'Chăm sóc tại nhà',
-  careGoal: IS_FAMILY_STANDARD_MODE
-    ? 'Huyết áp ổn định & uống thuốc đều'
-    : 'Phục hồi vận động & huyết áp ổn định',
+  careGoal: IS_YOUNG_FAMILY_MODE
+    ? 'Ổn định L5/S1, thải sỏi thận & duy trì Cardio'
+    : IS_FAMILY_STANDARD_MODE
+      ? 'Huyết áp ổn định & uống thuốc đều'
+      : 'Phục hồi vận động & huyết áp ổn định',
   customFields: [],
 };
 

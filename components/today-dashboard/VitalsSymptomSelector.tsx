@@ -3,6 +3,7 @@
 import React from 'react';
 import type { HealthProfileType } from '@/lib/types';
 import {
+  IS_YOUNG_FAMILY_MODE,
   getQuickNoteTagsForProfile,
   isQuickNoteTagSelected,
   toggleQuickNoteTag,
@@ -118,13 +119,21 @@ export function VitalsSymptomSelector({
       {showWhyTags && profileType === 'general_health' && (
         <div className="p-3 rounded-xl bg-white border border-teal-300 text-xs sm:text-sm text-slate-700 space-y-1.5 leading-relaxed">
           <div className="font-black text-teal-950">
-            💡 Bấm thẻ 1 chạm giúp Bác sĩ &amp; gia đình thấy ngay nguyên nhân làm huyết áp/sức khỏe thay đổi:
+            💡 Bấm thẻ 1 chạm giúp Bác sĩ &amp; gia đình thấy ngay bối cảnh khi đo huyết áp:
           </div>
-          <ul className="list-disc list-inside space-y-1">
-            <li><strong>Rượu bia &amp; Thuốc lá:</strong> Làm tăng huyết áp, khởi phát sưng chân Gout, kích thích đau bụng ruột kích thích (IBS) và tăng men gan GGT.</li>
-            <li><strong>Sau Tennis / Đạp xe:</strong> Giúp tách biệt số đo lúc vừa tập xong với số đo lúc nghỉ ngơi thật sự.</li>
-            <li><strong>Đau khớp Gout / Đau bụng IBS / Tức hạ sườn phải:</strong> Tự động hiện lời khuyên xử trí an toàn và tổng hợp vào Phiếu Trình Bác Sĩ.</li>
-          </ul>
+          {IS_YOUNG_FAMILY_MODE ? (
+            <ul className="list-disc list-inside space-y-1">
+              <li><strong>Đau lưng / căng rễ S1:</strong> Ghi nhận diễn biến L5/S1 trước và sau khi dùng đơn thuốc, kèm nhắc tư thế giải áp 90/90.</li>
+              <li><strong>Sau Cardio / Gyro Ball:</strong> Tách biệt số đo lúc vừa tập với nhịp nghỉ nền khi đối chiếu cùng Amazfit/Zepp.</li>
+              <li><strong>Hơi choáng / hạ HA tư thế:</strong> Theo dõi tác dụng phụ giãn cơ - thần kinh trên nền huyết áp ~100/65 mmHg.</li>
+            </ul>
+          ) : (
+            <ul className="list-disc list-inside space-y-1">
+              <li><strong>Rượu bia &amp; Thuốc lá:</strong> Làm tăng huyết áp, khởi phát sưng chân Gout, kích thích đau bụng ruột kích thích (IBS) và tăng men gan GGT.</li>
+              <li><strong>Sau Tennis / Đạp xe:</strong> Giúp tách biệt số đo lúc vừa tập xong với số đo lúc nghỉ ngơi thật sự.</li>
+              <li><strong>Đau khớp Gout / Đau bụng IBS / Tức hạ sườn phải:</strong> Tự động hiện lời khuyên xử trí an toàn và tổng hợp vào Phiếu Trình Bác Sĩ.</li>
+            </ul>
+          )}
         </div>
       )}
 

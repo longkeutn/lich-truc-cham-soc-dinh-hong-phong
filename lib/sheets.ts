@@ -21,7 +21,7 @@ import {
   PHASE_CONFIGS,
   buildDefaultShiftRecord,
   DEFAULT_BP_THRESHOLDS,
-  DEFAULT_APPOINTMENT, DEFAULT_MEMBER_NAME, IS_FAMILY_STANDARD_MODE,
+  DEFAULT_APPOINTMENT, DEFAULT_MEMBER_NAME, IS_FAMILY_STANDARD_MODE, IS_YOUNG_FAMILY_MODE,
   compareVitalsDesc,
   normalizeDateStr,
   normalizeTimeStr,
@@ -116,7 +116,11 @@ class MemoryShiftStore {
     notes: '',
     emergencyPhone: '',
     statusBadge: 'Theo dõi sức khỏe gia đình',
-    conditionTag: IS_FAMILY_STANDARD_MODE ? 'Huyết áp & Tim mạch' : 'Phục hồi tại nhà',
+    conditionTag: IS_YOUNG_FAMILY_MODE
+      ? 'L5/S1 • Sỏi thận • Acid Uric • Cardio'
+      : IS_FAMILY_STANDARD_MODE
+        ? 'Huyết áp & Tim mạch'
+        : 'Phục hồi tại nhà',
     headerBadge: 'Tại nhà',
     careMode: 'Hằng ngày',
     careGoal: 'Duy trì huyết áp & sức khỏe ổn định',
@@ -1135,7 +1139,9 @@ function unpackPatientInfoFromSheet(raw: PatientInfo): PatientInfo {
         ? raw.conditionTag
         : parsedMeta?.conditionTag !== undefined
           ? parsedMeta.conditionTag
-          : (IS_FAMILY_STANDARD_MODE ? 'Huyết áp & Tim mạch' : 'Phục hồi tại nhà'),
+          : IS_YOUNG_FAMILY_MODE
+            ? 'L5/S1 • Sỏi thận • Acid Uric • Cardio'
+            : (IS_FAMILY_STANDARD_MODE ? 'Huyết áp & Tim mạch' : 'Phục hồi tại nhà'),
     headerBadge:
       raw.headerBadge !== undefined
         ? raw.headerBadge

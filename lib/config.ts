@@ -9,7 +9,7 @@ import {
 // =============================================
 // CẤU HÌNH ĐA GIA ĐÌNH (MULTI-FAMILY EDITION CONFIG)
 // Tự động nhận diện Web "Sổ Sức Khỏe Ông Bà Nội" (so-suc-khoe-ong-ba-noi.vercel.app)
-// hoặc qua biến môi trường NEXT_PUBLIC_APP_MODE=family_standard
+// hoặc "Sổ Sức Khỏe Gia Đình Nhỏ" (NEXT_PUBLIC_APP_MODE=young_family)
 // =============================================
 const vercelProdUrl = (
   process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL ||
@@ -18,61 +18,159 @@ const vercelProdUrl = (
   ''
 ).toLowerCase();
 
+export const IS_YOUNG_FAMILY_MODE =
+  process.env.NEXT_PUBLIC_APP_MODE === 'young_family' ||
+  vercelProdUrl.includes('gia-dinh-nho') ||
+  vercelProdUrl.includes('so-suc-khoe-gia-dinh');
+
 export const IS_FAMILY_STANDARD_MODE =
-  process.env.NEXT_PUBLIC_APP_MODE === 'family_standard' ||
-  vercelProdUrl.includes('ong-ba-noi');
+  !IS_YOUNG_FAMILY_MODE &&
+  (process.env.NEXT_PUBLIC_APP_MODE === 'family_standard' ||
+    vercelProdUrl.includes('ong-ba-noi'));
 
 export const ENABLE_FAMILY_SHIFT_TAB =
   process.env.NEXT_PUBLIC_ENABLE_SHIFTS === 'true'
     ? true
     : process.env.NEXT_PUBLIC_ENABLE_SHIFTS === 'false'
       ? false
-      : !IS_FAMILY_STANDARD_MODE;
+      : !IS_FAMILY_STANDARD_MODE && !IS_YOUNG_FAMILY_MODE;
 
 export const DEFAULT_MEMBER_NAME =
   (
     process.env.NEXT_PUBLIC_DEFAULT_MEMBER_NAME ||
     process.env.NEXT_PUBLIC_DEFAULT_PATIENT_NAME ||
     ''
-  ).trim() || (IS_FAMILY_STANDARD_MODE ? 'Bố Thành Đô' : 'Đinh Hồng Phong');
+  ).trim() ||
+  (IS_YOUNG_FAMILY_MODE
+    ? 'Thanh Long'
+    : IS_FAMILY_STANDARD_MODE
+      ? 'Bố Thành Đô'
+      : 'Đinh Hồng Phong');
 
 export const DEFAULT_MOTHER_NAME =
   (process.env.NEXT_PUBLIC_DEFAULT_MOTHER_NAME || '').trim() ||
-  (IS_FAMILY_STANDARD_MODE ? 'Mẹ Bạch Yến' : 'Mẹ');
+  (IS_YOUNG_FAMILY_MODE ? 'Vợ' : IS_FAMILY_STANDARD_MODE ? 'Mẹ Bạch Yến' : 'Mẹ');
 
 export const APP_TITLE =
   (process.env.NEXT_PUBLIC_APP_TITLE || '').trim() ||
-  (IS_FAMILY_STANDARD_MODE
-    ? 'Sổ Sức Khỏe Ông Bà Nội'
-    : `Sổ Sức Khỏe Bố - ${DEFAULT_MEMBER_NAME}`);
+  (IS_YOUNG_FAMILY_MODE
+    ? 'Sổ Sức Khỏe Gia Đình Nhỏ'
+    : IS_FAMILY_STANDARD_MODE
+      ? 'Sổ Sức Khỏe Ông Bà Nội'
+      : `Sổ Sức Khỏe Bố - ${DEFAULT_MEMBER_NAME}`);
 
 export const APP_SHORT_TITLE =
   (process.env.NEXT_PUBLIC_APP_SHORT_TITLE || '').trim() ||
-  (IS_FAMILY_STANDARD_MODE ? 'Sổ Sức Khỏe Ông Bà Nội' : 'Sổ Sức Khỏe Bố');
+  (IS_YOUNG_FAMILY_MODE
+    ? 'Sổ Sức Khỏe Gia Đình'
+    : IS_FAMILY_STANDARD_MODE
+      ? 'Sổ Sức Khỏe Ông Bà Nội'
+      : 'Sổ Sức Khỏe Bố');
 
 export const PATIENT_INFO: PatientInfo = {
   name: DEFAULT_MEMBER_NAME,
-  diagnosis: IS_FAMILY_STANDARD_MODE
-    ? 'Tim mạch & Huyết áp • Theo dõi Gout tái phát • Hội chứng ruột kích thích (IBS) • Polyp túi mật định kỳ'
-    : 'Đang phục hồi chức năng sau đột quỵ (tai biến mạch máu não)',
-  hospital: IS_FAMILY_STANDARD_MODE
-    ? 'Khám & kiểm tra định kỳ (Thái Nguyên)'
-    : 'Bệnh viện Bạch Mai - Hà Nội (nơi điều trị trước đó)',
+  diagnosis: IS_YOUNG_FAMILY_MODE
+    ? 'Thoát vị đĩa đệm L5/S1 chèn ép rễ S1 • Sỏi thận trái • Theo dõi Acid Uric & Mỡ máu'
+    : IS_FAMILY_STANDARD_MODE
+      ? 'Tim mạch & Huyết áp • Theo dõi Gout tái phát • Hội chứng ruột kích thích (IBS) • Polyp túi mật định kỳ'
+      : 'Đang phục hồi chức năng sau đột quỵ (tai biến mạch máu não)',
+  hospital: IS_YOUNG_FAMILY_MODE
+    ? 'BV Đa khoa Hà Đông & Theo dõi định kỳ (Hà Nội)'
+    : IS_FAMILY_STANDARD_MODE
+      ? 'Khám & kiểm tra định kỳ (Thái Nguyên)'
+      : 'Bệnh viện Bạch Mai - Hà Nội (nơi điều trị trước đó)',
   room: 'Tại nhà',
-  notes: IS_FAMILY_STANDARD_MODE
-    ? 'Nghỉ tĩnh 5-10 phút sau đánh Tennis/đạp xe trước khi đo HA. Uống đủ 2-2.5L nước/ngày để thải Acid Uric ngừa Gout và bảo vệ thận. Hạn chế rượu bia, thuốc lá, đồ mỡ/purin; theo dõi kích thước Polyp túi mật mỗi lần siêu âm định kỳ.'
-    : 'Cần theo dõi huyết áp hàng ngày, uống thuốc đúng giờ, tập vận động và nghỉ ngơi đều đặn.',
-  emergencyPhone: IS_FAMILY_STANDARD_MODE ? '' : '0913 218 765',
+  notes: IS_YOUNG_FAMILY_MODE
+    ? 'Uống đủ 2-2.5L nước/ngày để phòng sỏi thận & hạ Acid Uric. Ăn nhạt, hạn chế purin; kiêng cá sông, tôm, cua. Tập Cardio tác động thấp (đạp xe, đi bộ) & Gyro Ball khi qua đợt đau lưng cấp.'
+    : IS_FAMILY_STANDARD_MODE
+      ? 'Nghỉ tĩnh 5-10 phút sau đánh Tennis/đạp xe trước khi đo HA. Uống đủ 2-2.5L nước/ngày để thải Acid Uric ngừa Gout và bảo vệ thận. Hạn chế rượu bia, thuốc lá, đồ mỡ/purin; theo dõi kích thước Polyp túi mật mỗi lần siêu âm định kỳ.'
+      : 'Cần theo dõi huyết áp hàng ngày, uống thuốc đúng giờ, tập vận động và nghỉ ngơi đều đặn.',
+  emergencyPhone: IS_YOUNG_FAMILY_MODE || IS_FAMILY_STANDARD_MODE ? '' : '0913 218 765',
   statusBadge: 'Theo dõi sức khỏe gia đình',
-  conditionTag: IS_FAMILY_STANDARD_MODE ? 'Tim mạch • Gout • IBS • Polyp mật' : 'Phục hồi tại nhà',
+  conditionTag: IS_YOUNG_FAMILY_MODE
+    ? 'L5/S1 • Sỏi thận • Acid Uric • Cardio'
+    : IS_FAMILY_STANDARD_MODE
+      ? 'Tim mạch • Gout • IBS • Polyp mật'
+      : 'Phục hồi tại nhà',
   headerBadge: 'Tại nhà',
   careMode: 'Hằng ngày',
-  careGoal: IS_FAMILY_STANDARD_MODE
-    ? 'Ổn định HA, mỡ máu, GGT, Acid Uric <360 & theo dõi Polyp túi mật'
-    : 'Duy trì huyết áp & sức khỏe ổn định',
+  careGoal: IS_YOUNG_FAMILY_MODE
+    ? 'Ổn định L5/S1, thải sỏi thận, hạ Acid Uric <360 & duy trì Cardio'
+    : IS_FAMILY_STANDARD_MODE
+      ? 'Ổn định HA, mỡ máu, GGT, Acid Uric <360 & theo dõi Polyp túi mật'
+      : 'Duy trì huyết áp & sức khỏe ổn định',
+  ...(IS_YOUNG_FAMILY_MODE ? { birthDate: '1988-12-28', gender: 'male' as const } : {}),
 };
 
-export const FAMILY_MEMBERS: FamilyMember[] = IS_FAMILY_STANDARD_MODE
+export const FAMILY_MEMBERS: FamilyMember[] = IS_YOUNG_FAMILY_MODE
+  ? [
+      {
+        id: 'mem-father',
+        name: 'Thanh Long',
+        relation: 'Bản thân',
+        phone: 'Chưa cập nhật',
+        badgeColor: 'bg-teal-600',
+        avatarInitials: 'TL',
+        bgLight: 'bg-teal-50/90',
+        borderLight: 'border-teal-300',
+        textColor: 'text-teal-900',
+        accentColor: 'bg-teal-600 text-white',
+        pillBadge: 'bg-teal-100 text-teal-800 border-teal-300 font-bold',
+      },
+      {
+        id: 'mem-mother',
+        name: 'Vợ',
+        relation: 'Vợ',
+        phone: 'Chưa cập nhật',
+        badgeColor: 'bg-rose-600',
+        avatarInitials: 'VỢ',
+        bgLight: 'bg-rose-50/90',
+        borderLight: 'border-rose-300',
+        textColor: 'text-rose-900',
+        accentColor: 'bg-rose-600 text-white',
+        pillBadge: 'bg-rose-100 text-rose-800 border-rose-300 font-bold',
+      },
+      {
+        id: 'mem-child-1',
+        name: 'Bé 1',
+        relation: 'Con thứ 1 (9 tuổi)',
+        phone: 'Chưa cập nhật',
+        badgeColor: 'bg-blue-600',
+        avatarInitials: 'B1',
+        bgLight: 'bg-blue-50/90',
+        borderLight: 'border-blue-300',
+        textColor: 'text-blue-900',
+        accentColor: 'bg-blue-600 text-white',
+        pillBadge: 'bg-blue-100 text-blue-800 border-blue-300 font-bold',
+      },
+      {
+        id: 'mem-child-2',
+        name: 'Bé 2',
+        relation: 'Con thứ 2 (6 tuổi)',
+        phone: 'Chưa cập nhật',
+        badgeColor: 'bg-indigo-600',
+        avatarInitials: 'B2',
+        bgLight: 'bg-indigo-50/90',
+        borderLight: 'border-indigo-300',
+        textColor: 'text-indigo-900',
+        accentColor: 'bg-indigo-600 text-white',
+        pillBadge: 'bg-indigo-100 text-indigo-800 border-indigo-300 font-bold',
+      },
+      {
+        id: 'mem-child-3',
+        name: 'Bé 3',
+        relation: 'Con thứ 3 (2 tuổi)',
+        phone: 'Chưa cập nhật',
+        badgeColor: 'bg-amber-600',
+        avatarInitials: 'B3',
+        bgLight: 'bg-amber-50/90',
+        borderLight: 'border-amber-300',
+        textColor: 'text-amber-950',
+        accentColor: 'bg-amber-600 text-white',
+        pillBadge: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
+      },
+    ]
+  : IS_FAMILY_STANDARD_MODE
   ? [
       {
         id: 'mem-mother',
@@ -439,16 +537,29 @@ export const TIME_SLOT_CONFIG: Record<TimeSlot, { label: string; emoji: string; 
 };
 
 /** Ngưỡng cảnh báo HA mặc định (có thể chỉnh qua Settings) */
-export const DEFAULT_BP_THRESHOLDS: BpThresholds = {
-  highSys: 140,
-  highDia: 90,
-  lowSys: 100,
-  lowDia: 60,
-};
+export const DEFAULT_BP_THRESHOLDS: BpThresholds = IS_YOUNG_FAMILY_MODE
+  ? {
+      highSys: 140,
+      highDia: 90,
+      lowSys: 92,
+      lowDia: 55,
+    }
+  : {
+      highSys: 140,
+      highDia: 90,
+      lowSys: 100,
+      lowDia: 60,
+    };
 
 /** Giai đoạn phục hồi mặc định */
 export const DEFAULT_REHAB_STAGES: RehabStage[] = [
-  { id: 'stage-1', name: 'Mới về nhà - Chăm sóc tích cực', isActive: true },
+  {
+    id: 'stage-1',
+    name: IS_YOUNG_FAMILY_MODE
+      ? 'Theo dõi & Chăm sóc Gia đình tại nhà'
+      : 'Mới về nhà - Chăm sóc tích cực',
+    isActive: true,
+  },
 ];
 
 /** Lịch tái khám mặc định (trống) */
@@ -460,8 +571,8 @@ export const DEFAULT_APPOINTMENT: AppointmentInfo = {
   lastNote: '',
 };
 
-/** Tên người ghi mặc định (Mẹ không cần chọn "Tôi là ai") */
-export const DEFAULT_RECORDER = 'Mẹ';
+/** Tên người ghi mặc định */
+export const DEFAULT_RECORDER = IS_YOUNG_FAMILY_MODE ? 'Thanh Long' : 'Mẹ';
 
 /** Danh sách đơn thuốc & bài tập phục hồi mặc định (Giai đoạn 1) */
 export const DEFAULT_CARE_ROUTINES: CareRoutine[] = [
@@ -1608,6 +1719,65 @@ export const THYROID_VITALS_QUICK_NOTE_TAGS: VitalsQuickNoteTag[] = [
   },
 ];
 
+export const YOUNG_FAMILY_VITALS_QUICK_NOTE_TAGS: VitalsQuickNoteTag[] = [
+  {
+    id: 'yf_fine',
+    value: 'Khỏe mạnh, dễ chịu',
+    label: '✅ Khỏe mạnh, dễ chịu',
+    tone: 'good',
+  },
+  {
+    id: 'yf_after_meds',
+    value: 'Đo sau uống thuốc',
+    label: '💊 Đo sau uống thuốc',
+    tone: 'neutral',
+  },
+  {
+    id: 'yf_back_ok',
+    value: 'Lưng L5/S1 êm, không tê chân',
+    label: '🦴 Lưng L5/S1 êm',
+    tone: 'good',
+  },
+  {
+    id: 'yf_back_pain',
+    value: 'Đau thắt lưng / căng rễ S1',
+    label: '⚠️ Đau lưng / căng rễ S1',
+    tone: 'warn',
+    clinicalTip:
+      'Ưu tiên nằm tư thế giải áp 90/90 (gác cẳng chân lên gối cao 15-20p) hoặc nằm nghiêng kẹp gối giữa 2 chân. Tránh ngồi ghế cứng lâu, cúi gập hoặc vặn xoắn lưng; đi khám ngay nếu tê yếu chân tiến triển hoặc rối loạn tiểu tiện.',
+  },
+  {
+    id: 'yf_cardio',
+    value: 'Sau đạp xe / đi bộ / Gyro Ball',
+    label: '🚴 Sau Cardio / Gyro Ball',
+    tone: 'neutral',
+    clinicalTip:
+      'Ngồi nghỉ tĩnh 5-10 phút để nhịp tim hạ về mức nghỉ (đối chiếu Amazfit/Zepp) trước khi đo huyết áp. Uống bù đủ nước lọc để bảo vệ thận trái và hỗ trợ thải Acid Uric.',
+  },
+  {
+    id: 'yf_dizzy',
+    value: 'Hơi choáng / hạ HA tư thế',
+    label: '😵 Hơi choáng / hạ HA tư thế',
+    tone: 'warn',
+    clinicalTip:
+      'Huyết áp nền quanh ~100/65 mmHg; khi đang dùng thuốc giãn cơ/thần kinh (Myonal, Lyrica), cần ngồi thõng chân ở mép giường 1-2 phút trước khi đứng dậy để tránh choáng ngã.',
+  },
+  {
+    id: 'yf_insomnia',
+    value: 'Đêm qua khó ngủ / mất ngủ',
+    label: '😴 Đêm qua khó ngủ',
+    tone: 'neutral',
+  },
+  {
+    id: 'yf_tired',
+    value: 'Người hơi mệt / uể oải',
+    label: '😮‍💨 Người hơi mệt',
+    tone: 'warn',
+    clinicalTip:
+      'Kiểm tra xem có thiếu nước hoặc tác dụng phụ buồn ngủ/mệt từ thuốc buổi tối không; đo lại huyết áp và mạch lúc nghỉ.',
+  },
+];
+
 import { PEDIATRIC_VITALS_QUICK_NOTE_TAGS } from './adaptiveProfileConfig';
 
 export function getQuickNoteTagsForProfile(
@@ -1621,6 +1791,9 @@ export function getQuickNoteTagsForProfile(
   }
   if (profileType === 'pediatric') {
     return PEDIATRIC_VITALS_QUICK_NOTE_TAGS;
+  }
+  if (IS_YOUNG_FAMILY_MODE) {
+    return YOUNG_FAMILY_VITALS_QUICK_NOTE_TAGS;
   }
   return GENERAL_VITALS_QUICK_NOTE_TAGS;
 }
@@ -1718,7 +1891,8 @@ export function buildResolvedHealthProfiles(
   const rawFatherName = (savedPrimary?.name || fatherPatientInfo.name || '').trim();
   const isUneditedLegacyFatherName =
     !rawFatherName ||
-    (IS_FAMILY_STANDARD_MODE && (rawFatherName === 'Đinh Hồng Phong' || rawFatherName === 'Bố'));
+    ((IS_FAMILY_STANDARD_MODE || IS_YOUNG_FAMILY_MODE) &&
+      (rawFatherName === 'Đinh Hồng Phong' || rawFatherName === 'Bố'));
 
   const resolvedFatherName = isUneditedLegacyFatherName ? DEFAULT_MEMBER_NAME : rawFatherName;
 
@@ -1738,7 +1912,7 @@ export function buildResolvedHealthProfiles(
   const primaryRelation =
     savedPrimary?.relation?.trim() ||
     matchedPrimaryMember?.relation?.trim() ||
-    (isMotherPrimary ? 'Mẹ' : 'Bố');
+    (isMotherPrimary ? 'Mẹ' : IS_YOUNG_FAMILY_MODE ? 'Bản thân' : 'Bố');
 
   const primaryAvatarEmoji =
     savedPrimary?.avatarEmoji?.trim() ||
@@ -1754,7 +1928,7 @@ export function buildResolvedHealthProfiles(
     savedPrimary?.profileType ||
     (isMotherPrimary && IS_FAMILY_STANDARD_MODE
       ? 'thyroid_post_op'
-      : IS_FAMILY_STANDARD_MODE
+      : IS_FAMILY_STANDARD_MODE || IS_YOUNG_FAMILY_MODE
         ? 'general_health'
         : 'post_stroke_cranioplasty');
 
@@ -1765,36 +1939,66 @@ export function buildResolvedHealthProfiles(
   ).trim();
   const isUneditedLegacyFatherDiag =
     !rawFatherDiag ||
-    (IS_FAMILY_STANDARD_MODE &&
+    ((IS_FAMILY_STANDARD_MODE || IS_YOUNG_FAMILY_MODE) &&
       (rawFatherDiag.toLowerCase().includes('đột quỵ') ||
         rawFatherDiag.toLowerCase().includes('tai biến')));
 
   const resolvedFatherDiag = isUneditedLegacyFatherDiag
-    ? IS_FAMILY_STANDARD_MODE
-      ? isMotherPrimary
-        ? 'Đã phẫu thuật cắt toàn bộ tuyến giáp (K giáp thể nhú) • Duy trì hormone Levothyroxine & Kiểm soát Huyết áp, Mỡ máu, Canxi'
-        : 'Tim mạch & Huyết áp • Theo dõi Gout tái phát • Hội chứng ruột kích thích (IBS) • Polyp túi mật định kỳ'
-      : 'Đang phục hồi chức năng sau đột quỵ (tai biến mạch máu não)'
+    ? IS_YOUNG_FAMILY_MODE
+      ? 'Thoát vị đĩa đệm L5/S1 chèn ép rễ S1 • Sỏi thận trái • Theo dõi Acid Uric & Mỡ máu'
+      : IS_FAMILY_STANDARD_MODE
+        ? isMotherPrimary
+          ? 'Đã phẫu thuật cắt toàn bộ tuyến giáp (K giáp thể nhú) • Duy trì hormone Levothyroxine & Kiểm soát Huyết áp, Mỡ máu, Canxi'
+          : 'Tim mạch & Huyết áp • Theo dõi Gout tái phát • Hội chứng ruột kích thích (IBS) • Polyp túi mật định kỳ'
+        : 'Đang phục hồi chức năng sau đột quỵ (tai biến mạch máu não)'
     : rawFatherDiag;
 
   const rawHospital = savedPrimary?.patientInfo?.hospital || fatherPatientInfo.hospital || '';
   const resolvedFatherHospital =
-    IS_FAMILY_STANDARD_MODE &&
+    IS_YOUNG_FAMILY_MODE &&
     (!rawHospital || rawHospital.toLowerCase().includes('bạch mai'))
-      ? 'Khám & kiểm tra sức khỏe định kỳ (Thái Nguyên)'
-      : rawHospital || 'Khám & kiểm tra định kỳ';
+      ? 'BV Đa khoa Hà Đông & Theo dõi định kỳ (Hà Nội)'
+      : IS_FAMILY_STANDARD_MODE &&
+          (!rawHospital || rawHospital.toLowerCase().includes('bạch mai'))
+        ? 'Khám & kiểm tra sức khỏe định kỳ (Thái Nguyên)'
+        : rawHospital || 'Khám & kiểm tra định kỳ';
 
   const rawNotes = savedPrimary?.patientInfo?.notes || fatherPatientInfo.notes || '';
   const resolvedFatherNotes =
-    IS_FAMILY_STANDARD_MODE && !rawNotes
-      ? isMotherPrimary
-        ? 'Uống thuốc hormone tuyến giáp buổi sáng lúc bụng đói, theo dõi huyết áp, nhịp tim và canxi.'
-        : 'Nghỉ tĩnh 5-10 phút sau đánh Tennis/đạp xe trước khi đo HA. Uống đủ 2-2.5L nước/ngày để thải Acid Uric ngừa Gout và bảo vệ thận. Hạn chế rượu bia, thuốc lá, đồ mỡ/purin; theo dõi kích thước Polyp túi mật khi siêu âm định kỳ.'
-      : rawNotes ||
-        'Đo huyết áp hàng ngày, uống thuốc đúng giờ, tập vận động và nghỉ ngơi đều đặn.';
+    IS_YOUNG_FAMILY_MODE && !rawNotes
+      ? 'Uống đủ 2-2.5L nước/ngày, ăn nhạt giảm muối, kiêng cá sông, tôm, cua và đồ giàu purin. Tập Cardio tác động thấp (đạp xe, đi bộ) & Gyro Ball khi hết đau cấp.'
+      : IS_FAMILY_STANDARD_MODE && !rawNotes
+        ? isMotherPrimary
+          ? 'Uống thuốc hormone tuyến giáp buổi sáng lúc bụng đói, theo dõi huyết áp, nhịp tim và canxi.'
+          : 'Nghỉ tĩnh 5-10 phút sau đánh Tennis/đạp xe trước khi đo HA. Uống đủ 2-2.5L nước/ngày để thải Acid Uric ngừa Gout và bảo vệ thận. Hạn chế rượu bia, thuốc lá, đồ mỡ/purin; theo dõi kích thước Polyp túi mật khi siêu âm định kỳ.'
+        : rawNotes ||
+          'Đo huyết áp hàng ngày, uống thuốc đúng giờ, tập vận động và nghỉ ngơi đều đặn.';
 
-  const defaultFatherCustomFields: PatientCustomField[] =
-    IS_FAMILY_STANDARD_MODE && !isMotherPrimary
+  const defaultFatherCustomFields: PatientCustomField[] = IS_YOUNG_FAMILY_MODE
+    ? [
+        {
+          id: 'cf-tl-spine',
+          label: 'Cột sống L5/S1 (MRI 17/03/2026)',
+          value:
+            'Thoát vị nhẹ L5/S1 thể trung tâm, hẹp ống sống 11 mm, chèn ép rễ S1 hai bên. Tránh cúi gập/tải nặng; dùng tư thế 90/90 khi đau cấp.',
+          section: 'profile',
+        },
+        {
+          id: 'cf-tl-kidney-uric',
+          label: 'Sỏi thận trái & Acid Uric (466 µmol/L)',
+          value:
+            'Creatinin 110 µmol/L; uống 2-2.5L nước/ngày, ăn nhạt, hạn chế purin và theo dõi thận khi dùng NSAID.',
+          section: 'profile',
+        },
+        {
+          id: 'cf-tl-diet-cardio',
+          label: 'Dinh dưỡng & Cardio (Amazfit/Zepp)',
+          value:
+            'Tuyệt đối kiêng cá sông, tôm, cua; ưu tiên cá biển, rau luộc. Duy trì đạp xe trong nhà, đi bộ và Gyro Ball khi lưng ổn định.',
+          section: 'care',
+        },
+      ]
+    : IS_FAMILY_STANDARD_MODE && !isMotherPrimary
       ? [
           {
             id: 'cf-father-polyp',
@@ -1843,29 +2047,46 @@ export function buildResolvedHealthProfiles(
       hospital: resolvedFatherHospital,
       notes: resolvedFatherNotes,
       customFields: existingFatherCustomFields,
+      birthDate:
+        savedPrimary?.patientInfo?.birthDate ||
+        fatherPatientInfo.birthDate ||
+        (IS_YOUNG_FAMILY_MODE ? '1988-12-28' : undefined),
+      gender:
+        savedPrimary?.patientInfo?.gender ||
+        fatherPatientInfo.gender ||
+        (IS_YOUNG_FAMILY_MODE ? 'male' : undefined),
       statusBadge:
-        IS_FAMILY_STANDARD_MODE &&
+        (IS_FAMILY_STANDARD_MODE || IS_YOUNG_FAMILY_MODE) &&
         (!fatherPatientInfo.statusBadge ||
           fatherPatientInfo.statusBadge.includes('đặc biệt'))
           ? 'Hồ sơ sức khỏe gia đình'
           : fatherPatientInfo.statusBadge || 'Theo dõi sức khỏe gia đình',
       conditionTag:
-        IS_FAMILY_STANDARD_MODE &&
+        IS_YOUNG_FAMILY_MODE &&
         (!fatherPatientInfo.conditionTag ||
-          fatherPatientInfo.conditionTag.includes('Tai biến'))
-          ? primaryProfileType === 'thyroid_post_op'
-            ? 'Tuyến giáp • HA • Mỡ máu'
-            : 'Tim mạch • Gout • IBS • Polyp mật'
-          : fatherPatientInfo.conditionTag || 'Phục hồi tại nhà',
+          fatherPatientInfo.conditionTag.includes('Tai biến') ||
+          fatherPatientInfo.conditionTag.includes('Phục hồi'))
+          ? 'L5/S1 • Sỏi thận • Acid Uric • Cardio'
+          : IS_FAMILY_STANDARD_MODE &&
+              (!fatherPatientInfo.conditionTag ||
+                fatherPatientInfo.conditionTag.includes('Tai biến'))
+            ? primaryProfileType === 'thyroid_post_op'
+              ? 'Tuyến giáp • HA • Mỡ máu'
+              : 'Tim mạch • Gout • IBS • Polyp mật'
+            : fatherPatientInfo.conditionTag || 'Phục hồi tại nhà',
       careMode:
-        IS_FAMILY_STANDARD_MODE && fatherPatientInfo.careMode === 'Liên tục 24/7'
+        (IS_FAMILY_STANDARD_MODE || IS_YOUNG_FAMILY_MODE) &&
+        fatherPatientInfo.careMode === 'Liên tục 24/7'
           ? 'Hằng ngày'
           : fatherPatientInfo.careMode || 'Hằng ngày',
       careGoal:
-        IS_FAMILY_STANDARD_MODE &&
+        IS_YOUNG_FAMILY_MODE &&
         (!fatherPatientInfo.careGoal || fatherPatientInfo.careGoal.includes('SpO2'))
-          ? 'Ổn định HA, mỡ máu, GGT, Acid Uric <360 & theo dõi Polyp túi mật'
-          : fatherPatientInfo.careGoal || 'Duy trì huyết áp & sức khỏe ổn định',
+          ? 'Ổn định L5/S1, thải sỏi thận, hạ Acid Uric <360 & duy trì Cardio'
+          : IS_FAMILY_STANDARD_MODE &&
+              (!fatherPatientInfo.careGoal || fatherPatientInfo.careGoal.includes('SpO2'))
+            ? 'Ổn định HA, mỡ máu, GGT, Acid Uric <360 & theo dõi Polyp túi mật'
+            : fatherPatientInfo.careGoal || 'Duy trì huyết áp & sức khỏe ổn định',
       healthProfiles: undefined,
     },
     bpThresholds: savedPrimary?.bpThresholds || fatherThresholds || DEFAULT_BP_THRESHOLDS,
@@ -2008,16 +2229,18 @@ export function buildResolvedHealthProfiles(
           m.relation.toLowerCase().includes('mẹ') ||
           m.relation.toLowerCase().includes('vợ')
       );
-      const motherDisplayName = IS_FAMILY_STANDARD_MODE
+      const motherDisplayName = IS_YOUNG_FAMILY_MODE
         ? DEFAULT_MOTHER_NAME
-        : motherMember
-          ? motherMember.name
-          : 'Mẹ';
+        : IS_FAMILY_STANDARD_MODE
+          ? DEFAULT_MOTHER_NAME
+          : motherMember
+            ? motherMember.name
+            : 'Mẹ';
 
       otherProfiles.unshift({
         id: 'mother',
         name: motherDisplayName,
-        relation: 'Mẹ',
+        relation: IS_YOUNG_FAMILY_MODE ? 'Vợ' : 'Mẹ',
         avatarEmoji: IS_FAMILY_STANDARD_MODE ? '👵' : '👩',
         profileType: IS_FAMILY_STANDARD_MODE ? 'thyroid_post_op' : 'general_health',
         linkedMemberId: motherMember?.id,
@@ -2026,9 +2249,11 @@ export function buildResolvedHealthProfiles(
           diagnosis: IS_FAMILY_STANDARD_MODE
             ? 'Đã phẫu thuật cắt toàn bộ tuyến giáp (K giáp thể nhú) • Duy trì hormone Levothyroxine & Kiểm soát Huyết áp, Mỡ máu, Canxi'
             : 'Theo dõi huyết áp, tim mạch & chăm sóc sức khỏe hằng ngày',
-          hospital: IS_FAMILY_STANDARD_MODE
-            ? 'Khám chuyên khoa Nội tiết & Tim mạch định kỳ'
-            : 'Khám định kỳ',
+          hospital: IS_YOUNG_FAMILY_MODE
+            ? 'Khám định kỳ (Hà Nội)'
+            : IS_FAMILY_STANDARD_MODE
+              ? 'Khám chuyên khoa Nội tiết & Tim mạch định kỳ'
+              : 'Khám định kỳ',
           room: 'Tại nhà',
           notes: IS_FAMILY_STANDARD_MODE
             ? 'Uống thuốc hormone tuyến giáp (Levothyroxine) buổi sáng lúc bụng đói (trước ăn 30–60 phút), cách xa Canxi/Sắt ít nhất 4 tiếng. Theo dõi nhịp tim, huyết áp và dấu hiệu tê bì tay chân.'
@@ -2041,6 +2266,7 @@ export function buildResolvedHealthProfiles(
           careGoal: IS_FAMILY_STANDARD_MODE
             ? 'Ức chế TSH mục tiêu • Ổn định HA, Mạch & Canxi'
             : 'Duy trì huyết áp & giấc ngủ ổn định',
+          ...(IS_YOUNG_FAMILY_MODE ? { gender: 'female' as const } : {}),
           customFields: [
             ...(IS_FAMILY_STANDARD_MODE
               ? [
@@ -2069,6 +2295,84 @@ export function buildResolvedHealthProfiles(
           lastNote: '',
         },
       });
+    }
+  }
+
+  if (IS_YOUNG_FAMILY_MODE && savedList.length === 0) {
+    const youngChildrenDefaults: Array<{
+      id: string;
+      name: string;
+      relation: string;
+      avatarEmoji: string;
+      birthDate: string;
+      gender: 'male' | 'female';
+      diagnosis: string;
+    }> = [
+      {
+        id: 'child-1',
+        name: 'Bé 1',
+        relation: 'Con thứ 1 (9 tuổi)',
+        avatarEmoji: '🧒',
+        birthDate: '2017-06-01',
+        gender: 'male',
+        diagnosis: 'Theo dõi tăng trưởng WHO, tiêm chủng nhắc lại & sức khỏe học đường',
+      },
+      {
+        id: 'child-2',
+        name: 'Bé 2',
+        relation: 'Con thứ 2 (6 tuổi)',
+        avatarEmoji: '🧒',
+        birthDate: '2020-06-01',
+        gender: 'male',
+        diagnosis: 'Theo dõi tăng trưởng WHO, tiêm chủng tiền học đường & sức khỏe hằng ngày',
+      },
+      {
+        id: 'child-3',
+        name: 'Bé 3',
+        relation: 'Con thứ 3 (2 tuổi)',
+        avatarEmoji: '👶',
+        birthDate: '2024-06-01',
+        gender: 'male',
+        diagnosis: 'Theo dõi tăng trưởng WHO theo tháng tuổi, lịch tiêm chủng & liều hạ sốt theo cân nặng',
+      },
+    ];
+
+    for (const child of youngChildrenDefaults) {
+      if (!otherProfiles.some((p) => p.id === child.id)) {
+        const linkedChild = findLinkedMember(undefined, child.name);
+        otherProfiles.push({
+          id: child.id,
+          name: child.name,
+          relation: child.relation,
+          avatarEmoji: child.avatarEmoji,
+          profileType: 'pediatric',
+          linkedMemberId: linkedChild?.id,
+          patientInfo: {
+            name: child.name,
+            diagnosis: child.diagnosis,
+            hospital: 'Khám Nhi định kỳ & Tiêm chủng (Hà Nội)',
+            room: 'Tại nhà',
+            notes: 'Cập nhật ngày sinh và giới tính chính xác để biểu đồ WHO tính đúng chuẩn tháng tuổi.',
+            emergencyPhone: linkedChild?.phone || fatherPatientInfo.emergencyPhone || '',
+            statusBadge: 'Sổ Sức Khỏe Nhi Khoa',
+            conditionTag: 'Tăng trưởng WHO • Tiêm chủng',
+            headerBadge: 'Tại nhà',
+            careMode: 'Hằng ngày',
+            careGoal: 'Phát triển đạt chuẩn WHO & tiêm chủng đúng lịch',
+            birthDate: child.birthDate,
+            gender: child.gender,
+            customFields: [],
+          },
+          bpThresholds: { ...DEFAULT_BP_THRESHOLDS },
+          appointment: {
+            nextDate: '',
+            nextNote: '',
+            nextWho: '',
+            lastDate: '',
+            lastNote: '',
+          },
+        });
+      }
     }
   }
 
@@ -2270,6 +2574,180 @@ export function buildPresetCareRoutinesForProfile(
       },
     ];
     return rawItems.map((item) => ({
+      ...item,
+      id: ensureRecordProfilePrefix(item.id, profileId),
+    }));
+  }
+
+  // Mẫu chuẩn cho Thanh Long / Gia đình nhỏ tại Hà Nội (`IS_YOUNG_FAMILY_MODE`)
+  if (IS_YOUNG_FAMILY_MODE && profileId === DEFAULT_HEALTH_PROFILE_ID) {
+    const youngFatherItems: CareRoutine[] = [
+      {
+        id: 'routine-tl-med-01',
+        stageId,
+        stageName,
+        category: 'meds',
+        medType: 'scheduled',
+        title: 'Medoome 40 mg (Omeprazole)',
+        dosage: '1 viên/lần (Sáng & Tối)',
+        description: 'Bảo vệ niêm mạc dạ dày khi uống kèm Mobic (đơn BS Trần Văn Đăng 25/11/2026 - liệu trình 10 ngày).',
+        imageUrl: '',
+        timeSlots: ['morning', 'evening'],
+        instructions: 'Uống trước ăn 30 - 60 phút.',
+        conditionNote: 'Cần xác nhận lại với BS về mức 80 mg/ngày kèm Mobic trên nền sỏi thận trái.',
+        isActive: true,
+        sortOrder: 1,
+        createdAt: todayStr,
+        updatedAt: now,
+      },
+      {
+        id: 'routine-tl-med-02',
+        stageId,
+        stageName,
+        category: 'meds',
+        medType: 'scheduled',
+        title: 'Myonal 50 mg (Eperison)',
+        dosage: '1 viên/lần (Sáng & Tối)',
+        description: 'Giãn cơ vùng thắt lưng L5/S1 (20 viên - 10 ngày).',
+        imageUrl: '',
+        timeSlots: ['morning', 'evening'],
+        instructions: 'Uống sau ăn sáng và tối. Lưu ý có thể gây hơi mệt hoặc hạ nhẹ huyết áp.',
+        conditionNote: 'Buổi tối uống cùng Lyrica: ngồi mép giường 1-2p trước khi đứng dậy.',
+        isActive: true,
+        sortOrder: 2,
+        createdAt: todayStr,
+        updatedAt: now,
+      },
+      {
+        id: 'routine-tl-med-03',
+        stageId,
+        stageName,
+        category: 'meds',
+        medType: 'scheduled',
+        title: 'Mobic 7,5 mg (Meloxicam)',
+        dosage: '1 viên/lần (Sáng & Chiều)',
+        description: 'Kháng viêm giảm đau cột sống L5/S1 (20 viên - 10 ngày).',
+        imageUrl: '',
+        timeSlots: ['morning', 'afternoon'],
+        instructions: 'Uống sau ăn no. Không tự ý kéo dài quá đơn hoặc uống thêm NSAID khác.',
+        conditionNote: 'Theo dõi đau dạ dày, nước tiểu ít/buốt trên nền sỏi thận trái & Creatinin 110.',
+        isActive: true,
+        sortOrder: 3,
+        createdAt: todayStr,
+        updatedAt: now,
+      },
+      {
+        id: 'routine-tl-med-04',
+        stageId,
+        stageName,
+        category: 'meds',
+        medType: 'scheduled',
+        title: 'Lyrica 75 mg (Pregabalin)',
+        dosage: '1 viên buổi tối',
+        description: 'Giảm đau thần kinh rễ S1 (10 viên - 10 ngày).',
+        imageUrl: '',
+        timeSlots: ['evening'],
+        instructions: 'Uống buổi tối sau ăn khi chuẩn bị đi ngủ. Không lái xe sau uống.',
+        conditionNote: 'Có thể gây buồn ngủ sâu/chóng mặt - phòng té ngã khi dậy đi vệ sinh đêm.',
+        isActive: true,
+        sortOrder: 4,
+        createdAt: todayStr,
+        updatedAt: now,
+      },
+      {
+        id: 'routine-tl-med-05',
+        stageId,
+        stageName,
+        category: 'meds',
+        medType: 'scheduled',
+        title: 'Sylimar-vita 70 mg + Vitamin nhóm B',
+        dosage: '1 viên/lần (Sáng & Tối)',
+        description: 'Hỗ trợ tế bào gan & dẫn truyền thần kinh (20 viên - 10 ngày).',
+        imageUrl: '',
+        timeSlots: ['morning', 'evening'],
+        instructions: 'Uống sau ăn sáng và tối.',
+        conditionNote: '',
+        isActive: true,
+        sortOrder: 5,
+        createdAt: todayStr,
+        updatedAt: now,
+      },
+      {
+        id: 'routine-tl-rehab-01',
+        stageId,
+        stageName,
+        category: 'rehab',
+        title: 'Nằm giải áp 90/90 hoặc Cardio nhẹ (Đạp xe / Đi bộ / Gyro Ball)',
+        dosage: '15 - 30 phút',
+        description: 'Đợt đau cấp ưu tiên giải áp L5/S1; khi hết đau cấp duy trì đạp xe trong nhà, đi bộ và Gyro Ball cổ tay.',
+        imageUrl: '',
+        timeSlots: ['morning', 'afternoon'],
+        instructions: 'Không cúi gập, không tải nặng, không vặn xoắn thắt lưng; dừng ngay nếu đau lan xuống chân.',
+        conditionNote: '',
+        isActive: true,
+        sortOrder: 6,
+        createdAt: todayStr,
+        updatedAt: now,
+      },
+      {
+        id: 'routine-tl-care-01',
+        stageId,
+        stageName,
+        category: 'care',
+        title: 'Uống 2 - 2.5L nước · Ăn nhạt · Kiêng cá sông, tôm, cua',
+        dosage: 'Hằng ngày',
+        description: 'Phòng sỏi thận trái, hạ Acid Uric (<360) và tuân thủ quy tắc ẩm thực gia đình.',
+        imageUrl: '',
+        timeSlots: ['morning', 'noon', 'afternoon', 'evening'],
+        instructions: 'Ưu tiên cá biển, rau luộc; tránh nội tạng, dưa muối, cà pháo, rau chân vịt.',
+        conditionNote: '',
+        isActive: true,
+        sortOrder: 7,
+        createdAt: todayStr,
+        updatedAt: now,
+      },
+    ];
+    return youngFatherItems;
+  }
+
+  if (IS_YOUNG_FAMILY_MODE) {
+    const youngGeneralItems: CareRoutine[] = [
+      {
+        id: 'routine-yf-care-01',
+        stageId,
+        stageName,
+        category: 'care',
+        title: 'Uống đủ nước ấm & Ăn uống cân bằng (Kiêng cá sông, tôm, cua)',
+        dosage: 'Hằng ngày',
+        description: 'Duy trì thói quen dinh dưỡng lành mạnh cho gia đình tại Hà Nội.',
+        imageUrl: '',
+        timeSlots: ['morning', 'noon', 'afternoon', 'evening'],
+        instructions: 'Ưu tiên rau xanh, cá biển, thịt nạc và hạn chế đồ chiên rán buổi tối.',
+        conditionNote: '',
+        isActive: true,
+        sortOrder: 1,
+        createdAt: todayStr,
+        updatedAt: now,
+      },
+      {
+        id: 'routine-yf-rehab-01',
+        stageId,
+        stageName,
+        category: 'rehab',
+        title: 'Vận động nhẹ nhàng / Đi bộ / Giãn cơ 20-30 phút',
+        dosage: '20 - 30 phút',
+        description: 'Tăng cường sức khỏe tim mạch, giấc ngủ và giảm căng thẳng.',
+        imageUrl: '',
+        timeSlots: ['afternoon'],
+        instructions: 'Tập vừa sức, nghỉ ngơi đủ giấc.',
+        conditionNote: '',
+        isActive: true,
+        sortOrder: 2,
+        createdAt: todayStr,
+        updatedAt: now,
+      },
+    ];
+    return youngGeneralItems.map((item) => ({
       ...item,
       id: ensureRecordProfilePrefix(item.id, profileId),
     }));

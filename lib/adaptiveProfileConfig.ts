@@ -304,7 +304,7 @@ export function getReminderPresetsForProfile(
     {
       category: 'condition',
       title: 'Vận động vừa sức & theo dõi nhịp tim',
-      content: 'Nghỉ ngơi thư giãn và bù nước sau khi tập thể dục, đánh cầu hoặc đạp xe.',
+      content: 'Nghỉ ngơi thư giãn và bù nước sau khi tập thể dục, đi bộ hoặc đạp xe.',
       isUrgent: false,
     },
     {
