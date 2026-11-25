@@ -114,8 +114,8 @@ export function useHealthProfileManager({
   const profileAppointment = activeProfile.appointment;
 
   const patientDisplayName = useMemo(
-    () => activeProfile.relation || activeProfile.name || 'Gia đình',
-    [activeProfile.relation, activeProfile.name]
+    () => activeProfile.name || activeProfile.relation || 'Gia đình',
+    [activeProfile.name, activeProfile.relation]
   );
 
   const profileVitalsLog = useMemo(
@@ -251,20 +251,44 @@ export function useHealthProfileManager({
 
   const handleSaveHealthProfile = useCallback(
     async (savedProfile: HealthProfile) => {
+      const isPlaceholderSavedName =
+        Boolean(savedProfile.name) &&
+        (savedProfile.name === 'Bé 1' ||
+          savedProfile.name === 'Bé 2' ||
+          savedProfile.name === 'Bé 3' ||
+          savedProfile.name === 'Con 1' ||
+          savedProfile.name === 'Con 2' ||
+          savedProfile.name === 'Con 3' ||
+          savedProfile.name === 'Vợ');
+
       const matchedMember =
         members.find(
-          (m) => savedProfile.linkedMemberId && m.id === savedProfile.linkedMemberId
+          (m) =>
+            (savedProfile.linkedMemberId && m.id === savedProfile.linkedMemberId) ||
+            m.id === `mem-${savedProfile.id}` ||
+            (savedProfile.id === 'father' && (m.id === 'mem-father' || m.relation === 'Bản thân')) ||
+            (savedProfile.id === 'mother' && (m.id === 'mem-mother' || m.relation === 'Vợ'))
         ) ||
         members.find(
           (m) => m.name.trim().toLowerCase() === savedProfile.name.trim().toLowerCase()
         );
 
       let resolvedLinkedMemberId = savedProfile.linkedMemberId;
+      let effectiveProfileName = savedProfile.name.trim();
+
       if (matchedMember) {
         resolvedLinkedMemberId = matchedMember.id;
         if (
-          matchedMember.name !== savedProfile.name.trim() ||
-          (savedProfile.relation && matchedMember.relation !== savedProfile.relation.trim())
+          isPlaceholderSavedName &&
+          matchedMember.name &&
+          !matchedMember.name.startsWith('Bé ') &&
+          matchedMember.name !== 'Vợ'
+        ) {
+          effectiveProfileName = matchedMember.name;
+        } else if (
+          !isPlaceholderSavedName &&
+          (matchedMember.name !== savedProfile.name.trim() ||
+            (savedProfile.relation && matchedMember.relation !== savedProfile.relation.trim()))
         ) {
           const updatedMember: FamilyMember = {
             ...matchedMember,
@@ -277,7 +301,7 @@ export function useHealthProfileManager({
           );
           void saveMemberAction(updatedMember).catch(() => {});
         }
-      } else if (savedProfile.name.trim()) {
+      } else if (savedProfile.name.trim() && !isPlaceholderSavedName) {
         const newMem = createFamilyMemberFromProfile(savedProfile);
         resolvedLinkedMemberId = newMem.id;
         setMembers((prev) =>
@@ -290,7 +314,12 @@ export function useHealthProfileManager({
 
       const cleanProfile: HealthProfile = {
         ...savedProfile,
+        name: effectiveProfileName,
         linkedMemberId: resolvedLinkedMemberId,
+        patientInfo: {
+          ...savedProfile.patientInfo,
+          name: effectiveProfileName,
+        },
       };
 
       const nextRootInfo = mergeUpdatedProfileIntoRootInfo(
@@ -389,7 +418,13 @@ export function useHealthProfileManager({
             (hp.linkedMemberId && m.id === hp.linkedMemberId) ||
             m.name.trim().toLowerCase() === hp.name.trim().toLowerCase()
         );
-        if (!exists && hp.name.trim()) {
+        if (
+          !exists &&
+          hp.name.trim() &&
+          !hp.name.startsWith('Bé ') &&
+          hp.name !== 'Vợ' &&
+          hp.name !== 'Thành viên'
+        ) {
           const syncedMem = createFamilyMemberFromProfile(hp);
           next.unshift(syncedMem);
           addedAny = true;
@@ -408,6 +443,12 @@ export function useHealthProfileManager({
         const matched = updatedMembers.find(
           (m) =>
             (hp.linkedMemberId && m.id === hp.linkedMemberId) ||
+            m.id === `mem-${hp.id}` ||
+            (hp.id === 'father' && (m.id === 'mem-father' || m.relation === 'Bản thân')) ||
+            (hp.id === 'mother' && (m.id === 'mem-mother' || m.relation === 'Vợ')) ||
+            (hp.id === 'child-1' && (m.id === 'mem-child-1' || m.relation.includes('thứ 1'))) ||
+            (hp.id === 'child-2' && (m.id === 'mem-child-2' || m.relation.includes('thứ 2'))) ||
+            (hp.id === 'child-3' && (m.id === 'mem-child-3' || m.relation.includes('thứ 3'))) ||
             m.name.trim().toLowerCase() === hp.name.trim().toLowerCase()
         );
         if (

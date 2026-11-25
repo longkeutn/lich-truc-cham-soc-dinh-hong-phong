@@ -50,7 +50,7 @@ export function AdaptiveProfileModeBanner({
   const effectiveToday = todayStr || getVietnamDateStr();
   const profileType = activeProfile.profileType;
   const isSenior = isSeniorFriendlyProfile(activeProfile);
-  const displayName = activeProfile.relation || activeProfile.name;
+  const displayName = activeProfile.name || activeProfile.relation || 'Gia đình';
 
   // Tìm cân nặng gần nhất của bé (nếu là hồ sơ Nhi khoa)
   const latestChildWeight = useMemo(() => {

@@ -49,7 +49,7 @@ export const DEFAULT_MEMBER_NAME =
 
 export const DEFAULT_MOTHER_NAME =
   (process.env.NEXT_PUBLIC_DEFAULT_MOTHER_NAME || '').trim() ||
-  (IS_YOUNG_FAMILY_MODE ? 'Vợ' : IS_FAMILY_STANDARD_MODE ? 'Mẹ Bạch Yến' : 'Mẹ');
+  (IS_YOUNG_FAMILY_MODE ? 'Lan Anh' : IS_FAMILY_STANDARD_MODE ? 'Mẹ Bạch Yến' : 'Mẹ');
 
 export const APP_TITLE =
   (process.env.NEXT_PUBLIC_APP_TITLE || '').trim() ||
@@ -119,11 +119,11 @@ export const FAMILY_MEMBERS: FamilyMember[] = IS_YOUNG_FAMILY_MODE
       },
       {
         id: 'mem-mother',
-        name: 'Vợ',
+        name: 'Lan Anh',
         relation: 'Vợ',
         phone: 'Chưa cập nhật',
         badgeColor: 'bg-rose-600',
-        avatarInitials: 'VỢ',
+        avatarInitials: 'LA',
         bgLight: 'bg-rose-50/90',
         borderLight: 'border-rose-300',
         textColor: 'text-rose-900',
@@ -132,11 +132,11 @@ export const FAMILY_MEMBERS: FamilyMember[] = IS_YOUNG_FAMILY_MODE
       },
       {
         id: 'mem-child-1',
-        name: 'Bé 1',
+        name: 'Minh Trung',
         relation: 'Con thứ 1 (9 tuổi)',
         phone: 'Chưa cập nhật',
         badgeColor: 'bg-blue-600',
-        avatarInitials: 'B1',
+        avatarInitials: 'MT',
         bgLight: 'bg-blue-50/90',
         borderLight: 'border-blue-300',
         textColor: 'text-blue-900',
@@ -145,11 +145,11 @@ export const FAMILY_MEMBERS: FamilyMember[] = IS_YOUNG_FAMILY_MODE
       },
       {
         id: 'mem-child-2',
-        name: 'Bé 2',
+        name: 'Minh Đức',
         relation: 'Con thứ 2 (6 tuổi)',
         phone: 'Chưa cập nhật',
         badgeColor: 'bg-indigo-600',
-        avatarInitials: 'B2',
+        avatarInitials: 'MĐ',
         bgLight: 'bg-indigo-50/90',
         borderLight: 'border-indigo-300',
         textColor: 'text-indigo-900',
@@ -158,11 +158,11 @@ export const FAMILY_MEMBERS: FamilyMember[] = IS_YOUNG_FAMILY_MODE
       },
       {
         id: 'mem-child-3',
-        name: 'Bé 3',
+        name: 'Minh Phúc',
         relation: 'Con thứ 3 (2 tuổi)',
         phone: 'Chưa cập nhật',
         badgeColor: 'bg-amber-600',
-        avatarInitials: 'B3',
+        avatarInitials: 'MP',
         bgLight: 'bg-amber-50/90',
         borderLight: 'border-amber-300',
         textColor: 'text-amber-950',
@@ -1863,11 +1863,25 @@ export function buildResolvedHealthProfiles(
 
   const findLinkedMember = (
     linkedMemberId: string | undefined,
-    profileName: string
+    profileName: string,
+    profileId?: string
   ): FamilyMember | undefined => {
     if (linkedMemberId) {
       const byId = members.find((m) => m.id === linkedMemberId);
       if (byId) return byId;
+    }
+    if (profileId) {
+      const mappedId = `mem-${profileId}`;
+      const byMappedId = members.find(
+        (m) =>
+          m.id === mappedId ||
+          (profileId === 'father' && (m.id === 'mem-father' || m.relation === 'Bản thân' || m.relation === 'Bố')) ||
+          (profileId === 'mother' && (m.id === 'mem-mother' || m.relation === 'Vợ' || m.relation === 'Mẹ')) ||
+          (profileId === 'child-1' && (m.id === 'mem-child-1' || m.relation.includes('thứ 1') || m.relation.includes('đầu'))) ||
+          (profileId === 'child-2' && (m.id === 'mem-child-2' || m.relation.includes('thứ 2'))) ||
+          (profileId === 'child-3' && (m.id === 'mem-child-3' || m.relation.includes('thứ 3') || m.relation.includes('út')))
+      );
+      if (byMappedId) return byMappedId;
     }
     const cleanName = (profileName || '').trim().toLowerCase();
     if (cleanName) {
@@ -1907,7 +1921,11 @@ export function buildResolvedHealthProfiles(
         lowerPrimaryName.startsWith('mẹ') ||
         lowerPrimaryName.startsWith('bà')));
 
-  const matchedPrimaryMember = findLinkedMember(savedPrimary?.linkedMemberId, resolvedFatherName);
+  const matchedPrimaryMember = findLinkedMember(
+    savedPrimary?.linkedMemberId,
+    resolvedFatherName,
+    DEFAULT_HEALTH_PROFILE_ID
+  );
 
   const primaryRelation =
     savedPrimary?.relation?.trim() ||
@@ -2110,17 +2128,40 @@ export function buildResolvedHealthProfiles(
           : 'thyroid_post_op'
         : 'general_health';
 
+      const isPlaceholderChildName =
+        IS_YOUNG_FAMILY_MODE &&
+        Boolean(p.name) &&
+        (p.name === 'Bé 1' ||
+          p.name === 'Bé 2' ||
+          p.name === 'Bé 3' ||
+          p.name === 'Con 1' ||
+          p.name === 'Con 2' ||
+          p.name === 'Con 3');
+
+      const isPlaceholderMotherName =
+        IS_YOUNG_FAMILY_MODE &&
+        (p.id === 'mother' || p.relation === 'Vợ') &&
+        (!p.name || p.name === 'Vợ' || p.name === 'Mẹ');
+
+      const matchedMember = findLinkedMember(p.linkedMemberId, p.name || '', p.id);
+
       const resolvedName = isSecondSlotDefaultFather
         ? DEFAULT_MEMBER_NAME
         : isSecondSlotOnStandardWeb && (!p.name || p.name === 'Mẹ')
           ? DEFAULT_MOTHER_NAME
-          : p.name || 'Thành viên';
-
-      const matchedMember = findLinkedMember(p.linkedMemberId, resolvedName);
+          : matchedMember?.name &&
+              (isPlaceholderChildName ||
+                isPlaceholderMotherName ||
+                !p.name ||
+                !matchedMember.name.startsWith('Bé '))
+            ? matchedMember.name
+            : p.name || matchedMember?.name || 'Thành viên';
 
       const resolvedRelation = isSecondSlotDefaultFather
         ? 'Bố'
-        : p.relation || matchedMember?.relation || (p.id === 'mother' ? 'Mẹ' : 'Gia đình');
+        : matchedMember?.relation ||
+          p.relation ||
+          (p.id === 'mother' ? (IS_YOUNG_FAMILY_MODE ? 'Vợ' : 'Mẹ') : 'Gia đình');
 
       const resolvedEmoji = isSecondSlotDefaultFather
         ? '👴'
@@ -2137,6 +2178,8 @@ export function buildResolvedHealthProfiles(
           name:
             p.patientInfo?.name &&
             p.patientInfo.name !== 'Mẹ' &&
+            p.patientInfo.name !== 'Vợ' &&
+            !p.patientInfo.name.startsWith('Bé ') &&
             !isSecondSlotDefaultFather
               ? p.patientInfo.name
               : resolvedName,
@@ -2310,16 +2353,16 @@ export function buildResolvedHealthProfiles(
     }> = [
       {
         id: 'child-1',
-        name: 'Bé 1',
+        name: 'Minh Trung',
         relation: 'Con thứ 1 (9 tuổi)',
         avatarEmoji: '🧒',
-        birthDate: '2017-06-01',
+        birthDate: '2017-07-28',
         gender: 'male',
         diagnosis: 'Theo dõi tăng trưởng WHO, tiêm chủng nhắc lại & sức khỏe học đường',
       },
       {
         id: 'child-2',
-        name: 'Bé 2',
+        name: 'Minh Đức',
         relation: 'Con thứ 2 (6 tuổi)',
         avatarEmoji: '🧒',
         birthDate: '2020-06-01',
@@ -2328,7 +2371,7 @@ export function buildResolvedHealthProfiles(
       },
       {
         id: 'child-3',
-        name: 'Bé 3',
+        name: 'Minh Phúc',
         relation: 'Con thứ 3 (2 tuổi)',
         avatarEmoji: '👶',
         birthDate: '2024-06-01',
@@ -2339,16 +2382,19 @@ export function buildResolvedHealthProfiles(
 
     for (const child of youngChildrenDefaults) {
       if (!otherProfiles.some((p) => p.id === child.id)) {
-        const linkedChild = findLinkedMember(undefined, child.name);
+        const linkedChild = findLinkedMember(undefined, child.name, child.id);
+        const childName =
+          linkedChild?.name && !linkedChild.name.startsWith('Bé ') ? linkedChild.name : child.name;
+        const childRelation = linkedChild?.relation || child.relation;
         otherProfiles.push({
           id: child.id,
-          name: child.name,
-          relation: child.relation,
+          name: childName,
+          relation: childRelation,
           avatarEmoji: child.avatarEmoji,
           profileType: 'pediatric',
           linkedMemberId: linkedChild?.id,
           patientInfo: {
-            name: child.name,
+            name: childName,
             diagnosis: child.diagnosis,
             hospital: 'Khám Nhi định kỳ & Tiêm chủng (Hà Nội)',
             room: 'Tại nhà',
