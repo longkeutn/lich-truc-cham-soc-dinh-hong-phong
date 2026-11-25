@@ -550,6 +550,8 @@ export function MedicalRecordsContainer({
       <MedicalVisitFormModal
         isOpen={visitModalOpen}
         editingEntry={editingVisitEntry}
+        visitEntries={visitEntries}
+        routines={routines}
         profileId={profileId}
         profileType={profileType}
         patientDisplayName={patientDisplayName}

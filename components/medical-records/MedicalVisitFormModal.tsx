@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Camera,
   Check,
@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import type {
+  CareRoutine,
   FamilyMember,
   HealthProfileType,
   LabResultEntry,
@@ -33,6 +34,16 @@ import {
   getQuickFacilitiesForProfile,
   getQuickSymptomsForProfile,
 } from '@/lib/medicalVisitUtils';
+import {
+  type MedicationPreset,
+  buildPatientMedicationHistory,
+  getMedicationGroupsForProfile,
+  normalizeMedKey,
+} from '@/lib/medicationCatalog';
+import {
+  MedicationQuickPicker,
+  MedicationTitleAutocomplete,
+} from './MedicationQuickPicker';
 
 const ALL_SLOTS: TimeSlot[] = ['morning', 'noon', 'afternoon', 'evening'];
 const QUICK_DURATIONS = [3, 5, 7, 10, 14];
@@ -53,6 +64,8 @@ function createEmptyMedication(index: number): MedicalVisitMedication {
 export interface MedicalVisitFormModalProps {
   isOpen: boolean;
   editingEntry: LabResultEntry | null;
+  visitEntries?: LabResultEntry[];
+  routines?: CareRoutine[];
   profileId?: string;
   profileType: HealthProfileType;
   patientDisplayName: string;
@@ -69,6 +82,8 @@ export interface MedicalVisitFormModalProps {
 export function MedicalVisitFormModal({
   isOpen,
   editingEntry,
+  visitEntries = [],
+  routines = [],
   profileId,
   profileType,
   patientDisplayName,
@@ -150,6 +165,21 @@ export function MedicalVisitFormModal({
     }
   }, [isOpen, editingEntry, defaultDate, defaultRecorder, isPediatric]);
 
+  const historyItems = useMemo(
+    () => buildPatientMedicationHistory(visitEntries, routines),
+    [visitEntries, routines]
+  );
+
+  const medicationGroups = useMemo(
+    () => getMedicationGroupsForProfile(profileType),
+    [profileType]
+  );
+
+  const selectedMedTitles = useMemo(
+    () => prescriptions.map((m) => m.title).filter((t) => Boolean(t.trim())),
+    [prescriptions]
+  );
+
   if (!isOpen) return null;
 
   const quickSymptoms = getQuickSymptomsForProfile(profileType);
@@ -216,6 +246,43 @@ export function MedicalVisitFormModal({
       }
       return prev.filter((m) => m.id !== medId);
     });
+  };
+
+  const mergePresetIntoMed = (
+    base: MedicalVisitMedication,
+    preset: MedicationPreset
+  ): MedicalVisitMedication => ({
+    ...base,
+    title: preset.title,
+    dosage: preset.dosage || base.dosage,
+    medType: preset.medType,
+    timeSlots:
+      preset.medType === 'as_needed'
+        ? []
+        : preset.timeSlots.length > 0
+          ? [...preset.timeSlots]
+          : base.timeSlots,
+    durationDays: preset.durationDays ?? base.durationDays,
+    instructions: preset.instructions || base.instructions || '',
+    conditionNote: preset.conditionNote || base.conditionNote || '',
+  });
+
+  const handlePickMedicationPreset = (preset: MedicationPreset) => {
+    setPrescriptions((prev) => {
+      const targetKey = normalizeMedKey(preset.title);
+      if (prev.some((m) => normalizeMedKey(m.title) === targetKey)) {
+        return prev;
+      }
+      const emptyIdx = prev.findIndex((m) => !m.title.trim());
+      if (emptyIdx !== -1) {
+        return prev.map((m, idx) => (idx === emptyIdx ? mergePresetIntoMed(m, preset) : m));
+      }
+      return [...prev, mergePresetIntoMed(createEmptyMedication(prev.length + 1), preset)];
+    });
+  };
+
+  const handleSelectAutocompletePreset = (medId: string, preset: MedicationPreset) => {
+    updateMed(medId, (prev) => mergePresetIntoMed(prev, preset));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -547,6 +614,13 @@ export function MedicalVisitFormModal({
               </button>
             </div>
 
+            <MedicationQuickPicker
+              historyItems={historyItems}
+              groups={medicationGroups}
+              selectedTitles={selectedMedTitles}
+              onPickPreset={handlePickMedicationPreset}
+            />
+
             <div className="space-y-3">
               {prescriptions.map((med, idx) => (
                 <div
@@ -569,14 +643,17 @@ export function MedicalVisitFormModal({
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <div className="sm:col-span-2">
-                      <input
-                        type="text"
+                      <MedicationTitleAutocomplete
                         value={med.title}
-                        onChange={(e) =>
-                          updateMed(med.id, (prev) => ({ ...prev, title: e.target.value }))
+                        placeholder="Gõ tên thuốc để gợi ý (VD: Augmentin, Hapacol, Myonal...)"
+                        historyItems={historyItems}
+                        groups={medicationGroups}
+                        onChangeText={(val) =>
+                          updateMed(med.id, (prev) => ({ ...prev, title: val }))
                         }
-                        placeholder="Tên thuốc (VD: Augmentin 250mg, Hapacol 150...)"
-                        className="w-full min-h-[48px] px-3 py-2 rounded-xl border border-slate-300 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-600"
+                        onSelectPreset={(preset) =>
+                          handleSelectAutocompletePreset(med.id, preset)
+                        }
                       />
                     </div>
                     <div>
