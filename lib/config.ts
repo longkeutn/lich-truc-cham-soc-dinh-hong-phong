@@ -138,7 +138,7 @@ export const PATIENT_INFO: PatientInfo = {
       : 'Bệnh viện Bạch Mai - Hà Nội (nơi điều trị trước đó)',
   room: 'Tại nhà',
   notes: IS_YOUNG_FAMILY_MODE
-    ? 'Uống đủ 2-2.5L nước/ngày để phòng sỏi thận & hạ Acid Uric. Ăn nhạt, hạn chế purin; kiêng cá sông, tôm, cua. Tập Cardio tác động thấp (đạp xe, đi bộ) & Gyro Ball khi qua đợt đau lưng cấp.'
+    ? 'Ăn nhạt (<5g muối/ngày) và uống đủ 2-2,5L nước lọc/ngày để phòng sỏi thận trái & hạ Acid Uric. Hạn chế purin (nội tạng, nước hầm xương đặc, bia rượu, ăn vừa đạm đỏ/cá béo) và oxalat (rau chân vịt, măng, trà đặc, Vitamin C liều cao); giảm mỡ bão hòa, đồ chiên rán, đường đơn để ổn định mỡ máu (tăng HDL-C) & men gan ALT. Uống Mobic sau ăn no, kiêng rượu bia & đồ chua cay. Giữ cân 74-76 kg; tập Cardio nhẹ & Gyro Ball khi hết đau cấp L5/S1.'
     : IS_FAMILY_STANDARD_MODE
       ? 'Nghỉ tĩnh 5-10 phút sau đánh Tennis/đạp xe trước khi đo HA. Uống đủ 2-2.5L nước/ngày để thải Acid Uric ngừa Gout và bảo vệ thận. Hạn chế rượu bia, thuốc lá, đồ mỡ/purin; theo dõi kích thước Polyp túi mật mỗi lần siêu âm định kỳ.'
       : 'Cần theo dõi huyết áp hàng ngày, uống thuốc đúng giờ, tập vận động và nghỉ ngơi đều đặn.',
@@ -2041,7 +2041,7 @@ export function buildResolvedHealthProfiles(
   const rawNotes = savedPrimary?.patientInfo?.notes || fatherPatientInfo.notes || '';
   const resolvedFatherNotes =
     IS_YOUNG_FAMILY_MODE && !rawNotes
-      ? 'Uống đủ 2-2.5L nước/ngày, ăn nhạt giảm muối, kiêng cá sông, tôm, cua và đồ giàu purin. Tập Cardio tác động thấp (đạp xe, đi bộ) & Gyro Ball khi hết đau cấp.'
+      ? 'Ăn nhạt (<5g muối/ngày) và uống đủ 2-2,5L nước lọc/ngày để phòng sỏi thận trái & hạ Acid Uric. Hạn chế purin (nội tạng, nước hầm xương đặc, bia rượu, ăn vừa đạm đỏ/cá béo) và oxalat (rau chân vịt, măng, trà đặc, Vitamin C liều cao); giảm mỡ bão hòa, đồ chiên rán, đường đơn để ổn định mỡ máu (tăng HDL-C) & men gan ALT. Uống Mobic sau ăn no, kiêng rượu bia & đồ chua cay. Giữ cân 74-76 kg; tập Cardio nhẹ & Gyro Ball khi hết đau cấp L5/S1.'
       : IS_FAMILY_STANDARD_MODE && !rawNotes
         ? isMotherPrimary
           ? 'Uống thuốc hormone tuyến giáp buổi sáng lúc bụng đói, theo dõi huyết áp, nhịp tim và canxi.'
@@ -2062,14 +2062,14 @@ export function buildResolvedHealthProfiles(
           id: 'cf-tl-kidney-uric',
           label: 'Sỏi thận trái & Acid Uric (466 µmol/L)',
           value:
-            'Creatinin 110 µmol/L; uống 2-2.5L nước/ngày, ăn nhạt, hạn chế purin và theo dõi thận khi dùng NSAID.',
+            'Creatinin 110 µmol/L: uống 2-2,5L nước/ngày, ăn nhạt (<5g muối), tránh dưa cà muối; hạn chế purin (nội tạng, nước ninh xương, bia rượu) và oxalat (rau chân vịt, măng, trà đặc, sô-cô-la); không tự ý bổ sung Canxi/D3 hay Vitamin C liều cao; thận trọng NSAID.',
           section: 'profile',
         },
         {
           id: 'cf-tl-diet-cardio',
-          label: 'Dinh dưỡng & Cardio (Amazfit/Zepp)',
+          label: 'Dinh dưỡng chuyển hóa & Cardio (Amazfit/Zepp)',
           value:
-            'Tuyệt đối kiêng cá sông, tôm, cua; ưu tiên cá biển, rau luộc. Duy trì đạp xe trong nhà, đi bộ và Gyro Ball khi lưng ổn định.',
+            'Mỡ máu (HDL-C 0,92) & men gan ALT: kiêng mỡ động vật, đồ chiên rán, đồ ngọt/nước có ga; ưu tiên dầu thực vật, cá nạc/cá biển vừa lượng, tinh bột chậm (gạo lứt, khoai), rau xanh, trái cây ít ngọt. Khi uống Mobic phải ăn no, tránh chua cay/cà phê đặc lúc đói. Tập đạp xe, đi bộ, Gyro Ball khi lưng ổn.',
           section: 'care',
         },
       ]
@@ -2818,13 +2818,13 @@ export function buildPresetCareRoutinesForProfile(
         stageId,
         stageName,
         category: 'care',
-        title: 'Uống 2 - 2.5L nước · Ăn nhạt · Kiêng cá sông, tôm, cua',
+        title: 'Uống 2 - 2,5L nước · Ăn nhạt · Kiêng cữ chuẩn y khoa',
         dosage: 'Hằng ngày',
-        description: 'Phòng sỏi thận trái, hạ Acid Uric (<360) và tuân thủ quy tắc ẩm thực gia đình.',
+        description: 'Dinh dưỡng chuẩn y khoa theo thể trạng Thành Long (sỏi thận, Acid Uric, mỡ máu & L5/S1).',
         imageUrl: '',
         timeSlots: ['morning', 'noon', 'afternoon', 'evening'],
-        instructions: 'Ưu tiên cá biển, rau luộc; tránh nội tạng, dưa muối, cà pháo, rau chân vịt.',
-        conditionNote: '',
+        instructions: 'Uống 2-2,5L nước/ngày; ăn nhạt (<5g muối); tránh nội tạng, nước hầm xương đặc, bia rượu, đồ ngọt, mỡ bão hòa, đồ chiên rán, dưa cà muối, rau chân vịt, măng. Ưu tiên rau xanh, tinh bột chậm, đạm nạc vừa phải (~100-150g/ngày) & chất béo tốt tăng HDL-C.',
+        conditionNote: 'Phòng sỏi thận trái, hạ Acid Uric <360 µmol/L, nâng HDL-C (>0,9) & bảo vệ dạ dày khi dùng Mobic.',
         isActive: true,
         sortOrder: 7,
         createdAt: todayStr,
@@ -2841,12 +2841,12 @@ export function buildPresetCareRoutinesForProfile(
         stageId,
         stageName,
         category: 'care',
-        title: 'Uống đủ nước ấm & Ăn uống cân bằng (Kiêng cá sông, tôm, cua)',
+        title: 'Uống đủ nước ấm & Ăn uống cân bằng, giảm muối và đồ chiên rán',
         dosage: 'Hằng ngày',
         description: 'Duy trì thói quen dinh dưỡng lành mạnh cho gia đình tại Hà Nội.',
         imageUrl: '',
         timeSlots: ['morning', 'noon', 'afternoon', 'evening'],
-        instructions: 'Ưu tiên rau xanh, cá biển, thịt nạc và hạn chế đồ chiên rán buổi tối.',
+        instructions: 'Ưu tiên rau xanh, cá, thịt nạc và hạn chế đồ chiên rán, đồ ngọt buổi tối.',
         conditionNote: '',
         isActive: true,
         sortOrder: 1,
