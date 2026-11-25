@@ -120,11 +120,15 @@ export function mergeUpdatedProfileIntoRootInfo(
   healthProfiles: HealthProfile[],
   updatedProfile: HealthProfile
 ): PatientInfo {
+  const normalizedBirth = updatedProfile.patientInfo?.birthDate
+    ? updatedProfile.patientInfo.birthDate.trim()
+    : '';
   const cleanUpdated: HealthProfile = {
     ...updatedProfile,
     patientInfo: {
       ...updatedProfile.patientInfo,
       name: updatedProfile.name || updatedProfile.patientInfo.name,
+      birthDate: normalizedBirth,
       healthProfiles: undefined,
     },
   };

@@ -61,9 +61,9 @@ export function PediatricGrowthSection({
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
   useEffect(() => {
-    if (patientInfo?.gender) setGender(patientInfo.gender);
-    if (patientInfo?.birthDate) setBirthDate(patientInfo.birthDate);
-  }, [patientInfo?.gender, patientInfo?.birthDate]);
+    setGender(patientInfo?.gender === 'female' ? 'female' : 'male');
+    setBirthDate(patientInfo?.birthDate || '');
+  }, [profileId, patientInfo?.gender, patientInfo?.birthDate]);
 
   useEffect(() => {
     if (editingId) return;
@@ -150,10 +150,13 @@ export function PediatricGrowthSection({
   const handleSaveBirthMeta = (nextBirth: string, nextGender: 'male' | 'female') => {
     setBirthDate(nextBirth);
     setGender(nextGender);
-    if (patientInfo && onUpdatePatientInfo) {
+    const trimmedBirth = nextBirth.trim();
+    const isCompleteOrCleared =
+      trimmedBirth === '' || /^\d{4}-\d{2}-\d{2}$/.test(trimmedBirth);
+    if (isCompleteOrCleared && patientInfo && onUpdatePatientInfo) {
       onUpdatePatientInfo({
         ...patientInfo,
-        birthDate: nextBirth || undefined,
+        birthDate: trimmedBirth,
         gender: nextGender,
       });
     }

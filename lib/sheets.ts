@@ -1103,19 +1103,22 @@ const PATIENT_META_DELIM = ' ||META||';
 
 function packPatientInfoForSheet(info: PatientInfo): PatientInfo {
   const cleanPhone = String(info.emergencyPhone || '').split(PATIENT_META_DELIM)[0].trim();
+  const normalizedBirth = normalizeDateStr(info.birthDate) || '';
   const metaPayload = {
     statusBadge: info.statusBadge ?? '',
     conditionTag: info.conditionTag ?? '',
     headerBadge: info.headerBadge ?? '',
     careMode: info.careMode ?? '',
     careGoal: info.careGoal ?? '',
-    birthDate: info.birthDate ?? '',
+    birthDate: normalizedBirth,
     gender: info.gender,
     customFields: Array.isArray(info.customFields) ? info.customFields : [],
     healthProfiles: Array.isArray(info.healthProfiles) ? info.healthProfiles : [],
   };
   return {
     ...info,
+    birthDate: normalizedBirth,
+    gender: info.gender,
     emergencyPhone: `${cleanPhone}${PATIENT_META_DELIM}${JSON.stringify(metaPayload)}`,
   };
 }
@@ -1177,17 +1180,14 @@ function unpackPatientInfoFromSheet(raw: PatientInfo): PatientInfo {
           ? parsedMeta.careGoal
           : 'Duy trì huyết áp & sức khỏe ổn định',
     birthDate:
-      raw.birthDate !== undefined
-        ? raw.birthDate
-        : parsedMeta?.birthDate !== undefined
-          ? parsedMeta.birthDate
-          : undefined,
+      normalizeDateStr(raw.birthDate) ||
+      normalizeDateStr(parsedMeta?.birthDate) ||
+      undefined,
     gender:
-      raw.gender !== undefined
-        ? raw.gender
-        : parsedMeta?.gender !== undefined
-          ? parsedMeta.gender
-          : undefined,
+      (raw.gender === 'male' || raw.gender === 'female' ? raw.gender : undefined) ||
+      (parsedMeta?.gender === 'male' || parsedMeta?.gender === 'female'
+        ? parsedMeta.gender
+        : undefined),
     customFields: Array.isArray(raw.customFields)
       ? raw.customFields
       : Array.isArray(parsedMeta?.customFields)

@@ -1385,6 +1385,40 @@ export function normalizeDateStr(raw: string | Date | undefined | null): string 
 }
 
 /**
+ * Tính tuổi (năm nguyên) tại thời điểm tham chiếu từ ngày sinh YYYY-MM-DD.
+ */
+export function computeAgeYearsAtDate(
+  birthDate?: string | null,
+  refDate?: string | null
+): number | null {
+  const bNorm = normalizeDateStr(birthDate);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(bNorm)) return null;
+  const rNorm = normalizeDateStr(refDate) || getVietnamDateStr();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(rNorm)) return null;
+  const [by, bm, bd] = bNorm.split('-').map(Number);
+  const [ry, rm, rd] = rNorm.split('-').map(Number);
+  let age = ry - by;
+  if (rm < bm || (rm === bm && rd < bd)) {
+    age -= 1;
+  }
+  return age >= 0 ? age : null;
+}
+
+/**
+ * Định dạng Ngày sinh DD/MM/YYYY kèm tuổi hiện tại để hiển thị đồng bộ ở mọi màn hình.
+ */
+export function formatBirthDateWithAge(
+  birthDate?: string | null,
+  refDate?: string | null
+): string {
+  const bNorm = normalizeDateStr(birthDate);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(bNorm)) return '';
+  const [yyyy, mm, dd] = bNorm.split('-');
+  const age = computeAgeYearsAtDate(bNorm, refDate);
+  return age !== null ? `${dd}/${mm}/${yyyy} (${age} tuổi)` : `${dd}/${mm}/${yyyy}`;
+}
+
+/**
  * Xác định ngày bắt đầu áp dụng (YYYY-MM-DD) của một đầu việc (Thuốc / Bài tập / Chăm sóc)
  * dựa trên trường createdAt hoặc timestamp nhúng trong ID (VD: routine-med-1761199200000).
  */
@@ -2123,9 +2157,10 @@ export function buildResolvedHealthProfiles(
       notes: resolvedFatherNotes,
       customFields: existingFatherCustomFields,
       birthDate:
-        savedPrimary?.patientInfo?.birthDate ||
-        fatherPatientInfo.birthDate ||
-        (IS_YOUNG_FAMILY_MODE ? '1988-12-28' : undefined),
+        savedPrimary?.patientInfo && 'birthDate' in savedPrimary.patientInfo
+          ? normalizeDateStr(savedPrimary.patientInfo.birthDate) || undefined
+          : normalizeDateStr(fatherPatientInfo.birthDate) ||
+            (IS_YOUNG_FAMILY_MODE ? '1988-12-28' : undefined),
       gender:
         savedPrimary?.patientInfo?.gender ||
         fatherPatientInfo.gender ||
@@ -2245,6 +2280,34 @@ export function buildResolvedHealthProfiles(
         ? '👴'
         : p.avatarEmoji || (isSecondSlotOnStandardWeb ? '👵' : '👩');
 
+      const defaultBirthDateMap: Record<string, string> = IS_YOUNG_FAMILY_MODE
+        ? {
+            'child-1': '2017-07-28',
+            'child-2': '2020-06-01',
+            'child-3': '2024-06-01',
+          }
+        : {};
+      const defaultGenderMap: Record<string, 'male' | 'female'> = IS_YOUNG_FAMILY_MODE
+        ? {
+            mother: 'female',
+            'child-1': 'male',
+            'child-2': 'male',
+            'child-3': 'male',
+          }
+        : isSecondSlotOnStandardWeb
+          ? {
+              mother: isSecondSlotDefaultFather ? 'male' : 'female',
+            }
+          : {};
+      const resolvedBirthDate =
+        p.patientInfo && 'birthDate' in p.patientInfo
+          ? normalizeDateStr(p.patientInfo.birthDate) || undefined
+          : defaultBirthDateMap[p.id];
+      const resolvedGender =
+        p.patientInfo?.gender === 'male' || p.patientInfo?.gender === 'female'
+          ? p.patientInfo.gender
+          : defaultGenderMap[p.id];
+
       return {
         id: p.id,
         name: resolvedName,
@@ -2261,6 +2324,8 @@ export function buildResolvedHealthProfiles(
             !isSecondSlotDefaultFather
               ? p.patientInfo.name
               : resolvedName,
+          birthDate: resolvedBirthDate,
+          gender: resolvedGender,
           diagnosis:
             p.patientInfo?.diagnosis ??
             (isSecondSlotOnStandardWeb && !isSecondSlotDefaultFather
@@ -2977,13 +3042,20 @@ export interface LabIndicatorEval {
   clinicalNote: string;
 }
 
+export interface LabPatientContext {
+  birthDate?: string;
+  gender?: 'male' | 'female';
+  todayStr?: string;
+}
+
 /**
  * Đánh giá toàn diện một bản ghi Xét nghiệm & Hóa sinh theo bối cảnh hồ sơ (Tuyến giáp / Tim mạch / Tổng quát)
  */
 export function evaluateLabEntry(
   entry: LabResultEntry,
   profileType: HealthProfileType = 'general_health',
-  previousLab?: LabResultEntry | null
+  previousLab?: LabResultEntry | null,
+  patientContext?: LabPatientContext
 ): {
   indicators: LabIndicatorEval[];
   overallStatus: LabEvalStatus;
@@ -2991,6 +3063,11 @@ export function evaluateLabEntry(
 } {
   const indicators: LabIndicatorEval[] = [];
   const summaryPoints: string[] = [];
+  const gender = patientContext?.gender;
+  const ageYears = computeAgeYearsAtDate(
+    patientContext?.birthDate,
+    normalizeDateStr(entry.date) || patientContext?.todayStr
+  );
   const isThyroidProfile =
     profileType === 'thyroid_post_op' ||
     Boolean(entry.levothyroxineDose) ||
@@ -3220,7 +3297,9 @@ export function evaluateLabEntry(
   if (typeof entry.hdlC === 'number' && !isNaN(entry.hdlC)) {
     const unit = entry.lipidUnit || (entry.hdlC > 10 ? 'mg/dL' : 'mmol/L');
     const valMg = unit === 'mmol/L' ? entry.hdlC * 38.67 : entry.hdlC;
-    const isLow = valMg < 45;
+    const hdlMinMg = gender === 'female' ? 50 : gender === 'male' ? 40 : 45;
+    const hdlMinMmol = gender === 'female' ? '1.29' : gender === 'male' ? '1.03' : '1.15';
+    const isLow = valMg < hdlMinMg;
     indicators.push({
       key: 'hdlC',
       label: 'HDL-C (Cholesterol tốt)',
@@ -3228,14 +3307,17 @@ export function evaluateLabEntry(
       group: 'lipid',
       value: entry.hdlC,
       unit,
-      refText: unit === 'mmol/L' ? '> 1.15 mmol/L' : '> 45 mg/dL',
+      refText:
+        unit === 'mmol/L'
+          ? `> ${hdlMinMmol} mmol/L${gender ? (gender === 'male' ? ' (Nam)' : ' (Nữ)') : ''}`
+          : `> ${hdlMinMg} mg/dL`,
       status: isLow ? 'low' : 'optimal',
       badgeText: isLow ? '🟡 Hơi thấp' : '🟢 Tốt',
       badgeClass: isLow
         ? 'bg-amber-100 text-amber-800 border-amber-300'
         : 'bg-emerald-100 text-emerald-800 border-emerald-200',
       clinicalNote: isLow
-        ? 'HDL-C (mỡ tốt) hơi thấp; tăng cường đi bộ và ăn cá, dầu thực vật lành mạnh giúp nâng HDL-C.'
+        ? 'HDL-C (mỡ tốt) hơi thấp; tăng cường đi bộ/đạp xe và ăn cá, dầu thực vật lành mạnh giúp nâng HDL-C.'
         : 'Mỡ tốt HDL-C đạt mức bảo vệ mạch máu.',
     });
   }
@@ -3592,7 +3674,8 @@ export function evaluateLabEntry(
   }
 
   if (typeof entry.creatinine === 'number' && !isNaN(entry.creatinine)) {
-    const upperLimit = isThyroidProfile ? 88 : 110;
+    const isFemaleCreat = gender === 'female' || (!gender && isThyroidProfile);
+    const upperLimit = isFemaleCreat ? 88 : 110;
     const isHigh = entry.creatinine > upperLimit;
     const isVeryHigh = entry.creatinine > 120;
     indicators.push({
@@ -3602,7 +3685,7 @@ export function evaluateLabEntry(
       group: 'liver_kidney',
       value: entry.creatinine,
       unit: 'µmol/L',
-      refText: isThyroidProfile ? '44 - 88 µmol/L (Nữ)' : '53 - 110 µmol/L',
+      refText: isFemaleCreat ? '44 - 88 µmol/L (Nữ)' : '53 - 110 µmol/L (Nam)',
       status: isVeryHigh ? 'critical' : isHigh ? 'high' : 'normal',
       badgeText: isVeryHigh ? '🔴 Cao (>120)' : isHigh ? `🟡 Cao (>${upperLimit})` : '🟢 Bình thường',
       badgeClass: isVeryHigh
@@ -3673,8 +3756,9 @@ export function evaluateLabEntry(
   if (typeof entry.uricAcid === 'number' && !isNaN(entry.uricAcid)) {
     const val = entry.uricAcid;
     const isGoutTargetMode = profileType === 'general_health';
-    const isCritical = val > 420;
-    const isAboveTarget = isGoutTargetMode ? val > 360 : val > 400;
+    const stdUpper = gender === 'female' ? 360 : 420;
+    const isCritical = val > stdUpper;
+    const isAboveTarget = isGoutTargetMode ? val > 360 : val > (gender === 'female' ? 360 : 400);
     indicators.push({
       key: 'uricAcid',
       label: 'Acid Uric máu (Gout)',
@@ -3683,15 +3767,15 @@ export function evaluateLabEntry(
       value: val,
       unit: 'µmol/L',
       refText: isGoutTargetMode
-        ? 'Đích ngừa Gout: < 360 (Chuẩn chung < 420 µmol/L)'
-        : '150 - 400 µmol/L',
+        ? `Đích ngừa Gout: < 360 (Chuẩn < ${stdUpper} µmol/L)`
+        : `150 - ${stdUpper} µmol/L`,
       status: isCritical ? 'critical' : isAboveTarget ? 'high' : 'optimal',
       badgeText: isCritical
-        ? '🔴 Cao (>420 · Nguy cơ Gout)'
+        ? `🔴 Cao (>${stdUpper} · Nguy cơ Gout)`
         : isAboveTarget
           ? isGoutTargetMode
             ? '🟡 Trên đích Gout (>360)'
-            : '🟡 Cao (>400)'
+            : `🟡 Cao (>${gender === 'female' ? 360 : 400})`
           : isGoutTargetMode
             ? '🟢 Đạt đích Gout (<360)'
             : '🟢 Bình thường',
@@ -3723,7 +3807,13 @@ export function evaluateLabEntry(
     const val = entry.hemoglobin;
     const isGPerL = val > 35; // >35 là g/L (chuẩn 120-160 g/L), ngược lại là g/dL (chuẩn 12-16 g/dL)
     const valGdL = isGPerL ? val / 10 : val;
-    const isLow = valGdL < 12.0;
+    const hbMinGdL =
+      profileType === 'pediatric' || (ageYears !== null && ageYears < 12)
+        ? 11.5
+        : gender === 'male'
+          ? 13.0
+          : 12.0;
+    const isLow = valGdL < hbMinGdL;
     indicators.push({
       key: 'hemoglobin',
       label: 'Hemoglobin (Huyết sắc tố)',
@@ -3731,7 +3821,7 @@ export function evaluateLabEntry(
       group: 'liver_kidney',
       value: val,
       unit: isGPerL ? 'g/L' : 'g/dL',
-      refText: isGPerL ? '120 - 160 g/L' : '12.0 - 16.0 g/dL',
+      refText: isGPerL ? `${Math.round(hbMinGdL * 10)} - 170 g/L` : `${hbMinGdL.toFixed(1)} - 17.0 g/dL`,
       status: isLow ? 'low' : 'normal',
       badgeText: isLow ? '🟡 Thiếu máu nhẹ' : '🟢 Đạt chuẩn',
       badgeClass: isLow

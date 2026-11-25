@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Check, Edit2, Hospital, Phone, Plus, Stethoscope, Trash2, X } from 'lucide-react';
 import type { PatientCustomField, PatientInfo } from '@/lib/types';
+import { formatBirthDateWithAge } from '@/lib/config';
 
 export interface PatientInfoSummaryPanelProps {
   patient: PatientInfo;
@@ -73,6 +74,16 @@ export function PatientInfoSummaryPanel({
           <p className="text-slate-700 font-medium leading-relaxed">
             {patient.diagnosis || 'Theo dõi sức khỏe định kỳ tại nhà'}
           </p>
+          {(patient.birthDate || patient.gender) && (
+            <p className="text-xs font-bold text-teal-900 flex items-center gap-2 flex-wrap">
+              {patient.birthDate && (
+                <span>🎂 Ngày sinh: {formatBirthDateWithAge(patient.birthDate)}</span>
+              )}
+              {patient.gender && (
+                <span>· {patient.gender === 'female' ? '👩 Nữ' : '👨 Nam'}</span>
+              )}
+            </p>
+          )}
           {patient.hospital && (
             <p className="text-xs font-bold text-slate-600 flex items-center gap-1">
               <Hospital className="w-3.5 h-3.5 text-slate-500" />

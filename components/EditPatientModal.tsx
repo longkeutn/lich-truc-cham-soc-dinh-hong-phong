@@ -123,6 +123,8 @@ export function EditPatientModal({
       diagnosis: formData.diagnosis.trim(),
       notes: formData.notes.trim(),
       emergencyPhone: (formData.emergencyPhone || '').trim(),
+      birthDate: (formData.birthDate || '').trim(),
+      gender: formData.gender,
       statusBadge: (formData.statusBadge ?? '').trim(),
       conditionTag: (formData.conditionTag ?? '').trim(),
       headerBadge: (formData.headerBadge ?? '').trim(),
@@ -218,6 +220,43 @@ export function EditPatientModal({
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
                   placeholder="VD: Huyết áp & Tim mạch / Phục hồi tại nhà"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Ngày sinh (đồng bộ chuẩn tuổi &amp; WHO)
+                </label>
+                <input
+                  type="date"
+                  value={formData.birthDate || ''}
+                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Giới tính (chuẩn tham chiếu xét nghiệm)
+                </label>
+                <select
+                  value={formData.gender || ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      gender:
+                        e.target.value === 'male' || e.target.value === 'female'
+                          ? e.target.value
+                          : undefined,
+                    })
+                  }
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
+                >
+                  <option value="">Chưa chọn</option>
+                  <option value="male">👨 Nam</option>
+                  <option value="female">👩 Nữ</option>
+                </select>
               </div>
             </div>
 

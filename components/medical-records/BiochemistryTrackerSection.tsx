@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { AlertTriangle, Calendar, Edit3, Stethoscope } from 'lucide-react';
-import type { HealthProfileType, LabResultEntry } from '@/lib/types';
+import type { HealthProfileType, LabResultEntry, PatientInfo } from '@/lib/types';
 import type { LabIndicatorEval } from '@/lib/config';
 import { getLabMedicalGuide } from '@/lib/labMedicalGuides';
 import { MedicalInfoToggle } from '@/components/ui-kit';
@@ -13,6 +13,7 @@ import {
 } from './labRecordsUtils';
 import { BiochemistryTrendChart } from './BiochemistryTrendChart';
 import { ParathyroidClinicalGuideCard } from './ParathyroidClinicalGuideCard';
+import { ClinicalAutoAssessmentCard } from './ClinicalAutoAssessmentCard';
 
 export interface BiochemistryTrackerSectionProps {
   latestLab: LabResultEntry | null;
@@ -20,6 +21,8 @@ export interface BiochemistryTrackerSectionProps {
   sourceDateByKey?: Record<string, string>;
   previousEntryByKey?: Record<string, LabResultEntry | null>;
   profileType?: HealthProfileType;
+  patientInfo?: PatientInfo;
+  todayStr?: string;
   indicators: LabIndicatorEval[];
   summaryPoints: string[];
   chartData: LabChartPoint[];
@@ -36,6 +39,8 @@ export function BiochemistryTrackerSection({
   sourceDateByKey,
   previousEntryByKey,
   profileType = 'general_health',
+  patientInfo,
+  todayStr,
   indicators,
   summaryPoints,
   chartData,
@@ -108,7 +113,17 @@ export function BiochemistryTrackerSection({
         )}
       </div>
 
-      {/* Điểm lưu ý lâm sàng tự động */}
+      {/* Nhận xét tự động theo chuẩn y khoa (ảnh chụp tổng hợp chỉ số gần nhất) */}
+      <ClinicalAutoAssessmentCard
+        entry={latestLab}
+        previousLab={previousLab}
+        profileType={profileType}
+        patientInfo={patientInfo}
+        todayStr={todayStr}
+        compactHeaderLabel={latestLab ? `Tổng hợp tới ${fmtDateShort(latestLab.date)}` : undefined}
+      />
+
+      {/* Điểm lưu ý lâm sàng chi tiết nếu có */}
       {summaryPoints.length > 0 && (
         <div className="rounded-2xl bg-vital-warning-bg border border-amber-300 p-3.5 space-y-1.5">
           <div className="text-base font-black text-amber-950 flex items-center gap-1.5">

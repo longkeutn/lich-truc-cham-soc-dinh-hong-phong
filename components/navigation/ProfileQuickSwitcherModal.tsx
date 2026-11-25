@@ -10,7 +10,7 @@ import type {
   FamilyMember,
   BpThresholds,
 } from '@/lib/types';
-import { DEFAULT_APPOINTMENT } from '@/lib/config';
+import { DEFAULT_APPOINTMENT, normalizeDateStr } from '@/lib/config';
 import {
   computeLatestVitalByProfile,
   type ProfileModalMode,
@@ -107,7 +107,7 @@ export function ProfileQuickSwitcherModal({
       setRelation(profile.relation);
       setAvatarEmoji(profile.avatarEmoji || '👩');
       setProfileType(profile.profileType || 'general_health');
-      setBirthDate(profile.patientInfo?.birthDate || '');
+      setBirthDate(normalizeDateStr(profile.patientInfo?.birthDate) || '');
       const inferredFemale =
         profile.patientInfo?.gender === 'female' ||
         (!profile.patientInfo?.gender &&
@@ -262,7 +262,7 @@ export function ProfileQuickSwitcherModal({
         notes:
           notes.trim() ||
           'Đo huyết áp định kỳ sáng/tối, uống đủ nước ấm, nghỉ ngơi hợp lý.',
-        birthDate: birthDate.trim() || undefined,
+        birthDate: normalizeDateStr(birthDate) || '',
         gender,
       },
       bpThresholds: nextThresholds,

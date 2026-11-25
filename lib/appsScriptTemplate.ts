@@ -326,6 +326,8 @@ function ensureSheetsSetup(ss) {
     ['patient_hospital', 'Khám & kiểm tra định kỳ', 'Cơ sở y tế theo dõi'],
     ['patient_room', 'Tại nhà', 'Vị trí chăm sóc hiện tại'],
     ['patient_notes', 'Đo huyết áp hàng ngày (sáng/tối), uống thuốc đúng giờ, vận động và nghỉ ngơi hợp lý.', 'Lưu ý chăm sóc hàng ngày'],
+    ['patient_birth_date', '', 'Ngày sinh người thân chính (YYYY-MM-DD)'],
+    ['patient_gender', '', 'Giới tính người thân chính (male/female)'],
     ['emergency_phone', '115', 'Số điện thoại bác sĩ / liên hệ y tế'],
     ['current_phase', 'phase2', 'Chế độ chăm sóc tại nhà'],
     ['admin_pin', '1234', 'Mã PIN quyền Admin bảo mật'],
@@ -658,12 +660,22 @@ function readPatientInfo(ss) {
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     const key = String(data[i][0]);
-    const val = String(data[i][1] || '');
+    const rawVal = data[i][1];
+    const val = String(rawVal || '');
     if (key === 'patient_name' || key === 'member_name') info.name = val;
     if (key === 'patient_diagnosis' || key === 'member_diagnosis') info.diagnosis = val;
     if (key === 'patient_hospital' || key === 'member_hospital') info.hospital = val;
     if (key === 'patient_room' || key === 'member_room') info.room = val;
     if (key === 'patient_notes' || key === 'member_notes') info.notes = val;
+    if (key === 'patient_birth_date') {
+      info.birthDate = rawVal instanceof Date
+        ? Utilities.formatDate(rawVal, Session.getScriptTimeZone() || 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd')
+        : val.trim();
+    }
+    if (key === 'patient_gender') {
+      const g = val.trim();
+      if (g === 'male' || g === 'female') info.gender = g;
+    }
     if (key === 'emergency_phone') info.emergencyPhone = val;
   }
   return info;
@@ -844,6 +856,7 @@ function saveReminder(ss, reminder) {
 
 function savePatientInfo(ss, info) {
   const sheet = ss.getSheetByName('Settings');
+  if (!sheet) return;
   const data = sheet.getDataRange().getValues();
   const map = {
     patient_name: info.name,
@@ -851,14 +864,28 @@ function savePatientInfo(ss, info) {
     patient_hospital: info.hospital,
     patient_room: info.room,
     patient_notes: info.notes,
+    patient_birth_date: info.birthDate !== undefined ? "'" + String(info.birthDate || '').trim() : undefined,
+    patient_gender: info.gender !== undefined ? String(info.gender || '').trim() : undefined,
     emergency_phone: info.emergencyPhone || ''
   };
+  const updatedKeys = {};
   for (let i = 1; i < data.length; i++) {
     const key = String(data[i][0]);
     if (map[key] !== undefined) {
       sheet.getRange(i + 1, 2).setValue(map[key]);
+      updatedKeys[key] = true;
     }
   }
+  const descMap = {
+    patient_birth_date: 'Ngày sinh người thân chính (YYYY-MM-DD)',
+    patient_gender: 'Giới tính người thân chính (male/female)',
+    emergency_phone: 'Số điện thoại bác sĩ / liên hệ y tế'
+  };
+  Object.keys(map).forEach(function(k) {
+    if (map[k] !== undefined && !updatedKeys[k]) {
+      sheet.appendRow([k, map[k], descMap[k] || '']);
+    }
+  });
 }
 
 function saveCurrentPhase(ss, phase) {

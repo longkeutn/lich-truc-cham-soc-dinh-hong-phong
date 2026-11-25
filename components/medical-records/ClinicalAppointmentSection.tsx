@@ -14,15 +14,18 @@ import type {
   LabResultEntry,
   HealthProfileType,
   AppointmentInfo,
+  PatientInfo,
 } from '@/lib/types';
 import { evaluateLabEntry } from '@/lib/config';
 import { AppointmentSection } from '@/components/AppointmentSection';
 import { fmtDateShort } from './labRecordsUtils';
+import { ClinicalAutoAssessmentCard } from './ClinicalAutoAssessmentCard';
 
 interface ClinicalAppointmentSectionProps {
   sortedLabsDesc: LabResultEntry[];
   profileType: HealthProfileType;
   patientDisplayName: string;
+  patientInfo?: PatientInfo;
   todayStr?: string;
   isAdmin?: boolean;
   appointment?: AppointmentInfo;
@@ -35,6 +38,7 @@ export function ClinicalAppointmentSection({
   sortedLabsDesc,
   profileType,
   patientDisplayName,
+  patientInfo,
   todayStr,
   isAdmin = false,
   appointment,
@@ -85,7 +89,12 @@ export function ClinicalAppointmentSection({
 
         <div className="space-y-2.5">
           {sortedLabsDesc.map((entry, idx) => {
-            const ev = evaluateLabEntry(entry, profileType);
+            const prevEntry = sortedLabsDesc[idx + 1] || null;
+            const ev = evaluateLabEntry(entry, profileType, prevEntry, {
+              birthDate: patientInfo?.birthDate,
+              gender: patientInfo?.gender,
+              todayStr,
+            });
             const isExpanded = expandedHistoryId === entry.id || (expandedHistoryId === null && idx === 0);
             const isDeleting = deletingId === entry.id;
 
@@ -179,6 +188,13 @@ export function ClinicalAppointmentSection({
 
                 {isExpanded && (
                   <div className="px-4 pb-4 pt-3 border-t border-slate-100 space-y-2.5 text-base">
+                    <ClinicalAutoAssessmentCard
+                      entry={entry}
+                      previousLab={prevEntry}
+                      profileType={profileType}
+                      patientInfo={patientInfo}
+                      todayStr={todayStr}
+                    />
                     {entry.symptoms && (
                       <div className="rounded-xl bg-amber-50/80 border border-amber-200 p-3 text-text-main leading-relaxed">
                         <strong className="text-amber-950">🩺 Triệu chứng lúc khám:</strong>{' '}

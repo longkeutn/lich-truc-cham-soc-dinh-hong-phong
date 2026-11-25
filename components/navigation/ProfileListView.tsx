@@ -3,6 +3,7 @@
 import React from 'react';
 import { HeartPulse, Plus, Settings2, Trash2, Users } from 'lucide-react';
 import type { HealthProfile } from '@/lib/types';
+import { formatBirthDateWithAge } from '@/lib/config';
 import {
   formatProfileShortDate,
   type ProfileVitalSummary,
@@ -80,6 +81,17 @@ export function ProfileListView({
                       {profile.relation}
                     </span>
                     <span className="text-base font-black truncate">{profile.name}</span>
+                    {profile.patientInfo?.birthDate && (
+                      <span
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                          isActive
+                            ? 'bg-white/20 text-white'
+                            : 'bg-slate-200/80 text-slate-700'
+                        }`}
+                      >
+                        🎂 {formatBirthDateWithAge(profile.patientInfo.birthDate)}
+                      </span>
+                    )}
                   </div>
                   <div
                     className={`text-xs sm:text-sm font-semibold mt-0.5 flex items-center gap-1.5 flex-wrap ${

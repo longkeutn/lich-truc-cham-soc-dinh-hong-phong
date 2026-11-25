@@ -130,10 +130,23 @@ export function MedicalRecordsContainer({
         ? evaluateLabEntry(
             effectiveLatestLab,
             profileType,
-            labSnapshot.previousEntryByKey['tg'] || previousLab
+            labSnapshot.previousEntryByKey['tg'] || previousLab,
+            {
+              birthDate: patientInfo?.birthDate,
+              gender: patientInfo?.gender,
+              todayStr,
+            }
           )
         : null,
-    [effectiveLatestLab, profileType, labSnapshot.previousEntryByKey, previousLab]
+    [
+      effectiveLatestLab,
+      profileType,
+      labSnapshot.previousEntryByKey,
+      previousLab,
+      patientInfo?.birthDate,
+      patientInfo?.gender,
+      todayStr,
+    ]
   );
 
   const chartData = useMemo(() => buildLabChartData(sortedLabsAsc), [sortedLabsAsc]);
@@ -558,6 +571,8 @@ export function MedicalRecordsContainer({
                   sourceDateByKey={labSnapshot.sourceDateByKey}
                   previousEntryByKey={labSnapshot.previousEntryByKey}
                   profileType={profileType}
+                  patientInfo={patientInfo}
+                  todayStr={todayStr}
                   indicators={latestEval?.indicators || []}
                   summaryPoints={latestEval?.summaryPoints || []}
                   chartData={chartData}
@@ -572,6 +587,7 @@ export function MedicalRecordsContainer({
                   sortedLabsDesc={sortedLabsDesc}
                   profileType={profileType}
                   patientDisplayName={patientDisplayName}
+                  patientInfo={patientInfo}
                   todayStr={todayStr}
                   isAdmin={isAdmin}
                   appointment={appointment}
