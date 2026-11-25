@@ -13,6 +13,7 @@ import {
   compareVitalsDesc,
   normalizeDateStr,
 } from '@/lib/config';
+import { isRoutineActiveOnDate } from '@/lib/medicalVisitUtils';
 import {
   ALL_SLOTS,
   periodLabel,
@@ -300,12 +301,13 @@ export function buildDoctorSummaryText(params: DoctorReportParams): string {
     lines.push(`• Thuốc uống khi cần: Đã dùng ${complianceStats.asNeededUsedCount} lần`);
   }
 
+  const todayReportStr = getVietnamDateStr();
   const activeMedsList = careRoutines.filter(
     (r) =>
       r.isActive &&
       r.category === 'meds' &&
       r.medType !== 'as_needed' &&
-      (!r.endDate || r.endDate >= getVietnamDateStr())
+      isRoutineActiveOnDate(r, todayReportStr, { todayStr: todayReportStr })
   );
   if (activeMedsList.length > 0) {
     lines.push('• Danh mục thuốc định kỳ đang uống:');
@@ -408,12 +410,13 @@ export function openPrintDoctorReportWindow(
   const periodEntries = [...(filteredLog.length > 0 ? filteredLog : normalizedVitals)].sort(
     compareVitalsDesc
   );
+  const todayReportStr = getVietnamDateStr();
   const activeMedsList = careRoutines.filter(
     (r) =>
       r.isActive &&
       r.category === 'meds' &&
       r.medType !== 'as_needed' &&
-      (!r.endDate || r.endDate >= getVietnamDateStr())
+      isRoutineActiveOnDate(r, todayReportStr, { todayStr: todayReportStr })
   );
   const notedEntries = periodEntries.filter((e) => Boolean(e.note && e.note.trim()));
   const triggers = summarizeLifestyleTriggers(periodEntries);

@@ -31,6 +31,8 @@ import {
   OUTCOME_STATUS_CONFIG,
   VISIT_TYPE_CONFIG,
   compressPrescriptionImageToDataUrl,
+  findLinkedRoutineForMed,
+  formatCompactDayMonth,
   getQuickFacilitiesForProfile,
   getQuickSymptomsForProfile,
 } from '@/lib/medicalVisitUtils';
@@ -143,7 +145,14 @@ export function MedicalVisitFormModal({
       setOutcomeStatus(mv?.outcomeStatus || 'ongoing');
       setOutcomeNote(mv?.outcomeNote || '');
       setRecordedBy(editingEntry.recordedBy || defaultRecorder);
-      setSyncToDailyRoutines(false);
+      const hasLinked =
+        routines.some((r) => r.visitId === editingEntry.id) ||
+        Boolean(
+          mv?.prescriptions?.some((m) =>
+            findLinkedRoutineForMed(m, editingEntry, routines)
+          )
+        );
+      setSyncToDailyRoutines(hasLinked);
       setErrorMsg('');
     } else {
       setDate(defaultDate);
@@ -163,7 +172,7 @@ export function MedicalVisitFormModal({
       setSyncToDailyRoutines(true);
       setErrorMsg('');
     }
-  }, [isOpen, editingEntry, defaultDate, defaultRecorder, isPediatric]);
+  }, [isOpen, editingEntry, routines, defaultDate, defaultRecorder, isPediatric]);
 
   const historyItems = useMemo(
     () => buildPatientMedicationHistory(visitEntries, routines),
@@ -299,6 +308,16 @@ export function MedicalVisitFormModal({
 
     if (!diagnosis.trim() && !symptoms.trim() && validMeds.length === 0 && !doctorAdvice.trim() && !prescriptionImage) {
       setErrorMsg('Vui lòng nhập ít nhất triệu chứng, chẩn đoán, ảnh đơn thuốc hoặc tên thuốc.');
+      return;
+    }
+
+    const missingSlotMed = validMeds.find(
+      (m) => m.medType !== 'as_needed' && (!Array.isArray(m.timeSlots) || m.timeSlots.length === 0)
+    );
+    if (missingSlotMed) {
+      setErrorMsg(
+        `Thuốc "${missingSlotMed.title}" đang chọn "Theo lịch" nhưng chưa chọn buổi uống nào.`
+      );
       return;
     }
 
@@ -628,9 +647,18 @@ export function MedicalVisitFormModal({
                   className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-2.5 shadow-2xs"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-black text-teal-900 uppercase">
-                      Thuốc #{idx + 1}
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-black text-teal-900 uppercase">
+                        Thuốc #{idx + 1}
+                      </span>
+                      {editingEntry &&
+                        med.title.trim() &&
+                        findLinkedRoutineForMed(med, editingEntry, routines) && (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold">
+                            ✓ Đang liên kết lịch hôm nay
+                          </span>
+                        )}
+                    </div>
                     <button
                       type="button"
                       onClick={() => handleRemoveMedRow(med.id)}
@@ -810,7 +838,9 @@ export function MedicalVisitFormModal({
               <span className="text-xs sm:text-sm font-extrabold text-teal-950 flex items-center gap-1.5">
                 <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                 <span>
-                  Tự động đưa các thuốc trong đơn này vào Checklist Hôm Nay (tự ẩn khi hết số ngày điều trị)
+                  {editingEntry
+                    ? `Đồng bộ đơn thuốc này với Checklist Hôm Nay (cập nhật liều/buổi/số ngày và gỡ thuốc đã xoá${date ? ` · tính từ ${formatCompactDayMonth(date)}` : ''})`
+                    : 'Tự động đưa các thuốc trong đơn này vào Checklist Hôm Nay (tự ẩn khi hết số ngày điều trị)'}
                 </span>
               </span>
             </label>

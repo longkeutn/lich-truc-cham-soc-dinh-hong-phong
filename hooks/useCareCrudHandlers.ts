@@ -39,6 +39,7 @@ import {
   type NotificationPreferences,
   speakVietnameseReminder,
 } from '@/lib/notifications';
+import { applyRoutineChangeToVisitEntry } from '@/lib/medicalVisitUtils';
 import type { SyncStateKind } from '@/components/ui-kit';
 import { useFamilyAdminCrudHandlers } from './useFamilyAdminCrudHandlers';
 
@@ -330,7 +331,10 @@ export function useCareCrudHandlers({
   );
 
   const handleSaveRoutine = useCallback(
-    async (routine: CareRoutine) => {
+    async (
+      routine: CareRoutine,
+      options?: { skipVisitBackSync?: boolean; silentToast?: boolean }
+    ) => {
       const scopedRoutine: CareRoutine = {
         ...routine,
         id: ensureRecordProfilePrefix(routine.id, activeProfile.id),
@@ -342,7 +346,9 @@ export function useCareCrudHandlers({
           ? prev.map((r, i) => (i === idx ? scopedRoutine : r))
           : [...prev, scopedRoutine];
       });
-      showToast(`✅ Đã lưu cho ${patientDisplayName}: ${scopedRoutine.title}`, 'success');
+      if (!options?.silentToast) {
+        showToast(`✅ Đã lưu cho ${patientDisplayName}: ${scopedRoutine.title}`, 'success');
+      }
       setSyncStatus('syncing');
 
       void saveRoutineAction(scopedRoutine)
@@ -356,14 +362,49 @@ export function useCareCrudHandlers({
           setSyncStatus('error');
           showToast('Lỗi đồng bộ đơn thuốc/bài tập lên Sheet.', 'warn');
         });
+
+      // Đồng bộ ngược thay đổi về Đợt Khám gốc (nếu thuốc được tạo từ Đợt Khám)
+      if (!options?.skipVisitBackSync && scopedRoutine.visitId) {
+        const linkedVisit = labResults.find(
+          (l) => l.id === scopedRoutine.visitId && l.recordKind === 'medical_visit'
+        );
+        if (linkedVisit) {
+          const updatedVisit = applyRoutineChangeToVisitEntry(
+            linkedVisit,
+            scopedRoutine,
+            'update'
+          );
+          if (updatedVisit) {
+            setLabResults((prev) =>
+              prev.map((l) => (l.id === updatedVisit.id ? updatedVisit : l))
+            );
+            void saveLabResultAction(updatedVisit).catch(() => {});
+          }
+        }
+      }
     },
-    [activeProfile.id, activeStageId, patientDisplayName, setCareRoutines, setSyncStatus, showToast]
+    [
+      activeProfile.id,
+      activeStageId,
+      labResults,
+      patientDisplayName,
+      setCareRoutines,
+      setLabResults,
+      setSyncStatus,
+      showToast,
+    ]
   );
 
   const handleDeleteRoutine = useCallback(
-    async (id: string) => {
+    async (
+      id: string,
+      options?: { skipVisitBackSync?: boolean; silentToast?: boolean }
+    ) => {
+      const targetRoutine = careRoutines.find((r) => r.id === id);
       setCareRoutines((prev) => prev.filter((r) => r.id !== id));
-      showToast(`🗑️ Đã xoá đầu việc chăm sóc của ${patientDisplayName}.`, 'info');
+      if (!options?.silentToast) {
+        showToast(`🗑️ Đã xoá đầu việc chăm sóc của ${patientDisplayName}.`, 'info');
+      }
       setSyncStatus('syncing');
 
       void deleteRoutineAction(id)
@@ -377,8 +418,36 @@ export function useCareCrudHandlers({
           setSyncStatus('error');
           showToast('Lỗi xoá đơn thuốc/bài tập trên Sheet.', 'warn');
         });
+
+      // Nếu đầu việc thuộc về 1 Đợt Khám, gỡ liên kết syncedRoutineId để lịch sử Đợt Khám hiển thị đúng trạng thái
+      if (!options?.skipVisitBackSync && targetRoutine?.visitId) {
+        const linkedVisit = labResults.find(
+          (l) => l.id === targetRoutine.visitId && l.recordKind === 'medical_visit'
+        );
+        if (linkedVisit) {
+          const updatedVisit = applyRoutineChangeToVisitEntry(
+            linkedVisit,
+            targetRoutine,
+            'delete'
+          );
+          if (updatedVisit) {
+            setLabResults((prev) =>
+              prev.map((l) => (l.id === updatedVisit.id ? updatedVisit : l))
+            );
+            void saveLabResultAction(updatedVisit).catch(() => {});
+          }
+        }
+      }
     },
-    [patientDisplayName, setCareRoutines, setSyncStatus, showToast]
+    [
+      careRoutines,
+      labResults,
+      patientDisplayName,
+      setCareRoutines,
+      setLabResults,
+      setSyncStatus,
+      showToast,
+    ]
   );
 
   const handleApplyPresetRoutines = useCallback(async () => {
@@ -459,15 +528,28 @@ export function useCareCrudHandlers({
     async (id: string) => {
       const backup = labResults;
       const target = labResults.find((l) => l.id === id);
+      const linkedRoutines =
+        target?.recordKind === 'medical_visit'
+          ? careRoutines.filter((r) => r.visitId === id)
+          : [];
       const delMsg =
         target?.recordKind === 'pediatric_growth'
           ? `🗑️ Đã xóa mốc tăng trưởng của ${patientDisplayName}.`
           : target?.recordKind === 'pediatric_vaccine'
             ? `🗑️ Đã xóa bản ghi mũi tiêm của ${patientDisplayName}.`
             : target?.recordKind === 'medical_visit'
-              ? `🗑️ Đã xóa đợt khám & đơn thuốc của ${patientDisplayName}.`
+              ? linkedRoutines.length > 0
+                ? `🗑️ Đã xóa đợt khám & gỡ ${linkedRoutines.length} thuốc khỏi lịch hôm nay.`
+                : `🗑️ Đã xóa đợt khám & đơn thuốc của ${patientDisplayName}.`
               : `🗑️ Đã xóa phiếu xét nghiệm của ${patientDisplayName}.`;
       setLabResults((prev) => prev.filter((l) => l.id !== id));
+      if (linkedRoutines.length > 0) {
+        const linkedIdSet = new Set(linkedRoutines.map((r) => r.id));
+        setCareRoutines((prev) => prev.filter((r) => !linkedIdSet.has(r.id)));
+        for (const r of linkedRoutines) {
+          void deleteRoutineAction(r.id).catch(() => {});
+        }
+      }
       showToast(delMsg, 'info');
       setSyncStatus('syncing');
 
@@ -487,7 +569,7 @@ export function useCareCrudHandlers({
           showToast('Lỗi xóa phiếu xét nghiệm trên Sheet.', 'warn');
         });
     },
-    [labResults, patientDisplayName, setLabResults, setSyncStatus, showToast]
+    [careRoutines, labResults, patientDisplayName, setCareRoutines, setLabResults, setSyncStatus, showToast]
   );
 
   return {

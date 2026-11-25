@@ -12,6 +12,7 @@ import {
   extractRoutineStartDateStr,
   normalizeDateStr,
 } from './config';
+import { normalizeMedKey } from './medicationCatalog';
 
 /** Cộng/trừ số ngày cho chuỗi YYYY-MM-DD mà không bị lệch múi giờ */
 export function stepDateStr(dateStr: string, offsetDays: number): string {
@@ -172,7 +173,188 @@ export function isRoutineActiveOnDate(
 }
 
 /**
+ * Chuẩn hoá mảng buổi uống để so sánh nhất quán giữa Đơn khám và CareRoutine.
+ */
+function normalizeSlotList(slots: TimeSlot[] | undefined, medType?: string): TimeSlot[] {
+  if (medType === 'as_needed') return [];
+  const valid = (Array.isArray(slots) ? slots : []).filter(
+    (s): s is TimeSlot =>
+      s === 'morning' || s === 'noon' || s === 'afternoon' || s === 'evening'
+  );
+  const order: TimeSlot[] = ['morning', 'noon', 'afternoon', 'evening'];
+  const unique = Array.from(new Set(valid)).sort(
+    (a, b) => order.indexOf(a) - order.indexOf(b)
+  );
+  return unique.length > 0 ? unique : ['morning'];
+}
+
+/**
+ * Tìm CareRoutine hiện có khớp với 1 thuốc trong Đơn khám (ưu tiên ID đã liên kết, sau đó khớp theo visitId + tên thuốc).
+ */
+export function findLinkedRoutineForMed(
+  med: MedicalVisitMedication,
+  visitEntry: LabResultEntry,
+  routines: CareRoutine[]
+): CareRoutine | undefined {
+  if (med.syncedRoutineId) {
+    const byId = routines.find((r) => r.id === med.syncedRoutineId);
+    if (byId) return byId;
+  }
+  const medKey = normalizeMedKey(med.title);
+  if (!medKey) return undefined;
+  return routines.find(
+    (r) => r.visitId === visitEntry.id && normalizeMedKey(r.title) === medKey
+  );
+}
+
+export interface VisitSyncStatus {
+  totalMeds: number;
+  linkedCount: number;
+  activeLinkedCount: number;
+  orphanRoutineIds: string[];
+  needsResync: boolean;
+  isFullySynced: boolean;
+}
+
+/**
+ * Đánh giá trạng thái đồng bộ thực tế giữa Đơn thuốc trong Đợt khám và danh sách CareRoutines hiện có.
+ */
+export function getVisitSyncStatus(
+  visitEntry: LabResultEntry,
+  routines: CareRoutine[]
+): VisitSyncStatus {
+  const meds = visitEntry.medicalVisit?.prescriptions || [];
+  const visitDate = normalizeDateStr(visitEntry.date);
+  const linkedIds = new Set<string>();
+  let linkedCount = 0;
+  let activeLinkedCount = 0;
+  let needsResync = false;
+
+  for (const med of meds) {
+    const linked = findLinkedRoutineForMed(med, visitEntry, routines);
+    if (!linked) {
+      needsResync = true;
+      continue;
+    }
+    linkedCount++;
+    linkedIds.add(linked.id);
+    if (linked.isActive) activeLinkedCount++;
+
+    const medDuration =
+      med.durationDays && med.durationDays > 0 ? Math.round(med.durationDays) : undefined;
+    const expectedEnd =
+      medDuration && visitDate ? stepDateStr(visitDate, medDuration - 1) : '';
+    const linkedStart = extractRoutineStartDateStr(linked.createdAt, linked.id);
+    const linkedEnd = linked.endDate ? normalizeDateStr(linked.endDate) : '';
+    const expectedSlots = normalizeSlotList(med.timeSlots, med.medType);
+    const linkedSlots = normalizeSlotList(linked.timeSlots, linked.medType);
+
+    const contentChanged =
+      normalizeMedKey(linked.title) !== normalizeMedKey(med.title) ||
+      (linked.dosage || '').trim() !== (med.dosage || '').trim() ||
+      (linked.medType === 'as_needed' ? 'as_needed' : 'scheduled') !==
+        (med.medType === 'as_needed' ? 'as_needed' : 'scheduled') ||
+      JSON.stringify(linkedSlots) !== JSON.stringify(expectedSlots) ||
+      (linked.durationDays || undefined) !== medDuration ||
+      linkedEnd !== expectedEnd ||
+      (visitDate && linkedStart !== visitDate) ||
+      (linked.instructions || '').trim() !== (med.instructions || '').trim() ||
+      (linked.conditionNote || '').trim() !== (med.conditionNote || '').trim();
+
+    if (contentChanged) {
+      needsResync = true;
+    }
+  }
+
+  const orphanRoutineIds = routines
+    .filter((r) => r.visitId === visitEntry.id && !linkedIds.has(r.id))
+    .map((r) => r.id);
+
+  if (orphanRoutineIds.length > 0) {
+    needsResync = true;
+  }
+
+  return {
+    totalMeds: meds.length,
+    linkedCount,
+    activeLinkedCount,
+    orphanRoutineIds,
+    needsResync,
+    isFullySynced: meds.length > 0 && linkedCount === meds.length && !needsResync,
+  };
+}
+
+/**
+ * Đồng bộ ngược thay đổi (sửa hoặc xoá) từ Quản Lý Đơn Thuốc & Bài Tập về Đợt Khám gốc.
+ */
+export function applyRoutineChangeToVisitEntry(
+  visitEntry: LabResultEntry,
+  routine: CareRoutine,
+  action: 'update' | 'delete'
+): LabResultEntry | null {
+  const mv = visitEntry.medicalVisit;
+  if (!mv || !Array.isArray(mv.prescriptions) || mv.prescriptions.length === 0) {
+    return null;
+  }
+
+  const targetIdx = mv.prescriptions.findIndex(
+    (m) =>
+      m.syncedRoutineId === routine.id ||
+      normalizeMedKey(m.title) === normalizeMedKey(routine.title)
+  );
+  if (targetIdx < 0) return null;
+
+  const targetMed = mv.prescriptions[targetIdx];
+
+  if (action === 'delete') {
+    if (!targetMed.syncedRoutineId) return null;
+    const nextMeds = mv.prescriptions.map((m, i) =>
+      i === targetIdx ? { ...m, syncedRoutineId: undefined } : m
+    );
+    return {
+      ...visitEntry,
+      medicalVisit: { ...mv, prescriptions: nextMeds },
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  const startStr = extractRoutineStartDateStr(routine.createdAt, routine.id);
+  const endStr = routine.endDate ? normalizeDateStr(routine.endDate) : '';
+  const resolvedDuration =
+    routine.durationDays && routine.durationDays > 0
+      ? Math.round(routine.durationDays)
+      : startStr && endStr && endStr >= startStr
+        ? diffDaysStr(startStr, endStr) + 1
+        : undefined;
+
+  const nextMed: MedicalVisitMedication = {
+    ...targetMed,
+    title: routine.title.trim(),
+    dosage: (routine.dosage || '').trim(),
+    medType: routine.medType === 'as_needed' ? 'as_needed' : 'scheduled',
+    timeSlots:
+      routine.medType === 'as_needed'
+        ? []
+        : Array.isArray(routine.timeSlots)
+          ? [...routine.timeSlots]
+          : [],
+    durationDays: resolvedDuration,
+    instructions: (routine.instructions || '').trim(),
+    conditionNote: (routine.conditionNote || '').trim(),
+    syncedRoutineId: routine.id,
+  };
+
+  const nextMeds = mv.prescriptions.map((m, i) => (i === targetIdx ? nextMed : m));
+  return {
+    ...visitEntry,
+    medicalVisit: { ...mv, prescriptions: nextMeds },
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
  * Chuyển đổi 1 thuốc trong Đơn khám thành đối tượng `CareRoutine` để đưa ra Checklist Hôm Nay.
+ * Khi truyền `existingRoutine`, giữ nguyên ảnh thuốc, thứ tự và giai đoạn đang có.
  */
 export function buildCareRoutineFromVisitMed(params: {
   med: MedicalVisitMedication;
@@ -181,22 +363,18 @@ export function buildCareRoutineFromVisitMed(params: {
   stageId: string;
   stageName: string;
   sortOrder: number;
+  existingRoutine?: CareRoutine;
 }): CareRoutine {
-  const { med, visitEntry, profileId, stageId, stageName, sortOrder } = params;
+  const { med, visitEntry, profileId, stageId, stageName, sortOrder, existingRoutine } = params;
   const visitDate = normalizeDateStr(visitEntry.date);
   const durationDays =
     med.durationDays && med.durationDays > 0 ? Math.round(med.durationDays) : undefined;
   const endDate =
     durationDays && visitDate ? stepDateStr(visitDate, durationDays - 1) : undefined;
-  const cleanSlots: TimeSlot[] =
-    med.medType === 'as_needed'
-      ? []
-      : (Array.isArray(med.timeSlots) ? med.timeSlots : []).filter(
-          (s): s is TimeSlot =>
-            s === 'morning' || s === 'noon' || s === 'afternoon' || s === 'evening'
-        );
+  const cleanSlots = normalizeSlotList(med.timeSlots, med.medType);
 
   const rawId =
+    existingRoutine?.id ||
     med.syncedRoutineId ||
     `routine-visit-${Date.now()}-${sortOrder}-${Math.random().toString(36).slice(2, 6)}`;
   const scopedId = ensureRecordProfilePrefix(rawId, profileId);
@@ -211,19 +389,19 @@ export function buildCareRoutineFromVisitMed(params: {
 
   return {
     id: scopedId,
-    stageId: stageId || 'stage-1',
-    stageName: stageName || 'Tại nhà',
+    stageId: existingRoutine?.stageId || stageId || 'stage-1',
+    stageName: existingRoutine?.stageName || stageName || 'Tại nhà',
     category: 'meds',
     medType: med.medType === 'as_needed' ? 'as_needed' : 'scheduled',
     title: med.title.trim(),
     dosage: (med.dosage || '').trim(),
-    description: contextParts.join(' · '),
-    imageUrl: '',
-    timeSlots: cleanSlots.length > 0 || med.medType === 'as_needed' ? cleanSlots : ['morning'],
+    description: contextParts.join(' · ') || existingRoutine?.description || '',
+    imageUrl: existingRoutine?.imageUrl || '',
+    timeSlots: cleanSlots,
     instructions: (med.instructions || '').trim(),
     conditionNote: (med.conditionNote || '').trim(),
     isActive: true,
-    sortOrder,
+    sortOrder: existingRoutine?.sortOrder ?? sortOrder,
     endDate,
     durationDays,
     visitId: visitEntry.id,

@@ -347,6 +347,7 @@ export default function CareSchedulePage() {
               stages={sync.stages}
               activeStageId={sync.activeStageId}
               onSaveRoutine={crud.handleSaveRoutine}
+              onDeleteRoutine={crud.handleDeleteRoutine}
               autoOpenAddVisit={autoOpenAddVisit}
               onConsumeAutoOpenAddVisit={() => setAutoOpenAddVisit(false)}
             />
@@ -495,6 +496,16 @@ export default function CareSchedulePage() {
         routineManagerOpen={ui.routineManagerOpen}
         onCloseRoutineManager={() => ui.setRoutineManagerOpen(false)}
         profileCareRoutines={profilesMgr.profileCareRoutines}
+        profileType={profilesMgr.activeProfile.profileType}
+        patientDisplayName={profilesMgr.patientDisplayName}
+        visitEntries={profilesMgr.profileLabResults.filter(
+          (l) => l.recordKind === 'medical_visit'
+        )}
+        onOpenAddVisit={() => {
+          setLabsInitialSubView('visits');
+          setAutoOpenAddVisit(true);
+          ui.handleChangeView('labs');
+        }}
         stages={sync.stages}
         activeStageId={sync.activeStageId}
         onSaveRoutine={crud.handleSaveRoutine}

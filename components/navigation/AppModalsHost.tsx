@@ -7,6 +7,8 @@ import type {
   EmergencyContact,
   FamilyMember,
   HealthProfile,
+  HealthProfileType,
+  LabResultEntry,
   PatientInfo,
   RehabStage,
   VitalsLogEntry,
@@ -91,6 +93,10 @@ export interface AppModalsHostProps {
   routineManagerOpen: boolean;
   onCloseRoutineManager: () => void;
   profileCareRoutines: CareRoutine[];
+  profileType?: HealthProfileType;
+  patientDisplayName?: string;
+  visitEntries?: LabResultEntry[];
+  onOpenAddVisit?: () => void;
   stages: RehabStage[];
   activeStageId: string;
   onSaveRoutine: (routine: CareRoutine) => Promise<void>;
@@ -151,6 +157,10 @@ export function AppModalsHost({
   routineManagerOpen,
   onCloseRoutineManager,
   profileCareRoutines,
+  profileType,
+  patientDisplayName,
+  visitEntries,
+  onOpenAddVisit,
   stages,
   activeStageId,
   onSaveRoutine,
@@ -250,6 +260,10 @@ export function AppModalsHost({
           routines={profileCareRoutines}
           stages={stages}
           activeStageId={activeStageId}
+          profileType={profileType}
+          patientDisplayName={patientDisplayName}
+          visitEntries={visitEntries}
+          onOpenAddVisit={onOpenAddVisit}
           onSaveRoutine={onSaveRoutine}
           onDeleteRoutine={onDeleteRoutine}
         />

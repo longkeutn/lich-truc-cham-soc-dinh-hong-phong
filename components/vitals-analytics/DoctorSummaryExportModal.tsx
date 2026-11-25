@@ -22,6 +22,7 @@ import {
   compareVitalsDesc,
   getVietnamDateStr,
 } from '@/lib/config';
+import { isRoutineActiveOnDate } from '@/lib/medicalVisitUtils';
 import {
   ALL_SLOTS,
   DATE_RANGE_OPTIONS,
@@ -111,17 +112,16 @@ export function DoctorSummaryExportModal({
     [filteredLog, normalizedVitals]
   );
 
-  const activeMedsList = useMemo(
-    () =>
-      careRoutines.filter(
-        (r) =>
-          r.isActive &&
-          r.category === 'meds' &&
-          r.medType !== 'as_needed' &&
-          (!r.endDate || r.endDate >= getVietnamDateStr())
-      ),
-    [careRoutines]
-  );
+  const activeMedsList = useMemo(() => {
+    const todayStr = getVietnamDateStr();
+    return careRoutines.filter(
+      (r) =>
+        r.isActive &&
+        r.category === 'meds' &&
+        r.medType !== 'as_needed' &&
+        isRoutineActiveOnDate(r, todayStr, { todayStr })
+    );
+  }, [careRoutines]);
 
   if (!isOpen) return null;
 

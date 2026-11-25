@@ -43,7 +43,14 @@ export interface LabResultsViewProps {
   routines?: CareRoutine[];
   stages?: RehabStage[];
   activeStageId?: string;
-  onSaveRoutine?: (routine: CareRoutine) => Promise<void>;
+  onSaveRoutine?: (
+    routine: CareRoutine,
+    options?: { skipVisitBackSync?: boolean; silentToast?: boolean }
+  ) => Promise<void>;
+  onDeleteRoutine?: (
+    id: string,
+    options?: { skipVisitBackSync?: boolean; silentToast?: boolean }
+  ) => Promise<void>;
   autoOpenAddVisit?: boolean;
   onConsumeAutoOpenAddVisit?: () => void;
 }

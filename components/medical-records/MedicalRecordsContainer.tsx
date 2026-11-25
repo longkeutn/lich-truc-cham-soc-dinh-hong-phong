@@ -4,7 +4,11 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { FileSpreadsheet, FlaskConical, Plus, Stethoscope } from 'lucide-react';
 import type { LabResultEntry, MedicalVisitOutcomeStatus } from '@/lib/types';
 import { DEFAULT_HEALTH_PROFILE_ID, evaluateLabEntry, normalizeDateStr } from '@/lib/config';
-import { buildCareRoutineFromVisitMed } from '@/lib/medicalVisitUtils';
+import {
+  buildCareRoutineFromVisitMed,
+  findLinkedRoutineForMed,
+  getVisitSyncStatus,
+} from '@/lib/medicalVisitUtils';
 import { buildLatestKnownLabSnapshot } from '@/lib/thyroidClinicalEval';
 import { analyzeThyroidPostOpMilestones } from '@/lib/thyroidMilestones';
 import { MedicalEmptyState } from '@/components/ui-kit';
@@ -49,6 +53,7 @@ export function MedicalRecordsContainer({
   stages = [],
   activeStageId = 'stage-1',
   onSaveRoutine,
+  onDeleteRoutine,
   autoOpenAddVisit = false,
   onConsumeAutoOpenAddVisit,
 }: LabResultsViewProps) {
@@ -187,7 +192,6 @@ export function MedicalRecordsContainer({
     async (visitEntry: LabResultEntry): Promise<LabResultEntry> => {
       if (!onSaveRoutine || !visitEntry.medicalVisit) return visitEntry;
       const meds = visitEntry.medicalVisit.prescriptions || [];
-      if (meds.length === 0) return visitEntry;
 
       const effectiveProfileId = profileId || DEFAULT_HEALTH_PROFILE_ID;
       const activeStageObj = stages.find((s) => s.id === activeStageId);
@@ -195,8 +199,10 @@ export function MedicalRecordsContainer({
       const maxExistingSort = routines.reduce((mx, r) => Math.max(mx, r.sortOrder || 0), 0);
 
       const updatedMeds = [...meds];
+      const keptRoutineIds = new Set<string>();
       for (let i = 0; i < updatedMeds.length; i++) {
         const med = updatedMeds[i];
+        const existingRoutine = findLinkedRoutineForMed(med, visitEntry, routines);
         const routineObj = buildCareRoutineFromVisitMed({
           med,
           visitEntry,
@@ -204,9 +210,21 @@ export function MedicalRecordsContainer({
           stageId: activeStageId,
           stageName,
           sortOrder: maxExistingSort + i + 1,
+          existingRoutine,
         });
-        await onSaveRoutine(routineObj);
+        keptRoutineIds.add(routineObj.id);
+        await onSaveRoutine(routineObj, { skipVisitBackSync: true, silentToast: true });
         updatedMeds[i] = { ...med, syncedRoutineId: routineObj.id };
+      }
+
+      // Gỡ bỏ các thuốc cũ thuộc đợt khám này nếu người dùng đã xoá khỏi đơn
+      const orphanRoutines = routines.filter(
+        (r) => r.visitId === visitEntry.id && !keptRoutineIds.has(r.id)
+      );
+      if (onDeleteRoutine && orphanRoutines.length > 0) {
+        for (const orphan of orphanRoutines) {
+          await onDeleteRoutine(orphan.id, { skipVisitBackSync: true, silentToast: true });
+        }
       }
 
       const nextVisitEntry: LabResultEntry = {
@@ -218,31 +236,61 @@ export function MedicalRecordsContainer({
         updatedAt: new Date().toISOString(),
       };
       await onSaveLabResult(nextVisitEntry);
-      showToast(
-        `💊 Đã đưa ${updatedMeds.length} thuốc trong đơn ngày ${visitEntry.date} vào Checklist Hôm Nay!`,
-        'success'
-      );
+      if (updatedMeds.length > 0) {
+        showToast(
+          orphanRoutines.length > 0
+            ? `💊 Đã đồng bộ ${updatedMeds.length} thuốc & gỡ ${orphanRoutines.length} thuốc cũ khỏi Checklist Hôm Nay!`
+            : `💊 Đã đưa ${updatedMeds.length} thuốc trong đơn ngày ${visitEntry.date} vào Checklist Hôm Nay!`,
+          'success'
+        );
+      } else if (orphanRoutines.length > 0) {
+        showToast(
+          `🗑️ Đã gỡ ${orphanRoutines.length} thuốc của đợt khám này khỏi Checklist Hôm Nay.`,
+          'info'
+        );
+      }
       return nextVisitEntry;
     },
-    [onSaveRoutine, onSaveLabResult, profileId, stages, activeStageId, routines, showToast]
+    [
+      onSaveRoutine,
+      onDeleteRoutine,
+      onSaveLabResult,
+      profileId,
+      stages,
+      activeStageId,
+      routines,
+      showToast,
+    ]
   );
 
   const handleSaveVisit = useCallback(
     async (entry: LabResultEntry, options: { syncToDailyRoutines: boolean }) => {
-      if (options.syncToDailyRoutines && onSaveRoutine) {
-        await syncVisitPrescriptionsToRoutines(entry);
+      const syncStatus = getVisitSyncStatus(entry, routines);
+      const hasLinkedOrphans = syncStatus.orphanRoutineIds.length > 0;
+      if ((options.syncToDailyRoutines || hasLinkedOrphans) && onSaveRoutine) {
+        if (options.syncToDailyRoutines) {
+          await syncVisitPrescriptionsToRoutines(entry);
+        } else {
+          if (onDeleteRoutine && hasLinkedOrphans) {
+            for (const orphanId of syncStatus.orphanRoutineIds) {
+              await onDeleteRoutine(orphanId, { skipVisitBackSync: true, silentToast: true });
+            }
+          }
+          await onSaveLabResult(entry);
+        }
       } else {
         await onSaveLabResult(entry);
       }
     },
-    [onSaveRoutine, onSaveLabResult, syncVisitPrescriptionsToRoutines]
+    [onSaveRoutine, onDeleteRoutine, onSaveLabResult, routines, syncVisitPrescriptionsToRoutines]
   );
 
   const handleQuickUpdateVisitOutcome = useCallback(
     async (
       entry: LabResultEntry,
       status: MedicalVisitOutcomeStatus,
-      note: string
+      note: string,
+      pauseLinkedRoutines?: boolean
     ) => {
       const updated: LabResultEntry = {
         ...entry,
@@ -254,9 +302,26 @@ export function MedicalRecordsContainer({
         updatedAt: new Date().toISOString(),
       };
       await onSaveLabResult(updated);
-      showToast(`✅ Đã cập nhật đáp ứng đợt khám ngày ${entry.date}!`, 'success');
+
+      let pausedCount = 0;
+      if (pauseLinkedRoutines && onSaveRoutine) {
+        const activeLinked = routines.filter((r) => r.visitId === entry.id && r.isActive);
+        for (const r of activeLinked) {
+          await onSaveRoutine(
+            { ...r, isActive: false, updatedAt: new Date().toISOString() },
+            { skipVisitBackSync: true, silentToast: true }
+          );
+          pausedCount++;
+        }
+      }
+      showToast(
+        pausedCount > 0
+          ? `✅ Đã cập nhật đáp ứng đợt khám ngày ${entry.date} & tạm ngưng ${pausedCount} thuốc trên lịch hôm nay!`
+          : `✅ Đã cập nhật đáp ứng đợt khám ngày ${entry.date}!`,
+        'success'
+      );
     },
-    [onSaveLabResult, showToast]
+    [onSaveLabResult, onSaveRoutine, routines, showToast]
   );
 
   const subTabs: Array<{ id: LabSubView; label: string }> = isPediatric

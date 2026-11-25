@@ -2,12 +2,26 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { X } from 'lucide-react';
-import { CareRoutine, RehabStage, RoutineCategory, TimeSlot } from '@/lib/types';
+import {
+  CareRoutine,
+  HealthProfileType,
+  LabResultEntry,
+  RehabStage,
+  RoutineCategory,
+  TimeSlot,
+} from '@/lib/types';
 import {
   TIME_SLOT_CONFIG,
   getVietnamDateStr,
   extractRoutineStartDateStr,
+  normalizeDateStr,
 } from '@/lib/config';
+import { stepDateStr } from '@/lib/medicalVisitUtils';
+import {
+  type MedicationPreset,
+  buildPatientMedicationHistory,
+  getMedicationGroupsForProfile,
+} from '@/lib/medicationCatalog';
 import {
   compressImageToDataUrl,
   createEmptyForm,
@@ -22,6 +36,10 @@ interface RoutineManagerModalProps {
   routines: CareRoutine[];
   stages: RehabStage[];
   activeStageId: string;
+  profileType?: HealthProfileType;
+  patientDisplayName?: string;
+  visitEntries?: LabResultEntry[];
+  onOpenAddVisit?: () => void;
   onSaveRoutine: (routine: CareRoutine) => Promise<void>;
   onDeleteRoutine: (id: string) => Promise<void>;
 }
@@ -32,6 +50,10 @@ export function RoutineManagerModal({
   routines,
   stages,
   activeStageId,
+  profileType = 'general_health',
+  patientDisplayName,
+  visitEntries = [],
+  onOpenAddVisit,
   onSaveRoutine,
   onDeleteRoutine,
 }: RoutineManagerModalProps) {
@@ -54,9 +76,32 @@ export function RoutineManagerModal({
   );
 
   const selectedStage = stages.find((s) => s.id === selectedStageId);
-  const stageRoutines = useMemo(
-    () => routines.filter((r) => r.stageId === selectedStageId),
-    [routines, selectedStageId]
+  const stageRoutines = useMemo(() => {
+    if (stages.length <= 1) return routines;
+    return routines.filter((r) => !r.stageId || r.stageId === selectedStageId);
+  }, [routines, selectedStageId, stages.length]);
+
+  const historyItems = useMemo(
+    () => buildPatientMedicationHistory(visitEntries, routines),
+    [visitEntries, routines]
+  );
+
+  const medicationGroups = useMemo(
+    () => getMedicationGroupsForProfile(profileType),
+    [profileType]
+  );
+
+  const existingMedTitles = useMemo(
+    () => routines.filter((r) => r.category === 'meds').map((r) => r.title),
+    [routines]
+  );
+
+  const linkedVisitEntry = useMemo(
+    () =>
+      formData.visitId
+        ? visitEntries.find((v) => v.id === formData.visitId)
+        : undefined,
+    [formData.visitId, visitEntries]
   );
 
   const groupedRoutines = useMemo(() => {
@@ -101,6 +146,35 @@ export function RoutineManagerModal({
 
   const updateFormField = <K extends keyof CareRoutine>(key: K, value: CareRoutine[K]) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleApplyMedicationPreset = (preset: MedicationPreset) => {
+    setFormData((prev) => {
+      const startStr =
+        extractRoutineStartDateStr(prev.createdAt, prev.id) || getVietnamDateStr();
+      const nextDuration = preset.durationDays ?? prev.durationDays;
+      const nextEndDate =
+        nextDuration && nextDuration > 0
+          ? stepDateStr(startStr, nextDuration - 1)
+          : '';
+      return {
+        ...prev,
+        category: 'meds',
+        title: preset.title,
+        dosage: preset.dosage || prev.dosage,
+        medType: preset.medType,
+        timeSlots:
+          preset.medType === 'as_needed'
+            ? []
+            : preset.timeSlots.length > 0
+              ? [...preset.timeSlots]
+              : prev.timeSlots,
+        durationDays: nextDuration,
+        endDate: nextEndDate,
+        instructions: preset.instructions || prev.instructions,
+        conditionNote: preset.conditionNote || prev.conditionNote || '',
+      };
+    });
   };
 
   const toggleTimeSlot = (slot: TimeSlot) => {
@@ -152,21 +226,39 @@ export function RoutineManagerModal({
 
     try {
       const now = new Date().toISOString();
+      const startStr =
+        extractRoutineStartDateStr(formData.createdAt, formData.id) ||
+        getVietnamDateStr();
+      const cleanDuration =
+        formData.durationDays && formData.durationDays > 0
+          ? Math.round(formData.durationDays)
+          : undefined;
+      const cleanEndDate = formData.endDate
+        ? normalizeDateStr(formData.endDate.trim())
+        : cleanDuration
+          ? stepDateStr(startStr, cleanDuration - 1)
+          : undefined;
+
       const routineToSave: CareRoutine = {
         ...formData,
         id: formData.id || `routine-${formData.category.substring(0, 3)}-${Date.now()}`,
+        title: formData.title.trim(),
+        dosage: (formData.dosage || '').trim(),
         description: (formData.description || '').trim(),
+        instructions: (formData.instructions || '').trim(),
         imageUrl: normalizeImageUrl(formData.imageUrl || ''),
         timeSlots: isAsNeededMed ? [] : validSlots,
         updatedAt: now,
         createdAt: formData.createdAt || now,
-        endDate: formData.endDate ? formData.endDate.trim() : undefined,
-        durationDays:
-          formData.durationDays && formData.durationDays > 0
-            ? formData.durationDays
+        endDate: cleanEndDate,
+        durationDays: cleanDuration,
+        medType:
+          formData.category === 'meds'
+            ? formData.medType === 'as_needed'
+              ? 'as_needed'
+              : 'scheduled'
             : undefined,
-        medType: formData.category === 'meds' ? formData.medType : undefined,
-        conditionNote: formData.category === 'meds' ? formData.conditionNote : undefined,
+        conditionNote: formData.category === 'meds' ? (formData.conditionNote || '').trim() : undefined,
       };
       await onSaveRoutine(routineToSave);
       cancelForm();
@@ -233,9 +325,12 @@ export function RoutineManagerModal({
               💊
             </span>
             <div>
-              <h3 className="text-lg font-bold">Quản Lý Đơn Thuốc &amp; Bài Tập</h3>
+              <h3 className="text-lg font-bold">
+                Quản Lý Đơn Thuốc &amp; Bài Tập
+                {patientDisplayName ? ` · ${patientDisplayName}` : ''}
+              </h3>
               <p className="text-xs text-violet-200">
-                Thêm, sửa, tạm ngưng đầu việc chăm sóc hàng ngày
+                Thêm, sửa, tạm ngưng đầu việc chăm sóc hàng ngày (tự đồng bộ nếu gắn Đợt Khám)
               </p>
             </div>
           </div>
@@ -287,7 +382,13 @@ export function RoutineManagerModal({
               isSaving={isSaving}
               isCompressingImg={isCompressingImg}
               fileInputRef={fileInputRef}
+              profileType={profileType}
+              historyItems={historyItems}
+              medicationGroups={medicationGroups}
+              existingMedTitles={existingMedTitles}
+              linkedVisitEntry={linkedVisitEntry}
               onUpdateField={updateFormField}
+              onApplyMedicationPreset={handleApplyMedicationPreset}
               onToggleTimeSlot={toggleTimeSlot}
               onImageFileChange={handleImageFileChange}
               onPreviewLightbox={setPreviewLightbox}
@@ -299,9 +400,18 @@ export function RoutineManagerModal({
               stageName={selectedStage?.name}
               stageRoutines={stageRoutines}
               groupedRoutines={groupedRoutines}
+              visitEntries={visitEntries}
               confirmDeleteId={confirmDeleteId}
               isSaving={isSaving}
               onStartAddNew={startAddNew}
+              onOpenAddVisit={
+                onOpenAddVisit
+                  ? () => {
+                      onClose();
+                      onOpenAddVisit();
+                    }
+                  : undefined
+              }
               onStartEdit={startEdit}
               onToggleActive={handleToggleActive}
               onSetConfirmDeleteId={setConfirmDeleteId}

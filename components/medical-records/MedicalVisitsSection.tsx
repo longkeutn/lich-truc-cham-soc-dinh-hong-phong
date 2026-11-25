@@ -24,8 +24,11 @@ import { TIME_SLOT_CONFIG, normalizeDateStr } from '@/lib/config';
 import {
   OUTCOME_STATUS_CONFIG,
   VISIT_TYPE_CONFIG,
+  findLinkedRoutineForMed,
   formatCompactDayMonth,
   formatShortVnDate,
+  getRoutineCourseProgress,
+  getVisitSyncStatus,
   stepDateStr,
 } from '@/lib/medicalVisitUtils';
 import { MedicalEmptyState } from '@/components/ui-kit';
@@ -42,7 +45,8 @@ export interface MedicalVisitsSectionProps {
   onQuickUpdateOutcome: (
     entry: LabResultEntry,
     status: MedicalVisitOutcomeStatus,
-    note: string
+    note: string,
+    pauseLinkedRoutines?: boolean
   ) => Promise<void>;
   onSyncVisitToRoutines?: (entry: LabResultEntry) => Promise<void>;
 }
@@ -65,6 +69,7 @@ export function MedicalVisitsSection({
   const [outcomeDraftStatus, setOutcomeDraftStatus] =
     useState<MedicalVisitOutcomeStatus>('improved');
   const [outcomeDraftNote, setOutcomeDraftNote] = useState('');
+  const [pauseLinkedOnOutcome, setPauseLinkedOnOutcome] = useState(false);
   const [previewPhoto, setPreviewPhoto] = useState<{
     url: string;
     title: string;
@@ -91,8 +96,13 @@ export function MedicalVisitsSection({
   }, [sortedVisitsDesc]);
 
   const handleDelete = async (entry: LabResultEntry) => {
+    const linkedCount = routines.filter((r) => r.visitId === entry.id).length;
+    const extraMsg =
+      linkedCount > 0
+        ? `\n\nLưu ý: Đợt khám này đang có ${linkedCount} thuốc trong lịch hàng ngày, xoá sẽ gỡ luôn khỏi Checklist Hôm Nay.`
+        : '';
     const ok = window.confirm(
-      `Bạn có chắc muốn xoá đợt khám ngày ${formatShortVnDate(entry.date)} của ${patientDisplayName}?`
+      `Bạn có chắc muốn xoá đợt khám ngày ${formatShortVnDate(entry.date)} của ${patientDisplayName}?${extraMsg}`
     );
     if (!ok) return;
     setDeletingId(entry.id);
@@ -115,12 +125,19 @@ export function MedicalVisitsSection({
 
   const openQuickOutcome = (entry: LabResultEntry) => {
     setOutcomeEditingId(entry.id);
-    setOutcomeDraftStatus(entry.medicalVisit?.outcomeStatus || 'improved');
+    const nextStatus = entry.medicalVisit?.outcomeStatus || 'improved';
+    setOutcomeDraftStatus(nextStatus);
     setOutcomeDraftNote(entry.medicalVisit?.outcomeNote || '');
+    setPauseLinkedOnOutcome(nextStatus === 'recovered' || nextStatus === 'changed_meds');
   };
 
   const saveQuickOutcome = async (entry: LabResultEntry) => {
-    await onQuickUpdateOutcome(entry, outcomeDraftStatus, outcomeDraftNote);
+    await onQuickUpdateOutcome(
+      entry,
+      outcomeDraftStatus,
+      outcomeDraftNote,
+      pauseLinkedOnOutcome
+    );
     setOutcomeEditingId(null);
   };
 
@@ -180,16 +197,10 @@ export function MedicalVisitsSection({
               OUTCOME_STATUS_CONFIG[mv?.outcomeStatus || 'ongoing'] ||
               OUTCOME_STATUS_CONFIG.ongoing;
             const meds = mv?.prescriptions || [];
-            const linkedRoutines = routines.filter((r) => r.visitId === entry.id);
-            const isSyncedAll =
-              meds.length > 0 &&
-              meds.every(
-                (m) =>
-                  Boolean(m.syncedRoutineId) ||
-                  linkedRoutines.some(
-                    (r) => r.title.trim().toLowerCase() === m.title.trim().toLowerCase()
-                  )
-              );
+            const syncStatus = getVisitSyncStatus(entry, routines);
+            const activeLinkedRoutines = routines.filter(
+              (r) => r.visitId === entry.id && r.isActive
+            );
 
             return (
               <article
@@ -339,22 +350,32 @@ export function MedicalVisitsSection({
                           disabled={syncingId === entry.id}
                           onClick={() => void handleSyncVisit(entry)}
                           className={`min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold inline-flex items-center gap-1.5 cursor-pointer border transition ${
-                            isSyncedAll
+                            syncStatus.isFullySynced
                               ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
-                              : 'bg-teal-700 hover:bg-teal-800 text-white border-teal-800'
+                              : syncStatus.linkedCount > 0 && syncStatus.needsResync
+                                ? 'bg-amber-50 hover:bg-amber-100 text-amber-950 border-amber-300'
+                                : 'bg-teal-700 hover:bg-teal-800 text-white border-teal-800'
                           }`}
                         >
                           <CalendarPlus className="w-4 h-4 shrink-0" />
                           <span>
                             {syncingId === entry.id
-                              ? 'Đang đưa ra lịch...'
-                              : isSyncedAll
-                                ? 'Đã đưa ra lịch (Đồng bộ lại)'
-                                : 'Đưa đơn thuốc ra lịch hôm nay'}
+                              ? 'Đang đồng bộ...'
+                              : syncStatus.isFullySynced
+                                ? 'Đã khớp lịch hôm nay'
+                                : syncStatus.linkedCount > 0 && syncStatus.needsResync
+                                  ? 'Cập nhật lại ra lịch hôm nay'
+                                  : 'Đưa đơn thuốc ra lịch hôm nay'}
                           </span>
                         </button>
                       )}
                     </div>
+
+                    {syncStatus.linkedCount > 0 && syncStatus.needsResync && (
+                      <p className="text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5">
+                        🔄 Đơn thuốc hoặc ngày khám có thay đổi so với Checklist Hôm Nay — bấm &quot;Cập nhật lại ra lịch hôm nay&quot; để đồng bộ.
+                      </p>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {meds.map((med) => {
@@ -371,6 +392,13 @@ export function MedicalVisitsSection({
                         const isFinished = Boolean(
                           endStr && todayStr && normalizeDateStr(todayStr) > endStr
                         );
+                        const linkedRoutine = findLinkedRoutineForMed(med, entry, routines);
+                        const routineProgress = linkedRoutine
+                          ? getRoutineCourseProgress(
+                              linkedRoutine,
+                              todayStr || normalizeDateStr(new Date().toISOString())
+                            )
+                          : null;
 
                         return (
                           <div
@@ -381,22 +409,45 @@ export function MedicalVisitsSection({
                               <span className="text-sm font-extrabold text-slate-900">
                                 {med.title}
                               </span>
-                              {med.durationDays ? (
-                                <span
-                                  className={`px-2 py-0.5 rounded-md text-xs font-extrabold border ${
-                                    isFinished
-                                      ? 'bg-slate-100 text-slate-600 border-slate-200'
-                                      : 'bg-indigo-50 text-indigo-900 border-indigo-200'
-                                  }`}
-                                >
-                                  {med.durationDays} ngày
-                                  {endStr ? ` (đến ${formatCompactDayMonth(endStr)})` : ''}
-                                </span>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700">
-                                  Dùng dài ngày
-                                </span>
-                              )}
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {linkedRoutine ? (
+                                  <span
+                                    className={`px-2 py-0.5 rounded-md text-[11px] font-extrabold border ${
+                                      !linkedRoutine.isActive
+                                        ? 'bg-slate-100 text-slate-600 border-slate-200'
+                                        : routineProgress?.isExpired
+                                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                          : 'bg-teal-50 text-teal-900 border-teal-200'
+                                    }`}
+                                  >
+                                    {!linkedRoutine.isActive
+                                      ? 'Đã tạm ngưng'
+                                      : routineProgress?.isExpired
+                                        ? 'Đã hết đợt'
+                                        : '✓ Trên lịch'}
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                    Chưa đưa ra lịch
+                                  </span>
+                                )}
+                                {med.durationDays ? (
+                                  <span
+                                    className={`px-2 py-0.5 rounded-md text-xs font-extrabold border ${
+                                      isFinished
+                                        ? 'bg-slate-100 text-slate-600 border-slate-200'
+                                        : 'bg-indigo-50 text-indigo-900 border-indigo-200'
+                                    }`}
+                                  >
+                                    {med.durationDays} ngày
+                                    {endStr ? ` (đến ${formatCompactDayMonth(endStr)})` : ''}
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700">
+                                    Dùng dài ngày
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <div className="text-xs text-slate-700 font-semibold">
                               {med.dosage ? `Liều: ${med.dosage} · ` : ''}
@@ -435,9 +486,15 @@ export function MedicalVisitsSection({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <select
                         value={outcomeDraftStatus}
-                        onChange={(e) =>
-                          setOutcomeDraftStatus(e.target.value as MedicalVisitOutcomeStatus)
-                        }
+                        onChange={(e) => {
+                          const nextSt = e.target.value as MedicalVisitOutcomeStatus;
+                          setOutcomeDraftStatus(nextSt);
+                          if (nextSt === 'recovered' || nextSt === 'changed_meds') {
+                            setPauseLinkedOnOutcome(true);
+                          } else {
+                            setPauseLinkedOnOutcome(false);
+                          }
+                        }}
                         className="min-h-[48px] px-3 py-2 rounded-xl border border-amber-300 bg-white text-sm font-bold text-slate-900"
                       >
                         {(Object.keys(OUTCOME_STATUS_CONFIG) as MedicalVisitOutcomeStatus[]).map(
@@ -456,6 +513,19 @@ export function MedicalVisitsSection({
                         className="min-h-[48px] px-3 py-2 rounded-xl border border-amber-300 bg-white text-sm text-slate-900"
                       />
                     </div>
+                    {activeLinkedRoutines.length > 0 && (
+                      <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white border border-amber-200 cursor-pointer select-none min-h-[44px]">
+                        <input
+                          type="checkbox"
+                          checked={pauseLinkedOnOutcome}
+                          onChange={(e) => setPauseLinkedOnOutcome(e.target.checked)}
+                          className="w-4 h-4 accent-teal-700 shrink-0"
+                        />
+                        <span className="text-xs font-bold text-slate-800">
+                          Tạm ngưng {activeLinkedRoutines.length} thuốc của đợt này trên Checklist Hôm Nay
+                        </span>
+                      </label>
+                    )}
                     <div className="flex justify-end gap-2">
                       <button
                         type="button"

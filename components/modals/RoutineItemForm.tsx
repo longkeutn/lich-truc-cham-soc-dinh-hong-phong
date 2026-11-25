@@ -9,14 +9,25 @@ import {
   ToggleLeft,
   ToggleRight,
 } from 'lucide-react';
-import type { CareRoutine, RoutineCategory, TimeSlot } from '@/lib/types';
+import type {
+  CareRoutine,
+  HealthProfileType,
+  LabResultEntry,
+  RoutineCategory,
+  TimeSlot,
+} from '@/lib/types';
 import {
   TIME_SLOT_CONFIG,
   extractRoutineStartDateStr,
   getVietnamDateStr,
   normalizeDateStr,
 } from '@/lib/config';
-import { stepDateStr } from '@/lib/medicalVisitUtils';
+import { diffDaysStr, formatShortVnDate, stepDateStr } from '@/lib/medicalVisitUtils';
+import type { MedicationGroup, MedicationPreset } from '@/lib/medicationCatalog';
+import {
+  MedicationQuickPicker,
+  MedicationTitleAutocomplete,
+} from '@/components/medical-records/MedicationQuickPicker';
 import {
   ALL_TIME_SLOTS,
   CATEGORY_CONFIG,
@@ -31,7 +42,13 @@ interface RoutineItemFormProps {
   isSaving: boolean;
   isCompressingImg: boolean;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+  profileType?: HealthProfileType;
+  historyItems?: MedicationPreset[];
+  medicationGroups?: MedicationGroup[];
+  existingMedTitles?: string[];
+  linkedVisitEntry?: LabResultEntry;
   onUpdateField: <K extends keyof CareRoutine>(key: K, value: CareRoutine[K]) => void;
+  onApplyMedicationPreset?: (preset: MedicationPreset) => void;
   onToggleTimeSlot: (slot: TimeSlot) => void;
   onImageFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onPreviewLightbox: (item: { url: string; title: string; description?: string }) => void;
@@ -46,13 +63,23 @@ export default function RoutineItemForm({
   isSaving,
   isCompressingImg,
   fileInputRef,
+  historyItems = [],
+  medicationGroups = [],
+  existingMedTitles = [],
+  linkedVisitEntry,
   onUpdateField,
+  onApplyMedicationPreset,
   onToggleTimeSlot,
   onImageFileChange,
   onPreviewLightbox,
   onCancel,
   onSubmit,
 }: RoutineItemFormProps) {
+  const effectiveMedType = formData.medType === 'as_needed' ? 'as_needed' : 'scheduled';
+  const hasQuickMedSupport =
+    formData.category === 'meds' &&
+    Boolean(onApplyMedicationPreset) &&
+    (historyItems.length > 0 || medicationGroups.length > 0);
   return (
     <form
       onSubmit={onSubmit}
@@ -80,6 +107,18 @@ export default function RoutineItemForm({
         </button>
       </div>
 
+      {/* Linked Visit Banner */}
+      {formData.visitId && (
+        <div className="rounded-xl border border-teal-200 bg-teal-50/80 px-3.5 py-2.5 text-xs text-teal-950 font-semibold leading-relaxed">
+          🩺 <strong>Thuốc từ Đợt Khám</strong>
+          {linkedVisitEntry?.date ? ` ngày ${formatShortVnDate(linkedVisitEntry.date)}` : ''}
+          {linkedVisitEntry?.medicalVisit?.diagnosis
+            ? ` (${linkedVisitEntry.medicalVisit.diagnosis})`
+            : ''}
+          . Mọi thay đổi tên, liều, buổi uống hoặc số ngày tại đây sẽ tự động đồng bộ ngược về Đợt Khám.
+        </div>
+      )}
+
       {/* Category selector */}
       <div>
         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
@@ -91,7 +130,12 @@ export default function RoutineItemForm({
               <button
                 key={cat}
                 type="button"
-                onClick={() => onUpdateField('category', cat)}
+                onClick={() => {
+                  onUpdateField('category', cat);
+                  if (cat === 'meds' && !formData.medType) {
+                    onUpdateField('medType', 'scheduled');
+                  }
+                }}
                 className={`p-3 rounded-xl border-2 text-center transition min-h-[48px] min-w-[48px] ${
                   formData.category === cat
                     ? `${cfg.pillClass} border-current font-bold`
@@ -106,6 +150,20 @@ export default function RoutineItemForm({
         </div>
       </div>
 
+      {/* Quick Picker (Lịch sử & Nhóm thuốc phổ biến theo đối tượng) */}
+      {isAddingNew && hasQuickMedSupport && onApplyMedicationPreset && (
+        <MedicationQuickPicker
+          historyItems={historyItems}
+          groups={medicationGroups}
+          selectedTitles={
+            formData.title.trim()
+              ? [...existingMedTitles, formData.title.trim()]
+              : existingMedTitles
+          }
+          onPickPreset={onApplyMedicationPreset}
+        />
+      )}
+
       {/* Med type toggle (only for meds) */}
       {formData.category === 'meds' && (
         <div>
@@ -117,7 +175,7 @@ export default function RoutineItemForm({
               type="button"
               onClick={() => onUpdateField('medType', 'scheduled')}
               className={`p-3 rounded-xl border-2 text-center transition min-h-[48px] min-w-[48px] ${
-                formData.medType === 'scheduled'
+                effectiveMedType === 'scheduled'
                   ? 'border-blue-400 bg-blue-50 text-blue-800 font-bold'
                   : 'border-slate-200 bg-white dark:bg-slate-800 text-slate-600'
               }`}
@@ -129,7 +187,7 @@ export default function RoutineItemForm({
               type="button"
               onClick={() => onUpdateField('medType', 'as_needed')}
               className={`p-3 rounded-xl border-2 text-center transition min-h-[48px] min-w-[48px] ${
-                formData.medType === 'as_needed'
+                effectiveMedType === 'as_needed'
                   ? 'border-amber-400 bg-amber-50 text-amber-800 font-bold'
                   : 'border-slate-200 bg-white dark:bg-slate-800 text-slate-600'
               }`}
@@ -146,14 +204,25 @@ export default function RoutineItemForm({
         <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
           Tên thuốc / bài tập <span className="text-rose-500">*</span>
         </label>
-        <input
-          type="text"
-          required
-          value={formData.title}
-          onChange={(e) => onUpdateField('title', e.target.value)}
-          placeholder="VD: Amlodipine 5mg, Tập co duỗi tay..."
-          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 min-h-[48px]"
-        />
+        {formData.category === 'meds' && onApplyMedicationPreset ? (
+          <MedicationTitleAutocomplete
+            value={formData.title}
+            placeholder="Gõ tên thuốc để gợi ý (VD: Augmentin, Hapacol, Myonal...)"
+            historyItems={historyItems}
+            groups={medicationGroups}
+            onChangeText={(val) => onUpdateField('title', val)}
+            onSelectPreset={onApplyMedicationPreset}
+          />
+        ) : (
+          <input
+            type="text"
+            required
+            value={formData.title}
+            onChange={(e) => onUpdateField('title', e.target.value)}
+            placeholder="VD: Nằm giải áp 90/90, Tập co duỗi tay..."
+            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 min-h-[48px]"
+          />
+        )}
       </div>
 
       {/* Dosage */}
@@ -401,7 +470,7 @@ export default function RoutineItemForm({
             ⏳ Thời hạn liệu trình (tuỳ chọn - tự ẩn sau khi hết đợt)
           </span>
           <div className="flex items-center gap-1.5 flex-wrap">
-            {[3, 5, 7, 10].map((d) => (
+            {[3, 5, 7, 10, 14].map((d) => (
               <button
                 key={d}
                 type="button"
@@ -458,6 +527,7 @@ export default function RoutineItemForm({
                   onUpdateField('endDate', stepDateStr(startStr, val - 1));
                 } else {
                   onUpdateField('durationDays', undefined);
+                  onUpdateField('endDate', '');
                 }
               }}
               placeholder="Bỏ trống nếu uống dài ngày"
@@ -471,7 +541,22 @@ export default function RoutineItemForm({
             <input
               type="date"
               value={formData.endDate ? normalizeDateStr(formData.endDate) : ''}
-              onChange={(e) => onUpdateField('endDate', e.target.value || '')}
+              onChange={(e) => {
+                const nextEnd = e.target.value || '';
+                onUpdateField('endDate', nextEnd);
+                if (!nextEnd) {
+                  onUpdateField('durationDays', undefined);
+                  return;
+                }
+                const startStr =
+                  extractRoutineStartDateStr(formData.createdAt, formData.id) ||
+                  getVietnamDateStr();
+                if (startStr && nextEnd >= startStr) {
+                  onUpdateField('durationDays', diffDaysStr(startStr, nextEnd) + 1);
+                } else {
+                  onUpdateField('durationDays', undefined);
+                }
+              }}
               className="w-full min-h-[48px] px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900"
             />
           </div>

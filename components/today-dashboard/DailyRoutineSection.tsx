@@ -314,7 +314,7 @@ export function DailyRoutineSection({
                 className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-teal-50 text-slate-800 hover:text-teal-900 border border-slate-200 text-xs sm:text-sm font-extrabold inline-flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0"
               >
                 <Settings className="w-4 h-4 text-teal-700 shrink-0" />
-                <span>Quản lý đơn thuốc</span>
+                <span>Quản lý thuốc &amp; bài tập</span>
               </button>
             )}
           </div>
