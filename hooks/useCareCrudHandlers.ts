@@ -434,7 +434,9 @@ export function useCareCrudHandlers({
           ? `📏 Đã lưu chỉ số tăng trưởng ngày ${scopedEntry.date} của ${patientDisplayName}!`
           : scopedEntry.recordKind === 'pediatric_vaccine'
             ? `💉 Đã cập nhật sổ tiêm chủng của ${patientDisplayName}!`
-            : `🔬 Đã lưu phiếu xét nghiệm ngày ${scopedEntry.date} của ${patientDisplayName}!`;
+            : scopedEntry.recordKind === 'medical_visit'
+              ? `🩺 Đã lưu đợt khám & đơn thuốc ngày ${scopedEntry.date} của ${patientDisplayName}!`
+              : `🔬 Đã lưu phiếu xét nghiệm ngày ${scopedEntry.date} của ${patientDisplayName}!`;
       showToast(toastMsg, 'success');
       setSyncStatus('syncing');
 
@@ -462,7 +464,9 @@ export function useCareCrudHandlers({
           ? `🗑️ Đã xóa mốc tăng trưởng của ${patientDisplayName}.`
           : target?.recordKind === 'pediatric_vaccine'
             ? `🗑️ Đã xóa bản ghi mũi tiêm của ${patientDisplayName}.`
-            : `🗑️ Đã xóa phiếu xét nghiệm của ${patientDisplayName}.`;
+            : target?.recordKind === 'medical_visit'
+              ? `🗑️ Đã xóa đợt khám & đơn thuốc của ${patientDisplayName}.`
+              : `🗑️ Đã xóa phiếu xét nghiệm của ${patientDisplayName}.`;
       setLabResults((prev) => prev.filter((l) => l.id !== id));
       showToast(delMsg, 'info');
       setSyncStatus('syncing');

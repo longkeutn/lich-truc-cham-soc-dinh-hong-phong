@@ -201,6 +201,9 @@ export interface CareRoutine {
   conditionNote?: string;   // Điều kiện đặc biệt, VD: "Chỉ uống khi HA > 140"
   isActive: boolean;        // Đang áp dụng hay đã ngưng
   sortOrder: number;        // Thứ tự hiển thị trong buổi
+  endDate?: string;         // YYYY-MM-DD: Ngày kết thúc liệu trình (tự ẩn khỏi lịch hôm nay sau ngày này)
+  durationDays?: number;    // Số ngày điều trị của đợt thuốc (VD: 5, 7, 10)
+  visitId?: string;         // FK -> LabResultEntry.id (đợt khám đã sinh ra đơn thuốc này)
   createdAt: string;
   updatedAt: string;
 }
@@ -365,12 +368,41 @@ export interface LabResultEntry {
   customLabs?: CustomLabItem[];
 
   // Phân loại bản ghi mở rộng (tương thích ngược 100% với cột JSON LabResults / Reminders)
-  recordKind?: 'lab' | 'pediatric_growth' | 'pediatric_vaccine';
+  recordKind?: 'lab' | 'pediatric_growth' | 'pediatric_vaccine' | 'medical_visit';
   pediatricGrowth?: PediatricGrowthRecord;
   pediatricVaccine?: PediatricVaccineRecord;
+  medicalVisit?: MedicalVisitRecord;
 
   createdAt: string;
   updatedAt?: string;
+}
+
+export type MedicalVisitType = 'illness' | 'checkup' | 'follow_up' | 'other';
+export type MedicalVisitOutcomeStatus = 'ongoing' | 'improved' | 'recovered' | 'changed_meds';
+
+export interface MedicalVisitMedication {
+  id: string;
+  title: string;            // Tên thuốc (VD: Augmentin 250mg)
+  dosage: string;           // Liều mỗi lần (VD: 1 gói, 5ml, 1 viên)
+  medType: MedType;         // 'scheduled' | 'as_needed'
+  timeSlots: TimeSlot[];    // Các buổi áp dụng
+  durationDays?: number;    // Số ngày uống (VD: 5, 7, 10; để trống nếu dùng dài ngày)
+  instructions?: string;    // Cách uống (VD: Sau ăn 30 phút)
+  conditionNote?: string;   // Lưu ý đặc biệt (VD: Uống khi sốt >= 38.5°C)
+  syncedRoutineId?: string; // ID đầu việc đã đồng bộ sang CareRoutines
+}
+
+export interface MedicalVisitRecord {
+  visitType: MedicalVisitType;
+  doctorName?: string;
+  weightKg?: number;
+  symptoms?: string;
+  diagnosis?: string;
+  prescriptionImage?: string; // Ảnh chụp tờ đơn thuốc / giấy khám (Base64 nén dưới 35KB hoặc URL)
+  prescriptions: MedicalVisitMedication[];
+  outcomeStatus?: MedicalVisitOutcomeStatus;
+  outcomeNote?: string;
+  nextVisitDate?: string;   // YYYY-MM-DD (ngày hẹn tái khám nếu có)
 }
 
 export interface PediatricGrowthRecord {

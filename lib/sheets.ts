@@ -482,15 +482,30 @@ class MemoryShiftStore {
         r.imageUrl !== undefined && r.imageUrl !== ''
           ? r.imageUrl
           : existing?.imageUrl || '',
+      endDate:
+        r.endDate !== undefined && r.endDate !== ''
+          ? normalizeDateStr(r.endDate)
+          : existing?.endDate,
+      durationDays:
+        r.durationDays && r.durationDays > 0
+          ? r.durationDays
+          : existing?.durationDays,
+      visitId:
+        r.visitId !== undefined && r.visitId !== ''
+          ? r.visitId
+          : existing?.visitId,
     };
   }
 
   public saveRoutine(routine: CareRoutine): CareRoutine[] {
     const idx = this.careRoutines.findIndex((r) => r.id === routine.id);
     const clean = this.sanitizeRoutine(routine);
-    // Khi người dùng chủ động lưu từ form, tôn trọng giá trị rỗng nếu họ xoá ảnh/mô tả
+    // Khi người dùng chủ động lưu từ form, tôn trọng giá trị rỗng nếu họ xoá ảnh/mô tả/ngày kết thúc
     clean.description = routine.description || '';
     clean.imageUrl = routine.imageUrl || '';
+    clean.endDate = routine.endDate ? normalizeDateStr(routine.endDate) : undefined;
+    clean.durationDays = routine.durationDays && routine.durationDays > 0 ? routine.durationDays : undefined;
+    clean.visitId = routine.visitId || undefined;
     if (idx >= 0) {
       this.careRoutines[idx] = clean;
     } else {

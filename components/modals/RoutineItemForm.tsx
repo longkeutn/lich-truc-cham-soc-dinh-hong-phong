@@ -14,7 +14,9 @@ import {
   TIME_SLOT_CONFIG,
   extractRoutineStartDateStr,
   getVietnamDateStr,
+  normalizeDateStr,
 } from '@/lib/config';
+import { stepDateStr } from '@/lib/medicalVisitUtils';
 import {
   ALL_TIME_SLOTS,
   CATEGORY_CONFIG,
@@ -347,7 +349,13 @@ export default function RoutineItemForm({
           <input
             type="date"
             value={extractRoutineStartDateStr(formData.createdAt, formData.id) || getVietnamDateStr()}
-            onChange={(e) => onUpdateField('createdAt', e.target.value || getVietnamDateStr())}
+            onChange={(e) => {
+              const nextStart = e.target.value || getVietnamDateStr();
+              onUpdateField('createdAt', nextStart);
+              if (formData.durationDays && formData.durationDays > 0) {
+                onUpdateField('endDate', stepDateStr(nextStart, formData.durationDays - 1));
+              }
+            }}
             className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500 min-h-[48px]"
           />
         </div>
@@ -385,6 +393,90 @@ export default function RoutineItemForm({
       <p className="text-[11px] text-slate-600 dark:text-slate-400 -mt-2">
         💡 Hệ thống chỉ tính thống kê tuân thủ của thuốc/bài tập này từ <strong>Ngày bắt đầu áp dụng</strong> trở đi.
       </p>
+
+      {/* Short course duration & endDate */}
+      <div className="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/50 space-y-2.5">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <span className="text-xs font-bold text-indigo-950">
+            ⏳ Thời hạn liệu trình (tuỳ chọn - tự ẩn sau khi hết đợt)
+          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {[3, 5, 7, 10].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => {
+                  const startStr =
+                    extractRoutineStartDateStr(formData.createdAt, formData.id) ||
+                    getVietnamDateStr();
+                  onUpdateField('durationDays', d);
+                  onUpdateField('endDate', stepDateStr(startStr, d - 1));
+                }}
+                className={`min-h-[40px] px-2.5 py-1 rounded-lg border text-xs font-bold cursor-pointer ${
+                  formData.durationDays === d
+                    ? 'bg-indigo-700 text-white border-indigo-800'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                {d} ngày
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                onUpdateField('durationDays', undefined);
+                onUpdateField('endDate', '');
+              }}
+              className={`min-h-[40px] px-2.5 py-1 rounded-lg border text-xs font-bold cursor-pointer ${
+                !formData.durationDays && !formData.endDate
+                  ? 'bg-indigo-700 text-white border-indigo-800'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              Dùng dài ngày
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Số ngày điều trị
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={formData.durationDays ?? ''}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                const startStr =
+                  extractRoutineStartDateStr(formData.createdAt, formData.id) ||
+                  getVietnamDateStr();
+                if (!isNaN(val) && val > 0) {
+                  onUpdateField('durationDays', val);
+                  onUpdateField('endDate', stepDateStr(startStr, val - 1));
+                } else {
+                  onUpdateField('durationDays', undefined);
+                }
+              }}
+              placeholder="Bỏ trống nếu uống dài ngày"
+              className="w-full min-h-[48px] px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Ngày kết thúc (tự ẩn sau ngày này)
+            </label>
+            <input
+              type="date"
+              value={formData.endDate ? normalizeDateStr(formData.endDate) : ''}
+              onChange={(e) => onUpdateField('endDate', e.target.value || '')}
+              className="w-full min-h-[48px] px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900"
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Save / Cancel buttons */}
       <div className="flex justify-end gap-2 pt-2">

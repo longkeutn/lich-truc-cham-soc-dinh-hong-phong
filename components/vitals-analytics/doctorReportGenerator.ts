@@ -301,7 +301,11 @@ export function buildDoctorSummaryText(params: DoctorReportParams): string {
   }
 
   const activeMedsList = careRoutines.filter(
-    (r) => r.isActive && r.category === 'meds' && r.medType !== 'as_needed'
+    (r) =>
+      r.isActive &&
+      r.category === 'meds' &&
+      r.medType !== 'as_needed' &&
+      (!r.endDate || r.endDate >= getVietnamDateStr())
   );
   if (activeMedsList.length > 0) {
     lines.push('• Danh mục thuốc định kỳ đang uống:');
@@ -405,7 +409,11 @@ export function openPrintDoctorReportWindow(
     compareVitalsDesc
   );
   const activeMedsList = careRoutines.filter(
-    (r) => r.isActive && r.category === 'meds' && r.medType !== 'as_needed'
+    (r) =>
+      r.isActive &&
+      r.category === 'meds' &&
+      r.medType !== 'as_needed' &&
+      (!r.endDate || r.endDate >= getVietnamDateStr())
   );
   const notedEntries = periodEntries.filter((e) => Boolean(e.note && e.note.trim()));
   const triggers = summarizeLifestyleTriggers(periodEntries);

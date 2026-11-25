@@ -160,6 +160,11 @@ export function RoutineManagerModal({
         timeSlots: isAsNeededMed ? [] : validSlots,
         updatedAt: now,
         createdAt: formData.createdAt || now,
+        endDate: formData.endDate ? formData.endDate.trim() : undefined,
+        durationDays:
+          formData.durationDays && formData.durationDays > 0
+            ? formData.durationDays
+            : undefined,
         medType: formData.category === 'meds' ? formData.medType : undefined,
         conditionNote: formData.category === 'meds' ? formData.conditionNote : undefined,
       };

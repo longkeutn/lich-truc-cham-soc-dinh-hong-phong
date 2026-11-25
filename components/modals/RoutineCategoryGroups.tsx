@@ -10,7 +10,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { CareRoutine, RoutineCategory, TimeSlot } from '@/lib/types';
-import { TIME_SLOT_CONFIG, extractRoutineStartDateStr } from '@/lib/config';
+import { TIME_SLOT_CONFIG, extractRoutineStartDateStr, getVietnamDateStr } from '@/lib/config';
+import { getRoutineCourseProgress } from '@/lib/medicalVisitUtils';
 import { CATEGORY_CONFIG, TIME_SLOT_PILL_COLORS } from './routineManagerUtils';
 
 interface RoutineCategoryGroupsProps {
@@ -79,6 +80,10 @@ export default function RoutineCategoryGroups({
                   const isConfirming = confirmDeleteId === routine.id;
                   const startStr = extractRoutineStartDateStr(routine.createdAt, routine.id);
                   const startParts = startStr ? startStr.split('-') : null;
+                  const courseProgress =
+                    routine.durationDays || routine.endDate
+                      ? getRoutineCourseProgress(routine, getVietnamDateStr())
+                      : null;
 
                   return (
                     <div
@@ -151,6 +156,17 @@ export default function RoutineCategoryGroups({
                               {startParts && startParts.length === 3 && (
                                 <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                                   📅 Từ {startParts[2]}/{startParts[1]}/{startParts[0]}
+                                </span>
+                              )}
+                              {courseProgress?.badgeText && (
+                                <span
+                                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${
+                                    courseProgress.isExpired
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                      : 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                                  }`}
+                                >
+                                  ⏳ {courseProgress.badgeText}
                                 </span>
                               )}
                             </div>

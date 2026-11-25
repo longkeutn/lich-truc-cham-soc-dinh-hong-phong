@@ -12,6 +12,7 @@ import {
   normalizeDateStr,
   extractRoutineStartDateStr,
 } from '@/lib/config';
+import { getRoutineCourseProgress } from '@/lib/medicalVisitUtils';
 import {
   ALL_SLOTS,
   SLOT_RANK,
@@ -150,6 +151,10 @@ export function computeVitalsComplianceStats(
 
     for (const routine of routines) {
       const routineStartDate = routineStartMap[routine.id] || firstTrackedDate;
+      const courseProgress =
+        routine.durationDays || routine.endDate
+          ? getRoutineCourseProgress(routine, day)
+          : null;
       const slots: TimeSlot[] =
         Array.isArray(routine.timeSlots) && routine.timeSlots.length > 0
           ? routine.timeSlots
@@ -167,7 +172,7 @@ export function computeVitalsComplianceStats(
             l.isDone
         );
         const isDone = Boolean(matchingLog);
-        if (day < routineStartDate && !isDone) continue;
+        if ((day < routineStartDate || courseProgress?.isExpired) && !isDone) continue;
 
         const isFutureSlot = isToday && slotRank > currentRank && !isDone;
         const isExpected = !isToday || slotRank <= currentRank || isDone;

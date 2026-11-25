@@ -10,17 +10,22 @@ import {
   Pill,
   Settings,
   Sparkles,
+  Stethoscope,
   Zap,
 } from 'lucide-react';
 import type { CareRoutine, DailyLog, TimeSlot } from '@/lib/types';
 import {
   DEFAULT_RECORDER,
   detectCurrentTimeSlot,
-  extractRoutineStartDateStr,
   formatVietnamDateFull,
   getVietnamTimeStr,
   normalizeDateStr,
 } from '@/lib/config';
+import {
+  formatCompactDayMonth,
+  isRoutineActiveOnDate,
+  stepDateStr,
+} from '@/lib/medicalVisitUtils';
 import { MedicalEmptyState } from '@/components/ui-kit';
 import { RoutineTimeSlotGroup } from './RoutineTimeSlotGroup';
 import { RoutineItemRow } from './RoutineItemRow';
@@ -32,6 +37,7 @@ export interface DailyRoutineViewProps {
   todayStr: string;
   onToggle: (log: DailyLog) => Promise<void>;
   onOpenManager?: () => void;
+  onOpenAddVisit?: () => void;
   onApplyPresetRoutines?: () => Promise<void>;
   defaultRecorder?: string;
   patientDisplayName?: string;
@@ -39,31 +45,13 @@ export interface DailyRoutineViewProps {
 
 const TIME_SLOT_ORDER: TimeSlot[] = ['morning', 'noon', 'afternoon', 'evening'];
 
-function stepDateStr(dateStr: string, offsetDays: number): string {
-  const norm = normalizeDateStr(dateStr);
-  const parts = norm.split('-').map(Number);
-  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return dateStr;
-  const utcNoon = new Date(
-    Date.UTC(parts[0], parts[1] - 1, parts[2] + offsetDays, 12, 0, 0)
-  );
-  const y = utcNoon.getUTCFullYear();
-  const m = String(utcNoon.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(utcNoon.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function fmtShortDDMM(dateStr: string): string {
-  const norm = normalizeDateStr(dateStr);
-  const parts = norm.split('-');
-  return parts.length === 3 ? `${parts[2]}/${parts[1]}` : dateStr;
-}
-
 export function DailyRoutineSection({
   routines,
   dailyLogs,
   todayStr,
   onToggle,
   onOpenManager,
+  onOpenAddVisit,
   onApplyPresetRoutines,
   defaultRecorder = DEFAULT_RECORDER,
   patientDisplayName = 'Bố',
@@ -159,32 +147,36 @@ export function DailyRoutineSection({
   const scheduledRoutines = useMemo(() => {
     return routines.filter((r) => {
       if (!r.isActive || r.medType === 'as_needed') return false;
-      if (selectedDateStr < todayStr) {
-        const rawCreated = String(r.createdAt || '').trim();
-        const isExplicitDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(rawCreated);
-        const startStr = extractRoutineStartDateStr(r.createdAt, r.id);
-        const hasLogOnSelectedDay = TIME_SLOT_ORDER.some(
-          (sl) => logMap.get(`dl-${selectedDateStr}-${r.id}-${sl}`)?.isDone
-        );
-        if (hasLogOnSelectedDay) return true;
-        if (startStr && selectedDateStr < startStr) {
-          if (isExplicitDateOnly) return false;
-          const hasEarlierLog = dailyLogs.some(
-            (l) =>
-              (l.routineId === r.id || l.id.includes(r.id)) &&
-              l.isDone &&
-              normalizeDateStr(l.date) <= selectedDateStr
-          );
-          if (!hasEarlierLog) return false;
-        }
-      }
-      return true;
+      const hasLogOnSelectedDay = TIME_SLOT_ORDER.some(
+        (sl) => logMap.get(`dl-${selectedDateStr}-${r.id}-${sl}`)?.isDone
+      );
+      const hasEarlierLog = dailyLogs.some(
+        (l) =>
+          (l.routineId === r.id || l.id.includes(r.id)) &&
+          l.isDone &&
+          normalizeDateStr(l.date) <= selectedDateStr
+      );
+      return isRoutineActiveOnDate(r, selectedDateStr, {
+        hasLogOnDate: hasLogOnSelectedDay,
+        hasEarlierLog,
+        todayStr,
+      });
     });
   }, [routines, selectedDateStr, todayStr, logMap, dailyLogs]);
 
   const asNeededRoutines = useMemo(
-    () => routines.filter((r) => r.isActive && r.medType === 'as_needed'),
-    [routines]
+    () =>
+      routines.filter((r) => {
+        if (!r.isActive || r.medType !== 'as_needed') return false;
+        const hasLogOnSelectedDay = TIME_SLOT_ORDER.some(
+          (sl) => logMap.get(`dl-${selectedDateStr}-${r.id}-${sl}`)?.isDone
+        );
+        return isRoutineActiveOnDate(r, selectedDateStr, {
+          hasLogOnDate: hasLogOnSelectedDay,
+          todayStr,
+        });
+      }),
+    [routines, selectedDateStr, todayStr, logMap]
   );
 
   const routinesBySlot = useMemo(() => {
@@ -287,7 +279,7 @@ export function DailyRoutineSection({
                 <ListChecks className="w-5 h-5 text-teal-700 shrink-0" />
                 <span>
                   Lịch Thuốc &amp; Chăm Sóc Của {patientDisplayName}{' '}
-                  {isViewingPast ? `(${fmtShortDDMM(selectedDateStr)})` : 'Hôm Nay'}
+                  {isViewingPast ? `(${formatCompactDayMonth(selectedDateStr)})` : 'Hôm Nay'}
                 </span>
               </h3>
               <span className="text-sm sm:text-base font-black text-teal-900">
@@ -304,16 +296,28 @@ export function DailyRoutineSection({
             </div>
           </div>
 
-          {onOpenManager && (
-            <button
-              type="button"
-              onClick={onOpenManager}
-              className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-teal-50 text-slate-800 hover:text-teal-900 border border-slate-200 text-xs sm:text-sm font-extrabold inline-flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0"
-            >
-              <Settings className="w-4 h-4 text-teal-700 shrink-0" />
-              <span>Quản lý đơn thuốc</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {onOpenAddVisit && (
+              <button
+                type="button"
+                onClick={onOpenAddVisit}
+                className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 text-xs sm:text-sm font-extrabold inline-flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0"
+              >
+                <Stethoscope className="w-4 h-4 text-teal-700 shrink-0" />
+                <span>Ghi đơn khám mới</span>
+              </button>
+            )}
+            {onOpenManager && (
+              <button
+                type="button"
+                onClick={onOpenManager}
+                className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-teal-50 text-slate-800 hover:text-teal-900 border border-slate-200 text-xs sm:text-sm font-extrabold inline-flex items-center justify-center gap-1.5 transition cursor-pointer shrink-0"
+              >
+                <Settings className="w-4 h-4 text-teal-700 shrink-0" />
+                <span>Quản lý đơn thuốc</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Thanh chọn ngày Hôm nay / Hôm qua / Hôm kia để tích bù */}
@@ -321,8 +325,8 @@ export function DailyRoutineSection({
           <div className="flex items-center gap-1.5 flex-wrap">
             {[
               { date: todayStr, label: 'Hôm nay' },
-              { date: yesterdayStr, label: `Hôm qua (${fmtShortDDMM(yesterdayStr)})` },
-              { date: twoDaysAgoStr, label: `Hôm kia (${fmtShortDDMM(twoDaysAgoStr)})` },
+              { date: yesterdayStr, label: `Hôm qua (${formatCompactDayMonth(yesterdayStr)})` },
+              { date: twoDaysAgoStr, label: `Hôm kia (${formatCompactDayMonth(twoDaysAgoStr)})` },
             ].map((item) => (
               <button
                 key={item.date}
@@ -443,6 +447,7 @@ export function DailyRoutineSection({
                       key={routine.id}
                       routine={routine}
                       timeSlot={slot}
+                      selectedDateStr={selectedDateStr}
                       log={logMap.get(logId)}
                       isLoading={loadingIds.has(logId)}
                       onToggle={(r, s) => void handleToggleItem(r, s)}

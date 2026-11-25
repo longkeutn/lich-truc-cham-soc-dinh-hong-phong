@@ -48,6 +48,7 @@ export default function CareSchedulePage() {
   const ui = useCareUiController();
   const sync = useCareDataSync({ showToast: ui.showToast });
   const [labsInitialSubView, setLabsInitialSubView] = useState<LabSubView | undefined>(undefined);
+  const [autoOpenAddVisit, setAutoOpenAddVisit] = useState<boolean>(false);
   const [doctorReportOpen, setDoctorReportOpen] = useState<boolean>(false);
 
   const profilesMgr = useHealthProfileManager({
@@ -245,6 +246,11 @@ export default function CareSchedulePage() {
               setLabsInitialSubView('vaccine');
               ui.handleChangeView('labs');
             }}
+            onJumpToAddVisit={() => {
+              setLabsInitialSubView('visits');
+              setAutoOpenAddVisit(true);
+              ui.handleChangeView('labs');
+            }}
           />
 
           <section id="section-routine" aria-label="Danh sách thuốc và bài tập hôm nay">
@@ -254,6 +260,11 @@ export default function CareSchedulePage() {
               todayStr={sync.todayStr}
               onToggle={crud.handleToggleDailyLog}
               onOpenManager={handleOpenRoutineManager}
+              onOpenAddVisit={() => {
+                setLabsInitialSubView('visits');
+                setAutoOpenAddVisit(true);
+                ui.handleChangeView('labs');
+              }}
               onApplyPresetRoutines={crud.handleApplyPresetRoutines}
               defaultRecorder={profilesMgr.recorderName}
               patientDisplayName={profilesMgr.patientDisplayName}
@@ -332,6 +343,12 @@ export default function CareSchedulePage() {
               appointment={profilesMgr.profileAppointment}
               onSaveAppointment={crud.handleSaveAppointment}
               isAdmin={ui.isAdmin}
+              routines={profilesMgr.profileCareRoutines}
+              stages={sync.stages}
+              activeStageId={sync.activeStageId}
+              onSaveRoutine={crud.handleSaveRoutine}
+              autoOpenAddVisit={autoOpenAddVisit}
+              onConsumeAutoOpenAddVisit={() => setAutoOpenAddVisit(false)}
             />
           </TabViewPanel>
         )}

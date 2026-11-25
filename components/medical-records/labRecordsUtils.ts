@@ -5,6 +5,8 @@ import type {
   FamilyMember,
   AppointmentInfo,
   PatientInfo,
+  CareRoutine,
+  RehabStage,
 } from '@/lib/types';
 import { normalizeDateStr } from '@/lib/config';
 import {
@@ -38,10 +40,23 @@ export interface LabResultsViewProps {
   appointment?: AppointmentInfo;
   onSaveAppointment?: (info: AppointmentInfo) => Promise<void>;
   isAdmin?: boolean;
+  routines?: CareRoutine[];
+  stages?: RehabStage[];
+  activeStageId?: string;
+  onSaveRoutine?: (routine: CareRoutine) => Promise<void>;
+  autoOpenAddVisit?: boolean;
+  onConsumeAutoOpenAddVisit?: () => void;
 }
 
 export type ChartCategory = 'thyroid' | 'lipid' | 'metabolic' | 'liver_kidney';
-export type LabSubView = 'all' | 'thyroid' | 'biochem' | 'history' | 'growth' | 'vaccine';
+export type LabSubView =
+  | 'all'
+  | 'visits'
+  | 'thyroid'
+  | 'biochem'
+  | 'history'
+  | 'growth'
+  | 'vaccine';
 
 export interface LabChartPoint {
   date: string;

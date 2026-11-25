@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   FileText,
   Pill,
+  Plus,
   Ruler,
   ShieldAlert,
   Syringe,
@@ -35,6 +36,7 @@ export interface AdaptiveProfileModeBannerProps {
   onOpenDoctorReport: () => void;
   onJumpToGrowth: () => void;
   onJumpToVaccine: () => void;
+  onJumpToAddVisit?: () => void;
 }
 
 export function AdaptiveProfileModeBanner({
@@ -46,6 +48,7 @@ export function AdaptiveProfileModeBanner({
   onOpenDoctorReport,
   onJumpToGrowth,
   onJumpToVaccine,
+  onJumpToAddVisit,
 }: AdaptiveProfileModeBannerProps) {
   const effectiveToday = todayStr || getVietnamDateStr();
   const profileType = activeProfile.profileType;
@@ -193,6 +196,16 @@ export function AdaptiveProfileModeBanner({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {onJumpToAddVisit && (
+              <button
+                type="button"
+                onClick={onJumpToAddVisit}
+                className="min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 border border-amber-500 text-xs sm:text-sm font-black inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <Plus className="w-4 h-4 shrink-0" />
+                <span>Ghi Đợt Khám &amp; Đơn</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={onJumpToGrowth}

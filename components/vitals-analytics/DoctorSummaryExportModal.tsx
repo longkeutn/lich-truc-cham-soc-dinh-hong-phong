@@ -20,6 +20,7 @@ import {
   TIME_SLOT_CONFIG,
   evaluateVitalReading,
   compareVitalsDesc,
+  getVietnamDateStr,
 } from '@/lib/config';
 import {
   ALL_SLOTS,
@@ -113,7 +114,11 @@ export function DoctorSummaryExportModal({
   const activeMedsList = useMemo(
     () =>
       careRoutines.filter(
-        (r) => r.isActive && r.category === 'meds' && r.medType !== 'as_needed'
+        (r) =>
+          r.isActive &&
+          r.category === 'meds' &&
+          r.medType !== 'as_needed' &&
+          (!r.endDate || r.endDate >= getVietnamDateStr())
       ),
     [careRoutines]
   );

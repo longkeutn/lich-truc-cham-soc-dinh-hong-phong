@@ -4,6 +4,8 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Check, Circle, Dumbbell, Heart, Pill, RotateCcw, ZoomIn } from 'lucide-react';
 import type { CareRoutine, DailyLog, RoutineCategory, TimeSlot } from '@/lib/types';
+import { getVietnamDateStr } from '@/lib/config';
+import { getRoutineCourseProgress } from '@/lib/medicalVisitUtils';
 
 const CATEGORY_ICON: Record<
   RoutineCategory,
@@ -37,6 +39,7 @@ const CATEGORY_ICON: Record<
 export interface RoutineItemRowProps {
   routine: CareRoutine;
   timeSlot: TimeSlot;
+  selectedDateStr?: string;
   log?: DailyLog;
   isLoading: boolean;
   onToggle: (routine: CareRoutine, slot: TimeSlot) => void;
@@ -46,6 +49,7 @@ export interface RoutineItemRowProps {
 export function RoutineItemRow({
   routine,
   timeSlot,
+  selectedDateStr,
   log,
   isLoading,
   onToggle,
@@ -54,6 +58,10 @@ export function RoutineItemRow({
   const isDone = Boolean(log?.isDone);
   const catCfg = CATEGORY_ICON[routine.category] || CATEGORY_ICON.care;
   const CatIcon = catCfg.icon;
+  const courseProgress =
+    routine.durationDays || routine.endDate
+      ? getRoutineCourseProgress(routine, selectedDateStr || getVietnamDateStr())
+      : null;
 
   const handlePress = () => {
     if (!isDone && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
@@ -113,6 +121,17 @@ export function RoutineItemRow({
             {routine.dosage && (
               <span className="text-xs font-extrabold px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200">
                 {routine.dosage}
+              </span>
+            )}
+            {courseProgress?.badgeText && (
+              <span
+                className={`text-xs font-extrabold px-2 py-0.5 rounded-md border ${
+                  courseProgress.isLastDay
+                    ? 'bg-rose-50 text-rose-900 border-rose-200'
+                    : 'bg-indigo-50 text-indigo-900 border-indigo-200'
+                }`}
+              >
+                ⏳ {courseProgress.badgeText}
               </span>
             )}
             {isDone && log?.doneAt && (

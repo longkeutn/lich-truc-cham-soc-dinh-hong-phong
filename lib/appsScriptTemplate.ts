@@ -417,12 +417,13 @@ function ensureSheetsSetup(ss) {
     sheetVitals.getRange('E:G').setNumberFormat('0');
   }
 
-  // Sheet 7: CareRoutines (Đơn thuốc & Bài tập phục hồi - 16 cột)
+  // Sheet 7: CareRoutines (Đơn thuốc & Bài tập phục hồi - 19 cột)
   let sheetRoutines = ss.getSheetByName('CareRoutines');
   const routineHeaders = [
     'id', 'stage_id', 'stage_name', 'category', 'med_type',
     'title', 'dosage', 'time_slots', 'instructions', 'condition_note',
-    'is_active', 'sort_order', 'created_at', 'updated_at', 'description', 'image_url'
+    'is_active', 'sort_order', 'created_at', 'updated_at', 'description', 'image_url',
+    'end_date', 'duration_days', 'visit_id'
   ];
   if (!sheetRoutines) {
     sheetRoutines = ss.insertSheet('CareRoutines');
@@ -466,6 +467,9 @@ function ensureSheetsSetup(ss) {
     }
     if (!sheetRoutines.getRange(1, 15).getValue()) sheetRoutines.getRange(1, 15).setValue('description');
     if (!sheetRoutines.getRange(1, 16).getValue()) sheetRoutines.getRange(1, 16).setValue('image_url');
+    if (!sheetRoutines.getRange(1, 17).getValue()) sheetRoutines.getRange(1, 17).setValue('end_date');
+    if (!sheetRoutines.getRange(1, 18).getValue()) sheetRoutines.getRange(1, 18).setValue('duration_days');
+    if (!sheetRoutines.getRange(1, 19).getValue()) sheetRoutines.getRange(1, 19).setValue('visit_id');
   }
 
   // Sheet 8: DailyLogs (Tích hoàn thành hàng ngày - 8 cột)
@@ -966,7 +970,10 @@ function readCareRoutines(ss) {
       createdAt: String(row[12] || ''),
       updatedAt: String(row[13] || ''),
       description: String(row[14] || ''),
-      imageUrl: String(row[15] || '')
+      imageUrl: String(row[15] || ''),
+      endDate: row[16] ? formatRowDate(row[16]) : undefined,
+      durationDays: Number(row[17]) > 0 ? Number(row[17]) : undefined,
+      visitId: String(row[18] || '') || undefined
     });
   }
   return results;
@@ -1068,15 +1075,18 @@ function saveVitalsLog(ss, v) {
 function saveRoutine(ss, r) {
   const sheet = ss.getSheetByName('CareRoutines');
   if (!sheet) return;
-  if (sheet.getMaxColumns() < 16) {
-    sheet.insertColumnsAfter(sheet.getMaxColumns(), 16 - sheet.getMaxColumns());
+  if (sheet.getMaxColumns() < 19) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), 19 - sheet.getMaxColumns());
   }
   const timeSlotsStr = JSON.stringify(r.timeSlots || []);
   const now = new Date().toISOString();
   const row = [r.id, r.stageId, r.stageName, r.category, r.medType || '',
     r.title, r.dosage || '', timeSlotsStr, r.instructions || '', r.conditionNote || '',
     r.isActive ? 'TRUE' : 'FALSE', r.sortOrder || 0, r.createdAt || now, now,
-    r.description || '', r.imageUrl || ''];
+    r.description || '', r.imageUrl || '',
+    r.endDate ? "'" + formatRowDate(r.endDate) : '',
+    r.durationDays && Number(r.durationDays) > 0 ? Number(r.durationDays) : '',
+    r.visitId || ''];
 
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {

@@ -103,6 +103,7 @@ export function RoutineTimeSlotGroup({
                 key={logId}
                 routine={routine}
                 timeSlot={slot}
+                selectedDateStr={selectedDateStr}
                 log={logMap.get(logId)}
                 isLoading={loadingIds.has(logId)}
                 onToggle={onToggleItem}

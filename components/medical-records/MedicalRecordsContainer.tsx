@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { FileSpreadsheet, FlaskConical, Plus } from 'lucide-react';
-import type { LabResultEntry } from '@/lib/types';
-import { evaluateLabEntry, normalizeDateStr } from '@/lib/config';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { FileSpreadsheet, FlaskConical, Plus, Stethoscope } from 'lucide-react';
+import type { LabResultEntry, MedicalVisitOutcomeStatus } from '@/lib/types';
+import { DEFAULT_HEALTH_PROFILE_ID, evaluateLabEntry, normalizeDateStr } from '@/lib/config';
+import { buildCareRoutineFromVisitMed } from '@/lib/medicalVisitUtils';
 import { buildLatestKnownLabSnapshot } from '@/lib/thyroidClinicalEval';
 import { analyzeThyroidPostOpMilestones } from '@/lib/thyroidMilestones';
 import { MedicalEmptyState } from '@/components/ui-kit';
@@ -18,6 +19,8 @@ import { BiochemistryTrackerSection } from './BiochemistryTrackerSection';
 import { ClinicalAppointmentSection } from './ClinicalAppointmentSection';
 import { PediatricGrowthSection } from './PediatricGrowthSection';
 import { ChildVaccineSection } from './ChildVaccineSection';
+import { MedicalVisitsSection } from './MedicalVisitsSection';
+import { MedicalVisitFormModal } from './MedicalVisitFormModal';
 import { AppointmentSection } from '@/components/AppointmentSection';
 import { LabResultFormModal } from './LabResultFormModal';
 import { LegacySheetImportModal } from './LegacySheetImportModal';
@@ -42,6 +45,12 @@ export function MedicalRecordsContainer({
   appointment,
   onSaveAppointment,
   isAdmin = false,
+  routines = [],
+  stages = [],
+  activeStageId = 'stage-1',
+  onSaveRoutine,
+  autoOpenAddVisit = false,
+  onConsumeAutoOpenAddVisit,
 }: LabResultsViewProps) {
   const isPediatric = profileType === 'pediatric';
   const [subView, setSubView] = useState<LabSubView>(
@@ -50,6 +59,8 @@ export function MedicalRecordsContainer({
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<LabResultEntry | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [visitModalOpen, setVisitModalOpen] = useState(false);
+  const [editingVisitEntry, setEditingVisitEntry] = useState<LabResultEntry | null>(null);
 
   useEffect(() => {
     if (initialSubView) {
@@ -58,6 +69,15 @@ export function MedicalRecordsContainer({
     }
     setSubView(profileType === 'pediatric' ? 'growth' : 'all');
   }, [profileId, profileType, initialSubView]);
+
+  useEffect(() => {
+    if (autoOpenAddVisit) {
+      setSubView('visits');
+      setEditingVisitEntry(null);
+      setVisitModalOpen(true);
+      onConsumeAutoOpenAddVisit?.();
+    }
+  }, [autoOpenAddVisit, onConsumeAutoOpenAddVisit]);
 
   const clinicalLabs = useMemo(
     () => labResults.filter((r) => !r.recordKind || r.recordKind === 'lab'),
@@ -71,6 +91,11 @@ export function MedicalRecordsContainer({
 
   const vaccineEntries = useMemo(
     () => labResults.filter((r) => r.recordKind === 'pediatric_vaccine'),
+    [labResults]
+  );
+
+  const visitEntries = useMemo(
+    () => labResults.filter((r) => r.recordKind === 'medical_visit'),
     [labResults]
   );
 
@@ -148,14 +173,102 @@ export function MedicalRecordsContainer({
     await onDeleteLabResult(entry.id);
   };
 
+  const openAddVisitModal = useCallback(() => {
+    setEditingVisitEntry(null);
+    setVisitModalOpen(true);
+  }, []);
+
+  const openEditVisitModal = useCallback((entry: LabResultEntry) => {
+    setEditingVisitEntry(entry);
+    setVisitModalOpen(true);
+  }, []);
+
+  const syncVisitPrescriptionsToRoutines = useCallback(
+    async (visitEntry: LabResultEntry): Promise<LabResultEntry> => {
+      if (!onSaveRoutine || !visitEntry.medicalVisit) return visitEntry;
+      const meds = visitEntry.medicalVisit.prescriptions || [];
+      if (meds.length === 0) return visitEntry;
+
+      const effectiveProfileId = profileId || DEFAULT_HEALTH_PROFILE_ID;
+      const activeStageObj = stages.find((s) => s.id === activeStageId);
+      const stageName = activeStageObj?.name || 'Tại nhà';
+      const maxExistingSort = routines.reduce((mx, r) => Math.max(mx, r.sortOrder || 0), 0);
+
+      const updatedMeds = [...meds];
+      for (let i = 0; i < updatedMeds.length; i++) {
+        const med = updatedMeds[i];
+        const routineObj = buildCareRoutineFromVisitMed({
+          med,
+          visitEntry,
+          profileId: effectiveProfileId,
+          stageId: activeStageId,
+          stageName,
+          sortOrder: maxExistingSort + i + 1,
+        });
+        await onSaveRoutine(routineObj);
+        updatedMeds[i] = { ...med, syncedRoutineId: routineObj.id };
+      }
+
+      const nextVisitEntry: LabResultEntry = {
+        ...visitEntry,
+        medicalVisit: {
+          ...visitEntry.medicalVisit,
+          prescriptions: updatedMeds,
+        },
+        updatedAt: new Date().toISOString(),
+      };
+      await onSaveLabResult(nextVisitEntry);
+      showToast(
+        `💊 Đã đưa ${updatedMeds.length} thuốc trong đơn ngày ${visitEntry.date} vào Checklist Hôm Nay!`,
+        'success'
+      );
+      return nextVisitEntry;
+    },
+    [onSaveRoutine, onSaveLabResult, profileId, stages, activeStageId, routines, showToast]
+  );
+
+  const handleSaveVisit = useCallback(
+    async (entry: LabResultEntry, options: { syncToDailyRoutines: boolean }) => {
+      if (options.syncToDailyRoutines && onSaveRoutine) {
+        await syncVisitPrescriptionsToRoutines(entry);
+      } else {
+        await onSaveLabResult(entry);
+      }
+    },
+    [onSaveRoutine, onSaveLabResult, syncVisitPrescriptionsToRoutines]
+  );
+
+  const handleQuickUpdateVisitOutcome = useCallback(
+    async (
+      entry: LabResultEntry,
+      status: MedicalVisitOutcomeStatus,
+      note: string
+    ) => {
+      const updated: LabResultEntry = {
+        ...entry,
+        medicalVisit: {
+          ...(entry.medicalVisit || { visitType: 'illness', prescriptions: [] }),
+          outcomeStatus: status,
+          outcomeNote: note.trim() || undefined,
+        },
+        updatedAt: new Date().toISOString(),
+      };
+      await onSaveLabResult(updated);
+      showToast(`✅ Đã cập nhật đáp ứng đợt khám ngày ${entry.date}!`, 'success');
+    },
+    [onSaveLabResult, showToast]
+  );
+
   const subTabs: Array<{ id: LabSubView; label: string }> = isPediatric
     ? [
         { id: 'growth', label: `📈 Tăng Trưởng WHO (${growthEntries.length})` },
+        { id: 'visits', label: `🩺 Khám Bệnh & Đơn Thuốc (${visitEntries.length})` },
         { id: 'vaccine', label: `💉 Sổ Tiêm Chủng (${vaccineEntries.length})` },
-        { id: 'all', label: `🔬 Xét Nghiệm & Lịch Khám (${sortedLabsDesc.length})` },
+        { id: 'all', label: `🔬 Xét Nghiệm (${sortedLabsDesc.length})` },
       ]
     : [
         { id: 'all', label: '📋 Tổng hợp toàn bộ' },
+        { id: 'visits', label: `🩺 Đợt Khám & Đơn Thuốc (${visitEntries.length})` },
         { id: 'thyroid', label: '🦋 Tuyến Giáp & Hormone' },
         { id: 'biochem', label: '🧪 Hóa Sinh & Mỡ Máu' },
         { id: 'history', label: `🗓️ Lịch Sử & Lời Dặn BS (${sortedLabsDesc.length})` },
@@ -191,6 +304,14 @@ export function MedicalRecordsContainer({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap shrink-0">
+            <button
+              type="button"
+              onClick={openAddVisitModal}
+              className="min-h-[48px] min-w-[48px] px-3.5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/25 text-sm font-extrabold flex items-center gap-1.5 transition cursor-pointer"
+            >
+              <Stethoscope className="w-4 h-4 shrink-0" />
+              <span>Ghi Đợt Khám &amp; Đơn</span>
+            </button>
             {!isPediatric && (
               <button
                 type="button"
@@ -213,24 +334,43 @@ export function MedicalRecordsContainer({
         </div>
       </div>
 
-      {/* Thanh chuyển đổi phân khu (Luôn hiển thị cho hồ sơ Nhi khoa hoặc khi có kết quả xét nghiệm) */}
-      {(isPediatric || sortedLabsDesc.length > 0) && (
-        <div className="flex items-center gap-1.5 flex-wrap bg-surface-card border border-border-card rounded-2xl p-2 shadow-2xs">
-          {subTabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setSubView(tab.id)}
-              className={`min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl text-sm font-extrabold transition cursor-pointer ${
-                subView === tab.id
-                  ? 'bg-medical-primary text-white shadow-2xs'
-                  : 'text-text-body hover:bg-slate-100'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      {/* Thanh chuyển đổi phân khu (Luôn hiển thị cho mọi hồ sơ để mở Đợt Khám & Đơn Thuốc tức thì) */}
+      <div className="flex items-center gap-1.5 flex-wrap bg-surface-card border border-border-card rounded-2xl p-2 shadow-2xs">
+        {subTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setSubView(tab.id)}
+            className={`min-h-[48px] min-w-[48px] px-3.5 py-2 rounded-xl text-sm font-extrabold transition cursor-pointer ${
+              subView === tab.id
+                ? 'bg-medical-primary text-white shadow-2xs'
+                : 'text-text-body hover:bg-slate-100'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {subView === 'visits' && (
+        <MedicalVisitsSection
+          visitEntries={visitEntries}
+          routines={routines}
+          profileType={profileType}
+          patientDisplayName={patientDisplayName}
+          todayStr={todayStr}
+          onOpenAddVisit={openAddVisitModal}
+          onOpenEditVisit={openEditVisitModal}
+          onDeleteVisit={handleDeleteLab}
+          onQuickUpdateOutcome={handleQuickUpdateVisitOutcome}
+          onSyncVisitToRoutines={
+            onSaveRoutine
+              ? async (entry) => {
+                  await syncVisitPrescriptionsToRoutines(entry);
+                }
+              : undefined
+          }
+        />
       )}
 
       {isPediatric && subView === 'growth' && (
@@ -259,8 +399,29 @@ export function MedicalRecordsContainer({
         />
       )}
 
-      {(!isPediatric || subView === 'all' || subView === 'thyroid' || subView === 'biochem' || subView === 'history') && (
+      {(subView === 'all' || subView === 'thyroid' || subView === 'biochem' || subView === 'history') && (
         <>
+          {!isPediatric && subView === 'all' && visitEntries.length > 0 && (
+            <MedicalVisitsSection
+              visitEntries={visitEntries}
+              routines={routines}
+              profileType={profileType}
+              patientDisplayName={patientDisplayName}
+              todayStr={todayStr}
+              onOpenAddVisit={openAddVisitModal}
+              onOpenEditVisit={openEditVisitModal}
+              onDeleteVisit={handleDeleteLab}
+              onQuickUpdateOutcome={handleQuickUpdateVisitOutcome}
+              onSyncVisitToRoutines={
+                onSaveRoutine
+                  ? async (entry) => {
+                      await syncVisitPrescriptionsToRoutines(entry);
+                    }
+                  : undefined
+              }
+            />
+          )}
+
           {sortedLabsDesc.length === 0 ? (
             <div className="space-y-4">
               <MedicalEmptyState
@@ -384,6 +545,19 @@ export function MedicalRecordsContainer({
         defaultRecorder={defaultRecorder}
         onSaveLabResult={onSaveLabResult}
         showToast={showToast}
+      />
+
+      <MedicalVisitFormModal
+        isOpen={visitModalOpen}
+        editingEntry={editingVisitEntry}
+        profileId={profileId}
+        profileType={profileType}
+        patientDisplayName={patientDisplayName}
+        todayStr={todayStr}
+        members={members}
+        defaultRecorder={defaultRecorder}
+        onClose={() => setVisitModalOpen(false)}
+        onSaveVisit={handleSaveVisit}
       />
     </div>
   );

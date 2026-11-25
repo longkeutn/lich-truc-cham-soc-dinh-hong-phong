@@ -14,6 +14,7 @@ import {
   normalizeTimeStr,
   timeStrToMinutes,
 } from '@/lib/config';
+import { isRoutineActiveOnDate } from '@/lib/medicalVisitUtils';
 import type { NotificationPreferences } from '@/lib/notifications';
 
 export interface SmartAlertItem {
@@ -159,7 +160,9 @@ export function buildSmartAlerts({
 
   // 3. Nhắc Thuốc định kỳ & Bài tập theo khung giờ
   const scheduledRoutines = activeRoutines.filter(
-    (r) => !(r.category === 'meds' && r.medType === 'as_needed')
+    (r) =>
+      !(r.category === 'meds' && r.medType === 'as_needed') &&
+      isRoutineActiveOnDate(r, effectiveToday, { todayStr: effectiveToday })
   );
   const slotsOrder: TimeSlot[] = ['morning', 'noon', 'afternoon', 'evening'];
   const slotDeadlines: Record<TimeSlot, number> = {

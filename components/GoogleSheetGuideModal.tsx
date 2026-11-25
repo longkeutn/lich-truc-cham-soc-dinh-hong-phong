@@ -225,10 +225,10 @@ export default function GoogleSheetGuideModal({
 
                   <div className="p-3 rounded-xl bg-slate-950 border border-blue-800/60 space-y-1">
                     <div className="font-bold text-blue-400 flex items-center gap-1.5">
-                      <Table className="w-4 h-4 shrink-0" /> 7. CareRoutines (Đơn thuốc &amp; Tập - 15 cột)
+                      <Table className="w-4 h-4 shrink-0" /> 7. CareRoutines (Đơn thuốc &amp; Tập - 19 cột)
                     </div>
                     <p className="text-slate-300 text-xs">
-                      ID, Mã giai đoạn, Tên giai đoạn, Loại (meds/rehab/care), Kiểu uống, Tên thuốc/bài tập, Liều lượng, Các buổi (JSON), Hướng dẫn, Lưu ý, Đang dùng, Thứ tự, Ảnh.
+                      ID, Mã giai đoạn, Tên giai đoạn, Loại (meds/rehab/care), Kiểu uống, Tên thuốc/bài tập, Liều lượng, Các buổi (JSON), Hướng dẫn, Lưu ý, Đang dùng, Thứ tự, Ảnh, Ngày kết thúc, Số ngày, Mã đợt khám.
                     </p>
                   </div>
 

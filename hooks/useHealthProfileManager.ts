@@ -21,6 +21,7 @@ import {
   computeAlertLevel,
   extractRecordProfileId,
 } from '@/lib/config';
+import { isRoutineActiveOnDate } from '@/lib/medicalVisitUtils';
 import {
   isSeniorFriendlyProfile,
   syncSeniorTextModeForProfile,
@@ -171,7 +172,11 @@ export function useHealthProfileManager({
   }, [profileVitalsLog]);
 
   const routinePendingTodayCount = useMemo(() => {
-    const scheduled = activeRoutines.filter((r) => r.medType !== 'as_needed');
+    const scheduled = activeRoutines.filter(
+      (r) =>
+        r.medType !== 'as_needed' &&
+        isRoutineActiveOnDate(r, todayStr, { todayStr })
+    );
     const total = scheduled.reduce(
       (sum, r) => sum + (Array.isArray(r.timeSlots) ? r.timeSlots.length : 0),
       0
@@ -182,7 +187,7 @@ export function useHealthProfileManager({
       todayDailyLogs.filter((l) => l.isDone && ids.has(l.routineId)).length
     );
     return Math.max(0, total - done);
-  }, [activeRoutines, todayDailyLogs]);
+  }, [activeRoutines, todayDailyLogs, todayStr]);
 
   const recorderName = useMemo(() => {
     if (members.length === 0) return DEFAULT_RECORDER;
