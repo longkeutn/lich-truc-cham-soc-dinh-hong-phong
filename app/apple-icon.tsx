@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { APP_ICON_CONFIG } from '@/lib/config';
 
 export const size = {
   width: 180,
@@ -7,6 +8,7 @@ export const size = {
 export const contentType = 'image/png';
 
 export default function AppleIcon() {
+  const { gradientStart, gradientEnd, emoji, label } = APP_ICON_CONFIG;
   return new ImageResponse(
     (
       <div
@@ -17,7 +19,7 @@ export default function AppleIcon() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)',
+          background: `linear-gradient(135deg, ${gradientStart} 0%, ${gradientEnd} 100%)`,
           borderRadius: '38px',
           color: 'white',
           fontFamily: 'sans-serif',
@@ -30,17 +32,18 @@ export default function AppleIcon() {
             display: 'flex',
           }}
         >
-          ❤️
+          {emoji}
         </div>
         <div
           style={{
             marginTop: 6,
-            fontSize: 24,
+            fontSize: label.length > 11 ? 20 : 23,
             fontWeight: 900,
+            letterSpacing: '-0.5px',
             display: 'flex',
           }}
         >
-          SỨC KHỎE BỐ
+          {label}
         </div>
       </div>
     ),

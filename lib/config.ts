@@ -67,6 +67,63 @@ export const APP_SHORT_TITLE =
       ? 'Sổ Sức Khỏe Ông Bà Nội'
       : 'Sổ Sức Khỏe Bố');
 
+// =============================================
+// CẤU HÌNH NHẬN DIỆN THƯƠNG HIỆU & ICON (APP BRANDING & ICONS)
+// Phân biệt rõ ràng 3 WebApp theo màu sắc, biểu tượng và nhãn PWA
+// 1. Sức Khỏe Bố (Bố Đinh Hồng Phong): Đỏ Rose (#e11d48) • Trái tim ❤️
+// 2. Sức Khỏe Ông Bà Nội (Thái Nguyên): Xanh Ngọc Teal (#0d9488) • Thảo mộc/Trường thọ 🌿
+// 3. Sức Khỏe Gia Đình Nhỏ (Hà Nội): Xanh Lam Blue (#2563eb) • Mái ấm gia đình 🏡
+// =============================================
+export const APP_THEME_COLOR = IS_YOUNG_FAMILY_MODE
+  ? '#2563eb'
+  : IS_FAMILY_STANDARD_MODE
+    ? '#0d9488'
+    : '#e11d48';
+
+export interface AppIconConfig {
+  kind: 'young_family' | 'family_standard' | 'default';
+  emoji: string;
+  label: string;
+  primaryColor: string;
+  secondaryColor: string;
+  gradientStart: string;
+  gradientEnd: string;
+  themeColor: string;
+}
+
+export const APP_ICON_CONFIG: AppIconConfig = IS_YOUNG_FAMILY_MODE
+  ? {
+      kind: 'young_family',
+      emoji: '🏡',
+      label: 'GIA ĐÌNH NHỎ',
+      primaryColor: '#2563eb',
+      secondaryColor: '#1d4ed8',
+      gradientStart: '#3b82f6',
+      gradientEnd: '#1d4ed8',
+      themeColor: '#2563eb',
+    }
+  : IS_FAMILY_STANDARD_MODE
+    ? {
+        kind: 'family_standard',
+        emoji: '🌿',
+        label: 'ÔNG BÀ NỘI',
+        primaryColor: '#0d9488',
+        secondaryColor: '#0f766e',
+        gradientStart: '#14b8a6',
+        gradientEnd: '#0f766e',
+        themeColor: '#0d9488',
+      }
+    : {
+        kind: 'default',
+        emoji: '❤️',
+        label: 'SỨC KHỎE BỐ',
+        primaryColor: '#e11d48',
+        secondaryColor: '#be123c',
+        gradientStart: '#f43f5e',
+        gradientEnd: '#be123c',
+        themeColor: '#e11d48',
+      };
+
 export const PATIENT_INFO: PatientInfo = {
   name: DEFAULT_MEMBER_NAME,
   diagnosis: IS_YOUNG_FAMILY_MODE

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { APP_TITLE, APP_SHORT_TITLE } from '@/lib/config';
+import { APP_TITLE, APP_SHORT_TITLE, APP_THEME_COLOR } from '@/lib/config';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -12,7 +12,7 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#f8fafc',
-    theme_color: '#e11d48',
+    theme_color: APP_THEME_COLOR,
     categories: ['medical', 'health', 'lifestyle'],
     icons: [
       {

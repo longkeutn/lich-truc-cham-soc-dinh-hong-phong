@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from 'next';
-import { APP_TITLE, APP_SHORT_TITLE } from '@/lib/config';
+import { APP_TITLE, APP_SHORT_TITLE, APP_THEME_COLOR } from '@/lib/config';
 import './globals.css';
 
 export const viewport: Viewport = {
-  themeColor: '#e11d48',
+  themeColor: APP_THEME_COLOR,
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
