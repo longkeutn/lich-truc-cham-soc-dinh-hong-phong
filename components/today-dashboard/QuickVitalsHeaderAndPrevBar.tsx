@@ -125,7 +125,7 @@ export function QuickVitalsHeaderAndPrevBar({
             <p className="text-xs sm:text-sm text-teal-50/90 font-medium truncate">
               {profileType === 'post_stroke_cranioplasty'
                 ? 'Ghi nhanh Huyết áp, Nhịp mạch, SpO2, Nhiệt độ và tình trạng khuyết sọ'
-                : `Nhập 3 số trên máy đo hoặc bấm đọc giọng nói (${patientDisplayName})`}
+                : `Nhập 3 số trên màn hình máy đo huyết áp (${patientDisplayName})`}
             </p>
           </div>
         </div>

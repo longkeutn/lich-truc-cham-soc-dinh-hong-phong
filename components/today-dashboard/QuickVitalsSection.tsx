@@ -325,61 +325,63 @@ export function QuickVitalsSection({
         onCancelEdit={resetAll}
       />
 
-      <div className="p-3.5 sm:p-5 space-y-3.5">
-        <VitalsVoiceController
-        isListening={voice.isListening}
-        isSpeakingBack={voice.isSpeakingBack}
-        voicePanelOpen={voice.voicePanelOpen}
-        voiceTranscript={voice.voiceTranscript}
-        parsedPreview={voice.parsedPreview}
-        voiceError={voice.voiceError}
-        ttsEnabled={voice.ttsEnabled}
-        quickVoiceInputRef={voice.quickVoiceInputRef}
-        onStartOrResetVoice={voice.startOrResetVoiceSession}
-        onStopVoice={voice.stopVoiceSession}
-        onTogglePanel={() => {
-          const next = !voice.voicePanelOpen;
-          voice.setVoicePanelOpen(next);
-          if (next) setTimeout(() => voice.quickVoiceInputRef.current?.focus(), 100);
-        }}
-        onClosePanel={() => {
-          voice.stopVoiceSession();
-          stopVietnameseVoiceSpeech();
-          voice.setVoicePanelOpen(false);
-          voice.setVoiceError(null);
-        }}
-        onTranscriptChange={(val) => {
-          voice.hasSpokenConfirmationRef.current = false;
-          voice.applyTranscriptToForm(val);
-        }}
-        onClearTranscript={voice.resetVoiceState}
-        onToggleTts={() => voice.setTtsEnabled((prev) => !prev)}
-        onSetSpeakingBack={voice.setIsSpeakingBack}
-        onSampleClick={(sample) => {
-          const parsed = voice.applyTranscriptToForm(sample);
-          voice.triggerConfirmationFeedback(parsed, true);
-        }}
-      />
+      <div className="p-3 sm:p-5 space-y-3 sm:space-y-3.5">
+        {/* 1. KHU VỰC NHẬP THỦ CÔNG 3 SỐ CHÍNH (Nổi bật, ưu tiên số 1 trên di động) */}
+        <VitalsDisplayInputs
+          sys={sys}
+          dia={dia}
+          pulse={pulse}
+          spo2={spo2}
+          temp={temp}
+          period={period}
+          note={note}
+          mountedClient={mountedClient}
+          profileType={profileType}
+          sysInputRef={sysInputRef}
+          onChangeSys={setSys}
+          onChangeDia={setDia}
+          onChangePulse={setPulse}
+          onChangeSpo2={setSpo2}
+          onChangeTemp={setTemp}
+          onChangePeriod={setPeriod}
+          onChangeNote={setNote}
+        />
 
-      <VitalsDisplayInputs
-        sys={sys}
-        dia={dia}
-        pulse={pulse}
-        spo2={spo2}
-        temp={temp}
-        period={period}
-        note={note}
-        mountedClient={mountedClient}
-        profileType={profileType}
-        sysInputRef={sysInputRef}
-        onChangeSys={setSys}
-        onChangeDia={setDia}
-        onChangePulse={setPulse}
-        onChangeSpo2={setSpo2}
-        onChangeTemp={setTemp}
-        onChangePeriod={setPeriod}
-        onChangeNote={setNote}
-      />
+        {/* 2. THANH NHẬP NHANH PHỤ TRỢ (Giọng nói & Gõ 1 dòng thu gọn, không chiếm diện tích) */}
+        <VitalsVoiceController
+          isListening={voice.isListening}
+          isSpeakingBack={voice.isSpeakingBack}
+          voicePanelOpen={voice.voicePanelOpen}
+          voiceTranscript={voice.voiceTranscript}
+          parsedPreview={voice.parsedPreview}
+          voiceError={voice.voiceError}
+          ttsEnabled={voice.ttsEnabled}
+          quickVoiceInputRef={voice.quickVoiceInputRef}
+          onStartOrResetVoice={voice.startOrResetVoiceSession}
+          onStopVoice={voice.stopVoiceSession}
+          onTogglePanel={() => {
+            const next = !voice.voicePanelOpen;
+            voice.setVoicePanelOpen(next);
+            if (next) setTimeout(() => voice.quickVoiceInputRef.current?.focus(), 100);
+          }}
+          onClosePanel={() => {
+            voice.stopVoiceSession();
+            stopVietnameseVoiceSpeech();
+            voice.setVoicePanelOpen(false);
+            voice.setVoiceError(null);
+          }}
+          onTranscriptChange={(val) => {
+            voice.hasSpokenConfirmationRef.current = false;
+            voice.applyTranscriptToForm(val);
+          }}
+          onClearTranscript={voice.resetVoiceState}
+          onToggleTts={() => voice.setTtsEnabled((prev) => !prev)}
+          onSetSpeakingBack={voice.setIsSpeakingBack}
+          onSampleClick={(sample) => {
+            const parsed = voice.applyTranscriptToForm(sample);
+            voice.triggerConfirmationFeedback(parsed, true);
+          }}
+        />
 
       <VitalsSymptomSelector
         profileType={profileType}

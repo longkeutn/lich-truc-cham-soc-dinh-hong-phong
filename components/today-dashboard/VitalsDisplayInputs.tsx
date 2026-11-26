@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import type { HealthProfileType, VitalsPeriod } from '@/lib/types';
 import { TIME_SLOT_CONFIG } from '@/lib/config';
 import { getLabMedicalGuide } from '@/lib/labMedicalGuides';
-import { AlertTriangle, ChevronDown, ChevronUp, HelpCircle, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, HelpCircle, ShieldCheck } from 'lucide-react';
 
 const PERIOD_OPTIONS: VitalsPeriod[] = ['morning', 'noon', 'afternoon', 'evening'];
 
@@ -61,35 +61,30 @@ export function VitalsDisplayInputs({
   return (
     <div className="space-y-3">
       {/* Bảng 3 chỉ số chính trên màn hình máy đo huyết áp */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 bg-teal-50/45 p-2.5 sm:p-3.5 rounded-2xl border-2 border-teal-200/90">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 bg-teal-50/60 p-2.5 sm:p-3.5 rounded-2xl border-2 border-teal-300 shadow-xs">
         <div className="flex flex-col justify-between">
-          <div className="text-center mb-1.5 leading-tight space-y-1">
-            <label className="block">
-              <span className="block text-xs sm:text-sm font-extrabold text-teal-950">
+          <div className="text-center mb-1 leading-tight">
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-xs sm:text-sm font-black text-teal-950 uppercase tracking-tight">
                 1. SỐ TRÊN
               </span>
-              <span className="block text-xs font-semibold text-slate-600">
-                Tâm thu (SYS)
-              </span>
-            </label>
-            <button
-              type="button"
-              onClick={() => toggleGuide('sys')}
-              aria-expanded={activeGuideKey === 'sys'}
-              className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full border text-[11px] font-extrabold cursor-pointer transition ${
-                activeGuideKey === 'sys'
-                  ? 'bg-teal-700 text-white border-teal-800'
-                  : 'bg-white hover:bg-teal-100 text-teal-900 border-teal-300'
-              }`}
-            >
-              <HelpCircle className="w-3 h-3 shrink-0" />
-              <span>{activeGuideKey === 'sys' ? 'Ẩn' : 'Ý nghĩa'}</span>
-              {activeGuideKey === 'sys' ? (
-                <ChevronUp className="w-3 h-3 shrink-0" />
-              ) : (
-                <ChevronDown className="w-3 h-3 shrink-0" />
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={() => toggleGuide('sys')}
+                aria-expanded={activeGuideKey === 'sys'}
+                title="Xem giải thích chỉ số Tâm thu (SYS)"
+                className={`p-0.5 rounded-full transition cursor-pointer ${
+                  activeGuideKey === 'sys'
+                    ? 'text-teal-800 bg-teal-200/80 ring-1 ring-teal-400'
+                    : 'text-slate-400 hover:text-teal-700'
+                }`}
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <span className="block text-[11px] font-semibold text-slate-500">
+              Tâm thu (SYS)
+            </span>
           </div>
           <input
             ref={sysInputRef}
@@ -100,38 +95,33 @@ export function VitalsDisplayInputs({
             placeholder={isPediatric ? '100' : '128'}
             min={40}
             max={300}
-            className="w-full min-h-[56px] text-2xl sm:text-3xl font-extrabold text-center text-slate-900 bg-white border-2 border-teal-300/90 rounded-xl py-2.5 sm:py-3 px-1 focus:outline-none focus:border-teal-700 focus:ring-4 focus:ring-teal-500/20 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-2xs"
+            className="w-full min-h-[56px] text-2xl sm:text-3xl font-black text-center text-slate-900 bg-white border-2 border-teal-400/90 rounded-xl py-2.5 sm:py-3 px-1 focus:outline-none focus:border-teal-700 focus:ring-4 focus:ring-teal-500/25 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-xs"
           />
         </div>
 
         <div className="flex flex-col justify-between">
-          <div className="text-center mb-1.5 leading-tight space-y-1">
-            <label className="block">
-              <span className="block text-xs sm:text-sm font-extrabold text-teal-950">
+          <div className="text-center mb-1 leading-tight">
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-xs sm:text-sm font-black text-teal-950 uppercase tracking-tight">
                 2. SỐ DƯỚI
               </span>
-              <span className="block text-xs font-semibold text-slate-600">
-                Tâm trương (DIA)
-              </span>
-            </label>
-            <button
-              type="button"
-              onClick={() => toggleGuide('dia')}
-              aria-expanded={activeGuideKey === 'dia'}
-              className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full border text-[11px] font-extrabold cursor-pointer transition ${
-                activeGuideKey === 'dia'
-                  ? 'bg-teal-700 text-white border-teal-800'
-                  : 'bg-white hover:bg-teal-100 text-teal-900 border-teal-300'
-              }`}
-            >
-              <HelpCircle className="w-3 h-3 shrink-0" />
-              <span>{activeGuideKey === 'dia' ? 'Ẩn' : 'Ý nghĩa'}</span>
-              {activeGuideKey === 'dia' ? (
-                <ChevronUp className="w-3 h-3 shrink-0" />
-              ) : (
-                <ChevronDown className="w-3 h-3 shrink-0" />
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={() => toggleGuide('dia')}
+                aria-expanded={activeGuideKey === 'dia'}
+                title="Xem giải thích chỉ số Tâm trương (DIA)"
+                className={`p-0.5 rounded-full transition cursor-pointer ${
+                  activeGuideKey === 'dia'
+                    ? 'text-teal-800 bg-teal-200/80 ring-1 ring-teal-400'
+                    : 'text-slate-400 hover:text-teal-700'
+                }`}
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <span className="block text-[11px] font-semibold text-slate-500">
+              Tâm trương (DIA)
+            </span>
           </div>
           <input
             type="number"
@@ -141,38 +131,33 @@ export function VitalsDisplayInputs({
             placeholder={isPediatric ? '65' : '80'}
             min={20}
             max={200}
-            className="w-full min-h-[56px] text-2xl sm:text-3xl font-extrabold text-center text-slate-900 bg-white border-2 border-teal-300/90 rounded-xl py-2.5 sm:py-3 px-1 focus:outline-none focus:border-teal-700 focus:ring-4 focus:ring-teal-500/20 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-2xs"
+            className="w-full min-h-[56px] text-2xl sm:text-3xl font-black text-center text-slate-900 bg-white border-2 border-teal-400/90 rounded-xl py-2.5 sm:py-3 px-1 focus:outline-none focus:border-teal-700 focus:ring-4 focus:ring-teal-500/25 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-xs"
           />
         </div>
 
         <div className="flex flex-col justify-between">
-          <div className="text-center mb-1.5 leading-tight space-y-1">
-            <label className="block">
-              <span className="block text-xs sm:text-sm font-extrabold text-teal-950">
+          <div className="text-center mb-1 leading-tight">
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-xs sm:text-sm font-black text-teal-950 uppercase tracking-tight">
                 3. NHỊP MẠCH
               </span>
-              <span className="block text-xs font-semibold text-slate-600">
-                Nhịp/phút (BPM)
-              </span>
-            </label>
-            <button
-              type="button"
-              onClick={() => toggleGuide('pulse')}
-              aria-expanded={activeGuideKey === 'pulse'}
-              className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full border text-[11px] font-extrabold cursor-pointer transition ${
-                activeGuideKey === 'pulse'
-                  ? 'bg-teal-700 text-white border-teal-800'
-                  : 'bg-white hover:bg-teal-100 text-teal-900 border-teal-300'
-              }`}
-            >
-              <HelpCircle className="w-3 h-3 shrink-0" />
-              <span>{activeGuideKey === 'pulse' ? 'Ẩn' : 'Ý nghĩa'}</span>
-              {activeGuideKey === 'pulse' ? (
-                <ChevronUp className="w-3 h-3 shrink-0" />
-              ) : (
-                <ChevronDown className="w-3 h-3 shrink-0" />
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={() => toggleGuide('pulse')}
+                aria-expanded={activeGuideKey === 'pulse'}
+                title="Xem giải thích chỉ số Nhịp mạch (BPM)"
+                className={`p-0.5 rounded-full transition cursor-pointer ${
+                  activeGuideKey === 'pulse'
+                    ? 'text-teal-800 bg-teal-200/80 ring-1 ring-teal-400'
+                    : 'text-slate-400 hover:text-teal-700'
+                }`}
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <span className="block text-[11px] font-semibold text-slate-500">
+              Nhịp/phút (BPM)
+            </span>
           </div>
           <input
             type="number"
@@ -182,7 +167,7 @@ export function VitalsDisplayInputs({
             placeholder={isPediatric ? '95' : '75'}
             min={30}
             max={250}
-            className="w-full min-h-[56px] text-2xl sm:text-3xl font-extrabold text-center text-slate-900 bg-white border-2 border-teal-300/90 rounded-xl py-2.5 sm:py-3 px-1 focus:outline-none focus:border-teal-700 focus:ring-4 focus:ring-teal-500/20 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-2xs"
+            className="w-full min-h-[56px] text-2xl sm:text-3xl font-black text-center text-slate-900 bg-white border-2 border-teal-400/90 rounded-xl py-2.5 sm:py-3 px-1 focus:outline-none focus:border-teal-700 focus:ring-4 focus:ring-teal-500/25 placeholder:text-slate-300 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-xs"
           />
         </div>
       </div>
